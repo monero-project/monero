@@ -152,7 +152,7 @@ class Serializer:
         elif isinstance(x, bytes) or isinstance(x, str):
             self.__serialize_string(x, include_type)
         elif self.__is_maybe_dict_like(x):
-            self.__serialize_section(x, include_type=True)
+            self.__serialize_section(x, include_type)
         else:
             raise ValueError("Cannot decide how to dispatch serialization for type {}".format(type(x)))
 
