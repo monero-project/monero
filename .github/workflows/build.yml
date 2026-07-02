@@ -238,7 +238,7 @@ jobs:
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
         run: |
           ${{env.CCACHE_SETTINGS}}
-          ${{env.BUILD_DEFAULT}}
+          cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON && cmake --build build --target all
       - name: run tests except core_tests
         env:
           DNS_PUBLIC: tcp://9.9.9.9
