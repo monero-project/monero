@@ -28,6 +28,9 @@
 #pragma once 
 #include "http_base.h"
 #include "jsonrpc_structs.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 #include "storages/portable_storage.h"
 #include "storages/portable_storage_template_helper.h"
 
@@ -64,93 +67,95 @@
   if(false) return true; //just a stub to have "else if"
 
 #define MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, cond) \
-    else if((query_info.m_URI == s_pattern) && (cond)) \
+  else if((query_info.m_URI == s_pattern) && (cond)) \
+  { \
+    handled = true; \
+    uint64_t ticks = epee::misc_utils::get_tick_count(); \
+    boost::value_initialized<command_type::request> req; \
+    bool parse_res = epee::serialization::load_t_from_json(static_cast<command_type::request&>(req), query_info.m_body); \
+    if (!parse_res) \
     { \
-      handled = true; \
-      uint64_t ticks = epee::misc_utils::get_tick_count(); \
-      boost::value_initialized<command_type::request> req; \
-      bool parse_res = epee::serialization::load_t_from_json(static_cast<command_type::request&>(req), query_info.m_body); \
-      if (!parse_res) \
-      { \
-         MERROR("Failed to parse json: \r\n" << query_info.m_body); \
-         response_info.m_response_code = 400; \
-         response_info.m_response_comment = "Bad request"; \
-         return true; \
-      } \
-      uint64_t ticks1 = epee::misc_utils::get_tick_count(); \
-      boost::value_initialized<command_type::response> resp;\
-      MINFO(m_conn_context << "calling " << s_pattern); \
-      bool res = false; \
-      try { res = callback_f(static_cast<command_type::request&>(req), static_cast<command_type::response&>(resp), &m_conn_context); } \
-      catch (const std::exception &e) { MERROR(m_conn_context << "Failed to " << #callback_f << "(): " << e.what()); } \
-      if (!res) \
-      { \
-        response_info.m_response_code = 500; \
-        response_info.m_response_comment = "Internal Server Error"; \
+        MERROR("Failed to parse json: \r\n" << query_info.m_body); \
+        response_info.m_response_code = 400; \
+        response_info.m_response_comment = "Bad request"; \
         return true; \
-      } \
-      uint64_t ticks2 = epee::misc_utils::get_tick_count(); \
-      epee::serialization::store_t_to_json(static_cast<command_type::response&>(resp), response_info.m_body); \
-      uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
-      response_info.m_mime_tipe = "application/json"; \
-      response_info.m_header_info.m_content_type = " application/json"; \
-      MDEBUG( s_pattern << " processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms"); \
-    }
+    } \
+    uint64_t ticks1 = epee::misc_utils::get_tick_count(); \
+    boost::value_initialized<command_type::response> resp;\
+    MINFO(m_conn_context << "calling " << s_pattern); \
+    bool res = false; \
+    try { res = callback_f(static_cast<command_type::request&>(req), static_cast<command_type::response&>(resp), &m_conn_context); } \
+    catch (const std::exception &e) { MERROR(m_conn_context << "Failed to " << #callback_f << "(): " << e.what()); } \
+    if (!res) \
+    { \
+      response_info.m_response_code = 500; \
+      response_info.m_response_comment = "Internal Server Error"; \
+      return true; \
+    } \
+    uint64_t ticks2 = epee::misc_utils::get_tick_count(); \
+    epee::serialization::store_t_to_json(static_cast<command_type::response&>(resp), response_info.m_body); \
+    uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
+    response_info.m_mime_tipe = "application/json"; \
+    response_info.m_header_info.m_content_type = " application/json"; \
+    MDEBUG( s_pattern << " processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms"); \
+  }
 
 #define MAP_URI_AUTO_JON2(s_pattern, callback_f, command_type) MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, true)
 
 #define MAP_URI_AUTO_BIN2(s_pattern, callback_f, command_type) \
-    else if(query_info.m_URI == s_pattern) \
+  else if(query_info.m_URI == s_pattern) \
+  { \
+    handled = true; \
+    uint64_t ticks = epee::misc_utils::get_tick_count(); \
+    boost::value_initialized<command_type::request> req; \
+    bool parse_res = epee::serialization::load_t_from_binary(static_cast<command_type::request&>(req), epee::strspan<uint8_t>(query_info.m_body)); \
+    if (!parse_res) \
     { \
-      handled = true; \
-      uint64_t ticks = epee::misc_utils::get_tick_count(); \
-      boost::value_initialized<command_type::request> req; \
-      bool parse_res = epee::serialization::load_t_from_binary(static_cast<command_type::request&>(req), epee::strspan<uint8_t>(query_info.m_body)); \
-      if (!parse_res) \
-      { \
-         MERROR("Failed to parse bin body data, body size=" << query_info.m_body.size()); \
-         response_info.m_response_code = 400; \
-         response_info.m_response_comment = "Bad request"; \
-         return true; \
-      } \
-      uint64_t ticks1 = epee::misc_utils::get_tick_count(); \
-      boost::value_initialized<command_type::response> resp;\
-      MINFO(m_conn_context << "calling " << s_pattern); \
-      bool res = false; \
-      try { res = callback_f(static_cast<command_type::request&>(req), static_cast<command_type::response&>(resp), &m_conn_context); } \
-      catch (const std::exception &e) { MERROR(m_conn_context << "Failed to " << #callback_f << "()"); } \
-      if (!res) \
-      { \
-        response_info.m_response_code = 500; \
-        response_info.m_response_comment = "Internal Server Error"; \
+        MERROR("Failed to parse bin body data, body size=" << query_info.m_body.size()); \
+        response_info.m_response_code = 400; \
+        response_info.m_response_comment = "Bad request"; \
         return true; \
-      } \
-      uint64_t ticks2 = epee::misc_utils::get_tick_count(); \
-      epee::byte_slice buffer; \
-      epee::serialization::store_t_to_binary(static_cast<command_type::response&>(resp), buffer, 64 * 1024); \
-      uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
-      response_info.m_body.assign(reinterpret_cast<const char*>(buffer.data()), buffer.size()); \
-      response_info.m_mime_tipe = " application/octet-stream"; \
-      response_info.m_header_info.m_content_type = " application/octet-stream"; \
-      MDEBUG( s_pattern << "() processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms"); \
-    }
+    } \
+    uint64_t ticks1 = epee::misc_utils::get_tick_count(); \
+    boost::value_initialized<command_type::response> resp;\
+    MINFO(m_conn_context << "calling " << s_pattern); \
+    bool res = false; \
+    try { res = callback_f(static_cast<command_type::request&>(req), static_cast<command_type::response&>(resp), &m_conn_context); } \
+    catch (const std::exception &e) { MERROR(m_conn_context << "Failed to " << #callback_f << "()"); } \
+    if (!res) \
+    { \
+      response_info.m_response_code = 500; \
+      response_info.m_response_comment = "Internal Server Error"; \
+      return true; \
+    } \
+    uint64_t ticks2 = epee::misc_utils::get_tick_count(); \
+    epee::byte_slice buffer; \
+    epee::serialization::store_t_to_binary(static_cast<command_type::response&>(resp), buffer, 64 * 1024); \
+    uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
+    response_info.m_body.assign(reinterpret_cast<const char*>(buffer.data()), buffer.size()); \
+    response_info.m_mime_tipe = " application/octet-stream"; \
+    response_info.m_header_info.m_content_type = " application/octet-stream"; \
+    MDEBUG( s_pattern << "() processed with " << ticks1-ticks << "/"<< ticks2-ticks1 << "/" << ticks3-ticks2 << "ms"); \
+  }
 
 #define END_URI_MAP2() return handled;}
 
 
-#define BEGIN_JSON_RPC_MAP(uri)    else if(query_info.m_URI == uri) \
-    { \
+#define BEGIN_JSON_RPC_MAP(uri) \
+  else if(query_info.m_URI == uri) \
+  { \
+    auto process_single_request = [&](const std::string& request_body, epee::net_utils::http::http_response_info& response_info) -> bool { \
     uint64_t ticks = epee::misc_utils::get_tick_count(); \
     response_info.m_mime_tipe = "application/json"; \
     epee::serialization::portable_storage ps; \
-    if(!ps.load_from_json(query_info.m_body)) \
+    if(!ps.load_from_json(request_body)) \
     { \
-       boost::value_initialized<epee::json_rpc::error_response> rsp; \
-       static_cast<epee::json_rpc::error_response&>(rsp).jsonrpc = "2.0"; \
-       static_cast<epee::json_rpc::error_response&>(rsp).error.code = -32700; \
-       static_cast<epee::json_rpc::error_response&>(rsp).error.message = "Parse error"; \
-       epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
-       return true; \
+      boost::value_initialized<epee::json_rpc::error_response> rsp; \
+      static_cast<epee::json_rpc::error_response&>(rsp).jsonrpc = "2.0"; \
+      static_cast<epee::json_rpc::error_response&>(rsp).error.code = -32700; \
+      static_cast<epee::json_rpc::error_response&>(rsp).error.message = "Parse error"; \
+      epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
+      return true; \
     } \
     epee::serialization::storage_entry id_; \
     id_ = epee::serialization::storage_entry(std::string()); \
@@ -173,6 +178,7 @@
       ps.set_value("params", std::move(params_section), nullptr); \
     } \
     if(false) return true; //just a stub to have "else if"
+                 
 
 
 #define PREPARE_OBJECTS_FROM_JSON(command_type) \
@@ -249,13 +255,45 @@
 }
 
 #define END_JSON_RPC_MAP() \
-  epee::json_rpc::error_response rsp; \
-  rsp.id = id_; \
-  rsp.jsonrpc = "2.0"; \
-  rsp.error.code = -32601; \
-  rsp.error.message = "Method not found"; \
-  epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
-  return true; \
+    epee::json_rpc::error_response rsp; \
+    rsp.id = id_; \
+    rsp.jsonrpc = "2.0"; \
+    rsp.error.code = -32601; \
+    rsp.error.message = "Method not found"; \
+    epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
+    return true; \
+  };\
+\
+  size_t first_char_idx = query_info.m_body.find_first_not_of(" \t\n\r"); \
+  if (first_char_idx != std::string::npos && query_info.m_body[first_char_idx] == '[') { \
+    rapidjson::Document doc; \
+    doc.Parse(query_info.m_body.c_str()); \
+    if (doc.HasParseError() || !doc.IsArray() || doc.Empty()) { \
+      response_info.m_response_code = 400; \
+      response_info.m_body = "{\"jsonrpc\": \"2.0\", \"error\": {\"code\": -32600, \"message\": \"Invalid Request\"}, \"id\": null}"; \
+      return true; \
+    } \
+    std::string batch_response = "["; \
+    bool first = true; \
+    for (auto& v : doc.GetArray()) { \
+      if (!first) batch_response += ","; \
+      first = false; \
+      rapidjson::StringBuffer buffer; \
+      rapidjson::Writer<rapidjson::StringBuffer> writer(buffer); \
+      v.Accept(writer); \
+      std::string single_req_body = buffer.GetString(); \
+      epee::net_utils::http::http_response_info local_resp; \
+      process_single_request(single_req_body, local_resp); \
+      batch_response += local_resp.m_body; \
+    } \
+    batch_response += "]"; \
+    response_info.m_body = batch_response; \
+    response_info.m_mime_tipe = "application/json"; \
+    response_info.m_header_info.m_content_type = " application/json"; \
+    return true; \
+  } else { \
+    return process_single_request(query_info.m_body, response_info); \
+  } \
 }
 
 
