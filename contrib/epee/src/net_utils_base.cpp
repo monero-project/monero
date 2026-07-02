@@ -17,6 +17,13 @@ static inline uint32_t make_address_v4_from_v6(const boost::asio::ip::address_v6
   return htonl(v4);
 }
 
+static inline uint32_t make_ipv4_cidr_mask(const uint8_t mask)
+{
+  if (mask == 0)
+    return 0;
+  return SWAP32BE(0xffffffffu << (32 - mask));
+}
+
 namespace epee { namespace net_utils
 {
 	bool ipv4_network_address::equal(const ipv4_network_address& other) const noexcept
@@ -52,6 +59,9 @@ namespace epee { namespace net_utils
 	bool ipv4_network_subnet::less(const ipv4_network_subnet& other) const noexcept
 	{ return subnet() < other.subnet() ? true : (other.subnet() < subnet() ? false : (m_mask < other.m_mask)); }
 
+	uint32_t ipv4_network_subnet::subnet() const noexcept
+	{ return m_ip & make_ipv4_cidr_mask(m_mask); }
+
 	std::string ipv4_network_subnet::str() const
 	{ return string_tools::get_ip_string_from_int32(subnet()) + "/" + std::to_string(m_mask); }
 
@@ -60,7 +70,7 @@ namespace epee { namespace net_utils
 	bool ipv4_network_subnet::is_local() const { return net_utils::is_ip_local(subnet()); }
 	bool ipv4_network_subnet::matches(const ipv4_network_address &address) const
 	{
-		return (address.ip() & ~(0xffffffffull << m_mask)) == subnet();
+		return (address.ip() & make_ipv4_cidr_mask(m_mask)) == subnet();
 	}
 
 
