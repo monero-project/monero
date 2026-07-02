@@ -172,6 +172,15 @@ library archives (`.a`).
 | libprotobuf  | ?             | NO       | `libprotobuf-dev`    | `protobuf`   | `protobuf-devel`   | `protobuf-devel`    | YES      | Hardware wallet |
 | protoc       | ?             | NO       | `protobuf-compiler`  | `protobuf`   | `protobuf`         | `protobuf-compiler` | YES      | Hardware wallet |
 
+With [Nix](https://nix.dev/tutorials/first-steps/), enter a shell having all dependencies:
+(Tested on Nixpkgs 24.05, *aarch64-darwin* and *x86_64-darwin* platforms, macOS 15.1.)
+
+```
+% nix-shell --pure ./contrib/nix/local-build-shell.nix
+
+[nix-shell:~/monero]$ # ... now you can build ...
+```
+
 Install all dependencies at once on Debian/Ubuntu:
 
 ```
