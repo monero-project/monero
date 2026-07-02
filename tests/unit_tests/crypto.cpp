@@ -38,6 +38,7 @@ extern "C"
 #include "crypto/crypto-ops.h"
 }
 #include "crypto/generators.h"
+#include "crypto/hash-ops.h"
 #include "cryptonote_basic/merge_mining.h"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"

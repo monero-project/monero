@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2024, The Monero Project
+// Copyright (c) 2018-2026, The Monero Project
 
 // 
 // All rights reserved.
@@ -34,7 +34,7 @@ extern "C" {
 #include "crypto/crypto-ops.h"
 }
 #include "crypto/hash.h"
-#include <boost/algorithm/string.hpp>
+#include <boost/optional.hpp>
 
 static inline unsigned char *operator &(crypto::ec_point &point) {
     return &reinterpret_cast<unsigned char &>(point);

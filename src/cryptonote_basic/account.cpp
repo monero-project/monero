@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -28,9 +28,6 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include <fstream>
-
-#include "include_base_utils.h"
 #include "account.h"
 #include "warnings.h"
 #include "crypto/crypto.h"
@@ -65,7 +62,7 @@ DISABLE_VS_WARNINGS(4244 4345)
   static void derive_key(const crypto::chacha_key &base_key, crypto::chacha_key &key)
   {
     static_assert(sizeof(base_key) == sizeof(crypto::hash), "chacha key and hash should be the same size");
-    epee::mlocked<tools::scrubbed_arr<char, sizeof(base_key)+1>> data;
+    epee::mlocked<tools::scrubbed<std::array<char, sizeof(base_key)+1>>> data;
     memcpy(data.data(), &base_key, sizeof(base_key));
     data[sizeof(base_key)] = config::HASH_KEY_MEMORY;
     crypto::generate_chacha_key(data.data(), sizeof(data), key, 1);
