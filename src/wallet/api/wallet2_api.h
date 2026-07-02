@@ -699,7 +699,11 @@ struct Wallet
     static void warning(const std::string &category, const std::string &str);
     static void error(const std::string &category, const std::string &str);
 
-   /**
+    virtual bool getPolyseed(std::string &seed, uint64_t& birthday, bool& is_encrypted) const = 0;
+    static bool createPolyseed(std::string &seed_words, std::string &err, const std::string &language = "English");
+    static std::vector<std::pair<std::string, std::string>> getPolyseedLanguages();
+
+  /**
     * @brief StartRefresh - Start/resume refresh thread (refresh every 10 seconds)
     */
     virtual void startRefresh() = 0;
@@ -1286,6 +1290,27 @@ struct WalletManager
                                             WalletListener * listener = nullptr) = 0;
 
     /*!
+     * \brief creates a wallet from a Polyseed mnemonic phrase
+     * \param path                         Name of the wallet file to be created
+     * \param password                     Password of wallet file
+     * \param nettype                      Network type
+     * \param mnemonic                     Polyseed mnemonic
+     * \param passphrase                   Optional seed offset passphrase
+     * \param newWallet                    Whether it is a new wallet
+     * \param restoreHeight                Override the embedded restore height
+     * \param kdf_rounds                   Number of rounds for key derivation function
+     * @return
+     */
+    virtual Wallet * createWalletFromPolyseed(const std::string &path,
+                                              const std::string &password,
+                                              NetworkType nettype,
+                                              const std::string &mnemonic,
+                                              const std::string &passphrase = "",
+                                              bool newWallet = true,
+                                              uint64_t restore_height = 0,
+                                              uint64_t kdf_rounds = 1) = 0;
+
+/*!
      * \brief Closes wallet. In case operation succeeded, wallet object deleted. in case operation failed, wallet object not deleted
      * \param wallet        previously opened / created wallet instance
      * \return              None
