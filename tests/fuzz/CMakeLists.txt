@@ -294,3 +294,51 @@ target_link_libraries(utf8_fuzz_tests
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES}
     $ENV{LIB_FUZZING_ENGINE})
+
+monero_add_minimal_executable(clsag_fuzz_tests clsag.cpp clsag_init.h fuzzer.cpp)
+target_link_libraries(clsag_fuzz_tests
+  PRIVATE
+    cryptonote_core
+    serialization
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET clsag_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
+
+monero_add_minimal_executable(clsag_cout_fuzz_tests clsag_cout.cpp clsag_init.h fuzzer.cpp)
+target_link_libraries(clsag_cout_fuzz_tests
+  PRIVATE
+    cryptonote_core
+    serialization
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET clsag_cout_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
+
+monero_add_minimal_executable(clsag_message_fuzz_tests clsag_message.cpp clsag_init.h fuzzer.cpp)
+target_link_libraries(clsag_message_fuzz_tests
+  PRIVATE
+    cryptonote_core
+    serialization
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET clsag_message_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
+
+monero_add_minimal_executable(clsag_pubs_fuzz_tests clsag_pubs.cpp clsag_init.h fuzzer.cpp)
+target_link_libraries(clsag_pubs_fuzz_tests
+  PRIVATE
+    cryptonote_core
+    serialization
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET clsag_pubs_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
