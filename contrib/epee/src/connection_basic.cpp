@@ -67,21 +67,6 @@ namespace
 	}
 }
 
-  std::string to_string(t_connection_type type)
-  {
-	  if (type == e_connection_type_NET)
-		return std::string("NET");
-	  else if (type == e_connection_type_RPC)
-	    return std::string("RPC");
-	  else if (type == e_connection_type_P2P)
-	    return std::string("P2P");
-	  
-	  return std::string("UNKNOWN");
-  }
-
-
-/* ============================================================================ */
-
 class connection_basic_pimpl {
 	public:
 		connection_basic_pimpl(const std::string &name);
@@ -220,46 +205,6 @@ void connection_basic::set_tos_flag(int tos) {
 
 int connection_basic::get_tos_flag() {
 	return connection_basic_pimpl::m_default_tos;
-}
-
-void connection_basic::sleep_before_packet(size_t packet_size, int phase,  int q_len) {
-	double delay=0; // will be calculated
-	do
-	{ // rate limiting
-		if (m_was_shutdown) { 
-			_dbg2("m_was_shutdown - so abort sleep");
-			return;
-		}
-
-		{ 
-			CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
-			delay = network_throttle_manager::get_global_throttle_out().get_sleep_time_after_tick( packet_size );
-		}
-
-		delay *= 0.50;
-		if (delay > 0) {
-            long int ms = (long int)(delay * 1000);
-			MTRACE("Sleeping in " << __FUNCTION__ << " for " << ms << " ms before packet_size="<<packet_size); // debug sleep
-			boost::this_thread::sleep(boost::posix_time::milliseconds( ms ) );
-		}
-	} while(delay > 0);
-
-// XXX LATER XXX
-	{
-	  CRITICAL_REGION_LOCAL(	network_throttle_manager::m_lock_get_global_throttle_out );
-		network_throttle_manager::get_global_throttle_out().handle_trafic_exact( packet_size ); // increase counter - global
-	}
-
-}
-
-void connection_basic::do_send_handler_write(const void* ptr , size_t cb ) {
-        // No sleeping here; sleeping is done once and for all in connection<t_protocol_handler>::handle_write
-	MTRACE("handler_write (direct) - before ASIO write, for packet="<<cb<<" B (after sleep)");
-}
-
-void connection_basic::do_send_handler_write_from_queue( const boost::system::error_code& e, size_t cb, int q_len ) {
-        // No sleeping here; sleeping is done once and for all in connection<t_protocol_handler>::handle_write
-	MTRACE("handler_write (after write, from queue="<<q_len<<") - before ASIO write, for packet="<<cb<<" B (after sleep)");
 }
 
 void connection_basic::logger_handle_net_read(size_t size) { // network data read

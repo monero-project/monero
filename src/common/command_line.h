@@ -219,19 +219,6 @@ namespace command_line
     description.add_options()(arg.name, boost::program_options::bool_switch(), arg.description);
   }
 
-  template<typename charT>
-  boost::program_options::basic_parsed_options<charT> parse_command_line(int argc, const charT* const argv[],
-    const boost::program_options::options_description& desc, bool allow_unregistered = false)
-  {
-    auto parser = boost::program_options::command_line_parser(argc, argv);
-    parser.options(desc);
-    if (allow_unregistered)
-    {
-      parser.allow_unregistered();
-    }
-    return parser.run();
-  }
-
   template<typename F>
   bool handle_error_helper(const boost::program_options::options_description& desc, F parser)
   {
