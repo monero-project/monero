@@ -36,6 +36,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.inl"
 #include "unit_tests_utils.h"
+#include <algorithm>
 #include <condition_variable>
 #include <thread>
 
@@ -146,6 +147,36 @@ static bool is_blocked(Server &server, const epee::net_utils::network_address &a
   return false;
 }
 
+TEST(node_server, ipv4_mapped_ipv6_address)
+{
+  boost::asio::ip::address_v6::bytes_type bytes = {};
+  bytes[10] = 0xff;
+  bytes[11] = 0xff;
+  bytes[12] = 45;
+  bytes[13] = 155;
+  bytes[14] = 69;
+  bytes[15] = 10;
+
+  const epee::net_utils::network_address mapped{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes}, 18080}
+  };
+  const boost::optional<epee::net_utils::ipv4_network_address> ipv4 = epee::net_utils::get_ipv4_mapped_address(mapped);
+  ASSERT_TRUE(bool(ipv4));
+  EXPECT_EQ("45.155.69.10", ipv4->host_str());
+  EXPECT_EQ(18080, ipv4->port());
+
+  const epee::net_utils::network_address ipv6{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6::loopback(), 18080}
+  };
+  EXPECT_FALSE(epee::net_utils::get_ipv4_mapped_address(ipv6));
+
+  EXPECT_TRUE(is_forbidden_ipv4_mapped_ipv6_address(mapped));
+  EXPECT_FALSE(is_forbidden_ipv4_mapped_ipv6_address(ipv6));
+  EXPECT_TRUE(should_skip_connect_address(mapped, true));
+  EXPECT_TRUE(should_skip_connect_address(ipv6, false));
+  EXPECT_FALSE(should_skip_connect_address(ipv6, true));
+}
+
 namespace
 {
   using path_t = boost::filesystem::path;
@@ -206,6 +237,44 @@ namespace
     peer.last_seen = last_seen;
     return peer;
   }
+}
+
+TEST(node_server, peerlist_merge_rejects_ipv4_mapped_ipv6_address)
+{
+  boost::asio::ip::address_v6::bytes_type bytes = {};
+  bytes[10] = 0xff;
+  bytes[11] = 0xff;
+  bytes[12] = 45;
+  bytes[13] = 155;
+  bytes[14] = 69;
+  bytes[15] = 10;
+
+  const epee::net_utils::network_address mapped{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes}, 18080}
+  };
+  const epee::net_utils::network_address ipv4{MAKE_IPV4_ADDRESS_PORT(11, 22, 33, 44, 18080)};
+
+  std::vector<nodetool::peerlist_entry> remote_peerlist;
+  remote_peerlist.push_back(make_peer(mapped, 1, 100));
+  remote_peerlist.push_back(make_peer(ipv4, 2, 200));
+
+  nodetool::peerlist_manager peerlist;
+  ASSERT_TRUE(peerlist.init(nodetool::peerlist_types{}, false));
+  ASSERT_TRUE(peerlist.merge_peerlist(remote_peerlist, [](const nodetool::peerlist_entry& pe) {
+    return !is_forbidden_ipv4_mapped_ipv6_address(pe.adr);
+  }));
+
+  std::vector<nodetool::peerlist_entry> gray;
+  std::vector<nodetool::peerlist_entry> white;
+  peerlist.get_peerlist(gray, white);
+  const auto contains_address = [](const std::vector<nodetool::peerlist_entry>& peers, const epee::net_utils::network_address& address) {
+    return std::any_of(peers.begin(), peers.end(), [&address](const nodetool::peerlist_entry& peer) {
+      return peer.adr == address;
+    });
+  };
+  EXPECT_TRUE(contains_address(gray, ipv4));
+  EXPECT_FALSE(contains_address(gray, mapped));
+  EXPECT_FALSE(contains_address(white, mapped));
 }
 
 TEST(ban, add)
