@@ -2724,6 +2724,17 @@ namespace cryptonote
         res.bans.push_back(b);
       }
     }
+    std::map<epee::net_utils::ipv6_network_subnet, time_t> blocked_ipv6_subnets = m_p2p.get_blocked_ipv6_subnets();
+    for (std::map<epee::net_utils::ipv6_network_subnet, time_t>::const_iterator i = blocked_ipv6_subnets.begin(); i != blocked_ipv6_subnets.end(); ++i)
+    {
+      if (i->second > now) {
+        COMMAND_RPC_GETBANS::ban b;
+        b.host = i->first.host_str();
+        b.ip = 0;
+        b.seconds = i->second - now;
+        res.bans.push_back(b);
+      }
+    }
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -2776,6 +2787,15 @@ namespace cryptonote
             m_p2p.block_subnet(*ns_parsed, i->seconds);
           else
             m_p2p.unblock_subnet(*ns_parsed);
+          continue;
+        }
+        auto ipv6_ns_parsed = net::get_ipv6_subnet_address(i->host);
+        if (ipv6_ns_parsed)
+        {
+          if (i->ban)
+            m_p2p.block_subnet(*ipv6_ns_parsed, i->seconds);
+          else
+            m_p2p.unblock_subnet(*ipv6_ns_parsed);
           continue;
         }
       }
