@@ -98,6 +98,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_add_exclusive_node);
     command_line::add_arg(desc, arg_p2p_seed_node);
     command_line::add_arg(desc, arg_tx_proxy);
+    command_line::add_arg(desc, arg_i2p_sam);
     command_line::add_arg(desc, arg_anonymous_inbound);
     command_line::add_arg(desc, arg_ban_list);
     command_line::add_arg(desc, arg_p2p_hide_my_port);
@@ -564,14 +565,81 @@ namespace nodetool
     if ( !set_rate_limit(vm, command_line::get_arg(vm, arg_limit_rate) ) )
       return false;
 
-
     epee::byte_slice noise = nullptr;
+
+    const bool use_i2p_sam = command_line::has_arg(vm, arg_i2p_sam) && !command_line::is_arg_defaulted(vm, arg_i2p_sam);
+
+    if (use_i2p_sam)
+    {
+      const std::string sam_endpoint_arg = command_line::get_arg(vm, arg_i2p_sam);
+      const auto sam_endpoint = net::get_tcp_endpoint(sam_endpoint_arg);
+      CHECK_AND_ASSERT_MES(sam_endpoint, false, "Failed to parse I2P router endpoint: " << sam_endpoint_arg << " - " << sam_endpoint.error().message());
+
+      network_zone& i2p_sam_zone = add_zone(epee::net_utils::zone::i2p);
+      i2p_sam_zone.m_connect = &sam_connect;
+      i2p_sam_zone.m_sam_router_endpoint = *sam_endpoint;
+
+      auto handler = [&i2p_sam_zone](boost::system::error_code ec, boost::asio::ip::tcp::socket socket)
+      {
+        if (ec)
+        {
+          MERROR("Failed to create I2P SAM control socket: " << ec.message());
+          return;
+        }
+
+        p2p_connection_context context{};
+        i2p_sam_zone.m_net_server.add_connection(context, std::move(socket), net::i2p_address::unknown(),
+                                                 epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+        MDEBUG("Added I2P SAM connection");
+      };
+
+      const std::string data_dir = command_line::get_arg(vm, cryptonote::arg_data_dir);
+
+      const std::string private_key = net::sam::private_key_from_file(data_dir);
+
+      const std::string session_id = net::sam::random_session_id();
+
+      i2p_sam_zone.m_sam_control_socket = net::sam::make_control_client(
+        private_key,
+        data_dir,
+        net::sam::client::stream_type::socket{i2p_sam_zone.m_net_server.get_io_context()},
+        handler
+      );
+      i2p_sam_zone.m_sam_session_id = session_id;
+      i2p_sam_zone.m_sam_control_socket->set_session_id(session_id);
+
+      noise = epee::levin::make_noise_notify(CRYPTONOTE_NOISE_BYTES);
+      i2p_sam_zone.m_notifier = cryptonote::levin::notify{
+        i2p_sam_zone.m_net_server.get_io_context(),
+        i2p_sam_zone.m_net_server.get_config_shared(),
+        noise.clone(),
+        epee::net_utils::zone::i2p,
+        pad_txs,
+        m_payload_handler.get_core()
+      };
+
+      MDEBUG("Attempting to start SAM control socket");
+
+      net::sam::control_socket::connect_and_send(i2p_sam_zone.m_sam_control_socket, i2p_sam_zone.m_sam_router_endpoint);
+
+      if (!set_max_out_peers(i2p_sam_zone, 8))
+        return false;
+      else
+        m_payload_handler.set_max_out_peers(epee::net_utils::zone::i2p, 8);
+    }
+
     auto proxies = get_proxies(vm);
     if (!proxies)
       return false;
 
     for (auto& proxy : *proxies)
     {
+      if (use_i2p_sam && proxy.zone == epee::net_utils::zone::i2p)
+      {
+        MWARNING("Listed --" << arg_tx_proxy.name << " with " << epee::net_utils::zone_to_string(proxy.zone) << " but --" << arg_i2p_sam.name << " is set; ignoring it");
+        continue;
+      }
+
       network_zone& zone = add_zone(proxy.zone);
       if (zone.m_connect != nullptr)
       {
@@ -617,6 +685,12 @@ namespace nodetool
     const std::size_t tx_relay_zones = m_network_zones.size();
     for (auto& inbound : *inbounds)
     {
+      if (use_i2p_sam && inbound.our_address.get_zone() == epee::net_utils::zone::i2p)
+      {
+        MWARNING("Listed --" << arg_anonymous_inbound.name << " with " << epee::net_utils::zone_to_string(inbound.our_address.get_zone()) << " but --" << arg_i2p_sam.name << " is set; ignoring it");
+        continue;
+      }
+
       network_zone& zone = add_zone(inbound.our_address.get_zone());
 
       if (!zone.m_bind_ip.empty())
@@ -3043,6 +3117,26 @@ namespace nodetool
       if (zone.m_net_server.add_connection(context, std::move(*result), remote, ssl_support))
         return {std::move(context)};
     }
+    return boost::none;
+  }
+
+  template<typename t_payload_net_handler>
+  boost::optional<p2p_connection_context_t<typename t_payload_net_handler::connection_context>>
+  node_server<t_payload_net_handler>::sam_connect(network_zone& zone, const epee::net_utils::network_address& remote, epee::net_utils::ssl_support_t ssl_support)
+  {
+    if (remote.get_type_id() != net::i2p_address::get_type_id())
+      return boost::none;
+
+    const net::i2p_address& i2p_addr = remote.as<net::i2p_address>();
+    auto result = sam_connect_internal(zone.m_net_server.get_stop_signal(), zone.m_net_server.get_io_context(), zone.m_sam_router_endpoint, i2p_addr, zone.m_sam_session_id);
+
+    if (result) // if no error
+    {
+      p2p_connection_context context{};
+      if (zone.m_net_server.add_connection(context, std::move(*result), remote, ssl_support))
+        return {std::move(context)};
+    }
+    MWARNING("Failed to add I2P SAM connection");
     return boost::none;
   }
 
