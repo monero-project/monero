@@ -60,16 +60,6 @@ uint32_t get_aux_slot(const crypto::hash &id, uint32_t nonce, uint32_t n_aux_cha
   return SWAP32LE(v) % n_aux_chains;
 }
 //---------------------------------------------------------------
-uint32_t get_path_from_aux_slot(uint32_t slot, uint32_t n_aux_chains)
-{
-  CHECK_AND_ASSERT_THROW_MES(n_aux_chains > 0, "n_aux_chains is 0");
-  CHECK_AND_ASSERT_THROW_MES(slot < n_aux_chains, "slot >= n_aux_chains");
-
-  uint32_t path = 0;
-  CHECK_AND_ASSERT_THROW_MES(tree_path(n_aux_chains, slot, &path), "Failed to get path from aux slot");
-  return path;
-}
-//---------------------------------------------------------------
 uint64_t encode_mm_depth(uint32_t n_aux_chains, uint32_t nonce)
 {
   CHECK_AND_ASSERT_THROW_MES(n_aux_chains > 0, "n_aux_chains is 0");

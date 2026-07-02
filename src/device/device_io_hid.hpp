@@ -74,10 +74,6 @@ namespace hw {
       hid_device     *usb_device;
 
       void io_hid_log(int read, unsigned char* buf, int buf_len);
-      void io_hid_init();
-      void io_hid_exit() ;
-      void io_hid_open(int vid, int pid,  int mode);
-      void io_hid_close (void);
 
       unsigned int wrapCommand(const unsigned char *command, size_t command_len, unsigned char *out, size_t out_len);
       unsigned int unwrapReponse(const unsigned char *data, size_t data_len, unsigned char *out, size_t out_len);

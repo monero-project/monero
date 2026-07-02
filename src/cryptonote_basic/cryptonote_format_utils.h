@@ -266,7 +266,6 @@ namespace cryptonote
     const uint8_t major_version,
     const crypto::hash &seed_hash);
   bool is_valid_decomposed_amount(uint64_t amount);
-  void get_hash_stats(uint64_t &tx_hashes_calculated, uint64_t &tx_hashes_cached, uint64_t &block_hashes_calculated, uint64_t & block_hashes_cached);
 
   crypto::secret_key encrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase);
   crypto::secret_key decrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase);

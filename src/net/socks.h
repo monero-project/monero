@@ -160,7 +160,6 @@ namespace socks
         }
 
         //! \post `buffer_[0] = 0, buffer_[1] = 0`.
-        void clear_command() noexcept { buffer_size_ = {}; }
 
         //! Try to set `address` as remote connection request.
         bool set_connect_command(

@@ -160,7 +160,6 @@ namespace epee
 
     typedef boost::variant<uint64_t, uint32_t, uint16_t, uint8_t, int64_t, int32_t, int16_t, int8_t, double, bool, std::string, section, array_entry> storage_entry;
 
-    typedef std::string binarybuffer;//it's ok      
 
     /************************************************************************/
     /*                                                                      */

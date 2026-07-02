@@ -185,14 +185,6 @@ namespace mms
     uint32_t receiving_signer_index = 0;
   };
 
-  struct file_transport_message
-  {
-    cryptonote::account_public_address sender_address;
-    crypto::chacha_iv iv;
-    crypto::public_key encryption_public_key;
-    message internal_message;
-  };
-  
   struct auto_config_data
   {
     std::string label;

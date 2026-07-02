@@ -466,16 +466,6 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const network_type nettype, bool offline)
-{
-  if (hf != nullptr)
-    m_hardfork = hf;
-  bool res = init(db, nettype, offline, NULL);
-  if (hf == nullptr)
-    hf = m_hardfork;
-  return res;
-}
-//------------------------------------------------------------------
 bool Blockchain::store_blockchain()
 {
   LOG_PRINT_L3("Blockchain::" << __func__);

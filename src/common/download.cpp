@@ -274,20 +274,6 @@ namespace tools
     return control;
   }
 
-  bool download_finished(const download_async_handle &control)
-  {
-    CHECK_AND_ASSERT_MES(control != 0, false, "NULL async download handle");
-    boost::lock_guard<boost::mutex> lock(control->mutex);
-    return control->stopped;
-  }
-
-  bool download_error(const download_async_handle &control)
-  {
-    CHECK_AND_ASSERT_MES(control != 0, false, "NULL async download handle");
-    boost::lock_guard<boost::mutex> lock(control->mutex);
-    return !control->success;
-  }
-
   bool download_wait(const download_async_handle &control)
   {
     CHECK_AND_ASSERT_MES(control != 0, false, "NULL async download handle");

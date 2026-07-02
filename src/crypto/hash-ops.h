@@ -56,13 +56,6 @@ static inline const void *cpadd(const void *p, size_t i) {
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4267)
 static_assert(sizeof(size_t) == 4 || sizeof(size_t) == 8, "size_t must be 4 or 8 bytes long");
-static inline void place_length(uint8_t *buffer, size_t bufsize, size_t length) {
-  if (sizeof(size_t) == 4) {
-    *(uint32_t *) padd(buffer, bufsize - 4) = swap32be(length);
-  } else {
-    *(uint64_t *) padd(buffer, bufsize - 8) = swap64be(length);
-  }
-}
 POP_WARNINGS
 
 #pragma pack(push, 1)
@@ -107,4 +100,3 @@ void rx_set_main_seedhash(const char *seedhash, size_t max_dataset_init_threads)
 void rx_slow_hash(const char *seedhash, const void *data, size_t length, char *result_hash);
 
 void rx_set_miner_thread(uint32_t value, size_t max_dataset_init_threads);
-uint32_t rx_get_miner_thread(void);

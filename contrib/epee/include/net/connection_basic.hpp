@@ -96,7 +96,6 @@ class connection_basic_pimpl; // PIMPL for this class
 	  e_connection_type_P2P = 2  // to other p2p node (probably limited)
   };
   
-  std::string to_string(t_connection_type type);
 
 class connection_basic { // not-templated base class for rapid development of some code parts
 		// beware of removing const, net_utils::connection is sketchily doing a cast to prevent storing ptr twice
@@ -165,8 +164,6 @@ class connection_basic { // not-templated base class for rapid development of so
 		}
 
 		// various handlers to be called from connection class:
-		void do_send_handler_write(const void * ptr , size_t cb);
-		void do_send_handler_write_from_queue(const boost::system::error_code& e, size_t cb , int q_len); // from handle_write, sending next part
 
 		void logger_handle_net_write(size_t size); // network data written
 		void logger_handle_net_read(size_t size); // network data read
@@ -183,7 +180,6 @@ class connection_basic { // not-templated base class for rapid development of so
 		static int get_tos_flag();
 
 		// handlers and sleep
-		void sleep_before_packet(size_t packet_size, int phase, int q_len); // execute a sleep ; phase is not really used now(?)
 		static double get_sleep_time(size_t cb);
 };
 

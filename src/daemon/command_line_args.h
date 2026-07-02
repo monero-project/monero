@@ -36,7 +36,6 @@
 
 namespace daemon_args
 {
-  std::string const WINDOWS_SERVICE_NAME = "Monero Daemon";
 
   const command_line::arg_descriptor<std::string, false, true, 2> arg_config_file = {
     "config-file"

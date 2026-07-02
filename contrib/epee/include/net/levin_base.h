@@ -43,20 +43,6 @@ namespace epee
 class byte_slice;
 namespace levin
 {
-#pragma pack(push)
-#pragma pack(1)
-	struct bucket_head
-	{
-		uint64_t m_signature;
-		uint64_t m_cb;
-		uint8_t  m_have_to_return_data;
-		uint32_t m_command;
-		int32_t  m_return_code;
-		uint32_t m_reservedA; //probably some flags in future
-		uint32_t m_reservedB; //probably some check sum in future
-	};
-#pragma pack(pop)
-
 
 #pragma pack(push)
 #pragma pack(1)
@@ -83,7 +69,6 @@ constexpr const std::chrono::milliseconds LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED{0}
 #define LEVIN_PACKET_END		0x00000008
   
 
-#define LEVIN_PROTOCOL_VER_0         0
 #define LEVIN_PROTOCOL_VER_1         1
 
  

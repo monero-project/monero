@@ -78,11 +78,7 @@ namespace rpc
 
       const rapidjson::Value& getMessage() const;
 
-      rapidjson::Value getMessageCopy();
-
       const rapidjson::Value& getID() const;
-
-      cryptonote::rpc::error getError();
 
       static epee::byte_slice getRequest(const std::string& request, const Message& message, unsigned id);
       static epee::byte_slice getResponse(const Message& message, const rapidjson::Value& id);

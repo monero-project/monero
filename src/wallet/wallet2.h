@@ -231,7 +231,6 @@ private:
     static std::pair<std::unique_ptr<wallet2>, password_container> make_new(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
 
     //! Just parses variables.
-    static std::unique_ptr<wallet2> make_dummy(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
 
     static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev, uint64_t kdf_rounds)
     {
@@ -1245,7 +1244,6 @@ private:
     bool set_address_book_row(size_t row_id, const cryptonote::account_public_address &address, const crypto::hash8 *payment_id, const std::string &description, bool is_subaddress);
     bool delete_address_book_row(std::size_t row_id);
         
-    uint64_t get_num_rct_outputs();
     size_t get_num_transfer_details() const { return m_transfers.size(); }
     const transfer_details &get_transfer_details(size_t idx) const;
 
@@ -1258,7 +1256,6 @@ private:
     std::string get_keys_file() const;
     std::string get_daemon_address() const;
     const boost::optional<epee::net_utils::http::login>& get_daemon_login() const { return m_daemon_login; }
-    std::string get_daemon_proxy() const { return m_proxy; }
     uint64_t get_daemon_blockchain_height(std::string& err);
     uint64_t get_daemon_blockchain_target_height(std::string& err);
     uint64_t get_daemon_adjusted_time();
@@ -1271,7 +1268,6 @@ private:
     std::vector<size_t> select_available_outputs_from_histogram(uint64_t count, bool atleast, bool unlocked, bool allow_rct);
     std::vector<size_t> select_available_outputs(const std::function<bool(const transfer_details &td)> &f);
     std::vector<size_t> select_available_unmixable_outputs();
-    std::vector<size_t> select_available_mixable_outputs();
 
     size_t pop_best_value_from(const transfer_container &transfers, std::vector<size_t> &unused_dust_indices, const std::vector<size_t>& selected_transfers, bool smallest = false) const;
     size_t pop_best_value(std::vector<size_t> &unused_dust_indices, const std::vector<size_t>& selected_transfers, bool smallest = false) const;
@@ -1280,7 +1276,6 @@ private:
     std::string get_tx_note(const crypto::hash &txid) const;
 
     void set_tx_device_aux(const crypto::hash &txid, const std::string &aux);
-    std::string get_tx_device_aux(const crypto::hash &txid) const;
 
     void set_description(const std::string &description);
     std::string get_description() const;
@@ -1443,7 +1438,6 @@ private:
     bool set_rings(const std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &rings, bool relative);
     bool unset_ring(const std::vector<crypto::key_image> &key_images);
     bool unset_ring(const crypto::hash &txid);
-    [[deprecated]] bool find_and_save_rings(bool force = true);
 
     void freeze(size_t idx);
     void thaw(size_t idx);
@@ -1539,7 +1533,6 @@ private:
     void process_pool_info_extent(const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response &res, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs, bool refreshed);
     void update_pool_state_by_pool_query(std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs, bool refreshed = false);
     void update_pool_state_from_pool_data(bool incremental, const std::vector<crypto::hash> &removed_pool_txids, const std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &added_pool_txs, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs, bool refreshed);
-    uint64_t select_transfers(uint64_t needed_money, std::vector<size_t> unused_transfers_indices, std::vector<size_t>& selected_transfers) const;
     bool prepare_file_names(const std::string& file_path);
     void process_unconfirmed(const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t height);
     void process_outgoing(const crypto::hash &txid, const cryptonote::transaction& tx, uint64_t height, uint64_t ts, uint64_t spent, uint64_t received, uint32_t subaddr_account, const std::set<uint32_t>& subaddr_indices);
