@@ -493,6 +493,19 @@ For more information, please check out Trezor [src/device_trezor/README.md](src/
 
 See [contrib/guix/README.md](contrib/guix/README.md).
 
+### Building and running monerod with Docker
+
+```bash
+# Build image
+docker build -t monerod .
+
+# Create a directory on the host for the blockchain
+mkdir -p /path/to/bitmonero
+
+# Run it
+docker run -d --user $(id -u):$(id -g) -v /path/to/bitmonero:/.bitmonero -p 127.0.0.1:18080:18080 -p 127.0.0.1:18081:18081 monerod
+```
+
 ## Installing Monero from a package
 
 **DISCLAIMER: These packages are not part of this repository or maintained by this project's contributors, and as such, do not go through the same review process to ensure their trustworthiness and security.**
@@ -533,19 +546,6 @@ Packages are available for
 * macOS [(homebrew)](https://brew.sh/)
     ```bash
     brew install monero
-    ```
-
-* Docker
-
-    ```bash
-    # Build image
-    docker build -t monerod .
-
-    # Create a directory on the host for the blockchain
-    mkdir -p /path/to/bitmonero
-
-    # Run it
-    docker run -d --user $(id -u):$(id -g) -v /path/to/bitmonero:/.bitmonero -p 18080:18080 -p 18081:18081 monerod
     ```
 
 Packaging for your favorite distribution would be a welcome contribution!
