@@ -155,11 +155,14 @@ static inline int force_software_aes(void)
   } while(0)
 
 #define VARIANT1_INIT64() \
+  uint64_t tweak1_2 = 0; \
   if (variant == 1) \
   { \
+    uint64_t nonce; \
     VARIANT1_CHECK(); \
-  } \
-  const uint64_t tweak1_2 = (variant == 1) ? (state.hs.w[24] ^ (*((const uint64_t*)NONCE_POINTER))) : 0
+    memcpy(&nonce, NONCE_POINTER, sizeof(nonce)); \
+    tweak1_2 = state.hs.w[24] ^ nonce; \
+  }
 
 #define VARIANT2_INIT64() \
   uint64_t division_result = 0; \
@@ -469,7 +472,6 @@ static inline int force_software_aes(void)
   _b1 = _b; \
   _b = _c; \
 
-#pragma pack(push, 1)
 union cn_slow_hash_state
 {
     union hash_state hs;
@@ -479,7 +481,6 @@ union cn_slow_hash_state
         uint8_t init[INIT_SIZE_BYTE];
     };
 };
-#pragma pack(pop)
 
 THREADV uint8_t *hp_state = NULL;
 THREADV int hp_allocated = 0;
@@ -1086,7 +1087,6 @@ STATIC INLINE void xor64(uint64_t *a, const uint64_t b)
     *a ^= b;
 }
 
-#pragma pack(push, 1)
 union cn_slow_hash_state
 {
     union hash_state hs;
@@ -1096,7 +1096,6 @@ union cn_slow_hash_state
         uint8_t init[INIT_SIZE_BYTE];
     };
 };
-#pragma pack(pop)
 
 #if defined(__aarch64__) && defined(__ARM_FEATURE_CRYPTO)
 
@@ -1767,7 +1766,6 @@ static void xor64(uint8_t* left, const uint8_t* right)
   }
 }
 
-#pragma pack(push, 1)
 union cn_slow_hash_state {
   union hash_state hs;
   struct {
@@ -1775,7 +1773,6 @@ union cn_slow_hash_state {
     uint8_t init[INIT_SIZE_BYTE];
   };
 };
-#pragma pack(pop)
 
 void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int prehashed, uint64_t height) {
 #ifndef FORCE_USE_HEAP
