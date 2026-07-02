@@ -684,6 +684,8 @@ class TransferTest():
         res = self.wallet[0].sweep_single('44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW', key_image = ki)
         assert len(res.tx_hash) == 64
         tx_hash = res.tx_hash
+        # Avoid racing the txpool relay state update before checking spent status
+        time.sleep(0.1)
         res = daemon.is_key_image_spent([ki])
         assert len(res.spent_status) == 1
         assert res.spent_status[0] == 2
