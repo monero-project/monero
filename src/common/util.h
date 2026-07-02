@@ -275,6 +275,11 @@ namespace tools
 
   std::string get_human_readable_timespan(uint64_t seconds);
 
+  inline std::string get_human_readable_timespan(std::chrono::seconds seconds)
+  {
+    return get_human_readable_timespan(static_cast<uint64_t>(seconds.count()));
+  }
+
   std::string get_human_readable_bytes(uint64_t bytes);
 
   void clear_screen();
