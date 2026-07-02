@@ -3528,7 +3528,7 @@ namespace cryptonote
 
   const command_line::arg_descriptor<std::size_t> core_rpc_server::arg_rpc_max_connections_per_public_ip = {
       "rpc-max-connections-per-public-ip"
-    , "Max RPC connections per public IP permitted"
+    , "Max RPC connections per public IPv4 address or IPv6 /64 subnet permitted"
     , DEFAULT_RPC_MAX_CONNECTIONS_PER_PUBLIC_IP
   };
 
