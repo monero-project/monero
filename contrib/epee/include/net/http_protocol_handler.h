@@ -31,6 +31,7 @@
 #define _HTTP_SERVER_H_
 
 #include <boost/optional/optional.hpp>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include "net_utils_base.h"
@@ -57,6 +58,7 @@ namespace net_utils
 			std::vector<std::string> m_access_control_origins;
 			std::unordered_map<std::string, std::size_t> m_connections;
 			boost::optional<login> m_user;
+			std::shared_ptr<http_server_auth> m_auth;
 			size_t m_max_content_length{std::numeric_limits<size_t>::max()};
 			std::size_t m_connection_count{0};
 			std::size_t m_max_public_ip_connections{3};
@@ -182,18 +184,29 @@ namespace net_utils
 			
 			http_custom_handler(i_service_endpoint* psnd_hndlr, config_type& config, t_connection_context& conn_context)
 				: simple_http_connection_handler<t_connection_context>(psnd_hndlr, config, conn_context),
-					m_config(config),
-					m_auth(m_config.m_user ? http_server_auth{*m_config.m_user, config.rng} : http_server_auth{})
-			{}
+					m_config(config)
+			{
+				CRITICAL_REGION_LOCAL(m_config.m_lock);
+				if (m_config.m_user && !m_config.m_auth)
+					m_config.m_auth = std::make_shared<http_server_auth>(*m_config.m_user, config.rng);
+			}
 			inline bool handle_request(const http_request_info& query_info, http_response_info& response)
 			{
 				CHECK_AND_ASSERT_MES(m_config.m_phandler, false, "m_config.m_phandler is NULL!!!!");
 
-				const auto auth_response = m_auth.get_response(query_info);
-				if (auth_response)
+				std::shared_ptr<http_server_auth> auth;
 				{
-					response = std::move(*auth_response);
-					return true;
+					CRITICAL_REGION_LOCAL(m_config.m_lock);
+					auth = m_config.m_auth;
+				}
+				if (auth)
+				{
+					const auto auth_response = auth->get_response(query_info);
+					if (auth_response)
+					{
+						response = std::move(*auth_response);
+						return true;
+					}
 				}
 
 				//fill with default values
@@ -220,7 +233,6 @@ namespace net_utils
 		private:
 			//simple_http_connection_handler::config_type m_stub_config;
 			config_type& m_config;
-			http_server_auth m_auth;
 		};
 	}
 }
