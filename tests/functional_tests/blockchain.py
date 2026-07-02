@@ -419,6 +419,28 @@ class BlockchainTest():
                 assert tx.prunable_hash != (b'\0' * 32) # non-null
                 assert len(tx_indices) == 2
 
+        print('Calling /get_blocks.bin (blocks and incremental pool, no new blocks) and testing response...')
+
+        time.sleep(1)
+        res = daemon.get_blocks_fast(0, [], requested_info = 2)
+        assert res.pool_info_extent == 2
+        pool_info_since = res.daemon_time
+
+        wallet.refresh()
+        pending_txid = wallet.transfer([dst]).tx_hash
+        current_height = daemon.get_height().height
+
+        res = daemon.get_blocks_fast(
+            current_height,
+            [],
+            requested_info = 1,
+            pool_info_since = pool_info_since)
+        assert not res.get('blocks')
+        assert res.pool_info_extent == 1
+        assert [tx.tx_hash.hex() for tx in res.added_pool_txs] == [pending_txid]
+
+        daemon.flush_txpool([pending_txid])
+
 
 if __name__ == '__main__':
     BlockchainTest().run_test()
