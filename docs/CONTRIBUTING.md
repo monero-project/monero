@@ -108,7 +108,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 - A patch MUST adhere to the code style guidelines of the project if these are defined.
 - A patch MUST adhere to the "Evolution of Public Contracts" guidelines defined below.
 - A patch MUST NOT include non-trivial code from other projects unless the Contributor is the original author of that code.
-- A patch MUST compile cleanly and pass project self-tests on at least the principle target platform.
+- A patch MUST compile cleanly and pass project self-tests on at least the principal target platform.
 - A patch commit message SHOULD consist of a single short (less than 50 character) line summarizing the change, optionally followed by a blank line and then a more thorough description.
 - A "Correct Patch" is one that satisfies the above requirements.
 

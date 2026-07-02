@@ -1040,12 +1040,12 @@ namespace rct {
     //   columns that are claimed as inputs, and that the sum of inputs  = sum of outputs.
     //   Also contains masked "amount" and "mask" so the receiver can see how much they received
     //verRct:
-    //   verifies that all signatures (rangeProogs, MG sig, sum inputs = outputs) are correct
+    //   verifies that all signatures (rangeProofs, MG sig, sum inputs = outputs) are correct
     //decodeRct: (c.f. https://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number
     //   Note: For txn fees, the last index in the amounts vector should contain that
-    //   Thus the amounts vector will be "one" longer than the destinations vectort
+    //   Thus the amounts vector will be "one" longer than the destinations vector
     rctSig genRct(const key &message, const ctkeyV & inSk, const keyV & destinations, const vector<xmr_amount> & amounts, const ctkeyM &mixRing, const keyV &amount_keys, unsigned int index, ctkeyV &outSk, const RCTConfig &rct_config, hw::device &hwdev) {
         CHECK_AND_ASSERT_THROW_MES(amounts.size() == destinations.size() || amounts.size() == destinations.size() + 1, "Different number of amounts/destinations");
         CHECK_AND_ASSERT_THROW_MES(amount_keys.size() == destinations.size(), "Different number of amount_keys/destinations");
@@ -1274,7 +1274,7 @@ namespace rct {
     //   columns that are claimed as inputs, and that the sum of inputs  = sum of outputs.
     //   Also contains masked "amount" and "mask" so the receiver can see how much they received
     //verRct:
-    //   verifies that all signatures (rangeProogs, MG sig, sum inputs = outputs) are correct
+    //   verifies that all signatures (rangeProofs, MG sig, sum inputs = outputs) are correct
     //decodeRct: (c.f. https://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment 
     //   must know the destination private key to find the correct amount, else will return a random number    

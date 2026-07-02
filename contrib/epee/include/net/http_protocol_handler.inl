@@ -161,7 +161,7 @@ namespace net_utils
 					pos = body.find(boundary, std::distance(body.begin(), it_begin));
 					if(std::string::npos == pos)
 					{
-						MERROR("Error: Filed to match closing multipart tag");
+						MERROR("Error: Failed to match closing multipart tag");
 						it_end = body.end();
 					}else
 					{

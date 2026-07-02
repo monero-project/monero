@@ -636,7 +636,7 @@ namespace hw {
         memset(vkey.data, 0x00, 32);
         memset(skey.data, 0xFF, 32);
 
-        //spcialkey, normal conf handled in decrypt
+        //special key, normal conf handled in decrypt
         send_simple(INS_GET_KEY, 0x02);
 
         //View key is retrieved, if allowed, to speed up blockchain parsing
@@ -2190,7 +2190,7 @@ namespace hw {
           offset += 1;
           //xx
           this->send_secret(xx[j].bytes, offset);
-          //alpa
+          //alpha
           this->send_secret(alpha[j].bytes, offset);
 
           this->buffer_send[4] = offset-5;
@@ -2336,7 +2336,7 @@ namespace hw {
         int offset = set_command_header_noopt(INS_CLSAG, 0x03);
 
         //c
-        //discard, unse internal one
+        //discard, use internal one
         //a
         this->send_secret(a.bytes, offset);
         //p

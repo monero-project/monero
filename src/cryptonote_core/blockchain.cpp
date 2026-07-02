@@ -642,7 +642,7 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
 
       // At time of popping, we know all of the referenced mix ring data for popped transactions,
       // and since they are already in the chain, and not pruned, we assume that the ring signature
-      // input verification succeeded for these transactions. We can deference each each mix ring,
+      // input verification succeeded for these transactions. We can dereference each mix ring,
       // calculate the verification ID for that (tx, ring) pair, then add to the mempool with that
       // input verification ID. This speeds up re-org handling by allowing to skip verifying ring
       // signatures which were previously verified.
@@ -1527,7 +1527,7 @@ uint64_t Blockchain::get_current_cumulative_block_weight_median() const
 //
 // FIXME: this codebase references #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
 // in a lot of places.  That flag is not referenced in any of the code
-// nor any of the makefiles, howeve.  Need to look into whether or not it's
+// nor any of the makefiles, however.  Need to look into whether or not it's
 // necessary at all.
 bool Blockchain::create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
 {

@@ -215,7 +215,7 @@ static void F8(hashState *state)
 {
       uint64_t* x = (uint64_t*)state->x;
 
-      /*xor the 512-bit message with the fist half of the 1024-bit hash state*/
+      /*xor the 512-bit message with the first half of the 1024-bit hash state*/
       for (int i = 0; i < 8; ++i) {
             uint64 b;
             memcpy(&b, &state->buffer[i << 3], sizeof(b));

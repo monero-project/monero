@@ -1035,7 +1035,7 @@ namespace cryptonote
      bool check_block_rate();
 
      /**
-      * @brief recalculate difficulties after the last difficulty checklpoint to circumvent the annoying 'difficulty drift' bug
+      * @brief recalculate difficulties after the last difficulty checkpoint to circumvent the annoying 'difficulty drift' bug
       *
       * @return true
       */

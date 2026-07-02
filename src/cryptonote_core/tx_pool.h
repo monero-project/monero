@@ -687,7 +687,7 @@ private:
     std::multimap<time_t, removed_tx_info> m_removed_txs_by_time;
 
     // Info how far back in time the list of removed tx ids currently reaches
-    // (it gets shorted periodically to prevent overflow)
+    // (it gets shortened periodically to prevent overflow)
     time_t m_removed_txs_start_time;
 
     /**

@@ -69,7 +69,7 @@ namespace rct {
     bool verifyBorromean(const boroSig &bb, const key64 P1, const key64 P2);
 
     //Multilayered Spontaneous Anonymous Group Signatures (MLSAG signatures)
-    //These are aka MG signatutes in earlier drafts of the ring ct paper
+    //These are aka MG signatures in earlier drafts of the ring ct paper
     // c.f. https://eprint.iacr.org/2015/1098 section 2.
     // Gen creates a signature which proves that for some column in the keymatrix "pk"
     //   the signer knows a secret key for each row in that column
@@ -119,7 +119,7 @@ namespace rct {
     //   columns that are claimed as inputs, and that the sum of inputs  = sum of outputs.
     //   Also contains masked "amount" and "mask" so the receiver can see how much they received
     //verRct:
-    //   verifies that all signatures (rangeProogs, MG sig, sum inputs = outputs) are correct
+    //   verifies that all signatures (rangeProofs, MG sig, sum inputs = outputs) are correct
     //decodeRct: (c.f. https://eprint.iacr.org/2015/1098 section 5.1.1)
     //   uses the attached ecdh info to find the amounts represented by each output commitment
     //   must know the destination private key to find the correct amount, else will throw

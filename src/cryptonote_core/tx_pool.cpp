@@ -1007,7 +1007,7 @@ namespace cryptonote
       LOG_PRINT_L2("Giving back the whole pool");
 
     // If incremental, handle removed TXIDs first since it's important that txs are removed
-    // from synchronizers' pools, and we need need to estimate how much space we have left to
+    // from synchronizers' pools, and we need to estimate how much space we have left to
     // request full-bodied txs
     if (incremental)
     {

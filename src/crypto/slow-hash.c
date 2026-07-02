@@ -1458,7 +1458,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
 }
 #else /* aarch64 && crypto */
 
-// ND: Some minor optimizations for ARMv7 (raspberrry pi 2), effect seems to be ~40-50% faster.
+// ND: Some minor optimizations for ARMv7 (raspberry pi 2), effect seems to be ~40-50% faster.
 //     Needs more work.
 
 #ifdef NO_OPTIMIZED_MULTIPLY_ON_ARM
