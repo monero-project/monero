@@ -290,8 +290,7 @@ public:
   bool txpool_has_tx(const crypto::hash &txid, relay_category tx_category) const override;
   void remove_txpool_tx(const crypto::hash& txid) override;
   bool get_txpool_tx_meta(const crypto::hash& txid, txpool_tx_meta_t &meta) const override;
-  bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata& bd, relay_category tx_category) const override;
-  cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid, relay_category tx_category) const override;
+  std::size_t get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata& bd, relay_category tx_category, bool pruned) const override;
   uint32_t get_blockchain_pruning_seed() const override;
   bool prune_blockchain(uint32_t pruning_seed = 0) override;
   bool update_pruning() override;

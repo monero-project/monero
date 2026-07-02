@@ -1951,7 +1951,7 @@ bool BlockchainLMDB::get_txpool_tx_meta(const crypto::hash& txid, txpool_tx_meta
   return true;
 }
 
-bool BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd, relay_category tx_category) const
+std::size_t BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd, relay_category tx_category, bool pruned) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1963,7 +1963,8 @@ bool BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::bl
   MDB_val v;
 
   // if filtering, make sure those requirements are met before copying blob
-  if (tx_category != relay_category::all)
+  // also get unprunable tx blob size
+  std::size_t unprunable_size = 0;
   {
     RCURSOR(txpool_meta)
     auto result = mdb_cursor_get(m_cur_txpool_meta, &k, &v, MDB_SET);
@@ -1975,6 +1976,7 @@ bool BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::bl
     const txpool_tx_meta_t& meta = *(const txpool_tx_meta_t*)v.mv_data;
     if (!meta.matches(tx_category))
       return false;
+    unprunable_size = meta.unprunable_size;
   }
 
   auto result = mdb_cursor_get(m_cur_txpool_blob, &k, &v, MDB_SET);
@@ -1983,17 +1985,10 @@ bool BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, cryptonote::bl
   if (result != 0)
       throw1(DB_ERROR(lmdb_error("Error finding txpool tx blob: ", result).c_str()));
 
-  bd.assign(reinterpret_cast<const char*>(v.mv_data), v.mv_size);
+  const std::size_t tx_read_size = (pruned && unprunable_size) ? std::min(unprunable_size, v.mv_size) : v.mv_size;
+  bd.assign(reinterpret_cast<const char*>(v.mv_data), tx_read_size);
   TXN_POSTFIX_RDONLY();
-  return true;
-}
-
-cryptonote::blobdata BlockchainLMDB::get_txpool_tx_blob(const crypto::hash& txid, relay_category tx_category) const
-{
-  cryptonote::blobdata bd;
-  if (!get_txpool_tx_blob(txid, bd, tx_category))
-    throw1(DB_ERROR("Tx not found in txpool: "));
-  return bd;
+  return v.mv_size;
 }
 
 uint32_t BlockchainLMDB::get_blockchain_pruning_seed() const
