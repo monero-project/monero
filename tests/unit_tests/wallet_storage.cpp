@@ -460,6 +460,58 @@ TEST(wallet_keys_unlocker, is_key_encryption_enabled)
     }
 }
 
+TEST(wallet_keys_unlocker, is_deterministic_with_encrypted_keys)
+{
+    const epee::wipeable_string password("correct horse battery staple");
+    const path wallet_file = unit_test::data_dir / "wallet_is_deterministic_encrypted_keys";
+
+    if (is_file_exist(wallet_file.string()))
+        remove(wallet_file);
+    if (is_file_exist(wallet_file.string() + ".keys"))
+        remove(wallet_file.string() + ".keys");
+
+    {
+        tools::wallet2 w;
+        w.generate(wallet_file.string(), password);
+        w.set_seed_language("English");
+        ASSERT_TRUE(w.is_key_encryption_enabled());
+        ASSERT_FALSE(verify_wallet_privkeys(w));
+        ASSERT_TRUE(w.is_deterministic());
+
+        epee::wipeable_string seed;
+        ASSERT_FALSE(w.get_seed(seed));
+
+        {
+            tools::wallet_keys_unlocker ul(w, &password);
+            ASSERT_TRUE(verify_wallet_privkeys(w));
+            ASSERT_TRUE(w.is_deterministic());
+            ASSERT_TRUE(w.get_seed(seed));
+            ASSERT_FALSE(seed.empty());
+        }
+
+        ASSERT_FALSE(verify_wallet_privkeys(w));
+        ASSERT_TRUE(w.is_deterministic());
+        epee::wipeable_string locked_seed;
+        ASSERT_FALSE(w.get_seed(locked_seed));
+    }
+
+    {
+        tools::wallet2 w;
+        w.load(wallet_file.string(), password);
+        ASSERT_TRUE(w.is_key_encryption_enabled());
+        ASSERT_FALSE(verify_wallet_privkeys(w));
+        ASSERT_TRUE(w.is_deterministic());
+    }
+
+    {
+        tools::wallet2 w;
+        w.generate("", password, crypto::secret_key(), false, true);
+        ASSERT_TRUE(w.is_key_encryption_enabled());
+        ASSERT_FALSE(verify_wallet_privkeys(w));
+        ASSERT_FALSE(w.is_deterministic());
+    }
+}
+
 TEST(wallet_keys_unlocker, simple_nonce)
 {
     // Test that encrypted keys are different each time, i.e. that a nonce may actually be used

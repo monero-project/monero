@@ -1107,6 +1107,16 @@ uint64_t gamma_picker::pick()
 
 boost::mutex wallet_keys_unlocker::lockers_lock;
 std::map<wallet2*, std::size_t> wallet_keys_unlocker::lockers_per_wallet = {};
+
+static bool keys_are_deterministic(const cryptonote::account_keys &keys)
+{
+  crypto::secret_key second;
+  keccak(reinterpret_cast<const uint8_t *>(&keys.m_spend_secret_key), sizeof(crypto::secret_key),
+    reinterpret_cast<uint8_t *>(&second), sizeof(crypto::secret_key));
+  sc_reduce32(reinterpret_cast<uint8_t *>(&second));
+  return memcmp(second.data, keys.m_view_secret_key.data, sizeof(crypto::secret_key)) == 0;
+}
+
 wallet_keys_unlocker::wallet_keys_unlocker(wallet2 &w, const epee::wipeable_string *password):
   w(w),
   should_relock(true)
@@ -1244,6 +1254,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_setup_background_mining(BackgroundMiningMaybe),
   m_is_initialized(false),
   m_kdf_rounds(kdf_rounds),
+  m_deterministic(false),
   is_old_file_format(false),
   m_watch_only(false),
   m_multisig(false),
@@ -1428,15 +1439,12 @@ bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_deterministic() const
 {
-  crypto::secret_key second;
-  keccak((uint8_t *)&get_account().get_keys().m_spend_secret_key, sizeof(crypto::secret_key), (uint8_t *)&second, sizeof(crypto::secret_key));
-  sc_reduce32((uint8_t *)&second);
-  return memcmp(second.data,get_account().get_keys().m_view_secret_key.data, sizeof(crypto::secret_key)) == 0;
+  return m_deterministic;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::get_seed(epee::wipeable_string& electrum_words, const epee::wipeable_string &passphrase) const
 {
-  bool keys_deterministic = is_deterministic();
+  bool keys_deterministic = keys_are_deterministic(get_account().get_keys());
   if (!keys_deterministic)
   {
     std::cout << "This is not a deterministic wallet" << std::endl;
@@ -4488,6 +4496,7 @@ bool wallet2::clear()
   m_subaddresses.clear();
   m_subaddress_labels.clear();
   m_multisig_rounds_passed = 0;
+  m_deterministic = false;
   m_device_last_key_image_sync = 0;
   m_pool_info_query_time = 0;
   m_skip_to_height = 0;
@@ -4826,6 +4835,8 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
 //----------------------------------------------------------------------------------------------------
 void wallet2::setup_keys(const epee::wipeable_string &password)
 {
+  update_deterministic_state();
+
   crypto::chacha_key key;
   crypto::generate_chacha_key(password.data(), password.size(), key, m_kdf_rounds);
 
@@ -4904,6 +4915,13 @@ void wallet2::verify_password_with_cached_key(const crypto::chacha_key &key)
   // We use m_cache_key as a deterministic test to see if given key corresponds to original password
   const crypto::chacha_key cache_key = derive_cache_key(key, config::HASH_KEY_WALLET_CACHE);
   THROW_WALLET_EXCEPTION_IF(cache_key != m_cache_key, error::invalid_password);
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::update_deterministic_state()
+{
+  m_deterministic = !m_watch_only && !m_multisig && !m_is_background_wallet &&
+    m_key_device_type == hw::device::device_type::SOFTWARE &&
+    keys_are_deterministic(get_account().get_keys());
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::change_password(const std::string &filename, const epee::wipeable_string &original_password, const epee::wipeable_string &new_password)
@@ -5995,6 +6013,7 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
   m_multisig_threshold = threshold;
   m_multisig_signers = signers;
   m_multisig_rounds_passed = 1;
+  m_deterministic = false;
 
   // derivations stored (note: should be empty in last kex round)
   m_multisig_derivations.clear();
@@ -6075,6 +6094,7 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
 
   // rounds passed
   m_multisig_rounds_passed = multisig_account.get_kex_rounds_complete();
+  m_deterministic = false;
 
   // why is this necessary? who knows...
   if (multisig_account.multisig_is_ready())
