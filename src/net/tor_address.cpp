@@ -31,8 +31,6 @@
 #include "tor_address.h"
 
 #include <algorithm>
-#include <boost/spirit/include/karma_generate.hpp>
-#include <boost/spirit/include/karma_uint.hpp>
 #include <cassert>
 #include <cstring>
 #include <limits>
@@ -223,8 +221,7 @@ namespace net
         if (port_ != 0)
         {
             out.push_back(':');
-            namespace karma = boost::spirit::karma;
-            karma::generate(std::back_inserter(out), karma::ushort_, port());
+            out += std::to_string(port());
         }
         return out;
     }
