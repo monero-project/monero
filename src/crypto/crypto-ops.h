@@ -103,6 +103,10 @@ void ge_p1p1_to_p3(ge_p3 *, const ge_p1p1 *);
 
 void ge_p2_dbl(ge_p1p1 *, const ge_p2 *);
 
+/* From ge_p3_dbl.c */
+
+void ge_p3_dbl(ge_p1p1 *r, const ge_p3 *p);
+
 /* From ge_p3_to_cached.c */
 
 extern const fe fe_d2;
