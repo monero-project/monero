@@ -61,3 +61,20 @@ or
 ```
 monero-wallet:467iotZU5tvG26k2xdZWkJ7gwATFVhfbuV3yDoWx5jHoPwxEi4f5BuJQwkP6GpCb1sZvUVB7nbSkgEuW8NKrh9KKRRga5qz?seed=python%20runway%20gossip%20lymph%20hills%20karate%20ruined%20innocent%20ought%20dual%20shipped%20shipped%20sushi%20pyramid%20guys%20entrance%20obedient%20natural%20kiwi%20wobbly%20vixen%20wipeout%20template%20typist%20innocent&height=12345676
 ```
+
+View Only Wallet
+
+```
+monero-wallet:47PN2JMatPHNRXbdhhurNSKrZLXD5U5FjBkCuZ1Zyo2VLvBe8Gqj66mGTFRCMfW9pCFqG47Z9EsGWYwNV5hfDLRGRowEGWx?view_key=ac9fed8f56fe1b7e00c3b58dff826d9573231d30f1070ec177e096739b05600b&label=MS-2201-aD3490b8-18-V&height=3690371
+```
+
+![View Only Wallet](monero-wallet-V.png)
+
+Full Wallet
+
+```
+monero-wallet:47PN2JMatPHNRXbdhhurNSKrZLXD5U5FjBkCuZ1Zyo2VLvBe8Gqj66mGTFRCMfW9pCFqG47Z9EsGWYwNV5hfDLRGRowEGWx?view_key=ac9fed8f56fe1b7e00c3b58dff826d9573231d30f1070ec177e096739b05600b&spend_key=a7a919903097e25c4c8567fd1cc8aa2be00cc9e445f353b93c75a9bca8374a03&label=MS-2201-aD3490b8-18-F&height=2026-06-01
+```
+![Full Wallet](monero-wallet-F.png)
+
+
