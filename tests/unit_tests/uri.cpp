@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "gtest/gtest.h"
+#include "string_tools.h"
 #include "wallet/wallet2.h"
 
 #define TEST_ADDRESS "9tTLtauaEKSj7xoVXytVH32R1pLZBk4VV4mZFGEh4wkXhDWqw1soPyf3fGixf1kni31VznEZkWNEza9d5TvjWwq5PaohYHC"
@@ -152,6 +153,45 @@ TEST(uri, long_payment_id)
   PARSE_URI("monero:" TEST_ADDRESS"?tx_payment_id=1234567890123456789012345678901234567890123456789012345678901234", true);
   ASSERT_EQ(address, TEST_ADDRESS);
   ASSERT_EQ(payment_id, "1234567890123456789012345678901234567890123456789012345678901234");
+}
+
+TEST(wallet2, parse_long_payment_id)
+{
+  const std::string payment_id_hex = "00112233445566778899aabbccddeeffffeeddccbbaa99887766554433221100";
+  crypto::hash payment_id = crypto::null_hash;
+
+  ASSERT_TRUE(tools::wallet2::parse_long_payment_id(payment_id_hex, payment_id));
+  EXPECT_EQ(payment_id_hex, epee::string_tools::pod_to_hex(payment_id));
+
+  const crypto::hash unchanged = payment_id;
+  EXPECT_FALSE(tools::wallet2::parse_long_payment_id(payment_id_hex.substr(2), payment_id));
+  EXPECT_EQ(unchanged, payment_id);
+  EXPECT_FALSE(tools::wallet2::parse_long_payment_id(std::string(64, 'z'), payment_id));
+  EXPECT_EQ(unchanged, payment_id);
+}
+
+TEST(wallet2, parse_short_payment_id)
+{
+  const std::string payment_id_hex = "0011223344556677";
+  crypto::hash8 payment_id = crypto::null_hash8;
+
+  ASSERT_TRUE(tools::wallet2::parse_short_payment_id(payment_id_hex, payment_id));
+  EXPECT_EQ(payment_id_hex, epee::string_tools::pod_to_hex(payment_id));
+
+  const crypto::hash8 unchanged = payment_id;
+  EXPECT_FALSE(tools::wallet2::parse_short_payment_id(payment_id_hex.substr(2), payment_id));
+  EXPECT_EQ(unchanged, payment_id);
+  EXPECT_FALSE(tools::wallet2::parse_short_payment_id(std::string(16, 'z'), payment_id));
+  EXPECT_EQ(unchanged, payment_id);
+}
+
+TEST(wallet2, parse_payment_id_pads_short_ids)
+{
+  const std::string payment_id_hex = "0011223344556677";
+  crypto::hash payment_id = crypto::null_hash;
+
+  ASSERT_TRUE(tools::wallet2::parse_payment_id(payment_id_hex, payment_id));
+  EXPECT_EQ(payment_id_hex + std::string(48, '0'), epee::string_tools::pod_to_hex(payment_id));
 }
 
 TEST(uri, payment_id_with_integrated_address)
