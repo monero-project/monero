@@ -41,20 +41,21 @@ monero-wallet: [address <string>]
 
 Only one of `seed` and `(spend_key,view_key)` may/must be specified.
 
-| Parameter      | Type       | Requires | Description |
-|:---------------|:------:    |:-------- |:------------|
-| `address`      | String     | `view_key` |Raw (95-character) address                          |
-| `spend_key`    | Hex String | `address`, `view_key` | Private spend key of a wallet.                      |
-| `view_key`     | Hex String | `address`, absence of `seed` | Private view key of a wallet.                       |
-| `seed`         | String     | Absence of `view_key` | URL encoded mnemonic seed to restore a deterministic wallet. |
-| `height`       | Long       | Absence of `txid` | Block height when the wallet was created.           |
-| `txid`         | String     | Absence of `height` | Transaction ID(s) to scan. Multiple transaction IDs can be provided if separated by a semicolon (`;`). |
+| Parameter      | Type       | Kind |Requires | Description |
+|:---------------|:------:    |:-----|:-------- |:------------|
+| `address`      | String     | hierarchy | `view_key` (for view only and non deterministic wallets) |Raw (95-character) address. Only required for view only wallet and non deterministic wallets.                         |
+| `spend_key`    | Hex String | query string | `address`, `view_key` (for non deterministic wallets), absence of `seed` | Private spend key of a wallet. Omitted for view only wallets.                     |
+| `view_key`     | Hex String | query string | `address` (for view only and non deterministic wallets), absence of `seed` | Private view key of a wallet. Only required for view only and non deterministic wallets.                      |
+| `seed`         | String     | query string | Absence of `view_key` and `spend_key` | URL encoded mnemonic seed to restore a deterministic wallet. |
+| `height`       | Long       | query string | Absence of `txid` | Block height or ISO 8601 timestamp at which the wallet should be restored. |
+| `txid`         | String     | query string | Absence of `height` | Transaction ID(s) to scan. Multiple transaction IDs can be provided if separated by a semicolon (`;`). |
+| `label` | String | query string | None | Optional name to assign to the wallet. |
 
 >*Note:* The `seed` parameter was named `mnemonic_seed` in earlier versions of this specification.
 
 The resulting URI for a wallet may look like this:
 ```
-monero-wallet:467iotZU5tvG26k2xdZWkJ7gwATFVhfbuV3yDoWx5jHoPwxEi4f5BuJQwkP6GpCb1sZvUVB7nbSkgEuW8NKrh9KKRRga5qz?spend_key=029c559cd7669f14e91fd835144916009f8697ab5ac5c7f7c06e1ff869c17b0b&view_key=afaf646edbff3d3bcee8efd3383ffe5d20c947040f74e1110b70ca0fbb0ef90d
+monero-wallet:467iotZU5tvG26k2xdZWkJ7gwATFVhfbuV3yDoWx5jHoPwxEi4f5BuJQwkP6GpCb1sZvUVB7nbSkgEuW8NKrh9KKRRga5qz?spend_key=029c559cd7669f14e91fd835144916009f8697ab5ac5c7f7c06e1ff869c17b0b&view_key=afaf646edbff3d3bcee8efd3383ffe5d20c947040f74e1110b70ca0fbb0ef90d&label=Test%20Wallet&height=2020-01-01
 ```
 or
 ```
