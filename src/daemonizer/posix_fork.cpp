@@ -110,10 +110,7 @@ void fork(const std::string & pidfile)
     {
       // We're in the parent process and need to exit.
       close_pid_fd();
-      // When the exit() function is used, the program terminates without
-      // invoking local variables' destructors. Only global variables are
-      // destroyed.
-      exit(0);
+      _exit(0);
     }
     else
     {
@@ -131,7 +128,7 @@ void fork(const std::string & pidfile)
     if (pid > 0)
     {
       close_pid_fd();
-      exit(0);
+      _exit(0);
     }
     else
     {
@@ -186,7 +183,7 @@ void fork(const std::string & pidfile)
 #endif
 
   // Also send standard error to the same log file.
-  if (dup(1) < 0)
+  if (dup2(STDOUT_FILENO, STDERR_FILENO) < 0)
   {
     quit("Unable to dup output descriptor");
   }
