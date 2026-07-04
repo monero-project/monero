@@ -21,10 +21,10 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
     - [Guix builds](#guix-builds)
   - [Installing Monero from a package](#installing-monero-from-a-package)
   - [Running monerod](#running-monerod)
-  - [Internationalization](#Internationalization)
+  - [Internationalization](#internationalization)
   - [Using Tor](#using-tor)
-  - [Pruning](#Pruning)
-  - [Debugging](#Debugging)
+  - [Pruning](#pruning)
+  - [Debugging](#debugging)
   - [Known issues](#known-issues)
 
 ## Development resources
@@ -41,10 +41,9 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
 - We are also available via [HackerOne](https://hackerone.com/monero)
 - Monero is continuously fuzzed by [OSS-Fuzz](https://introspector.oss-fuzz.com/project-profile?project=monero)
 
-
 ## Research
 
-The [Monero Research Lab](https://src.getmonero.org/resources/research-lab/) is an open forum where the community coordinates research into Monero cryptography, protocols, fungibility, analysis, and more. We welcome collaboration and contributions from outside researchers! Because not all Lab work and publications are distributed as traditional preprints or articles, they may be easy to miss if you are conducting literature reviews for your own Monero research. You are encouraged to get in touch with the Monero research community if you have questions, wish to collaborate, or would like guidance to help avoid unnecessarily duplicating earlier or known work.
+The [Monero Research Lab](https://www.getmonero.org/resources/research-lab/) is an open forum where the community coordinates research into Monero cryptography, protocols, fungibility, analysis, and more. We welcome collaboration and contributions from outside researchers! Because not all Lab work and publications are distributed as traditional preprints or articles, they may be easy to miss if you are conducting literature reviews for your own Monero research. You are encouraged to get in touch with the Monero research community if you have questions, wish to collaborate, or would like guidance to help avoid unnecessarily duplicating earlier or known work.
 
 The Monero research community is available on IRC in [#monero-research-lab on Libera](https://web.libera.chat/#monero-research-lab), which is also accessible via Matrix.
 
@@ -80,7 +79,7 @@ The Monero donation address is:
 `888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjyPbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H`  
 Viewkey:  
 `f359631075708155cc3d92a32b75a7d02a5dcf27756707b47a2b31b21c389501`  
-Base address for restoring with address and viewkey:
+Base address for restoring with address and viewkey:  
 `44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A`
 
 The Bitcoin donation address is:  
@@ -93,8 +92,6 @@ Core development funding and/or some supporting services are also graciously pro
 [<img height="26" hspace="6" src="https://www.getmonero.org/img/sponsors/cakewallet.png"/>](https://cakewallet.com/)
 [<img height="30" hspace="6" src="https://www.getmonero.org/img/sponsors/symas.png"/>](https://symas.com/)
 [<img height="30" hspace="6" src="https://www.getmonero.org/img/sponsors/cypherstack.png"/>](https://cypherstack.com/)
-
-There are also several mining pools that kindly donate a portion of their fees, [a list of them can be found on our Bitcointalk post](https://bitcointalk.org/index.php?topic=583449.0).
 
 ## License
 
@@ -131,8 +128,6 @@ Dates are provided in the format YYYY-MM-DD. The "Minimum" is the software versi
 
 X's indicate that these details have not been determined as of commit date.
 
-\* indicates estimate as of commit date
-
 ## Release staging schedule and protocol
 
 Approximately three months prior to a scheduled software upgrade, a branch from master will be created with the new release version tag. Pull requests that address bugs should then be made to both master and the new release branch. Pull requests that require extensive review and testing (generally, optimizations and new features) should *not* be made to the release branch.
@@ -141,14 +136,7 @@ Approximately three months prior to a scheduled software upgrade, a branch from 
 
 ### Dependencies
 
-The following table summarizes the tools and libraries required to build. A
-few of the libraries are also included in this repository (marked as
-"Vendored"). By default, the build uses the library installed on the system
-and ignores the vendored sources. However, if no library is found installed on
-the system, then the vendored source will be built and used. The vendored
-sources are also used for statically-linked builds because distribution
-packages often include only shared library binaries (`.so`) but not static
-library archives (`.a`).
+The following table summarizes the tools and libraries required to build. A few of the libraries are also included in this repository (marked as "Vendored"). By default, the build uses the library installed on the system and ignores the vendored sources. However, if no library is found installed on the system, then the vendored source will be built and used. The vendored sources are also used for statically-linked builds because distribution packages often include only shared library binaries (`.so`) but not static library archives (`.a`).
 
 | Dep          | Min. version  | Vendored | Debian/Ubuntu pkg    | Arch pkg     | Void pkg           | Fedora pkg          | Optional | Purpose         |
 | ------------ | ------------- | -------- | -------------------- | ------------ | ------------------ | ------------------- | -------- | --------------- |
@@ -160,32 +148,32 @@ library archives (`.a`).
 | libzmq       | 4.2.0         | NO       | `libzmq3-dev`        | `zeromq`     | `zeromq-devel`     | `zeromq-devel`      | NO       | ZeroMQ library  |
 | libunbound   | 1.4.16        | NO       | `libunbound-dev`     | `unbound`    | `unbound-devel`    | `unbound-devel`     | NO       | DNS resolver    |
 | libsodium    | ?             | NO       | `libsodium-dev`      | `libsodium`  | `libsodium-devel`  | `libsodium-devel`   | NO       | cryptography    |
-| libunwind    | any           | NO       | `libunwind8-dev`     | `libunwind`  | `libunwind-devel`  | `libunwind-devel`   | YES      | Stack traces    |
-| libreadline  | 6.3.0         | NO       | `libreadline6-dev`   | `readline`   | `readline-devel`   | `readline-devel`    | YES      | Input editing   |
+| libunwind    | any           | NO       | `libunwind-dev`      | `libunwind`  | `libunwind-devel`  | `libunwind-devel`   | YES      | Stack traces    |
+| libreadline  | 6.3.0         | NO       | `libreadline-dev`    | `readline`   | `readline-devel`   | `readline-devel`    | YES      | Input editing   |
 | GTest        | 1.5           | YES      | `libgtest-dev`       | `gtest`      | `gtest-devel`      | `gtest-devel`       | YES      | Test suite      |
 | ccache       | any           | NO       | `ccache`             | `ccache`     | `ccache`           | `ccache`            | YES      | Compil. cache   |
 | Doxygen      | any           | NO       | `doxygen`            | `doxygen`    | `doxygen`          | `doxygen`           | YES      | Documentation   |
 | Graphviz     | any           | NO       | `graphviz`           | `graphviz`   | `graphviz`         | `graphviz`          | YES      | Documentation   |
 | lrelease     | ?             | NO       | `qttools5-dev-tools` | `qt5-tools`  | `qt5-tools`        | `qt5-linguist`      | YES      | Translations    |
 | libhidapi    | ?             | NO       | `libhidapi-dev`      | `hidapi`     | `hidapi-devel`     | `hidapi-devel`      | YES      | Hardware wallet |
-| libusb       | ?             | NO       | `libusb-1.0-0-dev`   | `libusb`     | `libusb-devel`     | `libusbx-devel`     | YES      | Hardware wallet |
+| libusb       | ?             | NO       | `libusb-1.0-0-dev`   | `libusb`     | `libusb-devel`     | `libusb1-devel`     | YES      | Hardware wallet |
 | libprotobuf  | ?             | NO       | `libprotobuf-dev`    | `protobuf`   | `protobuf-devel`   | `protobuf-devel`    | YES      | Hardware wallet |
 | protoc       | ?             | NO       | `protobuf-compiler`  | `protobuf`   | `protobuf`         | `protobuf-compiler` | YES      | Hardware wallet |
 
 Install all dependencies at once on Debian/Ubuntu:
 
 ```
-sudo apt update && sudo apt install build-essential cmake pkg-config libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind8-dev libreadline6-dev qttools5-dev-tools libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler libboost-chrono-dev libboost-date-time-dev libboost-filesystem-dev libboost-locale-dev libboost-program-options-dev libboost-regex-dev libboost-serialization-dev libboost-system-dev libboost-thread-dev python3 ccache doxygen graphviz git curl
+sudo apt update && sudo apt install build-essential cmake pkg-config libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind-dev libreadline-dev qttools5-dev-tools libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler libboost-chrono-dev libboost-date-time-dev libboost-filesystem-dev libboost-locale-dev libboost-program-options-dev libboost-regex-dev libboost-serialization-dev libboost-system-dev libboost-thread-dev python3 ccache doxygen graphviz git curl
 ```
 
 Install all dependencies at once on Arch:
 ```
-sudo pacman -Syu --needed base-devel cmake boost boost-libs openssl zeromq unbound libsodium libunwind readline python3 ccache doxygen graphviz qt5-tools hidapi libusb protobuf
+sudo pacman -Syu --needed base-devel cmake boost boost-libs openssl zeromq unbound libsodium libunwind readline python ccache doxygen graphviz qt5-tools hidapi libusb protobuf
 ```
 
 Install all dependencies at once on Fedora:
 ```
-sudo dnf install gcc gcc-c++ cmake pkgconf boost-devel openssl-devel zeromq-devel unbound-devel libsodium-devel libunwind-devel readline-devel ccache doxygen graphviz qt5-linguist hidapi-devel libusbx-devel protobuf-devel protobuf-compiler
+sudo dnf install gcc gcc-c++ cmake pkgconf boost-devel openssl-devel zeromq-devel unbound-devel libsodium-devel libunwind-devel readline-devel ccache doxygen graphviz qt5-linguist hidapi-devel libusb1-devel protobuf-devel protobuf-compiler
 ```
 
 Install all dependencies at once on openSUSE:
@@ -220,14 +208,11 @@ If you already have a repo cloned, initialize and update:
 cd monero && git submodule init && git submodule update
 ```
 
-*Note*: If there are submodule differences between branches, you may need
-to use `git submodule sync && git submodule update` after changing branches
-to build successfully.
+*Note*: If there are submodule differences between branches, you may need to use `git submodule sync && git submodule update --init` after changing branches to build successfully.
 
 ### Build instructions
 
-Monero uses the CMake build system and a top-level [Makefile](Makefile) that
-invokes cmake commands as needed.
+Monero uses the CMake build system and a top-level [Makefile](Makefile) that invokes cmake commands as needed.
 
 #### On Linux and macOS
 
@@ -240,16 +225,9 @@ invokes cmake commands as needed.
     make
     ```
 
-    *Optional*: If your machine has several cores and enough memory, enable
-    parallel build by running `make -j<number of threads>` instead of `make`. For
-    this to be worthwhile, the machine should have one core and about 2GB of RAM
-    available per thread.
+    *Optional*: If your machine has several cores and enough memory, enable parallel build by running `make -j<number of threads>` instead of `make`. For this to be worthwhile, allow one core and about 2GB of RAM per thread.
 
-    *Note*: The instructions above will compile the most stable release of the
-    Monero software. If you would like to use and test the most recent software,
-    use `git checkout master`. The master branch may contain updates that are
-    both unstable and incompatible with release software, though testing is always
-    encouraged.
+    *Note*: The instructions above will compile the most stable release of the Monero software. If you would like to use and test the most recent software, use `git checkout master`. The master branch may contain updates that are both unstable and incompatible with release software, though testing is always encouraged.
 
 * The resulting executables can be found in `build/release/bin`
 
@@ -300,7 +278,7 @@ Tested on a Raspberry Pi 5B with a clean installation of Raspberry Pi OS (64-bit
     sudo /etc/init.d/dphys-swapfile start
     ```
 
-* If using an external hard disk without an external power supply, ensure it gets enough power to avoid hardware issues when syncing, by adding the line "max_usb_current=1" to /boot/config.txt
+* If using an external hard disk without an external power supply, ensure it gets enough power to avoid hardware issues when syncing, by adding the line "usb_max_current_enable=1" to /boot/firmware/config.txt
 
 * Clone Monero and checkout the most recent release version:
 
@@ -330,11 +308,7 @@ Tested on a Raspberry Pi 5B with a clean installation of Raspberry Pi OS (64-bit
 
 #### On Windows:
 
-Binaries for Windows can be built on Windows using the MinGW toolchain within
-[MSYS2 environment](https://www.msys2.org). The MSYS2 environment emulates a
-POSIX system. The toolchain runs within the environment and *cross-compiles*
-binaries that can run outside of the environment as a regular Windows
-application.
+Binaries for Windows can be built on Windows using the MinGW toolchain within [MSYS2 environment](https://www.msys2.org). The MSYS2 environment emulates a POSIX system. The toolchain runs within the environment and *cross-compiles* binaries that can run outside of the environment as a regular Windows application.
 
 **Preparing the build environment**
 
@@ -394,8 +368,7 @@ application.
 
 ### On FreeBSD:
 
-The project can be built from scratch by following instructions for Linux above (but use `gmake` instead of `make`).
-If you are running Monero in a jail, you need to add `sysvsem="new"` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
+The project can be built from scratch by following instructions for Linux above (but use `gmake` instead of `make`). If you are running Monero in a jail, you need to add `sysvsem="new"` to your jail configuration, otherwise lmdb will throw the error message: `Failed to open lmdb environment: Function not implemented`.
 
 Monero is also available as a port or package as `monero-cli`.
 
@@ -403,8 +376,7 @@ Monero is also available as a port or package as `monero-cli`.
 
 You will need to add a few packages to your system. `pkg_add cmake gmake zeromq libiconv boost libunbound`.
 
-The `doxygen` and `graphviz` packages are optional and require the xbase set.
-Running the test suite also requires `py3-requests` package.
+The `doxygen` and `graphviz` packages are optional and require the xbase set. Running the test suite also requires `py3-requests` package.
 
 Build monero: `gmake`
 
@@ -552,19 +524,13 @@ Packaging for your favorite distribution would be a welcome contribution!
 
 ## Running monerod
 
-The build places the binary in `bin/` sub-directory within the build directory
-from which cmake was invoked (repository root by default). To run in the
-foreground:
+The build places the binary in `bin/` sub-directory within the build directory from which cmake was invoked (repository root by default). To run in the foreground:
 
 ```bash
 ./bin/monerod
 ```
 
-To list all available options, run `./bin/monerod --help`. Options can be
-specified either on the command line or in a configuration file passed by the
-`--config-file` argument. To specify an option in the configuration file, add
-a line with the syntax `argumentname=value`, where `argumentname` is the name
-of the argument without the leading dashes, for example, `log-level=1`.
+To list all available options, run `./bin/monerod --help`. Options can be specified either on the command line or in a configuration file passed by the `--config-file` argument. To specify an option in the configuration file, add a line with the syntax `argumentname=value`, where `argumentname` is the name of the argument without the leading dashes, for example, `log-level=1`.
 
 To run in background:
 
@@ -572,15 +538,9 @@ To run in background:
 ./bin/monerod --log-file monerod.log --detach
 ```
 
-To run as a systemd service, copy
-[monerod.service](utils/systemd/monerod.service) to `/etc/systemd/system/` and
-[monerod.conf](utils/conf/monerod.conf) to `/etc/`. The [example
-service](utils/systemd/monerod.service) assumes that the user `monero` exists
-and its home is the data directory specified in the [example
-config](utils/conf/monerod.conf).
+To run as a systemd service, copy [monerod.service](utils/systemd/monerod.service) to `/etc/systemd/system/` and [monerod.conf](utils/conf/monerod.conf) to `/etc/`. The [example service](utils/systemd/monerod.service) assumes that the user `monero` exists and its home is the data directory specified in the [example config](utils/conf/monerod.conf).
 
-If you're on Mac, you may need to add the `--max-concurrency 1` option to
-monero-wallet-cli, and possibly monerod, if you get crashes refreshing.
+If you're on Mac, you may need to add the `--max-concurrency 1` option to monero-wallet-cli, and possibly monerod, if you get crashes refreshing.
 
 ## Internationalization
 
@@ -588,19 +548,12 @@ See [README.i18n.md](docs/README.i18n.md).
 
 ## Using Tor
 
-> There is a new, still experimental, [integration with Tor](docs/ANONYMITY_NETWORKS.md). The
-> feature allows connecting over IPv4 and Tor simultaneously - IPv4 is used for
-> relaying blocks and relaying transactions received by peers whereas Tor is
-> used solely for relaying transactions received over local RPC. This provides
-> privacy and better protection against surrounding node (sybil) attacks.
+> There is a new, still experimental, [integration with Tor](docs/ANONYMITY_NETWORKS.md). The feature allows connecting over IPv4 and Tor simultaneously - IPv4 is used for relaying blocks and relaying transactions received by peers whereas Tor is used solely for relaying transactions received over local RPC. This provides privacy and better protection against surrounding node (sybil) attacks.
 
-While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, by
-setting the following configuration parameters and environment variables:
+While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, by setting the following configuration parameters and environment variables:
 
-* `--p2p-bind-ip 127.0.0.1` on the command line or `p2p-bind-ip=127.0.0.1` in
-  monerod.conf to disable listening for connections on external interfaces.
-* If you use the wallet with a Tor daemon via the loopback IP (eg, 127.0.0.1:9050),
-  then use `--untrusted-daemon` unless it is your own hidden service.
+* `--p2p-bind-ip 127.0.0.1` on the command line or `p2p-bind-ip=127.0.0.1` in monerod.conf to disable listening for connections on external interfaces.
+* If you use the wallet with a Tor daemon via the loopback IP (eg, 127.0.0.1:9050), then use `--untrusted-daemon` unless it is your own hidden service.
 
 Example command line to start monerod through Tor:
 
@@ -608,14 +561,11 @@ Example command line to start monerod through Tor:
 monerod --proxy 127.0.0.1:9050 --p2p-bind-ip 127.0.0.1
 ```
 
-A helper script is in contrib/tor/monero-over-tor.sh. It assumes Tor is installed
-already, and runs Tor and Monero with the right configuration.
+A helper script is in contrib/tor/monero-over-tor.sh. It assumes Tor is installed already, and runs Tor and Monero with the right configuration.
 
 ### Using Tor on Tails
 
-TAILS ships with a very restrictive set of firewall rules. Therefore, you need
-to add a rule to allow this connection too, in addition to telling torsocks to
-allow inbound connections. Full example:
+TAILS ships with a very restrictive set of firewall rules. Therefore, you need to add a rule to allow this connection too, in addition to telling torsocks to allow inbound connections. Full example:
 
 ```bash
 sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT
@@ -625,13 +575,7 @@ DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ip 127.0.0.1 --rpc-bind-ip 127.0.0.
 
 ## Pruning
 
-As of June 2026, the full Monero blockchain file is about 280 GB. One can store a pruned blockchain, which is about 95 GB.
-A pruned blockchain can only serve part of the historical chain data to other peers, but is otherwise identical in
-functionality to the full blockchain.
-To use a pruned blockchain, it is best to start the initial sync with `--prune-blockchain`. However, it is also possible
-to prune an existing blockchain using the `monero-blockchain-prune` tool or using the `--prune-blockchain` `monerod` option
-with an existing chain. If an existing chain exists, pruning will temporarily require disk space to store both the full
-and pruned blockchains.
+As of June 2026, the full Monero blockchain file is about 280 GB. One can store a pruned blockchain, which is about 95 GB. A pruned blockchain can only serve part of the historical chain data to other peers, but is otherwise identical in functionality to the full blockchain. To use a pruned blockchain, it is best to start the initial sync with `--prune-blockchain`. However, it is also possible to prune an existing blockchain using the `monero-blockchain-prune` tool or using the `--prune-blockchain` `monerod` option with an existing chain. If an existing chain exists, pruning will temporarily require disk space to store both the full and pruned blockchains.
 
 For more detailed information see the ['Pruning' entry in the Moneropedia](https://www.getmonero.org/resources/moneropedia/pruning.html)
 
@@ -721,18 +665,18 @@ The output of `mdb_dump -s blocks <path to blockchain dir>` and `mdb_dump -s blo
 
 These records are dumped as hex data, where the first line is the key and the second line is the data.
 
-# Known Issues
+## Known Issues
 
-## Protocols
+### Protocols
 
-### Socket-based
+#### Socket-based
 
 Because of the nature of the socket-based protocols that drive monero, certain protocol weaknesses are somewhat unavoidable at this time. While these weaknesses can theoretically be fully mitigated, the effort required (the means) may not justify the ends. As such, please consider taking the following precautions if you are a monero node operator:
 
 - Run `monerod` on a "secured" machine. If operational security is not your forte, at a very minimum, have a dedicated computer running `monerod` and **do not** browse the web, use email clients, or use any other potentially harmful apps on your `monerod` machine. **Do not click links or load URL/MUA content on the same machine**. Doing so may potentially exploit weaknesses in commands which accept "localhost" and "127.0.0.1".
 - If you plan on hosting a public "remote" node, start `monerod` with `--restricted-rpc`. This is a must.
 
-### Blockchain-based
+#### Blockchain-based
 
 Certain blockchain "features" can be considered "bugs" if misused. Consequently, please consider the following:
 
