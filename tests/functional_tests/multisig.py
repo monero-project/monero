@@ -683,7 +683,8 @@ class WrongDaemonGuard:
     def __enter__(self):
         Wallet(idx = self.idx).set_daemon("localhost:0")
     def __exit__(self, exc_type, exc_value, traceback):
-        Wallet(idx = self.idx).set_daemon("localhost:" + str(self.correct_port))
+        # set_daemon settings persist across wallet loads, so restore trust explicitly
+        Wallet(idx = self.idx).set_daemon("localhost:" + str(self.correct_port), trusted = True)
 
 if __name__ == '__main__':
     with AutoRefreshGuard() as arguard:
