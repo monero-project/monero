@@ -220,15 +220,26 @@ private:
     static std::string device_derivation_path_option(const boost::program_options::variables_map &vm);
     static void init_options(boost::program_options::options_description& desc_params);
 
+    //! Daemon connection settings that override the ones from the command line when passed to make_new/make_from_file.
+    struct daemon_config
+    {
+      std::string address;
+      std::string username;
+      std::string password;
+      std::string proxy;
+      bool trusted = false;
+      epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect;
+    };
+
     //! Uses stdin and stdout. Returns a wallet2 if no errors.
     static std::pair<std::unique_ptr<wallet2>, password_container> make_from_json(const boost::program_options::variables_map& vm, bool unattended, const std::string& json_file, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
 
     //! Uses stdin and stdout. Returns a wallet2 and password for `wallet_file` if no errors.
     static std::pair<std::unique_ptr<wallet2>, password_container>
-      make_from_file(const boost::program_options::variables_map& vm, bool unattended, const std::string& wallet_file, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
+      make_from_file(const boost::program_options::variables_map& vm, bool unattended, const std::string& wallet_file, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter, const boost::optional<daemon_config>& daemon_override = boost::none);
 
     //! Uses stdin and stdout. Returns a wallet2 and password for wallet with no file if no errors.
-    static std::pair<std::unique_ptr<wallet2>, password_container> make_new(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
+    static std::pair<std::unique_ptr<wallet2>, password_container> make_new(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter, const boost::optional<daemon_config>& daemon_override = boost::none);
 
     //! Just parses variables.
     static std::unique_ptr<wallet2> make_dummy(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);

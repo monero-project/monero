@@ -283,6 +283,8 @@ namespace tools
       void check_background_mining();
 
       wallet2 *m_wallet;
+      // set_daemon settings reused for wallets opened/created later
+      boost::optional<wallet2::daemon_config> m_pending_daemon;
       std::string m_wallet_dir;
       tools::private_file rpc_login_file;
       std::atomic<bool> m_stop;
