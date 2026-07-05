@@ -321,7 +321,7 @@ std::string get_weight_string(const cryptonote::transaction &tx, size_t blob_siz
   return get_weight_string(get_transaction_weight(tx, blob_size));
 }
 
-std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variables_map& vm, bool unattended, const options& opts, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
+std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variables_map& vm, bool unattended, const options& opts, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter, const boost::optional<tools::wallet2::daemon_config>& daemon_override = boost::none)
 {
   const bool testnet = command_line::get_arg(vm, opts.testnet);
   const bool stagenet = command_line::get_arg(vm, opts.stagenet);
@@ -450,7 +450,19 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   THROW_WALLET_EXCEPTION_IF(!command_line::is_arg_defaulted(vm, opts.trusted_daemon) && !command_line::is_arg_defaulted(vm, opts.untrusted_daemon),
     tools::error::wallet_internal_error, tools::wallet2::tr("--trusted-daemon and --untrusted-daemon are both seen, assuming untrusted"));
 
-  // set --trusted-daemon if local and not overridden
+  // a set_daemon issued before this wallet existed replaces the daemon connection wholesale
+  if (daemon_override)
+  {
+    daemon_address = daemon_override->address;
+    login = boost::none;
+    if (!daemon_override->username.empty() || !daemon_override->password.empty())
+      login.emplace(daemon_override->username, daemon_override->password);
+    proxy = daemon_override->proxy;
+    trusted_daemon = daemon_override->trusted;
+    ssl_options = daemon_override->ssl_options;
+  }
+
+  // set --trusted-daemon if local and not overridden by command line or set_daemon
   if (!trusted_daemon)
   {
     try
@@ -1337,7 +1349,7 @@ std::pair<std::unique_ptr<wallet2>, tools::password_container> wallet2::make_fro
 }
 
 std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_from_file(
-  const boost::program_options::variables_map& vm, bool unattended, const std::string& wallet_file, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
+  const boost::program_options::variables_map& vm, bool unattended, const std::string& wallet_file, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter, const boost::optional<daemon_config>& daemon_override)
 {
   const options opts{};
   auto pwd = get_password(vm, opts, password_prompter, false);
@@ -1345,7 +1357,7 @@ std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_from_file(
   {
     return {nullptr, password_container{}};
   }
-  auto wallet = make_basic(vm, unattended, opts, password_prompter);
+  auto wallet = make_basic(vm, unattended, opts, password_prompter, daemon_override);
   if (wallet && !wallet_file.empty())
   {
     wallet->load(wallet_file, pwd->password());
@@ -1353,7 +1365,7 @@ std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_from_file(
   return {std::move(wallet), std::move(*pwd)};
 }
 
-std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_new(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter)
+std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_new(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter, const boost::optional<daemon_config>& daemon_override)
 {
   const options opts{};
   auto pwd = get_password(vm, opts, password_prompter, true);
@@ -1361,7 +1373,7 @@ std::pair<std::unique_ptr<wallet2>, password_container> wallet2::make_new(const 
   {
     return {nullptr, password_container{}};
   }
-  return {make_basic(vm, unattended, opts, password_prompter), std::move(*pwd)};
+  return {make_basic(vm, unattended, opts, password_prompter, daemon_override), std::move(*pwd)};
 }
 
 std::unique_ptr<wallet2> wallet2::make_dummy(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<tools::password_container>(const char *, bool)> &password_prompter)
@@ -1395,7 +1407,10 @@ bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_u
   }
 
   const std::string address = get_daemon_address();
-  MINFO("setting daemon to " << address);
+  if (m_proxy.empty())
+    MINFO("setting daemon to " << address);
+  else
+    MINFO("setting daemon to " << address << ". Connecting via proxy @ " << m_proxy);
   bool ret =  m_http_client->set_server(address, get_daemon_login(), std::move(ssl_options));
   if (ret)
   {
