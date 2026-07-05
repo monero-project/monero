@@ -7570,6 +7570,11 @@ crypto::hash wallet2::get_payment_id(const pending_tx &ptx) const
 // take a pending tx and actually send it to the daemon
 void wallet2::commit_tx(pending_tx& ptx)
 {
+  commit_tx(ptx, true);
+}
+
+void wallet2::commit_tx(pending_tx& ptx, bool reconnect)
+{
   using namespace cryptonote;
 
   // Normal submit
@@ -7581,6 +7586,8 @@ void wallet2::commit_tx(pending_tx& ptx)
 
   {
     const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+    if (reconnect)
+      m_http_client->disconnect();
     bool r = epee::net_utils::invoke_http_json("/sendrawtransaction", req, daemon_send_resp, *m_http_client, rpc_timeout);
     THROW_ON_RPC_RESPONSE_ERROR(r, {}, daemon_send_resp, "sendrawtransaction", error::tx_rejected, ptx.tx, get_rpc_status(m_trusted_daemon, daemon_send_resp.status), get_text_reason(daemon_send_resp));
   }
@@ -7653,9 +7660,11 @@ void wallet2::commit_tx(pending_tx& ptx)
 
 void wallet2::commit_tx(std::vector<pending_tx>& ptx_vector)
 {
+  bool reconnect = true;
   for (auto & ptx : ptx_vector)
   {
-    commit_tx(ptx);
+    commit_tx(ptx, reconnect);
+    reconnect = false;
   }
 }
 //----------------------------------------------------------------------------------------------------
