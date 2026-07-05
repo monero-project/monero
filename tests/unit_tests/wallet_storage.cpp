@@ -44,6 +44,25 @@ static constexpr const char WALLET_00fd416a_PRIMARY_ADDRESS[] =
 // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/src/wallet/wallet2.cpp#L156
 static constexpr const char WALLET2_ASCII_OUTPUT_MAGIC[] = "MoneroAsciiDataV1";
 
+class wallet_accessor_test
+{
+public:
+    static void forget_cached_key_image(tools::wallet2 &wallet, const size_t index)
+    {
+        crypto::key_image stale_key_image = AUTO_VAL_INIT(stale_key_image);
+        tools::wallet2::transfer_details &td = wallet.m_transfers.at(index);
+        td.m_key_image = stale_key_image;
+        td.m_key_image_known = false;
+        td.m_key_image_request = true;
+        td.m_key_image_partial = false;
+    }
+
+    static crypto::public_key get_public_key(const tools::wallet2 &wallet, const size_t index)
+    {
+        return wallet.m_transfers.at(index).get_public_key();
+    }
+};
+
 TEST(wallet_storage, store_to_file2file)
 {
     const path source_wallet_file = unit_test::data_dir / "wallet_00fd416a";
@@ -134,6 +153,36 @@ TEST(wallet_storage, store_to_mem2file)
 
     EXPECT_TRUE(is_file_exist(target_wallet_file.string()));
     EXPECT_TRUE(is_file_exist(target_wallet_file.string() + ".keys"));
+}
+
+TEST(wallet_storage, export_key_images_uses_generated_key_image)
+{
+    const path wallet_file = unit_test::data_dir / "wallet_9svHk1";
+    epee::wipeable_string password("test");
+
+    tools::wallet2 w(cryptonote::TESTNET);
+    w.load(wallet_file.string(), password);
+    tools::wallet_keys_unlocker unlocker(w, &password);
+
+    const auto original = w.export_key_images(true);
+    ASSERT_EQ(0, original.first);
+    ASSERT_FALSE(original.second.empty());
+    const crypto::key_image expected_key_image = original.second.front().first;
+
+    wallet_accessor_test::forget_cached_key_image(w, 0);
+
+    const auto exported = w.export_key_images(false);
+    ASSERT_EQ(0, exported.first);
+    ASSERT_EQ(original.second.size(), exported.second.size());
+
+    const crypto::key_image &exported_key_image = exported.second.front().first;
+    EXPECT_TRUE(expected_key_image == exported_key_image);
+
+    const crypto::public_key pkey = wallet_accessor_test::get_public_key(w, 0);
+    std::vector<const crypto::public_key*> key_ptrs;
+    key_ptrs.push_back(&pkey);
+    EXPECT_TRUE(crypto::check_ring_signature((const crypto::hash&)exported_key_image,
+        exported_key_image, key_ptrs, &exported.second.front().second));
 }
 
 TEST(wallet_storage, change_password_same_file)
