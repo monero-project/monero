@@ -13131,9 +13131,9 @@ std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>
     std::vector<const crypto::public_key*> key_ptrs;
     key_ptrs.push_back(&pkey);
 
-    crypto::generate_ring_signature((const crypto::hash&)td.m_key_image, td.m_key_image, key_ptrs, in_ephemeral.sec, 0, &signature);
+    crypto::generate_ring_signature((const crypto::hash&)ki, ki, key_ptrs, in_ephemeral.sec, 0, &signature);
 
-    ski.push_back(std::make_pair(td.m_key_image, signature));
+    ski.push_back(std::make_pair(ki, signature));
   }
   return std::make_pair(offset, ski);
 }
