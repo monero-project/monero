@@ -4778,13 +4778,6 @@ namespace tools
     }
     if (!m_wallet) return not_open(er);
 
-    if (m_wallet->has_proxy_option() && !req.proxy.empty())
-    {
-      er.code = WALLET_RPC_ERROR_CODE_PROXY_ALREADY_DEFINED;
-      er.message = "It is not possible to set daemon specific proxy when --proxy is defined.";
-      return false;
-    }
-   
     std::vector<std::vector<uint8_t>> ssl_allowed_fingerprints;
     ssl_allowed_fingerprints.reserve(req.ssl_allowed_fingerprints.size());
     for (const std::string &fp: req.ssl_allowed_fingerprints)
