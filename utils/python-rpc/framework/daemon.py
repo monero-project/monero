@@ -40,13 +40,13 @@ class Daemon(object):
         self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host, port=self.port),
             username, password)
 
-    def getblocktemplate(self, address, prev_block = "", client = ""):
+    def getblocktemplate(self, address, prev_block = "", client = "", reserve_size = 1):
         getblocktemplate = {
             'method': 'getblocktemplate',
             'params': {
                 'client': client,
                 'wallet_address': address,
-                'reserve_size' : 1,
+                'reserve_size' : reserve_size,
                 'prev_block' : prev_block,
             },
             'jsonrpc': '2.0', 
