@@ -45,7 +45,7 @@ function tidy_for_language() {
 	cmake ../.. \
 	-DCMAKE_C_COMPILER=clang \
 	-DCMAKE_CXX_COMPILER=clang++ \
-	-DUSE_COMPILER_CACHE=ON \
+	-DCOMPILER_CACHE=auto \
 	-DUSE_CLANG_TIDY_${LANG}=ON \
 	-DBUILD_SHARED_LIBS=ON \
 	-DBUILD_TESTS=ON
