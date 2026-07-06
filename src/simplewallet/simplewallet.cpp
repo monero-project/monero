@@ -4031,7 +4031,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
       else
       {
-        if (!crypto::ElectrumWords::words_to_bytes_ex(m_electrum_seed, m_recovery_key, old_language, is_polyseed, polyseed))
+        if (!crypto::ElectrumWords::words_to_bytes_ex(m_electrum_seed, m_recovery_key, old_language,
+              is_polyseed, polyseed, m_mnemonic_language))
         {
           fail_msg_writer() << tr("Electrum-style word list failed verification");
           return false;

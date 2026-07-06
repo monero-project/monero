@@ -4243,7 +4243,8 @@ namespace tools
 
     // check the given seed
     if (!req.enable_multisig_experimental) {
-      if (!crypto::ElectrumWords::words_to_bytes_ex(req.seed, recovery_key, old_language, is_polyseed, polyseed))
+      if (!crypto::ElectrumWords::words_to_bytes_ex(req.seed, recovery_key, old_language,
+            is_polyseed, polyseed, req.language))
       {
         er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
         er.message = "Electrum-style word list failed verification";
