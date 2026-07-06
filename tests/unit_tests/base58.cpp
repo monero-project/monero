@@ -532,9 +532,3 @@ TEST(get_account_address_from_str, fails_on_invalid_address_view_key)
   cryptonote::address_parse_info info;
   ASSERT_FALSE(cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, addr_str));
 }
-
-TEST(get_account_address_from_str, parses_old_address_format)
-{
-  cryptonote::address_parse_info info;
-  ASSERT_TRUE(cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, "002391bbbb24dea6fd95232e97594a27769d0153d053d2102b789c498f57a2b00b69cd6f2f5c529c1660f2f4a2b50178d6640c20ce71fe26373041af97c5b10236fc"));
-}
