@@ -4988,6 +4988,15 @@ public:
 
       if (!wallet_dir.empty())
       {
+        try
+        {
+          tools::wallet2::make_dummy(vm, true, password_prompt);
+        }
+        catch (const std::exception &e)
+        {
+          LOG_ERROR(tools::wallet_rpc_server::tr("Invalid configuration: ") << e.what());
+          return false;
+        }
         wal = NULL;
         goto just_dir;
       }
