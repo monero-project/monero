@@ -340,7 +340,7 @@ class BlockchainTest():
         for txid in [alt_blocks[0], alt_blocks[2], alt_blocks[4]]:
           assert len([chain for chain in res.chains if chain.block_hash == txid]) == 1
 
-        print('Saving blockchain explicitely')
+        print('Saving blockchain explicitly')
         daemon.save_bc()
 
 

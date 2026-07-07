@@ -26,7 +26,7 @@ void wallet_accessor_test::set_account(tools::wallet2 * wallet, cryptonote::acco
   wallet->m_subaddress_lookahead_major = 5;
   wallet->m_subaddress_lookahead_minor = 20;
 
-  wallet->setup_new_blockchain();  // generates also subadress register
+  wallet->setup_new_blockchain();  // generates also subaddress register
 }
 
 void wallet_accessor_test::process_parsed_blocks(tools::wallet2 * wallet, uint64_t start_height, const std::vector<cryptonote::block_complete_entry> &blocks, const std::vector<tools::wallet2::parsed_block> &parsed_blocks, uint64_t& blocks_added)

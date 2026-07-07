@@ -28,6 +28,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <stdexcept>
 
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "blockchain_db/blockchain_db.h"
@@ -65,9 +66,9 @@ HardFork::HardFork(cryptonote::BlockchainDB &db, uint8_t original_version, uint6
   current_fork_index(0)
 {
   if (window_size == 0)
-    throw "window_size needs to be strictly positive";
+    throw std::invalid_argument("window_size needs to be strictly positive");
   if (default_threshold_percent > 100)
-    throw "default_threshold_percent needs to be between 0 and 100";
+    throw std::invalid_argument("default_threshold_percent needs to be between 0 and 100");
 }
 
 bool HardFork::add_fork(uint8_t version, uint64_t height, uint8_t threshold, time_t time)

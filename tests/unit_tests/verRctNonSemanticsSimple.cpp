@@ -389,7 +389,7 @@ TEST(verRctNonSemanticsSimple, serializable_mixring_changes)
     SERIALIZABLE_MIXRING_CHANGES_SUBTEST([0][0].dest[4]--)
     SERIALIZABLE_MIXRING_CHANGES_SUBTEST([0][15].mask[31]--)
 
-    // Loop through all bytes of the mixRing and check for serialiable changes
+    // Loop through all bytes of the mixRing and check for serializable changes
     for (size_t i = 0; i < mlen; ++i)
     {
         for (size_t j = 0; j < nlen; ++j)

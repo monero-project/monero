@@ -24,7 +24,7 @@ as little-endian.
 
 ### Varints
 
-Varints are used to pack integers in an portable and space optimized way. Varints are stored as little-endian integers, with the lowest 2 bits storing the amount of bytes required, which means the largest value integer that can be packed into 1 byte is 63
+Varints are used to pack integers in a portable and space optimized way. Varints are stored as little-endian integers, with the lowest 2 bits storing the amount of bytes required, which means the largest value integer that can be packed into 1 byte is 63
 (6 bits).
 
 #### Byte Sizes
