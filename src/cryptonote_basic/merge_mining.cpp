@@ -1,4 +1,4 @@
-// Copyright (c) 2020-2024, The Monero Project
+// Copyright (c) 2020-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -29,7 +29,7 @@
 #include <string.h>
 #include "misc_log_ex.h"
 #include "int-util.h"
-#include "crypto/crypto.h"
+#include "crypto/hash-ops.h"
 #include "common/util.h"
 #include "merge_mining.h"
 

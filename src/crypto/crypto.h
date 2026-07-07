@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,59 +31,56 @@
 #pragma once
 
 #include <cstddef>
-#include <iostream>
-#include <boost/optional.hpp>
+#include <iosfwd>
 #include <type_traits>
-#include <vector>
-#include <random>
 
-#include "common/pod-class.h"
 #include "memwipe.h"
 #include "mlocker.h"
 #include "generic-ops.h"
-#include "hex.h"
 #include "hash.h"
+
+//forward declarations
+namespace boost
+{
+template <typename T> class optional;
+}
 
 namespace crypto {
 
-  extern "C" {
-#include "random.h"
-  }
-
 #pragma pack(push, 1)
-  POD_CLASS ec_point {
+  struct ec_point {
     char data[32];
   };
 
-  POD_CLASS ec_scalar {
+  struct ec_scalar {
     char data[32];
   };
 
-  POD_CLASS public_key: ec_point {
+  struct public_key: ec_point {
     friend class crypto_ops;
   };
 
-  POD_CLASS public_key_memsafe : epee::mlocked<tools::scrubbed<public_key>> {
+  struct public_key_memsafe : epee::mlocked<tools::scrubbed<public_key>> {
     public_key_memsafe() = default;
     public_key_memsafe(const public_key &original) { memcpy(this->data, original.data, 32); }
   };
 
   using secret_key = epee::mlocked<tools::scrubbed<ec_scalar>>;
 
-  POD_CLASS key_derivation: ec_point {
+  struct key_derivation: ec_point {
     friend class crypto_ops;
   };
 
-  POD_CLASS key_image: ec_point {
+  struct key_image: ec_point {
     friend class crypto_ops;
   };
 
-  POD_CLASS signature {
+  struct signature {
     ec_scalar c, r;
     friend class crypto_ops;
   };
 
-  POD_CLASS view_tag {
+  struct view_tag {
     char data;
   };
 #pragma pack(pop)
@@ -175,11 +172,7 @@ namespace crypto {
   /* Generate a random value between range_min and range_max
    */
   template<typename T>
-  typename std::enable_if<std::is_integral<T>::value, T>::type rand_range(T range_min, T range_max) {
-    crypto::random_device rd;
-    std::uniform_int_distribution<T> dis(range_min, range_max);
-    return dis(rd);
-  }
+  typename std::enable_if<std::is_integral<T>::value, T>::type rand_range(T range_min, T range_max);
 
   /* Generate a random index between 0 and sz-1
    */
@@ -274,20 +267,6 @@ namespace crypto {
     return crypto_ops::check_ring_signature(prefix_hash, image, pubs, pubs_count, sig);
   }
 
-  /* Variants with vector<const public_key *> parameters.
-   */
-  inline void generate_ring_signature(const hash &prefix_hash, const key_image &image,
-    const std::vector<const public_key *> &pubs,
-    const secret_key &sec, std::size_t sec_index,
-    signature *sig) {
-    generate_ring_signature(prefix_hash, image, pubs.data(), pubs.size(), sec, sec_index, sig);
-  }
-  inline bool check_ring_signature(const hash &prefix_hash, const key_image &image,
-    const std::vector<const public_key *> &pubs,
-    const signature *sig) {
-    return check_ring_signature(prefix_hash, image, pubs.data(), pubs.size(), sig);
-  }
-
   /* Derive a 1-byte view tag from the sender-receiver shared secret to reduce scanning time.
    * When scanning outputs that were not sent to the user, checking the view tag for a match removes the need to proceed with expensive EC operations
    * for an expected 99.6% of outputs (expected false positive rate = 1/2^8 = 1/256 = 0.4% = 100% - 99.6%).
@@ -296,30 +275,18 @@ namespace crypto {
     crypto_ops::derive_view_tag(derivation, output_index, vt);
   }
 
-  inline std::ostream &operator <<(std::ostream &o, const crypto::public_key &v) {
-    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
-  }
+  std::ostream &operator <<(std::ostream &o, const crypto::public_key &v);
   /* Do NOT overload the << operator for crypto::secret_key here. Use secret_key_explicit_print_ref
    * instead to prevent accidental implicit dumping of secret key material to the logs (which has
    * happened before). For the same reason, do not overload it for crypto::ec_scalar either since
    * crypto::secret_key is a subclass. I'm not sorry that it's obtuse; that's the point, bozo.
    */
   struct secret_key_explicit_print_ref { const crypto::secret_key &sk; };
-  inline std::ostream &operator <<(std::ostream &o, const secret_key_explicit_print_ref v) {
-    epee::to_hex::formatted(o, epee::as_byte_span(unwrap(unwrap(v.sk)))); return o;
-  }
-  inline std::ostream &operator <<(std::ostream &o, const crypto::key_derivation &v) {
-    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
-  }
-  inline std::ostream &operator <<(std::ostream &o, const crypto::key_image &v) {
-    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
-  }
-  inline std::ostream &operator <<(std::ostream &o, const crypto::signature &v) {
-    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
-  }
-  inline std::ostream &operator <<(std::ostream &o, const crypto::view_tag &v) {
-    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
-  }
+  std::ostream &operator <<(std::ostream &o, const secret_key_explicit_print_ref v);
+  std::ostream &operator <<(std::ostream &o, const crypto::key_derivation &v);
+  std::ostream &operator <<(std::ostream &o, const crypto::key_image &v);
+  std::ostream &operator <<(std::ostream &o, const crypto::signature &v);
+  std::ostream &operator <<(std::ostream &o, const crypto::view_tag &v);
 
   const extern crypto::public_key null_pkey;
   const extern crypto::secret_key null_skey;
