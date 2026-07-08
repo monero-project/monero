@@ -107,7 +107,7 @@ namespace file_io_utils
 #ifdef _WIN32
                 std::wstring wide_path;
                 try { wide_path = string_tools::utf8_to_utf16(path_to_file); } catch (...) { return false; }
-                HANDLE file_handle = CreateFileW(wide_path.c_str(), GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                HANDLE file_handle = CreateFileW(wide_path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
                 if (file_handle == INVALID_HANDLE_VALUE)
                     return false;
                 DWORD file_size = GetFileSize(file_handle, NULL);
