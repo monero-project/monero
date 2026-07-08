@@ -302,7 +302,7 @@ TEST(wallet_storage, gen_ascii_format)
         ASSERT_TRUE(epee::file_io_utils::load_file_to_string(target_wallet_file.string() + ".keys", key_file_contents));
         EXPECT_NE(std::string::npos, key_file_contents.find(WALLET2_ASCII_OUTPUT_MAGIC));
         for (const char c : key_file_contents)
-            ASSERT_TRUE(std::isprint(c) || c == '\n' || c == '\r');
+            ASSERT_TRUE(std::isprint(static_cast<unsigned char>(c)) || c == '\n' || c == '\r');
     }
 
     {
@@ -340,12 +340,16 @@ TEST(wallet_storage, change_export_format)
         // Assert that we initially store keys in binary format
         {
             std::string key_file_contents;
-            ASSERT_TRUE(epee::file_io_utils::load_file_to_string(target_wallet_file.string() + ".keys", key_file_contents));
+            ASSERT_TRUE(w.unlock_keys_file());
+            const bool loaded = epee::file_io_utils::load_file_to_string(target_wallet_file.string() + ".keys", key_file_contents);
+            ASSERT_TRUE(w.lock_keys_file());
+            ASSERT_TRUE(w.is_keys_file_locked());
+            ASSERT_TRUE(loaded);
             EXPECT_EQ(std::string::npos, key_file_contents.find(WALLET2_ASCII_OUTPUT_MAGIC));
             bool only_printable = true;
             for (const char c : key_file_contents)
             {
-                if (!std::isprint(c) && c != '\n' && c != '\r')
+                if (!std::isprint(static_cast<unsigned char>(c)) && c != '\n' && c != '\r')
                 {
                     only_printable = false;
                     break;
@@ -369,7 +373,7 @@ TEST(wallet_storage, change_export_format)
         ASSERT_TRUE(epee::file_io_utils::load_file_to_string(target_wallet_file.string() + ".keys", key_file_contents));
         EXPECT_NE(std::string::npos, key_file_contents.find(WALLET2_ASCII_OUTPUT_MAGIC));
         for (const char c : key_file_contents)
-            ASSERT_TRUE(std::isprint(c) || c == '\n' || c == '\r');
+            ASSERT_TRUE(std::isprint(static_cast<unsigned char>(c)) || c == '\n' || c == '\r');
     }
 
     {
