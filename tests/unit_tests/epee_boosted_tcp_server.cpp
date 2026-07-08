@@ -226,6 +226,16 @@ TEST(test_epee_connection, test_lifetime)
     shared_state = std::make_shared<shared_state_t>();
     shared_state->set_handler(new command_handler_t, &command_handler_t::destroy);
 
+    const auto wait_for = [](const auto& condition) {
+      const auto timeout = std::chrono::steady_clock::now() + std::chrono::seconds{5};
+      while (std::chrono::steady_clock::now() < timeout) {
+        if (condition())
+          return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+      }
+      return condition();
+    };
+
     auto create_connection = [&io_context, &endpoint, &shared_state] {
         connection_ptr conn(new connection_t(io_context, shared_state, {}, {}));
         conn->socket().connect(endpoint);
@@ -349,14 +359,21 @@ TEST(test_epee_connection, test_lifetime)
     for (auto i = 0; i < N * N * N; ++i) {
       {
         connection_ptr conn(new connection_t(io_context, shared_state, {}, {}));
-        conn->socket().connect(endpoint);
+        boost::system::error_code connect_error;
+        conn->socket().connect(endpoint, connect_error);
+        ASSERT_FALSE(connect_error);
         conn->start({}, {});
         lock_guard_t guard(shared_conn->lock);
         shared_conn->conn = conn;
       }
       ASSERT_TRUE(shared_state->get_connections_count() == 1);
       shared_state->del_out_connections(1);
-      while (shared_state->sock_count);
+      const auto cleanup_finished = wait_for([&] {
+        return shared_state->sock_count == 0
+          && server.get_connections_count() == 0
+          && server.get_config_shared()->get_in_connections_count() == 0;
+      });
+      ASSERT_TRUE(cleanup_finished);
       ASSERT_TRUE(shared_state->get_connections_count() == 0);
     }
 
