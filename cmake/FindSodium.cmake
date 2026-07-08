@@ -99,70 +99,7 @@ elseif (WIN32)
         PATH_SUFFIXES include
     )
 
-    if (MSVC)
-        # detect target architecture
-        file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/arch.cpp" [=[
-            #if defined _M_IX86
-            #error ARCH_VALUE x86_32
-            #elif defined _M_X64
-            #error ARCH_VALUE x86_64
-            #endif
-            #error ARCH_VALUE unknown
-        ]=])
-        try_compile(_UNUSED_VAR "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/arch.cpp"
-            OUTPUT_VARIABLE _COMPILATION_LOG
-        )
-        string(REGEX REPLACE ".*ARCH_VALUE ([a-zA-Z0-9_]+).*" "\\1" _TARGET_ARCH "${_COMPILATION_LOG}")
-
-        # construct library path
-        if (_TARGET_ARCH STREQUAL "x86_32")
-            string(APPEND _PLATFORM_PATH "Win32")
-        elseif(_TARGET_ARCH STREQUAL "x86_64")
-            string(APPEND _PLATFORM_PATH "x64")
-        else()
-            message(FATAL_ERROR "the ${_TARGET_ARCH} architecture is not supported by Findsodium.cmake.")
-        endif()
-        string(APPEND _PLATFORM_PATH "/$$CONFIG$$")
-
-        if (MSVC_VERSION LESS 1900)
-            math(EXPR _VS_VERSION "${MSVC_VERSION} / 10 - 60")
-        else()
-            math(EXPR _VS_VERSION "${MSVC_VERSION} / 10 - 50")
-        endif()
-        string(APPEND _PLATFORM_PATH "/v${_VS_VERSION}")
-
-        if (sodium_USE_STATIC_LIBS)
-            string(APPEND _PLATFORM_PATH "/static")
-        else()
-            string(APPEND _PLATFORM_PATH "/dynamic")
-        endif()
-
-        string(REPLACE "$$CONFIG$$" "Debug" _DEBUG_PATH_SUFFIX "${_PLATFORM_PATH}")
-        string(REPLACE "$$CONFIG$$" "Release" _RELEASE_PATH_SUFFIX "${_PLATFORM_PATH}")
-
-        find_library(sodium_LIBRARY_DEBUG libsodium.lib
-            HINTS ${sodium_DIR}
-            PATH_SUFFIXES ${_DEBUG_PATH_SUFFIX}
-        )
-        find_library(sodium_LIBRARY_RELEASE libsodium.lib
-            HINTS ${sodium_DIR}
-            PATH_SUFFIXES ${_RELEASE_PATH_SUFFIX}
-        )
-        if (NOT sodium_USE_STATIC_LIBS)
-            set(CMAKE_FIND_LIBRARY_SUFFIXES_BCK ${CMAKE_FIND_LIBRARY_SUFFIXES})
-            set(CMAKE_FIND_LIBRARY_SUFFIXES ".dll")
-            find_library(sodium_DLL_DEBUG libsodium
-                HINTS ${sodium_DIR}
-                PATH_SUFFIXES ${_DEBUG_PATH_SUFFIX}
-            )
-            find_library(sodium_DLL_RELEASE libsodium
-                HINTS ${sodium_DIR}
-                PATH_SUFFIXES ${_RELEASE_PATH_SUFFIX}
-            )
-            set(CMAKE_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES_BCK})
-        endif()
-
-    elseif(_GCC_COMPATIBLE)
+    if(_GCC_COMPATIBLE)
         if (sodium_USE_STATIC_LIBS)
             find_library(sodium_LIBRARY_DEBUG libsodium.a
                 HINTS ${sodium_DIR}

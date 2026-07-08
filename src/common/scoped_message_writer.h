@@ -70,12 +70,8 @@ public:
 
   scoped_message_writer(scoped_message_writer&& rhs)
     : m_flush(std::move(rhs.m_flush))
-#if defined(_MSC_VER)
-    , m_oss(std::move(rhs.m_oss))
-#else
       // GCC bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54316
     , m_oss(rhs.m_oss.str(), std::ios_base::out | std::ios_base::ate)
-#endif
     , m_color(std::move(rhs.m_color))
     , m_log_level(std::move(rhs.m_log_level))
   {
