@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -254,11 +254,11 @@ public:
   bool get_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const override;
   bool get_pruned_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const override;
   bool get_pruned_tx_blobs_from(const crypto::hash& h, size_t count, std::vector<cryptonote::blobdata> &bd) const override;
-  bool get_blocks_from(uint64_t start_height, size_t min_block_count, size_t max_block_count, size_t max_tx_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool get_miner_tx_hash) const override;
+  bool get_blocks_from(uint64_t start_height, size_t min_block_count, size_t max_block_count, size_t max_tx_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool get_miner_tx_hash) const override;
   bool get_prunable_tx_blob(const crypto::hash& h, cryptonote::blobdata &tx) const override;
   bool get_prunable_tx_hash(const crypto::hash& tx_hash, crypto::hash &prunable_hash) const override;
 
-  std::vector<crypto::hash> get_txids_loose(const crypto::hash& h, std::uint32_t bits, uint64_t max_num_txs = 0) override;
+  std::vector<crypto::hash> get_txids_loose(const crypto::hash& h, std::uint32_t bits, relay_category category, uint64_t max_num_txs = 0) override;
 
   uint64_t get_tx_count() const override;
 
@@ -307,6 +307,13 @@ public:
 
   bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const override;
   bool for_blocks_range(const uint64_t& h1, const uint64_t& h2, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const override;
+  bool for_all_block_info(uint64_t start_height
+    , uint64_t stop_height
+    , const std::function<bool(/*height*/ uint64_t
+      , /*block ID*/ const crypto::hash&
+      , /*block weight*/ uint64_t
+      )> &f
+  ) const override;
   bool for_all_transactions(std::function<bool(const crypto::hash&, const cryptonote::transaction&)>, bool pruned) const override;
   bool for_all_outputs(std::function<bool(uint64_t amount, const crypto::hash &tx_hash, uint64_t height, size_t tx_idx)> f) const override;
   bool for_all_outputs(uint64_t amount, const std::function<bool(uint64_t height)> &f) const override;
@@ -335,7 +342,7 @@ public:
 
   bool block_rtxn_start(MDB_txn **mtxn, mdb_txn_cursors **mcur) const;
 
-  void pop_block(block& blk, std::vector<transaction>& txs) override;
+  void pop_block(block& blk, std::vector<transaction>* txs) override;
 
   bool can_thread_bulk_indices() const override { return true; }
 

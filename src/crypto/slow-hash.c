@@ -44,8 +44,12 @@
 
 #include <errno.h>
 
+#ifndef MONERO_CRYPTO_SLOW_HASH_ITER
+#define MONERO_CRYPTO_SLOW_HASH_ITER (1 << 20)
+#endif
+
 #define MEMORY         (1 << 21) // 2MB scratchpad
-#define ITER           (1 << 20)
+#define ITER           MONERO_CRYPTO_SLOW_HASH_ITER
 #define AES_BLOCK_SIZE  16
 #define AES_KEY_SIZE    32
 #define INIT_SIZE_BLK   8
@@ -54,7 +58,7 @@
 #if defined(_MSC_VER)
 #define THREADV __declspec(thread)
 #else
-#define THREADV __thread
+#define THREADV _Thread_local
 #endif
 
 extern void aesb_single_round(const uint8_t *in, uint8_t *out, const uint8_t *expandedKey);
@@ -1454,7 +1458,7 @@ void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int 
 }
 #else /* aarch64 && crypto */
 
-// ND: Some minor optimizations for ARMv7 (raspberrry pi 2), effect seems to be ~40-50% faster.
+// ND: Some minor optimizations for ARMv7 (raspberry pi 2), effect seems to be ~40-50% faster.
 //     Needs more work.
 
 #ifdef NO_OPTIMIZED_MULTIPLY_ON_ARM

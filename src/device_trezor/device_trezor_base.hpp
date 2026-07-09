@@ -203,7 +203,7 @@ namespace trezor {
       }
 
       /**
-       * Utility method to set address_n and network type to the message requets.
+       * Utility method to set address_n and network type to the message requests.
        */
       template<class t_message>
       void set_msg_addr(t_message * msg,

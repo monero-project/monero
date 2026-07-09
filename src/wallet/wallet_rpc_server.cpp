@@ -34,6 +34,7 @@
 #include <boost/preprocessor/stringize.hpp>
 #include <cstdint>
 #include <chrono>
+#include <cstring>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -272,7 +273,7 @@ namespace tools
         if (over_one_refresh_period_passed)
         {
           // auto_refresh_interval_ms of straight-blasting through blocks has elapsed without end.
-          // Let's freee up the network thread for between 200ms to 300ms (non-deterministic) to handle other requests.
+          // Let's free up the network thread for between 200ms to 300ms (non-deterministic) to handle other requests.
           const auto refresh_throttle = auto_refresh_evaluation_ms + std::chrono::milliseconds(100);
           m_last_auto_refresh_time = end - auto_refresh_interval_ms + refresh_throttle;
           LOG_PRINT_L3((boost::format(tr("Temporarily throttling wallet block refresh by around %i ms")) % refresh_throttle.count()).str());
@@ -1564,11 +1565,12 @@ namespace tools
         for (size_t s = 0; s < cd.sources.size(); ++s)
         {
           const cryptonote::tx_source_entry &src_in = cd.sources[s];
+          const cryptonote::tx_source_entry::output_entry &real_ring_member = src_in.outputs.at(src_in.real_output);
           wallet_rpc::COMMAND_RPC_DESCRIBE_TRANSFER::source &src_out = desc.sources.emplace_back();
           src_out.amount = src_in.amount;
-          src_out.global_index = src_in.outputs.at(src_in.real_output_in_tx_index).first;
+          src_out.global_index = real_ring_member.first;
           src_out.rct = src_in.rct;
-          src_out.pubkey = epee::string_tools::pod_to_hex(src_in.outputs.at(src_in.real_output_in_tx_index).second);
+          src_out.pubkey = epee::string_tools::pod_to_hex(real_ring_member.second);
           desc.amount_in += src_in.amount;
           size_t ring_size = src_in.outputs.size();
           if (ring_size < desc.ring_size)
@@ -2102,11 +2104,11 @@ namespace tools
 
       if(sizeof(payment_id) == payment_id_blob.size())
       {
-        payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_blob.data());
+        memcpy(&payment_id, payment_id_blob.data(), sizeof(payment_id));
       }
       else if(sizeof(payment_id8) == payment_id_blob.size())
       {
-        payment_id8 = *reinterpret_cast<const crypto::hash8*>(payment_id_blob.data());
+        memcpy(&payment_id8, payment_id_blob.data(), sizeof(payment_id8));
         memcpy(payment_id.data, payment_id8.data, 8);
         memset(payment_id.data + 8, 0, 24);
       }
@@ -2359,10 +2361,16 @@ namespace tools
   bool wallet_rpc_server::on_rescan_blockchain(const wallet_rpc::COMMAND_RPC_RESCAN_BLOCKCHAIN::request& req, wallet_rpc::COMMAND_RPC_RESCAN_BLOCKCHAIN::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     CHECK_IF_RESTRICTED_BACKGROUND_SYNCING();
+    if (req.hard && req.keep_key_images)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Cannot preserve key images on hard rescan";
+      return false;
+    }
 
     try
     {
-      m_wallet->rescan_blockchain(req.hard);
+      m_wallet->rescan_blockchain(req.hard, true, req.keep_key_images);
     }
     catch (const std::exception& e)
     {
@@ -2554,7 +2562,8 @@ namespace tools
         return false;
       }
 
-      crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_blob.data());
+      crypto::hash txid;
+      memcpy(&txid, txid_blob.data(), sizeof(txid));
       txids.push_back(txid);
     }
 
@@ -2585,7 +2594,8 @@ namespace tools
         return false;
       }
 
-      crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_blob.data());
+      crypto::hash txid;
+      memcpy(&txid, txid_blob.data(), sizeof(txid));
       txids.push_back(txid);
     }
 
@@ -2786,6 +2796,7 @@ namespace tools
   bool wallet_rpc_server::on_get_spend_proof(const wallet_rpc::COMMAND_RPC_GET_SPEND_PROOF::request& req, wallet_rpc::COMMAND_RPC_GET_SPEND_PROOF::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     if (!m_wallet) return not_open(er);
+    CHECK_IF_BACKGROUND_SYNCING();
 
     crypto::hash txid;
     if (!epee::string_tools::hex_to_pod(req.txid, txid))
@@ -2983,7 +2994,7 @@ namespace tools
 
     if(sizeof(txid) == txid_blob.size())
     {
-      txid = *reinterpret_cast<const crypto::hash*>(txid_blob.data());
+      memcpy(&txid, txid_blob.data(), sizeof(txid));
     }
     else
     {
@@ -3347,14 +3358,14 @@ namespace tools
       }
       entry.m_address = info.address;
       entry.m_is_subaddress = info.is_subaddress;
-      if (info.has_payment_id)
-        entry.m_payment_id = info.payment_id;
+      entry.m_has_payment_id = info.has_payment_id;
+      entry.m_payment_id = info.has_payment_id ? info.payment_id : crypto::null_hash8;
     }
 
     if (req.set_description)
       entry.m_description = req.description;
 
-    if (!m_wallet->set_address_book_row(req.index, entry.m_address, req.set_address && entry.m_has_payment_id ? &entry.m_payment_id : NULL, entry.m_description, entry.m_is_subaddress))
+    if (!m_wallet->set_address_book_row(req.index, entry.m_address, entry.m_has_payment_id ? &entry.m_payment_id : NULL, entry.m_description, entry.m_is_subaddress))
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = "Failed to edit address book entry";
@@ -3444,7 +3455,8 @@ namespace tools
               return false;
           }
 
-          crypto::hash txid = *reinterpret_cast<const crypto::hash*>(txid_blob.data());
+          crypto::hash txid;
+          memcpy(&txid, txid_blob.data(), sizeof(txid));
           txids.insert(txid);
       }
 
@@ -4481,12 +4493,6 @@ namespace tools
     }
 
     return true;
-  }
-  //------------------------------------------------------------------------------------------------------------------------------
-  bool wallet_rpc_server::on_finalize_multisig(const wallet_rpc::COMMAND_RPC_FINALIZE_MULTISIG::request& req, wallet_rpc::COMMAND_RPC_FINALIZE_MULTISIG::response& res, epee::json_rpc::error& er, const connection_context *ctx)
-  {
-    CHECK_MULTISIG_ENABLED();
-    return false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_exchange_multisig_keys(const wallet_rpc::COMMAND_RPC_EXCHANGE_MULTISIG_KEYS::request& req, wallet_rpc::COMMAND_RPC_EXCHANGE_MULTISIG_KEYS::response& res, epee::json_rpc::error& er, const connection_context *ctx)

@@ -28,7 +28,6 @@
 
 set(rpc_base_sources
   rpc_args.cpp
-  rpc_payment_signature.cpp
   rpc_handler.cpp)
 
 set(rpc_sources
@@ -36,9 +35,8 @@ set(rpc_sources
   bootstrap_node_selector.cpp
   core_rpc_server.cpp
   core_rpc_server_commands_defs.cpp
-  rpc_payment.cpp
   rpc_version_str.cpp
-  instanciations.cpp)
+  instantiations.cpp)
 
 set(daemon_messages_sources
   message.cpp
@@ -56,7 +54,6 @@ set(daemon_rpc_server_sources
 
 set(rpc_base_headers
   rpc_args.h
-  rpc_payment_signature.h
   rpc_handler.h)
 
 set(rpc_headers
@@ -70,7 +67,6 @@ set(daemon_rpc_server_headers)
 set(rpc_private_headers
   bootstrap_daemon.h
   core_rpc_server.h
-  rpc_payment.h
   core_rpc_server_commands_defs.h
   core_rpc_server_error_codes.h)
 
@@ -137,7 +133,7 @@ target_link_libraries(rpc
     common
     cryptonote_core
     cryptonote_protocol
-    epee_wire_json
+    wire-json
     net
     version
     ${Boost_REGEX_LIBRARY}
@@ -150,6 +146,8 @@ target_link_libraries(rpc_pub
     epee
     net
     cryptonote_basic
+    cryptonote_core
+    wire-json
     ${Boost_THREAD_LIBRARY})
 
 target_link_libraries(daemon_messages
@@ -167,6 +165,7 @@ target_link_libraries(daemon_rpc_server
     cryptonote_protocol
     version
     daemon_messages
+    wire-json
     ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}

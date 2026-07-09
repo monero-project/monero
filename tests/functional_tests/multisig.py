@@ -153,7 +153,7 @@ class MultisigTest():
         addresses.append(res.address)
         next_stage.append(res.multisig_info)
 
-      # Assert multisig paramaters M/N for each wallet
+      # Assert multisig parameters M/N for each wallet
       for i in range(N_total):
         res = wallet[i].is_multisig()
         assert res.multisig == True
@@ -189,7 +189,7 @@ class MultisigTest():
         assert addresses[i] == expected_address, addresses[i]
       wallet_address = expected_address
 
-      # Assert multisig paramaters M/N and "ready" for each wallet
+      # Assert multisig parameters M/N and "ready" for each wallet
       for i in range(N_total):
         res = wallet[i].is_multisig()
         assert res.multisig == True
@@ -496,7 +496,7 @@ class MultisigTest():
         assert frozen
 
         # Try signing multisig (this operation should fail b/c of the frozen key image)
-        print("Attemping to sign with frozen key image. This should fail")
+        print("Attempting to sign with frozen key image. This should fail")
         try:
           res = self.wallet[signers[1]].sign_multisig(multisig_txset)
           raise ValueError('sign_multisig should not have succeeded w/ frozen enotes')

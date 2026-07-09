@@ -46,7 +46,7 @@ namespace cryptonote
 namespace
 {
   constexpr const int num_zmq_threads = 1;
-  constexpr const std::int64_t max_message_size = 10 * 1024 * 1024; // 10 MiB
+  constexpr const std::int64_t max_frame_size = net::zmq::max_message_size;
   constexpr const std::chrono::seconds linger_timeout{2}; // wait period for pending out messages
   constexpr const int ipv6_option = 1;
 
@@ -63,7 +63,7 @@ namespace
       return nullptr;
     }
 
-    if (zmq_setsockopt(out.get(), ZMQ_MAXMSGSIZE, std::addressof(max_message_size), sizeof(max_message_size)) != 0)
+    if (zmq_setsockopt(out.get(), ZMQ_MAXMSGSIZE, std::addressof(max_frame_size), sizeof(max_frame_size)) != 0)
     {
       MONERO_LOG_ZMQ_ERROR("Failed to set maximum incoming message size");
       return nullptr;

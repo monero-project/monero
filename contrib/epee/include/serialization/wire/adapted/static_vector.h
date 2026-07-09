@@ -29,7 +29,7 @@
 
 #include <cstdint>
 #include <boost/container/static_vector.hpp>
-#include <boost/utility/string_ref.hpp>
+#include <string_view>
 
 #include "serialization/wire/read.h"
 
@@ -73,7 +73,7 @@ namespace wire
   template<typename W, std::size_t N>
   inline void write_bytes(W& dest, const boost::container::static_vector<char, N>& source)
   {
-    dest.string(boost::string_ref{source.data(), source.size()});
+    dest.string(std::string_view{source.data(), source.size()});
   }
 
   template<typename R, std::size_t N>

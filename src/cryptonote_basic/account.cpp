@@ -34,6 +34,7 @@
 #include "account.h"
 #include "warnings.h"
 #include "crypto/crypto.h"
+#include "crypto/wire.h"
 extern "C"
 {
 #include "crypto/keccak.h"

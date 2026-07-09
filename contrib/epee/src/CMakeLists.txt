@@ -67,7 +67,7 @@ endif()
 target_link_libraries(epee
   PUBLIC
     easylogging
-    epee_wire_epee
+    wire-epee
     ${Boost_CHRONO_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}

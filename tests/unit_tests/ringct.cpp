@@ -351,7 +351,7 @@ TEST(ringct, range_proofs)
         ASSERT_TRUE(verRctSimple(s));
 
         //decode received amount
-        decodeRctSimple(s, amount_keys[1], 1, mask, hw::get_device("default"));
+        decodeRct(s, amount_keys[1], 1, mask, hw::get_device("default"));
 
         // Ring CT with failing MG sig part should not verify!
         // Since sum of inputs != outputs
@@ -368,7 +368,7 @@ TEST(ringct, range_proofs)
         ASSERT_FALSE(verRctSimple(s));
 
         //decode received amount
-        decodeRctSimple(s, amount_keys[1], 1, mask, hw::get_device("default"));
+        decodeRct(s, amount_keys[1], 1, mask, hw::get_device("default"));
 }
 
 TEST(ringct, range_proofs_with_fee)
@@ -416,7 +416,7 @@ TEST(ringct, range_proofs_with_fee)
         ASSERT_TRUE(verRctSimple(s));
 
         //decode received amount
-        decodeRctSimple(s, amount_keys[1], 1, mask, hw::get_device("default"));
+        decodeRct(s, amount_keys[1], 1, mask, hw::get_device("default"));
 
         // Ring CT with failing MG sig part should not verify!
         // Since sum of inputs != outputs
@@ -433,7 +433,7 @@ TEST(ringct, range_proofs_with_fee)
         ASSERT_FALSE(verRctSimple(s));
 
         //decode received amount
-        decodeRctSimple(s, amount_keys[1], 1, mask, hw::get_device("default"));
+        decodeRct(s, amount_keys[1], 1, mask, hw::get_device("default"));
 }
 
 TEST(ringct, simple)
@@ -492,7 +492,7 @@ TEST(ringct, simple)
         ASSERT_TRUE(verRctSimple(s));
 
         //decode received amount corresponding to output pubkey index 1
-        decodeRctSimple(s, amount_keys[1], 1, mask,  hw::get_device("default"));
+        decodeRct(s, amount_keys[1], 1, mask,  hw::get_device("default"));
 }
 
 static rct::rctSig make_sample_rct_sig(int n_inputs, const uint64_t input_amounts[], int n_outputs, const uint64_t output_amounts[], bool last_is_fee)
@@ -1206,14 +1206,14 @@ TEST(ringct, key_ostream)
 TEST(ringct, zeroCommmit)
 {
   static const uint64_t amount = crypto::rand<uint64_t>();
-  const rct::key z = rct::zeroCommit(amount);
+  const rct::key z = rct::zeroCommitVartime(amount);
   const rct::key a = rct::scalarmultBase(rct::identity());
   const rct::key b = rct::scalarmultH(rct::d2h(amount));
   const rct::key manual = rct::addKeys(a, b);
   ASSERT_EQ(z, manual);
 }
 
-static rct::key uncachedZeroCommit(uint64_t amount)
+static rct::key uncachedZeroCommitVartime(uint64_t amount)
 {
   const rct::key am = rct::d2h(amount);
   const rct::key bH = rct::scalarmultH(am);
@@ -1222,14 +1222,14 @@ static rct::key uncachedZeroCommit(uint64_t amount)
 
 TEST(ringct, zeroCommitCache)
 {
-  ASSERT_EQ(rct::zeroCommit(0), uncachedZeroCommit(0));
-  ASSERT_EQ(rct::zeroCommit(1), uncachedZeroCommit(1));
-  ASSERT_EQ(rct::zeroCommit(2), uncachedZeroCommit(2));
-  ASSERT_EQ(rct::zeroCommit(10), uncachedZeroCommit(10));
-  ASSERT_EQ(rct::zeroCommit(200), uncachedZeroCommit(200));
-  ASSERT_EQ(rct::zeroCommit(1000000000), uncachedZeroCommit(1000000000));
-  ASSERT_EQ(rct::zeroCommit(3000000000000), uncachedZeroCommit(3000000000000));
-  ASSERT_EQ(rct::zeroCommit(900000000000000), uncachedZeroCommit(900000000000000));
+  ASSERT_EQ(rct::zeroCommitVartime(0), uncachedZeroCommitVartime(0));
+  ASSERT_EQ(rct::zeroCommitVartime(1), uncachedZeroCommitVartime(1));
+  ASSERT_EQ(rct::zeroCommitVartime(2), uncachedZeroCommitVartime(2));
+  ASSERT_EQ(rct::zeroCommitVartime(10), uncachedZeroCommitVartime(10));
+  ASSERT_EQ(rct::zeroCommitVartime(200), uncachedZeroCommitVartime(200));
+  ASSERT_EQ(rct::zeroCommitVartime(1000000000), uncachedZeroCommitVartime(1000000000));
+  ASSERT_EQ(rct::zeroCommitVartime(3000000000000), uncachedZeroCommitVartime(3000000000000));
+  ASSERT_EQ(rct::zeroCommitVartime(900000000000000), uncachedZeroCommitVartime(900000000000000));
 }
 
 TEST(ringct, H)

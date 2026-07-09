@@ -42,9 +42,7 @@
 #include "mlocker.h"
 #include "generic-ops.h"
 #include "hex.h"
-#include "span.h"
 #include "hash.h"
-#include "serialization/wire/traits.h"
 
 namespace crypto {
 
@@ -322,6 +320,9 @@ namespace crypto {
   inline std::ostream &operator <<(std::ostream &o, const crypto::view_tag &v) {
     epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
+  inline std::ostream &operator <<(std::ostream &o, const crypto::ec_point &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
 
   const extern crypto::public_key null_pkey;
   const extern crypto::secret_key null_skey;
@@ -338,21 +339,11 @@ inline const unsigned char* to_bytes(const crypto::ec_scalar &scalar) { return &
 inline unsigned char* to_bytes(crypto::ec_point &point) { return &reinterpret_cast<unsigned char&>(point); }
 inline const unsigned char* to_bytes(const crypto::ec_point &point) { return &reinterpret_cast<const unsigned char&>(point); }
 
+CRYPTO_MAKE_HASHABLE(ec_point)
 CRYPTO_MAKE_HASHABLE(public_key)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(secret_key)
 CRYPTO_MAKE_HASHABLE_CONSTANT_TIME(public_key_memsafe)
 CRYPTO_MAKE_HASHABLE(key_image)
 CRYPTO_MAKE_COMPARABLE(signature)
 CRYPTO_MAKE_COMPARABLE(view_tag)
-
-namespace wire
-{
-  WIRE_DECLARE_BLOB_NS(crypto::ec_point);
-  WIRE_DECLARE_BLOB_NS(crypto::ec_scalar);
-  WIRE_DECLARE_BLOB_NS(crypto::public_key);
-  WIRE_DECLARE_BLOB_NS(crypto::key_derivation);
-  WIRE_DECLARE_BLOB_NS(crypto::key_image);
-  WIRE_DECLARE_BLOB_NS(crypto::signature);
-  WIRE_DECLARE_BLOB_NS(crypto::view_tag);
-}
 

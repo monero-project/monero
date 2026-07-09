@@ -29,6 +29,7 @@
 #include "message_data_structs.h"
 
 #include "cryptonote_config.h"
+#include "crypto/wire.h"
 #include "serialization/wire.h"
 #include "serialization/wire/adapted/vector.h"
 #include "serialization/wire/wrapper/array.h"

@@ -40,10 +40,6 @@
 	#define OUT
 #endif
 
-#ifdef WINDOWS_PLATFORM
-#pragma comment (lib, "Rpcrt4.lib")
-#endif
-
 namespace epee
 {
 namespace string_tools

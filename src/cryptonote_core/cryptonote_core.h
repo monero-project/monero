@@ -317,35 +317,6 @@ namespace cryptonote
      bool deinit();
 
      /**
-      * @brief sets to drop blocks downloaded (for testing)
-      */
-     void test_drop_download();
-
-     /**
-      * @brief sets to drop blocks downloaded below a certain height
-      *
-      * @param height height below which to drop blocks
-      */
-     void test_drop_download_height(uint64_t height);
-
-     /**
-      * @brief gets whether or not to drop blocks (for testing)
-      *
-      * @return whether or not to drop blocks
-      */
-     bool get_test_drop_download() const;
-
-     /**
-      * @brief gets whether or not to drop blocks
-      *
-      * If the current blockchain height <= our block drop threshold
-      * and test drop blocks is set, return true
-      *
-      * @return see above
-      */
-     bool get_test_drop_download_height() const;
-
-     /**
       * @copydoc Blockchain::get_current_blockchain_height
       *
       * @note see Blockchain::get_current_blockchain_height()
@@ -479,7 +450,7 @@ namespace cryptonote
      /**
       * @brief set whether or not to enable or disable DNS checkpoints
       *
-      * @param disble whether to disable DNS checkpoints
+      * @param disable whether to disable DNS checkpoints
       */
      void disable_dns_checkpoints(bool disable = true) { m_disable_dns_checkpoints = disable; }
 
@@ -520,7 +491,7 @@ namespace cryptonote
       *
       * @note see tx_memory_pool::get_pool_transactions_info
       */
-     bool get_pool_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& txs, bool include_sensitive_txes = false) const;
+     bool get_pool_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& txs, bool include_sensitive_txes = false, size_t limit_size = 0) const;
 
      /**
       * @copydoc tx_memory_pool::get_pool_info
@@ -529,7 +500,7 @@ namespace cryptonote
       *
       * @note see tx_memory_pool::get_pool_info
       */
-     bool get_pool_info(time_t start_time, bool include_sensitive_txes, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const;
+     bool get_pool_info(time_t start_time, bool include_sensitive_txes, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t limit_size = 0) const;
 
     /**
       * @copydoc tx_memory_pool::get_transactions
@@ -556,10 +527,11 @@ namespace cryptonote
 
      /**
       * @copydoc tx_memory_pool::get_pool_for_rpc
+      * @param include_sensitive include node-private fields (timing)
       *
       * @note see tx_memory_pool::get_pool_for_rpc
       */
-     bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const;
+     bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos, bool include_sensitive) const;
 
      /**
       * @copydoc tx_memory_pool::get_transactions_count
@@ -603,7 +575,7 @@ namespace cryptonote
       *
       * @note see Blockchain::find_blockchain_supplement(const uint64_t, const std::list<crypto::hash>&, std::vector<std::pair<cryptonote::blobdata, std::vector<transaction> > >&, uint64_t&, uint64_t&, size_t) const
       */
-     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, const bool qblock_ids_exclusive, size_t max_block_count, size_t max_tx_count) const;
+     bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, const bool qblock_ids_exclusive, size_t max_block_count, size_t max_tx_count) const;
 
      /**
       * @copydoc Blockchain::get_tx_outputs_gindexs
@@ -1063,15 +1035,11 @@ namespace cryptonote
      bool check_block_rate();
 
      /**
-      * @brief recalculate difficulties after the last difficulty checklpoint to circumvent the annoying 'difficulty drift' bug
+      * @brief recalculate difficulties after the last difficulty checkpoint to circumvent the annoying 'difficulty drift' bug
       *
       * @return true
       */
      bool recalculate_difficulties();
-
-     bool m_test_drop_download = true; //!< whether or not to drop incoming blocks (for testing)
-
-     uint64_t m_test_drop_download_height = 0; //!< height under which to drop incoming blocks, if doing so
 
      BlockchainAndPool m_bap; //! Contains owned instances of Blockchain and tx_memory_pool
      tx_memory_pool& m_mempool; //!< ref to transaction pool instance in m_bap
@@ -1081,7 +1049,7 @@ namespace cryptonote
 
      epee::critical_section m_incoming_tx_lock; //!< incoming transaction lock
 
-     //m_miner and m_miner_addres are probably temporary here
+     //m_miner and m_miner_address are probably temporary here
      miner m_miner; //!< miner instance
 
      std::string m_config_folder; //!< folder to look in for configs and other files

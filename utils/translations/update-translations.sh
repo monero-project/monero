@@ -12,5 +12,5 @@ then
 fi
 
 echo "using $lupdate"
-"$lupdate" `find src -name \*.cpp` -ts translations/*.ts -no-obsolete
+"$lupdate" `find src -name \*.cpp` -ts translations/*.ts -no-obsolete -locations none
 

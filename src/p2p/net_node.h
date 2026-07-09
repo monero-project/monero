@@ -98,7 +98,7 @@ namespace nodetool
   boost::optional<std::vector<proxy>> get_proxies(const boost::program_options::variables_map& vm);
   boost::optional<std::vector<anonymous_inbound>> get_anonymous_inbounds(const boost::program_options::variables_map& vm);
 
-  //! \return True if `commnd` is filtered (ignored/dropped) for `address`
+  //! \return True if `command` is filtered (ignored/dropped) for `address`
   bool is_filtered_command(epee::net_utils::network_address const& address, int command);
 
   // hides boost::future and chrono stuff from mondo template file
@@ -449,6 +449,7 @@ namespace nodetool
     bool m_use_ipv6;
     bool m_require_ipv4;
     std::atomic<bool> is_closing;
+    std::atomic<bool> m_stop_signal_sent_once{false};
     std::unique_ptr<boost::thread> mPeersLoggerThread;
     //critical_section m_connections_lock;
     //connections_indexed_container m_connections;

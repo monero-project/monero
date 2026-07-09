@@ -1,4 +1,3 @@
-//#define DBG
 // Copyright (c) 2016-2026, Monero Research Labs
 //
 // Author: Shen Noether <shen.noether@gmx.com>
@@ -99,7 +98,7 @@ namespace rct {
     // make a pedersen commitment with given key
     key commit(xmr_amount amount, const key &mask);
     // make a pedersen commitment with zero key
-    key zeroCommit(xmr_amount amount);
+    key zeroCommitVartime(xmr_amount amount);
     //generates a random uint long long
     xmr_amount randXmrAmount(xmr_amount upperlimit);
 
@@ -173,7 +172,7 @@ namespace rct {
     //sums a vector of curve points (for scalars use sc_add)
     void sumKeys(key & Csum, const key &Cis);
 
-    //Elliptic Curve Diffie Helman: encodes and decodes the amount b and mask a
+    //Elliptic Curve Diffie-Hellman: encodes and decodes the amount b and mask a
     // where C= aG + bH
     key genAmountEncodingFactor(const key &k);
     key genCommitmentMask(const key &sk);

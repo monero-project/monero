@@ -581,7 +581,8 @@ namespace cryptonote
 
       if ((b.major_version >= RX_BLOCK_VERSION) && !rx_set)
       {
-        crypto::rx_set_miner_thread(th_local_index, tools::get_max_concurrency());
+        // Must be non-zero value because 0 means "not a miner thread, run with secure JIT" in rx-slow-hash.c
+        crypto::rx_set_miner_thread(th_local_index + 1, tools::get_max_concurrency());
         rx_set = true;
       }
 
@@ -711,7 +712,7 @@ namespace cryptonote
         // this should take care of the case where mining is started with bg-enabled, 
         // and then the user decides to un-check background mining, and just do
         // regular full-speed mining. I might just be over-doing it and thinking up 
-        // non-existant use-cases, so if the consensus is to simplify, we can remove all this fluff.
+        // non-existent use-cases, so if the consensus is to simplify, we can remove all this fluff.
         /*
         while( !m_is_background_mining_enabled )
         {

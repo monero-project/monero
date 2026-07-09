@@ -90,11 +90,11 @@ function run_valgrind_4_executable {
 	FILE_OUT_TOOL="${5}"
 	FILE_OUT_BASE=$(get_tool_out_file_base ${EXE} ${TOOL})
 
-	echo "Runnig '${TOOL}' for '${EXE}' with args '${ARGS}'"
+	echo "Running '${TOOL}' for '${EXE}' with args '${ARGS}'"
 	echo "EXTRA_OPTS = ${EXTRA_OPTS}"
 	echo "FILE_OUT_TOOL = ${FILE_OUT_TOOL}"
 	if ! valgrind --tool=${TOOL} ${FILE_OUT_TOOL} --log-file="${FILE_OUT_BASE}.log" ${EXTRA_OPTS} ${EXE} ${ARGS}; then
-		echo "FAILED in runnig ${TOOL} for ${EXE} !"
+		echo "FAILED in running ${TOOL} for ${EXE} !"
 	fi
 }
 

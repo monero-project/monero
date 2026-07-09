@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -37,7 +37,6 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_basic/difficulty.h"
 #include "cryptonote_basic/hardfork.h"
-#include "rpc/rpc_payment_signature.h"
 #include "rpc/rpc_version_str.h"
 #include <boost/format.hpp>
 #include <ctime>
@@ -655,7 +654,7 @@ bool t_rpc_command_executor::print_connections() {
       << std::setw(20) << "Support Flags"      
       << std::setw(30) << "Recv/Sent (inactive,sec)"
       << std::setw(25) << "State"
-      << std::setw(20) << "Livetime(sec)"
+      << std::setw(20) << "Lifetime(sec)"
       << std::setw(12) << "Down (kB/s)"
       << std::setw(14) << "Down(now)"
       << std::setw(10) << "Up (kB/s)" 
@@ -2036,7 +2035,7 @@ bool t_rpc_command_executor::alt_chain_info(const std::string &tip, size_t above
         if (start_difficulty > 0)
           tools::msg_writer() << "Approximated " << 100.f * DIFFICULTY_TARGET_V2 * chain.length / dt << "% of network hash rate";
         else
-          tools::fail_msg_writer() << "Bad cmumulative difficulty reported by dameon";
+          tools::fail_msg_writer() << "Bad cumulative difficulty reported by daemon";
       }
     }
     else
@@ -2311,13 +2310,14 @@ bool t_rpc_command_executor::sync_info()
     return true;
 }
 
-bool t_rpc_command_executor::pop_blocks(uint64_t num_blocks)
+bool t_rpc_command_executor::pop_blocks(uint64_t num_blocks, bool keep_txs)
 {
   cryptonote::COMMAND_RPC_POP_BLOCKS::request req;
   cryptonote::COMMAND_RPC_POP_BLOCKS::response res;
   std::string fail_message = "pop_blocks failed";
 
   req.nblocks = num_blocks;
+  req.keep_txs = keep_txs;
   if (m_is_rpc)
   {
     if (!m_rpc_client->rpc_request(req, res, "/pop_blocks", fail_message.c_str()))
@@ -2465,47 +2465,6 @@ bool t_rpc_command_executor::flush_cache(bool bad_blocks)
             return true;
         }
     }
-
-    return true;
-}
-
-bool t_rpc_command_executor::rpc_payments()
-{
-    cryptonote::COMMAND_RPC_ACCESS_DATA::request req;
-    cryptonote::COMMAND_RPC_ACCESS_DATA::response res;
-    std::string fail_message = "Unsuccessful";
-    epee::json_rpc::error error_resp;
-
-    if (m_is_rpc)
-    {
-        if (!m_rpc_client->json_rpc_request(req, res, "rpc_access_data", fail_message.c_str()))
-        {
-            return true;
-        }
-    }
-    else
-    {
-        if (!m_rpc_server->on_rpc_access_data(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
-        {
-            tools::fail_msg_writer() << make_error(fail_message, res.status);
-            return true;
-        }
-    }
-
-    const uint64_t now = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    uint64_t balance = 0;
-    tools::msg_writer() << boost::format("%64s %16u %16u %8u %8u %8u %8u %s")
-        % "Client ID" % "Balance" % "Total mined" % "Good" % "Stale" % "Bad" % "Dupes" % "Last update";
-    for (const auto &entry: res.entries)
-    {
-      tools::msg_writer() << boost::format("%64s %16u %16u %8u %8u %8u %8u %s")
-          % entry.client % entry.balance % entry.credits_total
-          % entry.nonces_good % entry.nonces_stale % entry.nonces_bad % entry.nonces_dupe
-          % (entry.last_update_time == 0 ? "never" : get_human_time_ago(entry.last_update_time, now).c_str());
-      balance += entry.balance;
-    }
-    tools::msg_writer() << res.entries.size() << " clients with a total of " << balance << " credits";
-    tools::msg_writer() << "Aggregated client hash rate: " << get_mining_speed(res.hashrate);
 
     return true;
 }

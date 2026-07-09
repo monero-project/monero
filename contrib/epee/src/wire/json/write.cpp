@@ -108,7 +108,7 @@ namespace wire
     check_flush();
   }
 
-  void json_writer::string(const boost::string_ref source)
+  void json_writer::string(const std::string_view source)
   {
     formatter_.String(source.data(), source.size());
     check_flush();
@@ -132,7 +132,7 @@ namespace wire
   {
     formatter_.StartObject();
   }
-  void json_writer::key(const boost::string_ref str)
+  void json_writer::key(const std::string_view str)
   {
     formatter_.Key(str.data(), str.size());
     check_flush();

@@ -550,32 +550,34 @@ public:
         {
           if(m_cache_in_buffer.size() < sizeof(bucket_head2))
           {
-            if(m_cache_in_buffer.size() >= sizeof(uint64_t) && *((uint64_t*)m_cache_in_buffer.span(8).data()) != SWAP64LE(LEVIN_SIGNATURE))
+            if(m_cache_in_buffer.size() >= sizeof(uint64_t))
             {
-              MWARNING(m_connection_context << "Signature mismatch, connection will be closed");
-              return false;
+              std::uint64_t levin_sig;
+              memcpy(&levin_sig, m_cache_in_buffer.span(sizeof(std::uint64_t)).data(), sizeof(std::uint64_t));
+              if (SWAP64LE(LEVIN_SIGNATURE) != levin_sig)
+              {
+                MWARNING(m_connection_context << "Signature mismatch, connection will be closed");
+                return false;
+              }
             }
             is_continue = false;
             break;
           }
 
-#if BYTE_ORDER == LITTLE_ENDIAN
-          bucket_head2& phead = *(bucket_head2*)m_cache_in_buffer.span(sizeof(bucket_head2)).data();
-#else
-          bucket_head2 phead = *(bucket_head2*)m_cache_in_buffer.span(sizeof(bucket_head2)).data();
-          phead.m_signature = SWAP64LE(phead.m_signature);
-          phead.m_cb = SWAP64LE(phead.m_cb);
-          phead.m_command = SWAP32LE(phead.m_command);
-          phead.m_return_code = SWAP32LE(phead.m_return_code);
-          phead.m_flags = SWAP32LE(phead.m_flags);
-          phead.m_protocol_version = SWAP32LE(phead.m_protocol_version);
+          memcpy(&m_current_head, m_cache_in_buffer.span(sizeof(bucket_head2)).data(), sizeof(bucket_head2));
+#if BYTE_ORDER != LITTLE_ENDIAN
+          m_current_head.m_signature = SWAP64LE(m_current_head.m_signature);
+          m_current_head.m_cb = SWAP64LE(m_current_head.m_cb);
+          m_current_head.m_command = SWAP32LE(m_current_head.m_command);
+          m_current_head.m_return_code = SWAP32LE(m_current_head.m_return_code);
+          m_current_head.m_flags = SWAP32LE(m_current_head.m_flags);
+          m_current_head.m_protocol_version = SWAP32LE(m_current_head.m_protocol_version);
 #endif
-          if(LEVIN_SIGNATURE != phead.m_signature)
+          if(LEVIN_SIGNATURE != m_current_head.m_signature)
           {
             LOG_ERROR_CC(m_connection_context, "Signature mismatch, connection will be closed");
             return false;
           }
-          m_current_head = phead;
 
           m_cache_in_buffer.erase(sizeof(bucket_head2));
           m_state = stream_state_body;

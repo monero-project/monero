@@ -135,16 +135,6 @@ namespace cryptonote
     "sync-pruned-blocks"
   , "Allow syncing from nodes with only pruned blocks"
   };
-
-  static const command_line::arg_descriptor<bool> arg_test_drop_download = {
-    "test-drop-download"
-  , "For net tests: in download, discard ALL blocks instead checking/saving them (very fast)"
-  };
-  static const command_line::arg_descriptor<uint64_t> arg_test_drop_download_height = {
-    "test-drop-download-height"
-  , "Like test-drop-download but discards only after around certain height"
-  , 0
-  };
   static const command_line::arg_descriptor<int> arg_test_dbg_lock_sleep = {
     "test-dbg-lock-sleep"
   , "Sleep time in ms, defaults to 0 (off), used to debug before/after locking mutex. Values 100 to 1000 are good for tests."
@@ -322,9 +312,6 @@ namespace cryptonote
   {
     command_line::add_arg(desc, arg_data_dir);
 
-    command_line::add_arg(desc, arg_test_drop_download);
-    command_line::add_arg(desc, arg_test_drop_download_height);
-
     command_line::add_arg(desc, arg_testnet_on);
     command_line::add_arg(desc, arg_stagenet_on);
     command_line::add_arg(desc, arg_regtest_on);
@@ -392,12 +379,8 @@ namespace cryptonote
 
 
     set_enforce_dns_checkpoints(command_line::get_arg(vm, arg_dns_checkpoints));
-    test_drop_download_height(command_line::get_arg(vm, arg_test_drop_download_height));
     m_offline = get_arg(vm, arg_offline);
     m_disable_dns_checkpoints = get_arg(vm, arg_disable_dns_checkpoints);
-
-    if (command_line::get_arg(vm, arg_test_drop_download) == true)
-      test_drop_download();
 
     epee::debug::g_test_dbg_lock_sleep() = command_line::get_arg(vm, arg_test_dbg_lock_sleep);
 
@@ -793,32 +776,6 @@ namespace cryptonote
     m_mempool.deinit();
     m_blockchain_storage.deinit();
     return true;
-  }
-  //-----------------------------------------------------------------------------------------------
-  void core::test_drop_download()
-  {
-    m_test_drop_download = false;
-  }
-  //-----------------------------------------------------------------------------------------------
-  void core::test_drop_download_height(uint64_t height)
-  {
-    m_test_drop_download_height = height;
-  }
-  //-----------------------------------------------------------------------------------------------
-  bool core::get_test_drop_download() const
-  {
-    return m_test_drop_download;
-  }
-  //-----------------------------------------------------------------------------------------------
-  bool core::get_test_drop_download_height() const
-  {
-    if (m_test_drop_download_height == 0)
-      return true;
-
-    if (get_blockchain_storage().get_current_blockchain_height() <= m_test_drop_download_height)
-      return true;
-
-    return false;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed)
@@ -1288,7 +1245,7 @@ namespace cryptonote
     return m_blockchain_storage.find_blockchain_supplement(qblock_ids, clip_pruned, resp);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, const bool qblock_ids_exclusive, size_t max_block_count, size_t max_tx_count) const
+  bool core::find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, const bool qblock_ids_exclusive, size_t max_block_count, size_t max_tx_count) const
   {
     return m_blockchain_storage.find_blockchain_supplement(req_start_block, qblock_ids, blocks, total_height, top_hash, start_height, pruned, get_miner_tx_hash, qblock_ids_exclusive, max_block_count, max_tx_count);
   }
@@ -1503,7 +1460,7 @@ namespace cryptonote
     // saving each block, then it doesn't matter either way: cleanup_handle_incoming_blocks()
     // always triggers a sync.
     size_t block_total_bytes = block_blob.size();
-    for (const auto &t : extra_block_txs.txs_by_txid)
+    for (const auto &t : extra_block_txs)
       block_total_bytes += t.second.second.size();
 
     CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
@@ -1563,9 +1520,9 @@ namespace cryptonote
     return m_blockchain_storage.have_block(id, where);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& txs, bool include_sensitive_txes) const
+  bool core::get_pool_transactions_info(const std::vector<crypto::hash>& txids, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& txs, bool include_sensitive_txes, size_t limit_size) const
   {
-    return m_mempool.get_transactions_info(txids, txs, include_sensitive_txes);
+    return m_mempool.get_transactions_info(epee::to_span(txids), txs, include_sensitive_txes, limit_size);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_pool_transactions(std::vector<transaction>& txs, bool include_sensitive_data) const
@@ -1580,9 +1537,9 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_info(time_t start_time, bool include_sensitive_txes, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const
+  bool core::get_pool_info(time_t start_time, bool include_sensitive_txes, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t limit_size) const
   {
-    return m_mempool.get_pool_info(start_time, include_sensitive_txes, max_tx_count, added_txs, remaining_added_txids, removed_txs, incremental);
+    return m_mempool.get_pool_info(start_time, include_sensitive_txes, max_tx_count, added_txs, remaining_added_txids, removed_txs, incremental, limit_size);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_pool_transaction_stats(struct txpool_stats& stats, bool include_sensitive_data) const
@@ -1606,9 +1563,9 @@ namespace cryptonote
     return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos, include_sensitive_data);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const
+  bool core::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos, bool include_sensitive) const
   {
-    return m_mempool.get_pool_for_rpc(tx_infos, key_image_infos);
+    return m_mempool.get_pool_for_rpc(tx_infos, key_image_infos, include_sensitive);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t& current_height) const

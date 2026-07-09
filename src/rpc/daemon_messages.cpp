@@ -28,6 +28,7 @@
 
 #include "daemon_messages.h"
 #include "cryptonote_config.h"
+#include "crypto/wire.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "serialization/wire.h"
 #include "serialization/wire/adapted/list.h"

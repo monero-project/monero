@@ -37,7 +37,6 @@
 #include "common/pod-class.h"
 #include "generic-ops.h"
 #include "hex.h"
-#include "serialization/wire/traits.h"
 #include "span.h"
 
 namespace crypto {
@@ -110,8 +109,3 @@ namespace crypto {
 CRYPTO_MAKE_HASHABLE(hash)
 CRYPTO_MAKE_COMPARABLE(hash8)
 
-namespace wire
-{
-  WIRE_DECLARE_BLOB_NS(crypto::hash);
-  WIRE_DECLARE_BLOB_NS(crypto::hash8);
-}

@@ -160,7 +160,7 @@ constexpr const std::chrono::milliseconds LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED{0}
     byte_stream buffer;
   };
 
-  //! \return Intialized levin header.
+  //! \return Initialized levin header.
   bucket_head2 make_header(uint32_t command, uint64_t msg_size, uint32_t flags, bool expect_response) noexcept;
 
   /*! Generate a dummy levin message.

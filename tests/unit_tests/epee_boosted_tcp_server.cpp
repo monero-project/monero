@@ -108,7 +108,7 @@ TEST(boosted_tcp_server, worker_threads_are_exception_resistant)
     }
   };
 
-  // 2 theads, but 4 exceptions
+  // 2 threads, but 4 exceptions
   ASSERT_TRUE(srv.run_server(2, false));
   ASSERT_TRUE(srv.async_call([&counter_incrementer]() { counter_incrementer(); throw std::runtime_error("test 1"); }));
   ASSERT_TRUE(srv.async_call([&counter_incrementer]() { counter_incrementer(); throw std::string("test 2"); }));
@@ -731,6 +731,16 @@ TEST(boosted_tcp_server, shutdown)
     epee::simple_event handshake_received;
   };
 
+  struct command_handler_t: epee::levin::levin_commands_handler<context_t> {
+    virtual int invoke(int, const epee::span<const uint8_t>, epee::byte_stream&, context_t&) override { return {}; }
+    virtual int notify(int, const epee::span<const uint8_t>, context_t&) override { return {}; }
+    virtual void callback(context_t&) override {}
+    virtual void on_connection_new(context_t&) override {}
+    virtual void on_connection_close(context_t&) override { }
+    virtual ~command_handler_t() override {}
+    static void destroy(epee::levin::levin_commands_handler<context_t>* ptr) { delete ptr; }
+  };
+
   struct handler_t : epee::levin::async_protocol_handler<context_t> {
     using config_type = config_t;
     using connection_context = context_t;
@@ -759,6 +769,7 @@ TEST(boosted_tcp_server, shutdown)
     true,
     epee::net_utils::ssl_support_t::e_ssl_support_disabled
   );
+  server.get_config_shared()->set_handler(new command_handler_t, &command_handler_t::destroy);
 
   // Run the server in a thread and wait for it to start
   MINFO("Starting the server");
@@ -805,14 +816,11 @@ TEST(boosted_tcp_server, shutdown)
     server.get_config_object().handshake_received.wait();
   }
 
-  // Now stop the server, providing the callback necessary to wait for all connections to shutdown
-  const auto close_all_connections = [&]()
-  {
-    server.get_config_object().close(context.m_connection_id, true/*wait_for_shutdown*/);
-  };
-
   MINFO("Stopping the server");
-  server.send_stop_signal(close_all_connections);
+  server.mark_stop_signal_sent();
+  server.close_server_connections();
+  server.get_config_object().close(context.m_connection_id, true/*wait_for_shutdown*/);
+  server.stop_io_context();
   running_server.join();
 
   MINFO("Waiting for handshake to cancel");

@@ -547,7 +547,7 @@ namespace rct
         // This offset is applied to other group elements as well;
         //  it allows us to apply a multiply-by-8 operation in the verifier efficiently
         //  to ensure that the resulting group elements are in the prime-order point subgroup
-        //  and avoid much more constly multiply-by-group-order operations.
+        //  and avoid much more costly multiply-by-group-order operations.
         for (size_t i = 0; i < sv.size(); ++i)
         {
             rct::key gamma8, sv8;

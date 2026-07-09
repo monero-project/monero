@@ -1,5 +1,4 @@
 // Copyright (c) 2018-2024, The Monero Project
-
 //
 // All rights reserved.
 //
@@ -68,6 +67,8 @@ namespace
                 return "Invalid/unsupported scheme was provided";
             case net::error::invalid_tor_address:
                 return "Invalid Tor address";
+            case net::error::legacy_tor_address:
+                return "Unsupported Tor address version";
             case net::error::unexpected_userinfo:
                 return "User or pass was provided unexpectedly";
             case net::error::unsupported_address:
@@ -88,6 +89,7 @@ namespace
                 return std::errc::result_out_of_range;
             case net::error::expected_tld:
             case net::error::invalid_tor_address:
+            case net::error::legacy_tor_address:
             default:
                 break;
             }

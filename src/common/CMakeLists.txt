@@ -61,8 +61,12 @@ monero_private_headers(common
 monero_add_library(common
   ${common_sources}
   ${common_headers}
-  ${common_private_headers}
-  DEPENDS generate_translations_header)
+  ${common_private_headers})
+
+if(BUILD_TRANSLATIONS)
+  add_dependencies(obj_common generate_translations_header)
+endif()
+
 target_link_libraries(common
   PUBLIC
     cncrypto

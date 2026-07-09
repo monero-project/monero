@@ -106,28 +106,9 @@ inline void get(std::istream &input, std::vector<char> &res) {
   }
 }
 
-#if !defined(_MSC_VER) || _MSC_VER >= 1800
-
 template<typename T, typename... TT>
 typename std::enable_if<(sizeof...(TT) > 0), void>::type
 get(std::istream &input, T &res, TT &... resres) {
   get(input, res);
   get(input, resres...);
 }
-
-#else
-#include <boost/preprocessor/cat.hpp>
-#include <boost/preprocessor/repetition/enum_binary_params.hpp>
-#include <boost/preprocessor/repetition/enum_params.hpp>
-#include <boost/preprocessor/repetition/repeat.hpp>
-#include <boost/preprocessor/repetition/repeat_from_to.hpp>
-
-#define NESTED_GET(z, n, data) get(input, BOOST_PP_CAT(res, n));
-#define GET(z, n, data) \
-template<BOOST_PP_ENUM_PARAMS(n, typename T)> \
-void get(std::istream &input, BOOST_PP_ENUM_BINARY_PARAMS(n, T, &res)) { \
-  BOOST_PP_REPEAT(n, NESTED_GET, ~) \
-}
-BOOST_PP_REPEAT_FROM_TO(2, 5, GET, ~)
-
-#endif

@@ -1,5 +1,4 @@
 // Copyright (c) 2018-2024, The Monero Project
-
 //
 // All rights reserved.
 //
@@ -208,7 +207,7 @@ namespace mms
     END_SERIALIZE()
   };
 
-  // Overal .mms file structure, with the "message_store" object serialized to and
+  // Overall .mms file structure, with the "message_store" object serialized to and
   // encrypted in "encrypted_data"
   struct file_data
   {

@@ -153,7 +153,7 @@ namespace epee
       put_unsafe(ch);
     }
 
-    /*! Copy `ch` to end of stream. Provides rapidjson compatability.
+    /*! Copy `ch` to end of stream. Provides rapidjson compatibility.
         \throw std::range_error if exceeding max `size_t` value.
         \throw std::bad_alloc if allocation fails. */
     void Put(const std::uint8_t ch)
@@ -194,21 +194,21 @@ namespace epee
     byte_buffer take_buffer() noexcept;
   };
 
-  //! Compatability/optimization for rapidjson.
+  //! Compatibility/optimization for rapidjson.
 
   inline void PutReserve(byte_stream& dest, const std::size_t length)
   {
     dest.reserve(length);
   }
 
-  //! Compatability/optimization for rapidjson.
+  //! Compatibility/optimization for rapidjson.
 
   inline void PutUnsafe(byte_stream& dest, const std::uint8_t ch)
   {
     dest.put_unsafe(ch);
   }
 
-  //! Compability/optimization for rapidjson.
+  //! Compatibility/optimization for rapidjson.
   inline void PutN(byte_stream& dest, const std::uint8_t ch, const std::size_t count)
   {
     dest.put_n(ch, count);

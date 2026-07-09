@@ -28,6 +28,9 @@
 
 #include "message.h"
 
+#include <string_view>
+
+#include "crypto/wire.h"
 #include "serialization/wire.h"
 #include "serialization/wire/basic_value.h"
 #include "serialization/wire/json.h"
@@ -52,8 +55,8 @@ constexpr const char json_rpc_version[] = "2.0";
 struct json_rpc_request
 {
   unsigned id;
-  boost::string_ref jsonrpc;
-  boost::string_ref method;
+  std::string_view jsonrpc;
+  std::string_view method;
   const Message& params;
 
   WIRE_DEFINE_CONVERSIONS()
@@ -81,9 +84,9 @@ struct json_rpc_error
 struct json_rpc_response
 {
   const wire::basic_value& id;
-  boost::string_ref jsonrpc;
-  boost::optional<const Message&> result;
-  boost::optional<json_rpc_error> error;
+  std::string_view jsonrpc;
+  const Message* result;
+  std::optional<json_rpc_error> error;
 
   WIRE_DEFINE_CONVERSIONS()
   WIRE_BEGIN_MAP(),
@@ -100,6 +103,7 @@ void default_message_map(F& format, T& self)
   wire::object(format, WIRE_FIELD(rpc_version));
 }
 }
+
 
 void Message::write_bytes(wire::writer& dest) const
 {
@@ -125,10 +129,10 @@ expect<epee::byte_slice> getJsonRequest(const std::string& request, const Messag
 
 expect<epee::byte_slice> getJsonResponse(const Message& message, const wire::basic_value& id)
 {
-  json_rpc_response response{id, json_rpc_version};
+  json_rpc_response response{id, json_rpc_version, nullptr};
 
   if (message.status == Message::STATUS_OK)
-    response.result.emplace(message);
+    response.result = std::addressof(message);
   else
   {
     response.error.emplace();

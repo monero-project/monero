@@ -49,7 +49,7 @@ namespace crypto { \
 #define CRYPTO_MAKE_COMPARABLE_CONSTANT_TIME(type) \
 namespace crypto { \
   inline bool operator==(const type &_v1, const type &_v2) { \
-    static_assert(sizeof(_v1) == 32, "constant time comparison is only implenmted for 32 bytes"); \
+    static_assert(sizeof(_v1) == 32, "constant time comparison is only implemented for 32 bytes"); \
     return crypto_verify_32((const unsigned char*)&_v1, (const unsigned char*)&_v2) == 0; \
   } \
   inline bool operator!=(const type &_v1, const type &_v2) { \

@@ -28,6 +28,7 @@
 
 #pragma once 
 
+#include <cstdint>
 #include <string>
 #include <memory>
 #include <functional>
@@ -36,6 +37,12 @@ namespace tools
 {
   struct download_thread_control;
   typedef std::shared_ptr<download_thread_control> download_async_handle;
+
+  inline bool content_range_starts_at(const std::string &content_range, uint64_t offset)
+  {
+    const std::string prefix = "bytes " + std::to_string(offset) + "-";
+    return content_range.compare(0, prefix.size(), prefix) == 0;
+  }
 
   bool download(const std::string &path, const std::string &url, std::function<bool(const std::string&, const std::string&, size_t, ssize_t)> progress = NULL);
   download_async_handle download_async(const std::string &path, const std::string &url, std::function<void(const std::string&, const std::string&, bool)> result, std::function<bool(const std::string&, const std::string&, size_t, ssize_t)> progress = NULL);

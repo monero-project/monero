@@ -1,5 +1,5 @@
 // Copyright (c) 2018-2024, The Monero Project
-
+//
 // All rights reserved.
 //
 // Redistribution and use in source and binary forms, with or without modification, are
@@ -69,7 +69,7 @@ namespace lmdb
         Get the native type for enums, or return `T` unchanged. Useful for
         merging generated machine code for templated functions that use enums
         with identical size-widths without relying on aggressive identical
-        comdat folding (ICF) support in linker. So with enum defintion
+        comdat folding (ICF) support in linker. So with enum definition
         `enum class enum_foo : unsigned long {};` will always yield
         `assert(&func_foo<unsigned long> == &func_foo<native_type<enum_foo>>)`.
     */

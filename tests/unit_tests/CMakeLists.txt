@@ -47,6 +47,7 @@ set(unit_tests_sources
   device.cpp
   difficulty.cpp
   dns_resolver.cpp
+  download.cpp
   epee_boosted_tcp_server.cpp
   epee_levin_protocol_handler_async.cpp
   epee_http_server.cpp
@@ -120,15 +121,15 @@ target_link_libraries(unit_tests
     cryptonote_core
     daemon_messages
     daemon_rpc_server
-    epee_wire_epee
     blockchain_db
+    fcmp_pp
     lmdb_lib
     rpc
     net
-    seraphis_crypto
     wallet
     p2p
     version
+    wire-epee
     ${Boost_CHRONO_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${GTEST_LIBRARIES}
@@ -143,8 +144,6 @@ set_property(TARGET unit_tests
   APPEND_STRING
   PROPERTY
     COMPILE_FLAGS " -Wno-undef -Wno-sign-compare")
-
-SET_PROPERTY(SOURCE memwipe.cpp PROPERTY COMPILE_FLAGS -Ofast)
 
 add_test(
   NAME    unit_tests

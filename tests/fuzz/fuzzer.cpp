@@ -35,8 +35,8 @@
 
 #ifndef OSSFUZZ
 
-#if (!defined(__clang__) || (__clang__ < 5))
-static int __AFL_LOOP(int)
+#ifndef __AFL_LOOP
+static int monero_fuzz_loop(int)
 {
   static int once = 0;
   if (once)
@@ -44,6 +44,8 @@ static int __AFL_LOOP(int)
   once = 1;
   return 1;
 }
+#else
+#define monero_fuzz_loop(n) __AFL_LOOP(n)
 #endif
 
 int run_fuzzer(int argc, const char **argv, Fuzzer &fuzzer)
@@ -65,7 +67,7 @@ int run_fuzzer(int argc, const char **argv, Fuzzer &fuzzer)
     return ret;
 
   const std::string filename = argv[1];
-  while (__AFL_LOOP(1000))
+  while (monero_fuzz_loop(1000))
   {
     ret = fuzzer.run(filename);
     if (ret)

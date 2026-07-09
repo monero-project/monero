@@ -470,7 +470,7 @@ namespace trezor {
     void device_trezor_base::on_passphrase_request(GenericMessage & resp, const messages::common::PassphraseRequest * msg)
     {
       CHECK_AND_ASSERT_THROW_MES(msg, "Empty message");
-      MDEBUG("on_passhprase_request");
+      MDEBUG("on_passphrase_request");
 
       m_seen_passphrase_entry_message = true;
       bool on_device = false;

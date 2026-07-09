@@ -1,4 +1,4 @@
-# Copyright (c) 2021, The Monero Project
+# Copyright (c) 2025, The Monero Project
 #
 # All rights reserved.
 #
@@ -26,5 +26,6 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-monero_add_library(epee_wire_json error.cpp read.cpp write.cpp)
-target_link_libraries(epee_wire_json PUBLIC epee epee_wire)
+set(wire-json_sources error.cpp read.cpp write.cpp)
+monero_add_library(wire-json ${wire-json_sources})
+target_link_libraries(wire-json wire)

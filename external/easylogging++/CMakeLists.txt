@@ -37,7 +37,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 monero_enable_coverage()
 
 find_package(Threads)
-find_package(Backtrace)
+
+if(STACK_TRACE)
+  find_package(Backtrace)
+endif()
 
 monero_find_all_headers(EASYLOGGING_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}")
 

@@ -40,22 +40,6 @@ namespace cryptonote {
   /*                                                                      */
   /************************************************************************/
 
-#pragma pack(push, 1)
-  struct public_address_outer_blob
-  {
-    uint8_t m_ver;
-    account_public_address m_address;
-    uint8_t check_sum;
-  };
-  struct public_integrated_address_outer_blob
-  {
-    uint8_t m_ver;
-    account_public_address m_address;
-    crypto::hash8 payment_id;
-    uint8_t check_sum;
-  };
-#pragma pack (pop)
-
   namespace
   {
     inline std::string return_first_address(const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)
@@ -80,8 +64,6 @@ namespace cryptonote {
   size_t get_min_block_weight(uint8_t version);
   size_t get_max_tx_size();
   bool get_block_reward(size_t median_weight, size_t current_block_weight, uint64_t already_generated_coins, uint64_t &reward, uint8_t version);
-  uint8_t get_account_address_checksum(const public_address_outer_blob& bl);
-  uint8_t get_account_integrated_address_checksum(const public_integrated_address_outer_blob& bl);
 
   std::string get_account_address_as_str(
       network_type nettype
@@ -123,7 +105,7 @@ namespace cryptonote {
    * The comparison essentially goes from the 31th, 30th, 29th, ..., 0th byte and compares the MSBs
    * to the LSBs in each byte, up to `nbits` bits. If we use up `nbits` bits before finding a
    * difference in the bits between the two hashes, we return 0. If we encounter a zero bit in `ha`
-   * where `hb` has a one in that bit place, then we reutrn -1. If the converse scenario happens,
+   * where `hb` has a one in that bit place, then we return -1. If the converse scenario happens,
    * we return a 1. When `nbits` == 256 (there are 256 bits in `crypto::hash`), calling this is
    * functionally identical to `BlockchainLMDB::compare_hash32`.
    *
@@ -137,7 +119,7 @@ namespace cryptonote {
   /**
    * @brief Make a template which matches `h` in LMDB order up to `nbits` bits, safe for k-anonymous fetching
    *
-   * To be more technical, this function creates a hash which satifies the following property:
+   * To be more technical, this function creates a hash which satisfies the following property:
    *     For all `H_prime` s.t. `0 == compare_hash32_reversed_nbits(real_hash, H_prime, nbits)`,
    *     `1 > compare_hash32_reversed_nbits(real_hash, H_prime, 256)`.
    * In other words, we return the "least" hash nbit-equal to `real_hash`.
@@ -150,4 +132,3 @@ namespace cryptonote {
 }
 
 bool parse_hash256(const std::string &str_hash, crypto::hash& hash);
-

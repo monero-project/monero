@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -520,7 +520,7 @@ namespace cryptonote
      *
      * @return true if a block found in common or req_start_block specified, else false
      */
-    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::pair<crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, const bool qblock_ids_exclusive, size_t max_block_count, size_t max_tx_count) const;
+    bool find_blockchain_supplement(const uint64_t req_start_block, const std::list<crypto::hash>& qblock_ids, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, cryptonote::blobdata> > > >& blocks, uint64_t& total_height, crypto::hash& top_hash, uint64_t& start_height, bool pruned, bool get_miner_tx_hash, const bool qblock_ids_exclusive, size_t max_block_count, size_t max_tx_count) const;
 
     /**
      * @brief retrieves a set of blocks and their transactions, and possibly other transactions
@@ -584,7 +584,7 @@ namespace cryptonote
     /**
      * @brief gets per block distribution of outputs of a given amount
      *
-     * @param amount the amount to get a ditribution for
+     * @param amount the amount to get a distribution for
      * @param from_height the height before which we do not care about the data
      * @param to_height the height after which we do not care about the data
      * @param return-by-reference start_height the height of the first rct output
@@ -600,7 +600,7 @@ namespace cryptonote
      * to a specific transaction.
      *
      * @param tx_id the hash of the transaction to fetch indices for
-     * @param indexs return-by-reference the global indices for the transaction's outputs
+     * @param indices return-by-reference the global indices for the transaction's outputs
      * @param n_txes how many txes in a row to get results for
      *
      * @return false if the transaction does not exist, or if no indices are found, otherwise true
@@ -1131,8 +1131,9 @@ namespace cryptonote
      * @brief removes blocks from the top of the blockchain
      *
      * @param nblocks number of blocks to be removed
+     * @param keep_txs whether to place popped non-coinbase transactions back into the mempool
      */
-    void pop_blocks(uint64_t nblocks);
+    void pop_blocks(uint64_t nblocks, bool keep_txs);
 
     /**
      * @brief checks whether a given block height is included in the precompiled block hash area
@@ -1377,9 +1378,11 @@ namespace cryptonote
     /**
      * @brief removes the most recent block from the blockchain
      *
+     * @param keep_txs whether to place popped non-coinbase transactions back into the mempool
+     *
      * @return the block removed
      */
-    block pop_block_from_blockchain();
+    block pop_block_from_blockchain(bool keep_txs);
 
     /**
      * @brief validate and add a new block to the end of the blockchain
@@ -1567,7 +1570,7 @@ namespace cryptonote
      *
      * This function grabs the timestamps from the most recent <n> blocks,
      * where n = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW.  If there are not those many
-     * blocks in the blockchain, the timestap is assumed to be valid.  If there
+     * blocks in the blockchain, the timestamp is assumed to be valid.  If there
      * are, this function returns:
      *   true if the block's timestamp is not less than the timestamp of the
      *       median of the selected blocks

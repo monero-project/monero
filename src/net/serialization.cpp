@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include "net/i2p_address.h"
@@ -39,7 +40,6 @@
 #include "net/net_utils_base.h"
 #include "net/tor_address.h"
 #include "serialization/wire/adapted/asio.h"
-#include "serialization/wire/adapted/static_vector.h"
 #include "serialization/wire/epee.h"
 #include "serialization/wire/error.h"
 
@@ -47,10 +47,6 @@ namespace net
 {
   namespace
   {
-    constexpr const std::size_t host_buffer_size =
-      std::max(tor_address::buffer_size(), i2p_address::buffer_size());
-    using host_buffer = boost::container::static_vector<char, host_buffer_size>;
-
     template<typename T>
     T check_address(expect<T> value)
     {
@@ -60,7 +56,7 @@ namespace net
     }
 
     template<typename T>
-    T make_address_fields(const host_buffer& host, const std::optional<std::uint16_t> port)
+    T make_address_fields(const std::string_view host, const std::optional<std::uint16_t> port)
     {
       if constexpr (std::is_same_v<T, net::i2p_address>)
         return check_address(net::i2p_address::make({host.data(), host.size()}));
@@ -73,25 +69,25 @@ namespace net
     }
 
     template<typename T>
-    T make_address_fields(const std::optional<host_buffer>& host, const std::optional<std::uint16_t> port)
+    T make_address_fields(const std::optional<std::string>& host, const std::optional<std::uint16_t> port)
     {
       if (!host)
         WIRE_DLOG_THROW(wire::error::schema::missing_key, "Expected 'host' key for " << boost::core::demangle(typeid(T).name()));
-      return make_address_fields<T>(*host, port);
+      return make_address_fields<T>(std::string_view{*host}, port);
     }
 
     template<typename T>
     T read_address(wire::epee_reader& source)
     {
-      host_buffer host{};
+      std::string host{};
       std::optional<std::uint16_t> port{};
       wire::object(source, wire::field("host", std::ref(host)), wire::optional_field("port", std::ref(port)));
-      if (boost::string_ref{host.data(), host.size()} == T::unknown_str())
+      if (std::string_view{host.data(), host.size()} == T::unknown_str())
         return T::unknown();
-      return make_address_fields<T>(host, port);
+      return make_address_fields<T>(std::string_view{host}, port);
     }
 
-    void write_address(wire::epee_writer& dest, const boost::string_ref host, const std::uint16_t port)
+    void write_address(wire::epee_writer& dest, const std::string_view host, const std::uint16_t port)
     {
       wire::object(dest, wire::field("host", host), wire::field("port", port));
     }
@@ -124,7 +120,7 @@ namespace net_utils
   {
     struct address_values
     {
-      std::optional<net::host_buffer> host;
+      std::optional<std::string> host;
       std::optional<boost::asio::ip::address_v6> addr;
       std::optional<std::uint32_t> m_ip;
       std::optional<std::uint16_t> port;

@@ -57,6 +57,7 @@
 #include "crypto/crypto.h"
 #include "net/dandelionpp.h"
 #include "net/error.h"
+#include "net/host.h"
 #include "net/i2p_address.h"
 #include "net/net_utils_base.h"
 #include "net/serialization.h"
@@ -72,14 +73,30 @@
 #include "storages/portable_storage_template_helper.h"
 //#include "storages/portable_storage.h"
 
+TEST(host, canonicalize_host)
+{
+    std::string host{"ABCdef123.ONION"};
+    net::canonicalize_host(host);
+    EXPECT_EQ("abcdef123.onion", host);
+}
+
 namespace
 {
     static constexpr const char v2_onion[] =
         "xmrto2bturnore26.onion";
     static constexpr const char v3_onion[] =
         "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion";
+    static constexpr const char v3_onion_upper[] =
+        "VWW6YBAL4BD7SZMGNCYRUUCPGFKQAHZDDI37KTCEO3AH7NGMCOPNPYYD.ONION";
     static constexpr const char v3_onion_2[] =
         "zpv4fa3szgel7vf6jdjeugizdclq2vzkelscs2bhbgnlldzzggcen3ad.onion";
+
+    static constexpr const char v3_onion_bad_checksum[] =
+        "wrongchecksum777777777777777777777777777777777777777777d.onion";
+    static constexpr const char v3_onion_bad_pubkey[] =
+        "civ5tgldg3yx73ytse6hvvk3nm6q3zctbqvytpszihm35b33ze73kxad.onion";
+    static constexpr const char v3_onion_bad_version[] =
+        "zpv4fa3szgel7vf6jdjeugizdclq2vzkelscs2bhbgnlldzzggcen3ac.onion";
 }
 
 TEST(tor_address, constants)
@@ -110,6 +127,10 @@ TEST(tor_address, invalid)
     std::string onion{v3_onion};
     onion.at(10) = 1;
     EXPECT_TRUE(net::tor_address::make(onion).has_error());
+
+    EXPECT_TRUE(net::tor_address::make(v3_onion_bad_checksum).has_error());
+    EXPECT_TRUE(net::tor_address::make(v3_onion_bad_pubkey).has_error());
+    EXPECT_TRUE(net::tor_address::make(v3_onion_bad_version).has_error());
 }
 
 TEST(tor_address, unblockable_types)
@@ -149,6 +170,10 @@ TEST(tor_address, valid)
     EXPECT_STREQ(v3_onion, address1->host_str());
     EXPECT_STREQ(v3_onion, address1->str().c_str());
     EXPECT_TRUE(address1->is_blockable());
+
+    const auto uppercase = net::tor_address::make(v3_onion_upper);
+    ASSERT_TRUE(uppercase.has_value());
+    EXPECT_EQ(*address1, *uppercase);
 
     net::tor_address address2{*address1};
 
@@ -271,6 +296,20 @@ TEST(tor_address, epee_serializev_v3)
 
 	EXPECT_TRUE(epee::serialization::load_t_from_binary(command, epee::to_span(buffer)));
     }
+    EXPECT_FALSE(command.tor.is_unknown());
+    EXPECT_NE(net::tor_address{}, command.tor);
+    EXPECT_STREQ(v3_onion, command.tor.host_str());
+    EXPECT_EQ(10u, command.tor.port());
+
+    // make sure tor_address::_load canonicalizes incoming hosts
+    {/*
+        epee::serialization::portable_storage stg{};
+        stg.load_from_binary(epee::to_span(buffer));
+
+        EXPECT_TRUE(stg.set_value("host", std::string{v3_onion_upper}, stg.open_section("tor", nullptr, false)));
+        EXPECT_TRUE(command.load(stg)); */
+    }
+
     EXPECT_FALSE(command.tor.is_unknown());
     EXPECT_NE(net::tor_address{}, command.tor);
     EXPECT_STREQ(v3_onion, command.tor.host_str());
@@ -423,7 +462,7 @@ TEST(get_network_address, onion)
     EXPECT_EQ(net::error::invalid_tor_address, address);
 
     address = net::get_network_address(v2_onion, 1000);
-    EXPECT_EQ(net::error::invalid_tor_address, address);
+    EXPECT_EQ(net::error::legacy_tor_address, address);
 
     address = net::get_network_address(v3_onion, 1000);
     ASSERT_TRUE(bool(address));
@@ -445,6 +484,8 @@ namespace
 {
     static constexpr const char b32_i2p[] =
         "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopn.b32.i2p";
+    static constexpr const char b32_i2p_upper[] =
+        "VWW6YBAL4BD7SZMGNCYRUUCPGFKQAHZDDI37KTCEO3AH7NGMCOPN.B32.I2P";
     static constexpr const char b32_i2p_2[] =
         "xmrto2bturnore26xmrto2bturnore26xmrto2bturnore26xmr2.b32.i2p";
 }
@@ -512,6 +553,10 @@ TEST(i2p_address, valid)
     EXPECT_STREQ(b32_i2p, address1->host_str());
     EXPECT_STREQ(b32_i2p, address1->str().c_str());
     EXPECT_TRUE(address1->is_blockable());
+
+    const auto uppercase = net::i2p_address::make(b32_i2p_upper);
+    ASSERT_TRUE(uppercase.has_value());
+    EXPECT_EQ(*address1, *uppercase);
 
     net::i2p_address address2{*address1};
 
@@ -632,6 +677,20 @@ TEST(i2p_address, epee_serializev_b32)
         EXPECT_EQ(1u, command.i2p.port());
         EXPECT_TRUE(epee::serialization::load_t_from_binary(command, epee::to_span(buffer)));
     }
+    EXPECT_FALSE(command.i2p.is_unknown());
+    EXPECT_NE(net::i2p_address{}, command.i2p);
+    EXPECT_STREQ(b32_i2p, command.i2p.host_str());
+    EXPECT_EQ(1u, command.i2p.port());
+
+    // make sure i2p_address::_load canonicalizes incoming hosts
+    {/*
+        epee::serialization::portable_storage stg{};
+        stg.load_from_binary(epee::to_span(buffer));
+
+        EXPECT_TRUE(stg.set_value("host", std::string{b32_i2p_upper}, stg.open_section("i2p", nullptr, false)));
+        EXPECT_TRUE(command.load(stg)); */
+    }
+
     EXPECT_FALSE(command.i2p.is_unknown());
     EXPECT_NE(net::i2p_address{}, command.i2p);
     EXPECT_STREQ(b32_i2p, command.i2p.host_str());

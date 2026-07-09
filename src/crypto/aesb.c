@@ -19,6 +19,7 @@ Issue Date: 20/12/2007
 */
 
 #include <stdint.h>
+#include <string.h>
 #include "int-util.h"
 
 #if defined(__cplusplus)
@@ -141,18 +142,10 @@ extern "C"
 
 d_4(uint32_t, t_dec(f,n), sb_data, u0, u1, u2, u3);
 
-#if !defined(STATIC)
-#define STATIC
-#endif
-
-#if !defined(INLINE)
-#define INLINE
-#endif
-
-STATIC INLINE void aesb_single_round(const uint8_t *in, uint8_t *out, uint8_t *expandedKey)
+void aesb_single_round(const uint8_t *in, uint8_t *out, uint8_t *expandedKey)
 {
   uint32_t b0[4], b1[4];
-  const uint32_t  *kp = (uint32_t *) expandedKey;
+  uint32_t kp[4]; memcpy(kp, expandedKey, sizeof(kp));
   state_in(b0, in);
 
   round(fwd_rnd,  b1, b0, kp);
@@ -160,10 +153,10 @@ STATIC INLINE void aesb_single_round(const uint8_t *in, uint8_t *out, uint8_t *e
   state_out(out, b1);
 }
 
-STATIC INLINE void aesb_pseudo_round(const uint8_t *in, uint8_t *out, uint8_t *expandedKey)
+void aesb_pseudo_round(const uint8_t *in, uint8_t *out, uint8_t *expandedKey)
 {
   uint32_t b0[4], b1[4];
-  const uint32_t  *kp = (uint32_t *) expandedKey;
+  uint32_t kp[40]; memcpy(kp, expandedKey, sizeof(kp));
   state_in(b0, in);
 
   round(fwd_rnd,  b1, b0, kp);

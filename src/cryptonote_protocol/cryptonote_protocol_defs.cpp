@@ -32,6 +32,7 @@
 #include <optional>
 #include <tuple>
 
+#include "crypto/wire.h"
 #include "serialization/wire/epee.h"
 #include "serialization/wire/traits.h"
 #include "serialization/wire/wrappers.h"

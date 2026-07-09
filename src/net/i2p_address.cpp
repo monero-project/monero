@@ -36,6 +36,7 @@
 #include <limits>
 
 #include "net/error.h"
+#include "net/host.h"
 #include "string_tools_lexical.h"
 
 namespace net
@@ -92,10 +93,12 @@ namespace net
     expect<i2p_address> i2p_address::make(const boost::string_ref address)
     {
         boost::string_ref host = address.substr(0, address.rfind(':'));
-        MONERO_CHECK(host_check(host));
+        std::string normalized_host{host};
+        net::canonicalize_host(normalized_host);
+        MONERO_CHECK(host_check(normalized_host));
 
         static_assert(b32_length + sizeof(tld) == sizeof(i2p_address::host_), "bad internal host size");
-        return i2p_address{host};
+        return i2p_address{normalized_host};
     }
 
     i2p_address::i2p_address(const i2p_address& rhs) noexcept

@@ -122,7 +122,7 @@ namespace wire
 
     std::error_code code() const noexcept override final
     {
-      static_assert(noexcept(noexcept(make_error_code(value))), "make_error_code funcion must be noexcept");
+      static_assert(noexcept(noexcept(make_error_code(value))), "make_error_code function must be noexcept");
       return make_error_code(value);
     }
   };

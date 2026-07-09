@@ -29,6 +29,7 @@
 
 #include <string>
 #include <system_error>
+#include "byte_stream.h"
 #include "serialization/wire/json/fwd.h"
 #include "span.h"
 
@@ -42,7 +43,6 @@
   WIRE_JSON_DECLARE_CONVERSION(type::request); \
   WIRE_JSON_DECLARE_CONVERSION(type::response)
 
-namespace epee { class byte_stream; }
 namespace wire
 {
   struct json
@@ -76,6 +76,16 @@ namespace wire
     static std::error_code to_bytes(std::string& dest, const T&... source)
     {
       return convert_to_json(dest, source...); // ADL (searches every associated namespace)
+    }
+
+    template<typename... T>                                                        
+    static std::error_code to_bytes(epee::byte_stream& dest, const T&... source)
+    { 
+      std::string buf{}; 
+      const std::error_code error = to_bytes(buf, source...);
+      if (!error) 
+        dest.write(epee::to_span(buf)); 
+      return error; 
     }
   };
 }

@@ -35,23 +35,16 @@
 """
 
 import subprocess
-import psutil
 import os
 import errno
-
-def available_ram_gb():
-    ram_bytes = psutil.virtual_memory().available
-    kilo = 1024.0
-    ram_gb = ram_bytes / kilo**3
-    return ram_gb
 
 def get_time_pi_seconds(cores, app_dir='.'):
     app_path = '{}/cpu_power_test'.format(app_dir)
     time_calc = subprocess.check_output([app_path, str(cores)])
     decoded = time_calc.decode('utf-8')
-    miliseconds = int(decoded)
+    milliseconds = int(decoded)
 
-    return miliseconds / 1000.0
+    return milliseconds / 1000.0
 
 def remove_file(name):
     WALLET_DIRECTORY = os.environ['WALLET_DIRECTORY']

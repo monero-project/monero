@@ -33,14 +33,9 @@
 #include <wchar.h>
 
 #ifdef __GLIBC__
-#include <gnu/libc-version.h>
-#endif
-
-#ifdef __GLIBC__
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
-#include <unistd.h>
 #include <dirent.h>
 #include <string.h>
 #include <ctype.h>
@@ -70,19 +65,17 @@ using namespace epee;
 #include "readline_buffer.h"
 
 #ifdef WIN32
-#ifndef STRSAFE_NO_DEPRECATE
-#define STRSAFE_NO_DEPRECATE
-#endif
   #include <windows.h>
   #include <shlobj.h>
-  #include <strsafe.h>
-#else 
+#else
   #include <sys/file.h>
   #include <sys/stat.h>
 #endif
-#include <boost/filesystem.hpp>
+
+#include <boost/filesystem/path.hpp>
+#include <boost/filesystem/operations.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/asio.hpp>
+#include <boost/asio/ip/address.hpp>
 #include <boost/format.hpp>
 #include <openssl/evp.h>
 
@@ -545,12 +538,6 @@ namespace tools
     setup_crash_dump();
 
     sanitize_locale();
-
-#ifdef __GLIBC__
-    const char *ver = gnu_get_libc_version();
-    if (!strcmp(ver, "2.25"))
-      MCLOG_RED(el::Level::Warning, "global", "Running with glibc " << ver << ", hangs may occur - change glibc version if possible");
-#endif
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000 || defined(LIBRESSL_VERSION_TEXT)
     SSL_library_init();

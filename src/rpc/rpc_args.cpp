@@ -73,7 +73,7 @@ namespace cryptonote
         }
       }
 
-      // user specified CA file or fingeprints implies enabled SSL by default
+      // user specified CA file or fingerprints implies enabled SSL by default
       if (!ssl_required && !epee::net_utils::ssl_support_from_string(ssl_options.support, command_line::get_arg(vm, arg.rpc_ssl)))
       {
         MERROR("Invalid argument for " << std::string(arg.rpc_ssl.name));

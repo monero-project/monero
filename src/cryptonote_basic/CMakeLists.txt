@@ -42,6 +42,7 @@ monero_add_library(cryptonote_format_utils_basic
 target_link_libraries(cryptonote_format_utils_basic
   PUBLIC
   cncrypto
+  wire-json
 )
 
 set(cryptonote_basic_sources
@@ -72,7 +73,6 @@ target_link_libraries(cryptonote_basic
     checkpoints
     cryptonote_format_utils_basic
     device
-    epee_wire_json
     ringct_basic
     ${Boost_CHRONO_LIBRARY}
     ${Boost_DATE_TIME_LIBRARY}

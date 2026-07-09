@@ -147,7 +147,7 @@ namespace wire
       write_tag(SERIALIZE_TYPE_OBJECT);
     write_varint(count);
   }
-  void epee_writer::key(const boost::string_ref source)
+  void epee_writer::key(const std::string_view source)
   {
     if (std::numeric_limits<std::uint8_t>::max() < source.size())
       WIRE_DLOG_THROW(error::epee::key_size, "key size is too long");

@@ -28,11 +28,11 @@
 #pragma once
 
 #include <array>
-#include <boost/utility/string_ref.hpp>
 #include <cstdint>
 #include <limits>
 #include <rapidjson/writer.h>
 #include <string>
+#include <string_view>
 
 #include "serialization/wire/write.h"
 #include "span.h"
@@ -51,13 +51,13 @@ namespace wire
     static void Flush() noexcept {}
   };
 
-  //! Compatability/optimization for rapidjson.
+  //! Compatibility/optimization for rapidjson.
   inline void PutReserve(string_stream& dest, const std::size_t length)
   {
     dest.buffer_.reserve(length);
   }
 
-  //! Compability/optimization for rapidjson.
+  //! Compatibility/optimization for rapidjson.
   inline void PutN(string_stream& dest, const std::uint8_t ch, const std::size_t count)
   {
     dest.buffer_.append(count, ch);
@@ -115,14 +115,14 @@ namespace wire
 
     void real(double) override final;
 
-    void string(boost::string_ref) override final;
+    void string(std::string_view) override final;
     void binary(epee::span<const std::uint8_t>) override final;
 
     void start_array(std::size_t) override final;
     void end_array() override final;
 
     void start_object(std::size_t) override final;
-    void key(boost::string_ref) override final;
+    void key(std::string_view) override final;
     void binary_key(epee::span<const std::uint8_t>) override final;
     void end_object() override final;
   };
@@ -130,7 +130,7 @@ namespace wire
   //! Buffers entire JSON message in memory
   struct json_string_writer final : json_writer
   {
-    //! Writer json to an empty buffer.
+    //! Write json to an empty buffer.
     explicit json_string_writer()
       : json_string_writer(std::string{})
     {}

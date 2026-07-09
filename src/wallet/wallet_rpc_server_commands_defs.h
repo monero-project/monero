@@ -51,7 +51,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 30
+#define WALLET_RPC_VERSION_MINOR 31
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -1245,9 +1245,11 @@ namespace wallet_rpc
     struct request_t
     {
       bool hard;
+      bool keep_key_images;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_OPT(hard, false)
+        KV_SERIALIZE_OPT(keep_key_images, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2510,24 +2512,6 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
-  struct COMMAND_RPC_FINALIZE_MULTISIG
-  {
-    // NOP
-    struct request_t
-    {
-      BEGIN_KV_SERIALIZE_MAP()
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<request_t> request;
-
-    struct response_t
-    {
-      BEGIN_KV_SERIALIZE_MAP()
-      END_KV_SERIALIZE_MAP()
-    };
-    typedef epee::misc_utils::struct_init<response_t> response;
-  };
-
   struct COMMAND_RPC_EXCHANGE_MULTISIG_KEYS
   {
     struct request_t
@@ -2974,7 +2958,6 @@ namespace epee { namespace json_rpc
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_MAKE_MULTISIG);
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_EXPORT_MULTISIG);
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_IMPORT_MULTISIG);
-  EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_FINALIZE_MULTISIG);
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_EXCHANGE_MULTISIG_KEYS);
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_GET_MULTISIG_KEY_EXCHANGE_BOOSTER);
   EPEE_JSONRPC_DECLARE(tools::wallet_rpc::COMMAND_RPC_SIGN_MULTISIG);

@@ -1,6 +1,6 @@
 # Monero Blockchain Stats
 
-Monero Blockchain Stats utlity exports daily statistics for the monero blockchain from creation through current state.
+Monero Blockchain Stats utility exports daily statistics for the monero blockchain from creation through current state.
 
 ## Usage:
 

@@ -1,6 +1,6 @@
 /// @file
 /// @author rfree (current maintainer in monero.cc project)
-/// @brief implementaion for throttling of connection (count and rate-limit speed etc)
+/// @brief implementation for throttling of connection (count and rate-limit speed etc)
 
 // Copyright (c) 2014-2024, The Monero Project
 // 
@@ -60,7 +60,7 @@ class network_throttle : public i_network_throttle {
 
 		const size_t m_window_size; // the number of samples to average over
 		network_time_seconds m_slot_size; // the size of one slot. TODO: now hardcoded for 1 second e.g. in time_to_slot()
-		// TODO for big window size, for performance better the substract on change of m_last_sample_time instead of recalculating average of eg >100 elements
+		// TODO for big window size, for performance better the subtract on change of m_last_sample_time instead of recalculating average of eg >100 elements
 
 		boost::circular_buffer< packet_info > m_history; // the history of bw usage
 		network_time_seconds m_last_sample_time; // time of last history[0] - so we know when to rotate the buffer
@@ -92,7 +92,7 @@ class network_throttle : public i_network_throttle {
 		virtual void calculate_times(size_t packet_size, calculate_times_struct &cts, bool dbg, double force_window) const; ///< MAIN LOGIC (see base class for info)
 
 		virtual network_time_seconds get_sleep_time_after_tick(size_t packet_size); ///< increase the timer if needed, and get the package size
-		virtual network_time_seconds get_sleep_time(size_t packet_size) const; ///< gets the Delay (recommended Delay time) from calc. (not safe: only if time didnt change?) TODO
+		virtual network_time_seconds get_sleep_time(size_t packet_size) const; ///< gets the Delay (recommended Delay time) from calc. (not safe: only if time didn't change?) TODO
 
 		virtual size_t get_recommended_size_of_planned_transport() const; ///< what should be the size (bytes) of next data block to be transported
 		virtual size_t get_recommended_size_of_planned_transport_window(double force_window) const;  ///< ditto, but for given windows time frame
@@ -110,8 +110,8 @@ class network_throttle : public i_network_throttle {
 */
 struct network_throttle_bw {
 	public:
-		network_throttle m_in; ///< for incomming traffic (this we can not controll directly as it depends of what others send to us - usually)
-		network_throttle m_inreq; ///< for requesting incomming traffic (this is exact usually)
+		network_throttle m_in; ///< for incoming traffic (this we can not control directly as it depends of what others send to us - usually)
+		network_throttle m_inreq; ///< for requesting incoming traffic (this is exact usually)
 		network_throttle m_out; ///< for outgoing traffic that we just sent (this is exact usually)
 
 	public:

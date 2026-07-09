@@ -1,5 +1,4 @@
 // Copyright (c) 2018-2024, The Monero Project
-
 //
 // All rights reserved.
 //
@@ -46,8 +45,9 @@ namespace net
         invalid_i2p_address,
         invalid_mask,       //!< Outside of 0-32 range
         invalid_port,       //!< Outside of 0-65535 range
-        invalid_scheme,     //!< Provided URI scheme was unspported
+        invalid_scheme,     //!< Provided URI scheme was unsupported
         invalid_tor_address,//!< Invalid base32 or length
+        legacy_tor_address, //!< Legacy address type; not supported
         unexpected_userinfo,//!< User or pass was provided unexpectedly
         unsupported_address,//!< Type not supported by `get_network_address`
 

@@ -1,5 +1,4 @@
 // Copyright (c) 2018-2024, The Monero Project
-
 //
 // All rights reserved.
 //
@@ -143,7 +142,7 @@ void message_store::set_signer(const multisig_wallet_state &state,
     m.monero_address_known = true;
     m.monero_address = monero_address.get();
   }
-  // Save to minimize the chance to loose that info
+  // Save to minimize the chance to lose that info
   save(state);
 }
 
@@ -710,7 +709,7 @@ void message_store::delete_all_messages()
 // This is mostly geared towards the safe display of notes sent by "mms note" with a "mms show" command
 std::string message_store::get_sanitized_text(const std::string &text, size_t max_length)
 {
-  // Restrict the size to fend of DOS-style attacks with heaps of data
+  // Restrict the size to fend off DOS-style attacks with heaps of data
   size_t length = std::min(text.length(), max_length);
   std::string sanitized_text = text.substr(0, length);
 

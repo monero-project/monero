@@ -33,7 +33,6 @@
 #include "cryptonote_basic.h"
 #include "crypto/crypto.h"
 #include "serialization/wire/epee/base.h"
-#include "serialization/wire/field.h"
 
 namespace cryptonote
 {

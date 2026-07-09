@@ -88,6 +88,7 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *, const unsigned char *, const 
 
 extern const fe fe_sqrtm1;
 extern const fe fe_d;
+int fe_frombytes_vartime(fe, const unsigned char *);
 int ge_frombytes_vartime(ge_p3 *, const unsigned char *);
 
 /* From ge_p1p1_to_p2.c */
@@ -101,6 +102,10 @@ void ge_p1p1_to_p3(ge_p3 *, const ge_p1p1 *);
 /* From ge_p2_dbl.c */
 
 void ge_p2_dbl(ge_p1p1 *, const ge_p2 *);
+
+/* From ge_p3_dbl.c */
+
+void ge_p3_dbl(ge_p1p1 *r, const ge_p3 *p);
 
 /* From ge_p3_to_cached.c */
 
@@ -147,6 +152,7 @@ extern const ge_p3 ge_p3_identity;
 extern const ge_p3 ge_p3_H;
 void ge_fromfe_frombytes_vartime(ge_p2 *, const unsigned char *);
 void sc_0(unsigned char *);
+void sc_1(unsigned char *);
 void sc_reduce32(unsigned char *);
 void sc_add(unsigned char *, const unsigned char *, const unsigned char *);
 void sc_sub(unsigned char *, const unsigned char *, const unsigned char *);
@@ -163,7 +169,20 @@ void ge_sub(ge_p1p1 *r, const ge_p3 *p, const ge_cached *q);
 void fe_add(fe h, const fe f, const fe g);
 void fe_tobytes(unsigned char *, const fe);
 void fe_invert(fe out, const fe z);
+int fe_equals(const fe a, const fe b);
+/**
+@brief: out[i] = 1/in[i] for i in [0, n). Uses Montgomery's trick
+@return: 0 on success, some other value otherwise
+
+Unlike other crypto functions, `out` and `in` memory sections CANNOT be aliased.
+If `out` and `in` overlap, it will cause undefined output.
+
+No 0 fe's are expected for `in`, otherwise fails.
+**/
+int fe_batch_invert(fe* __restrict out, const fe* __restrict in, const unsigned int n);
 void fe_mul(fe out, const fe, const fe);
 void fe_0(fe h);
 
 int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p);
+
+int fe_reduce_vartime(fe reduced_f, const fe f);

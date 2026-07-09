@@ -44,18 +44,41 @@ if (POLICY CMP0077)
     cmake_policy(SET CMP0077 NEW)
 endif()
 
+# Let CMake de-duplicate link libraries according to linker/platform capabilities.
+if (POLICY CMP0156)
+    cmake_policy(SET CMP0156 NEW)
+endif()
+if (POLICY CMP0179)
+    cmake_policy(SET CMP0179 NEW)
+endif()
+
 if (IOS)
     INCLUDE(CmakeLists_IOS.txt)
 endif()
 
 project(monero)
 
-option (USE_CCACHE "Use ccache if a usable instance is found" ON)
-if (USE_CCACHE)
-	include(FindCcache) # Has to be included after the project() macro, to be able to read the CXX variable.
+option (USE_COMPILER_CACHE "Use compiler cache if a usable instance is found (sccache/ccache)" ON)
+if (USE_COMPILER_CACHE)
+    find_program(SCCACHE sccache)
+    find_program(CCACHE ccache)
+    if (SCCACHE)
+        message(STATUS "Using sccache: ${SCCACHE}")
+        set(CMAKE_C_COMPILER_LAUNCHER   "${SCCACHE}")
+        set(CMAKE_CXX_COMPILER_LAUNCHER "${SCCACHE}")
+        # Remove this line and uncomment the one below when FCMP++ Rust libraries are merged.
+        # set(ENV{RUSTC_WRAPPER} "${SCCACHE}")
+    elseif (CCACHE)
+        message(STATUS "Using ccache: ${CCACHE}")
+        set(CMAKE_C_COMPILER_LAUNCHER   "${CCACHE}")
+        set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE}")
+    else()
+        message(STATUS "No compiler cache found")
+    endif()
 else()
-	message(STATUS "ccache deselected")
+    message(STATUS "Compiler cache deselected")
 endif()
+
 option (USE_COMPILATION_TIME_PROFILER "Use compilation time profiler (for CLang >= 9 only)" OFF)
 if (USE_COMPILATION_TIME_PROFILER)
 	if (NOT "${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
@@ -147,10 +170,10 @@ function (add_definition_if_library_exists library function header var)
   endif()
 endfunction()
 
-option(RELINK_TARGETS "Relink targets, when just a dependant .so changed, but not its header?" OFF)
+option(RELINK_TARGETS "Relink targets, when just a dependent .so changed, but not its header?" OFF)
 function (monero_set_target_no_relink target)
   if (RELINK_TARGETS MATCHES OFF)
-    # Will not relink the target, when just its dependant .so has changed, but not it's interface
+    # Will not relink the target, when just its dependent .so has changed, but not its interface
     set_target_properties("${target}" PROPERTIES LINK_DEPENDS_NO_SHARED true)
   endif()
 endfunction()
@@ -387,6 +410,7 @@ endif()
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 enable_testing()
 
+option(BUILD_TRANSLATIONS "Build translations using lrelease (Qt)" OFF)
 option(BUILD_DOCUMENTATION "Build the Doxygen documentation." ON)
 option(BUILD_TESTS "Build tests." OFF)
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -438,12 +462,7 @@ endif()
 
 include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external external/supercop/include)
 
-if(MINGW)
-  set(DEFAULT_STATIC true)
-else()
-  set(DEFAULT_STATIC false)
-endif()
-option(STATIC "Link libraries statically" ${DEFAULT_STATIC})
+option(STATIC "Link libraries statically" OFF)
 
 # This is a CMake built-in switch that concerns internal libraries
 set(BUILD_SHARED_LIBS_DEFAULT OFF)
@@ -530,7 +549,7 @@ if (APPLE AND NOT IOS)
   endif()
 endif()
 
-find_package(OpenSSL REQUIRED)
+find_package(OpenSSL 1.1.1 REQUIRED)
 message(STATUS "Using OpenSSL include dir at ${OPENSSL_INCLUDE_DIR}")
 include_directories(${OPENSSL_INCLUDE_DIR})
 if(STATIC AND NOT IOS)
@@ -609,8 +628,9 @@ function (monero_add_library_with_deps)
     PRIVATE $<TARGET_PROPERTY:${MONERO_ADD_LIBRARY_NAME},INTERFACE_COMPILE_DEFINITIONS>)
 endfunction ()
 
+if(BUILD_TRANSLATIONS)
 # Generate header for embedded translations
-# Generate header for embedded translations, use target toolchain if depends, otherwise use the
+# use target toolchain if depends, otherwise use the
 # lrelease and lupdate binaries from the host
 include(ExternalProject)
 ExternalProject_Add(generate_translations_header
@@ -620,6 +640,8 @@ ExternalProject_Add(generate_translations_header
   CMAKE_ARGS -DLRELEASE_PATH=${LRELEASE_PATH}
   INSTALL_COMMAND ${CMAKE_COMMAND} -E echo "")
 include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
+endif()
+
 add_subdirectory(external)
 
 # Final setup for libunbound
@@ -901,27 +923,16 @@ if(STATIC)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${STATIC_FLAGS} ")
 endif()
 
-set(OLD_LIB_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
-set(Boost_NO_BOOST_CMAKE ON)
-if(STATIC)
-  if(MINGW)
-    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
-  endif()
-
-  set(Boost_USE_STATIC_LIBS ON)
-  set(Boost_USE_STATIC_RUNTIME ON)
-endif()
-
 # Find Boost headers
 set(BOOST_MIN_VER 1.62)
-find_package(Boost ${BOOST_MIN_VER} QUIET REQUIRED)
+find_package(Boost ${BOOST_MIN_VER} QUIET REQUIRED CONFIG)
 
 if(NOT Boost_FOUND)
   message(FATAL_ERROR "Could not find Boost libraries, please make sure you have installed Boost or libboost-all-dev (>=${BOOST_MIN_VER}) or the equivalent")
 elseif(Boost_FOUND)
   message(STATUS "Found Boost Version: ${Boost_VERSION_STRING}")
 
-  set(BOOST_COMPONENTS filesystem thread date_time chrono serialization program_options)
+  set(BOOST_COMPONENTS filesystem thread chrono serialization program_options)
   if (WIN32)
     list(APPEND BOOST_COMPONENTS locale)
   endif()
@@ -939,8 +950,7 @@ elseif(Boost_FOUND)
   message(STATUS "Boost components: ${BOOST_COMPONENTS}")
 
   # Find required Boost libraries
-  find_package(Boost ${BOOST_MIN_VER} QUIET REQUIRED COMPONENTS ${BOOST_COMPONENTS})
-  set(CMAKE_FIND_LIBRARY_SUFFIXES ${OLD_LIB_SUFFIXES})
+  find_package(Boost ${BOOST_MIN_VER} QUIET REQUIRED COMPONENTS ${BOOST_COMPONENTS} CONFIG)
 endif()
 
 add_definitions(-DBOOST_ASIO_ENABLE_SEQUENTIAL_STRAND_ALLOCATION)
@@ -951,21 +961,6 @@ include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 if(MINGW)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wa,-mbig-obj")
   set(EXTRA_LIBRARIES mswsock;ws2_32;iphlpapi;crypt32;bcrypt)
-  if(NOT DEPENDS)
-    # This is an extremely ugly hack to get around Boost not being built with static ICU.
-    # We reported the issue, we are waiting for upstream to fix this issue: https://github.com/boostorg/boost/issues/1079#issue-3384962885
-    # This hack links shared ICU libs to avoid linker errors we get in MSYS2 compilation (undefined symbols to ICU).
-    set(OLD_LIB_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ".dll.a")
-    find_library(ICUIO_LIBRARIES NAMES icuio REQUIRED)
-    find_library(ICUIN_LIBRARIES NAMES icuin REQUIRED)
-    find_library(ICUUC_LIBRARIES NAMES icuuc REQUIRED)
-    find_library(ICUDT_LIBRARIES NAMES icudt REQUIRED)
-    find_library(ICUTU_LIBRARIES NAMES icutu REQUIRED)
-    find_library(ICONV_LIBRARIES NAMES iconv REQUIRED)
-    set(ICU_LIBRARIES ${ICUIO_LIBRARIES} ${ICUIN_LIBRARIES} ${ICUUC_LIBRARIES} ${ICUDT_LIBRARIES} ${ICUTU_LIBRARIES} ${ICONV_LIBRARIES})
-    set(CMAKE_FIND_LIBRARY_SUFFIXES ${OLD_LIB_SUFFIXES})
-  endif()
 elseif(APPLE OR OPENBSD OR ANDROID)
   set(EXTRA_LIBRARIES "")
 elseif(FREEBSD)

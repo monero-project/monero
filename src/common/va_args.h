@@ -29,7 +29,7 @@
 #pragma once
 
 // Check for __VA_OPT__ support
-// Apdated from cpplearner's StackOverflow answer: https://stackoverflow.com/a/48045656
+// Adapted from cpplearner's StackOverflow answer: https://stackoverflow.com/a/48045656
 #define PP_THIRD_ARG(a,b,c,...) c
 #define VA_OPT_SUPPORTED_I(...) PP_THIRD_ARG(__VA_OPT__(,),true,false,)
 #define VA_OPT_SUPPORTED VA_OPT_SUPPORTED_I(?)

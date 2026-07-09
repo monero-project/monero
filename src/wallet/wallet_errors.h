@@ -442,7 +442,7 @@ namespace tools
     struct out_of_hashchain_bounds_error : public refresh_error
     {
       explicit out_of_hashchain_bounds_error(std::string&& loc)
-        : refresh_error(std::move(loc), "Index out of bounds of of hashchain")
+        : refresh_error(std::move(loc), "Index out of bounds of hashchain")
       {
       }
 
@@ -494,11 +494,13 @@ namespace tools
         : transfer_error(std::move(loc), "not enough unlocked money")
         , m_available(available)
         , m_tx_amount(tx_amount)
+        , m_fee(fee)
       {
       }
 
       uint64_t available() const { return m_available; }
       uint64_t tx_amount() const { return m_tx_amount; }
+      uint64_t fee() const { return m_fee; }
 
       std::string to_string() const
       {
@@ -512,6 +514,7 @@ namespace tools
     private:
       uint64_t m_available;
       uint64_t m_tx_amount;
+      uint64_t m_fee;
     };
     //----------------------------------------------------------------------------------------------------
     struct not_enough_money : public transfer_error
@@ -520,11 +523,13 @@ namespace tools
         : transfer_error(std::move(loc), "not enough money")
         , m_available(available)
         , m_tx_amount(tx_amount)
+        , m_fee(fee)
       {
       }
 
       uint64_t available() const { return m_available; }
       uint64_t tx_amount() const { return m_tx_amount; }
+      uint64_t fee() const { return m_fee; }
 
       std::string to_string() const
       {
@@ -538,6 +543,7 @@ namespace tools
     private:
       uint64_t m_available;
       uint64_t m_tx_amount;
+      uint64_t m_fee;
     };
     //----------------------------------------------------------------------------------------------------
     struct tx_not_possible : public transfer_error
@@ -990,8 +996,6 @@ namespace tools
     };
     //----------------------------------------------------------------------------------------------------
 
-#if !defined(_MSC_VER)
-
     template<typename TException, typename... TArgs>
     [[noreturn]] void throw_wallet_ex(std::string&& loc, const TArgs&... args)
     {
@@ -999,31 +1003,6 @@ namespace tools
       LOG_PRINT_L0(e.to_string());
       throw e;
     }
-
-#else
-    #include <boost/preprocessor/repetition/enum_binary_params.hpp>
-    #include <boost/preprocessor/repetition/enum_params.hpp>
-    #include <boost/preprocessor/repetition/repeat_from_to.hpp>
-
-    template<typename TException>
-    [[noreturn]] void throw_wallet_ex(std::string&& loc)
-    {
-      TException e(std::move(loc));
-      LOG_PRINT_L0(e.to_string());
-      throw e;
-    }
-
-#define GEN_throw_wallet_ex(z, n, data)                                                       \
-    template<typename TException, BOOST_PP_ENUM_PARAMS(n, typename TArg)>                     \
-    [[noreturn]] void throw_wallet_ex(std::string&& loc, BOOST_PP_ENUM_BINARY_PARAMS(n, const TArg, &arg)) \
-    {                                                                                         \
-      TException e(std::move(loc), BOOST_PP_ENUM_PARAMS(n, arg));                             \
-      LOG_PRINT_L0(e.to_string());                                                            \
-      throw e;                                                                                \
-    }
-
-    BOOST_PP_REPEAT_FROM_TO(1, 6, GEN_throw_wallet_ex, ~)
-#endif
   }
 }
 

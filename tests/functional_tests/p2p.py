@@ -129,7 +129,7 @@ class P2PTest():
         assert res.height == height + 3
         assert res.top_block_hash == daemon3_top_block_hash
 
-        # disconect, mine on daemon2 again more than daemon3
+        # disconnect, mine on daemon2 again more than daemon3
         daemon2.out_peers(0)
         daemon3.out_peers(0)
 

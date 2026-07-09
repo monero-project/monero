@@ -56,7 +56,7 @@ DISABLE_VS_WARNINGS(4244)
  * \brief base for the binary archive type
  * 
  * \detailed It isn't used outside of this file, which its only
- * purpse is to define the functions used for the binary_archive. Its
+ * purpose is to define the functions used for the binary_archive. Its
  * a header, basically. I think it was declared simply to save typing...
  */
 template <bool IsSaving>
@@ -147,7 +147,7 @@ struct binary_archive<false> : public binary_archive_base<false>
   {
     auto current = bytes_.cbegin();
     auto end = bytes_.cend();
-    good_ &= (0 <= tools::read_varint(current, end, v));
+    good_ &= (1 <= tools::read_varint(current, end, v));
     current = std::min(current, bytes_.cend());
     bytes_ = {current, std::size_t(bytes_.cend() - current)};
   }

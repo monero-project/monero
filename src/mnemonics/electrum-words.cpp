@@ -81,7 +81,7 @@ namespace
 
   /*!
    * \brief Finds the word list that contains the seed words and puts the indices
-   *        where matches occured in matched_indices.
+   *        where matches occurred in matched_indices.
    * \param  seed            List of words to match.
    * \param  has_checksum    The seed has a checksum word (maybe not checked).
    * \param  matched_indices The indices where the seed words were found are added to this.

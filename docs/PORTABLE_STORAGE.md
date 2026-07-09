@@ -97,7 +97,7 @@ Which is followed by the section's name-value [entries](#Entry) sequentially:
 | Name              | section key           |
 | Type              | byte                  |
 | Count<sup>1</sup> | varint                |
-| Value(s)          | (type dependant data) |
+| Value(s)          | (type-dependent data) |
 
 <sup>1</sup> Note, this is only present if the entry type has the array flag
 (see below).

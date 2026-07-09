@@ -35,6 +35,10 @@
 #include "cryptonote_core/i_core_events.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.inl"
+#include "net/serialization.h"
+#include "serialization/wire.h"
+#include "serialization/wire/epee.h"
+#include "serialization/wire/wrappers_impl.h"
 #include "unit_tests_utils.h"
 #include <condition_variable>
 #include <thread>
@@ -86,8 +90,6 @@ public:
   bool find_blockchain_supplement(const std::list<crypto::hash>& qblock_ids, bool clip_pruned, cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::request& resp){return true;}
   bool handle_get_objects(cryptonote::NOTIFY_REQUEST_GET_OBJECTS::request& arg, cryptonote::NOTIFY_RESPONSE_GET_OBJECTS::request& rsp, cryptonote::cryptonote_connection_context& context){return true;}
   cryptonote::blockchain_storage &get_blockchain_storage() { throw std::runtime_error("Called invalid member function: please never call get_blockchain_storage on the TESTING class test_core."); }
-  bool get_test_drop_download() const {return true;}
-  bool get_test_drop_download_height() const {return true;}
   bool prepare_handle_incoming_blocks(const std::vector<cryptonote::block_complete_entry>  &blocks_entry, std::vector<cryptonote::block> &blocks) { return true; }
   bool cleanup_handle_incoming_blocks(bool force_sync = false) { return true; }
   bool check_incoming_block_size(const cryptonote::blobdata& block_blob) const { return true; }
@@ -322,10 +324,10 @@ TEST(ban, subnet)
     Server::init_options(opts);
     cryptonote::core::init_options(opts);
 
-    char** args = nullptr;
+    const char *argv[] = {"ban_subnet_test"};
     boost::program_options::variables_map vm;
     boost::program_options::store(
-      boost::program_options::parse_command_line(0, args, opts), vm
+      boost::program_options::parse_command_line(1, argv, opts), vm
     );
     server.init(vm);
   }
@@ -458,25 +460,10 @@ TEST(node_server, bind_same_p2p_port)
     cryptonote::core::init_options(desc_options);
     Server::init_options(desc_options);
 
-    const char *argv[2] = {nullptr, nullptr};
+    const char *argv[] = {"node_server_bind_same_p2p_port_test"};
     boost::program_options::variables_map vm;
     boost::program_options::store(boost::program_options::parse_command_line(1, argv, desc_options), vm);
 
-    /*
-    Reason for choosing '127.0.0.2' as the IP:
-
-    A TCP local socket address that has been bound is unavailable for some time after closing, unless the SO_REUSEADDR flag has been set.
-    That's why connections with automatically assigned source port 48080/58080 from previous test blocks the next to bind acceptor
-    so solution is to either set reuse_addr option for each socket in all tests
-    or use ip different from localhost for acceptors in order to not interfere with automatically assigned source endpoints
-
-    Relevant part about REUSEADDR from man:
-    https://www.man7.org/linux/man-pages/man7/ip.7.html
-
-    For Mac OSX and OpenBSD, set the following alias (by running the command as root), before running the test, or else it will fail:
-    ifconfig lo0 alias 127.0.0.2
-    */
-    vm.find(nodetool::arg_p2p_bind_ip.name)->second   = boost::program_options::variable_value(std::string("127.0.0.2"), false);
     vm.find(nodetool::arg_p2p_bind_port.name)->second = boost::program_options::variable_value(std::string(port), false);
 
     boost::program_options::notify(vm);
@@ -484,14 +471,37 @@ TEST(node_server, bind_same_p2p_port)
     return server->server->init(vm);
   };
 
-  constexpr char port[] = "48080";
-  constexpr char port_another[] = "58080";
+  /*
+  Use fixed test ports outside common ephemeral ranges to avoid bind
+  failures from recently closed TCP connections that used the same local
+  source port.
+  */
+  constexpr char port[] = "19080";
+  constexpr char port_another[] = "19081";
 
   const auto node = new_node();
   EXPECT_TRUE(init(node, port));
 
   EXPECT_FALSE(init(new_node(), port));
   EXPECT_TRUE(init(new_node(), port_another));
+}
+
+namespace
+{
+  struct messages_race {
+    WIRE_DEFINE_CONVERSIONS()
+
+    struct core {
+      using sync = cryptonote::CORE_SYNC_DATA;
+    };
+    using handshake = nodetool::COMMAND_HANDSHAKE_T<core::sync>;
+  };
+}
+
+namespace nodetool
+{
+  WIRE_EPEE_DEFINE_CONVERSION(messages_race::handshake::request_t);
+  WIRE_EPEE_DEFINE_CONVERSION(messages_race::handshake::response_t);
 }
 
 TEST(cryptonote_protocol_handler, race_condition)
@@ -613,12 +623,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     );
     core.get_blockchain_storage().get_db().batch_stop();
   };
-  struct messages {
-    struct core {
-      using sync = cryptonote::CORE_SYNC_DATA;
-    };
-    using handshake = nodetool::COMMAND_HANDSHAKE_T<core::sync>;
-  };
+  using messages = messages_race;
   struct net_node_t: commands_handler_t, p2p_endpoint_t {
     using span_t = epee::span<const uint8_t>;
     using zone_t = epee::net_utils::zone;
@@ -1194,12 +1199,7 @@ TEST(node_server, race_condition)
   };
   using node_server_t = nodetool::node_server<protocol_t>;
   auto conduct_test = [](protocol_t &protocol){
-    struct messages {
-      struct core {
-        using sync = cryptonote::CORE_SYNC_DATA;
-      };
-      using handshake = nodetool::COMMAND_HANDSHAKE_T<core::sync>;
-    };
+    using messages = messages_race;
     using handler_t = epee::levin::async_protocol_handler<context_t>;
     using connection_t = epee::net_utils::connection<handler_t>;
     using connection_ptr = boost::shared_ptr<connection_t>;
@@ -1210,6 +1210,7 @@ TEST(node_server, race_condition)
     using work_ptr = std::shared_ptr<work_t>;
     using workers_t = std::vector<std::thread>;
     using endpoint_t = boost::asio::ip::tcp::endpoint;
+    using ec_t = boost::system::error_code;
     using event_t = epee::simple_event;
     struct command_handler_t: epee::levin::levin_commands_handler<context_t> {
       using span_t = epee::span<const uint8_t>;
@@ -1239,16 +1240,18 @@ TEST(node_server, race_condition)
     shared_state_ptr shared_state = std::make_shared<shared_state_t>();
     shared_state->set_handler(new command_handler_t, &command_handler_t::destroy);
     connection_ptr conn{new connection_t(io_context, shared_state, {}, {})};
-    endpoint_t endpoint(boost::asio::ip::make_address("127.0.0.1"), 48080);
-    conn->socket().connect(endpoint);
-    conn->socket().set_option(boost::asio::ip::tcp::socket::reuse_address(true));
+    endpoint_t endpoint(boost::asio::ip::make_address("127.0.0.1"), 19082);
+    ec_t ec;
+    conn->socket().connect(endpoint, ec);
+    ASSERT_EQ(ec.value(), 0) << "connect to 127.0.0.1:19082 failed: " << ec.message();
     conn->start({}, {});
     context_t context;
     conn->get_context(context);
     event_t handshaked;
-    typename messages::handshake::request msg{};
-    msg.node_data.network_id = ::config::NETWORK_ID;
-    msg.node_data.my_port = 58080;
+    typename messages::handshake::request_t msg{{
+      ::config::NETWORK_ID,
+      19083,
+    }};
     epee::net_utils::async_invoke_remote_command2<typename messages::handshake::response>(
       context,
       messages::handshake::ID,
@@ -1281,17 +1284,17 @@ TEST(node_server, race_condition)
   protocol_t protocol{};
   node_server_t node_server(protocol);
   protocol.set_p2p_endpoint(&node_server);
-  node_server.init(
+  ASSERT_TRUE(node_server.init(
     [&dir]{
       options_t options;
       boost::program_options::store(
         boost::program_options::command_line_parser({
           "--p2p-bind-ip=127.0.0.1",
-          "--p2p-bind-port=48080",
+          "--p2p-bind-port=19082",
           "--out-peers=0",
           "--data-dir",
           dir.string(),
-          "--add-exclusive-node=127.0.0.1:48080",
+          "--add-exclusive-node=127.0.0.1:19082",
           "--check-updates=disabled",
           "--disable-dns-checkpoints",
         }).options([]{
@@ -1304,7 +1307,7 @@ TEST(node_server, race_condition)
       );
       return options;
     }()
-  );
+  ));
   worker_t worker([&]{
     node_server.run();
   });

@@ -48,7 +48,7 @@ bool expand_transaction_1(transaction &tx, bool base_only);
 namespace
 {
 /**
- * @brief Make rct::ctkey from hex string representation of destionation and mask
+ * @brief Make rct::ctkey from hex string representation of destination and mask
  *
  * @param dest_hex
  * @param mask_hex
@@ -157,7 +157,7 @@ static void expand_transaction_fully(cryptonote::transaction& tx, const rct::ctk
  * .rct_signatures.mixRings fields of the transaction.
  *
  * @param file_name relative file path in unit test data directory
- * @param input_pubkeys manually retrived input pubkey destination / masks for each ring
+ * @param input_pubkeys manually retrieved input pubkey destination / masks for each ring
  * @return cryptonote::transaction the expanded transaction
  */
 static cryptonote::transaction expand_transaction_from_bin_file_and_pubkeys

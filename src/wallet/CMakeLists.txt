@@ -90,7 +90,7 @@ if(NOT IOS)
       common
       version
       daemonizer
-      epee_wire_json
+      wire-json
       ${EPEE_READLINE}
       ${Boost_PROGRAM_OPTIONS_LIBRARY}
       ${Boost_FILESYSTEM_LIBRARY}
@@ -104,3 +104,4 @@ if(NOT IOS)
 endif()
 
 add_subdirectory(api)
+add_subdirectory(wallet2_basic)

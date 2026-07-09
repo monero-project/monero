@@ -65,17 +65,6 @@
 
 #define MIN_WANTED_SEED_NODES 12
 
-static inline boost::asio::ip::address_v4 make_address_v4_from_v6(const boost::asio::ip::address_v6& a)
-{
-  const auto &bytes = a.to_bytes();
-  uint32_t v4 = 0;
-  v4 = (v4 << 8) | bytes[12];
-  v4 = (v4 << 8) | bytes[13];
-  v4 = (v4 << 8) | bytes[14];
-  v4 = (v4 << 8) | bytes[15];
-  return boost::asio::ip::address_v4(v4);
-}
-
 namespace nodetool
 {
   template<class t_payload_net_handler>
@@ -203,8 +192,8 @@ namespace nodetool
       {
         if (now >= it->second)
         {
-          it = m_blocked_subnets.erase(it);
           MCLOG_CYAN(el::Level::Info, "global", "Subnet " << it->first.host_str() << " unblocked.");
+          it = m_blocked_subnets.erase(it);
           continue;
         }
         if (it->first.matches(ipv4_address))
@@ -765,8 +754,14 @@ namespace nodetool
     // TODO: at some point add IPv6 support, but that won't be relevant
     // for some time yet.
 
-    std::vector<std::vector<std::string>> dns_results;
-    dns_results.resize(m_seed_nodes_list.size());
+    struct frame_t
+    {
+      std::vector<std::vector<std::string>> dns_results;
+      boost::mutex sync;
+    };
+
+    const auto frame = std::make_shared<frame_t>();
+    frame->dns_results.resize(m_seed_nodes_list.size());
 
     // some libc implementation provide only a very small stack
     // for threads, e.g. musl only gives +- 80kb, which is not
@@ -777,32 +772,22 @@ namespace nodetool
 
     std::list<boost::thread> dns_threads;
     uint64_t result_index = 0;
+    const std::weak_ptr<frame_t> frame_weak{frame};
     for (const std::string& addr_str : m_seed_nodes_list)
     {
-      boost::thread th = boost::thread(thread_attributes, [=, &dns_results, &addr_str]
+      boost::thread th = boost::thread(thread_attributes, [frame_weak, addr_str, result_index]
       {
         MDEBUG("dns_threads[" << result_index << "] created for: " << addr_str);
         // TODO: care about dnssec avail/valid
         bool avail, valid;
-        std::vector<std::string> addr_list;
-
-        try
-        {
-          addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
-          MDEBUG("dns_threads[" << result_index << "] DNS resolve done");
-          boost::this_thread::interruption_point();
-        }
-        catch(const boost::thread_interrupted&)
-        {
-          // thread interruption request
-          // even if we now have results, finish thread without setting
-          // result variables, which are now out of scope in main thread
-          MWARNING("dns_threads[" << result_index << "] interrupted");
-          return;
-        }
-
+        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
         MINFO("dns_threads[" << result_index << "] addr_str: " << addr_str << "  number of results: " << addr_list.size());
-        dns_results[result_index] = addr_list;
+        const auto frame = frame_weak.lock();
+        if (frame)
+        {
+          const boost::lock_guard<boost::mutex> lock{frame->sync};
+          frame->dns_results.at(result_index) = std::move(addr_list);
+        }
       });
 
       dns_threads.push_back(std::move(th));
@@ -816,14 +801,15 @@ namespace nodetool
     {
       if (! th.try_join_until(deadline))
       {
-        MWARNING("dns_threads[" << i << "] timed out, sending interrupt");
-        th.interrupt();
+        MWARNING("dns_threads[" << i << "] timed out");
+        th.detach();
       }
       ++i;
     }
 
     i = 0;
-    for (const auto& result : dns_results)
+    const boost::lock_guard<boost::mutex> lock{frame->sync};
+    for (const auto& result : frame->dns_results)
     {
       MDEBUG("DNS lookup for " << m_seed_nodes_list[i] << ": " << result.size() << " results");
       // if no results for node, thread's lookup likely timed out
@@ -1108,28 +1094,44 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::send_stop_signal()
   {
+    if (m_stop_signal_sent_once.exchange(true))
+    {
+      MDEBUG("[node] Stop signal already sent");
+      return true;
+    }
     MDEBUG("[node] stopping server payload handler");
     m_payload_handler.stop();
-    MDEBUG("[node] sending stop signal");
+
+    MDEBUG("[node] marking net servers as stopping");
     for (auto& zone : m_network_zones)
     {
-      const auto close_all_connections = [&]()
-      {
-        std::list<boost::uuids::uuid> connection_ids;
-        zone.second.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt) {
-          connection_ids.push_back(cntxt.m_connection_id);
-          return true;
-        });
-        for (const auto &connection_id: connection_ids)
-        {
-          MDEBUG("Closing connection " << connection_id);
-          // We need to wait for every connection's shutdown sequence to complete before stopping the io_context.
-          zone.second.m_net_server.get_config_object().close(connection_id, true/*wait_for_shutdown*/);
-          MDEBUG("Closed connection " << connection_id);
-        }
-      };
+      zone.second.m_net_server.mark_stop_signal_sent();
+    }
 
-      zone.second.m_net_server.send_stop_signal(close_all_connections);
+    MDEBUG("[node] closing connections");
+    for (auto& zone : m_network_zones)
+    {
+      zone.second.m_net_server.close_server_connections();
+
+      std::list<boost::uuids::uuid> connection_ids;
+      zone.second.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
+      {
+        connection_ids.push_back(cntxt.m_connection_id);
+        return true;
+      });
+      for (const auto &connection_id: connection_ids)
+      {
+        MDEBUG("Closing connection " << connection_id);
+        // All zone connections must finish shutting down before any shared io_context is stopped.
+        zone.second.m_net_server.get_config_object().close(connection_id, true/*wait_for_shutdown*/);
+        MDEBUG("Closed connection " << connection_id);
+      }
+    }
+
+    MDEBUG("[node] stopping net server io_contexts");
+    for (auto& zone : m_network_zones)
+    {
+      zone.second.m_net_server.stop_io_context();
     }
     MDEBUG("[node] Stop signal sent");
     return true;
@@ -1293,7 +1295,7 @@ namespace nodetool
 
     const bool is_public = (zone == epee::net_utils::zone::public_);
     if(is_public && server->second.m_config.m_peer_id == peer.id)
-      return true;//dont make connections to ourself
+      return true;//don't make connections to ourself
 
     bool used = false;
     server->second.m_net_server.get_config_object().foreach_connection([&, is_public](const p2p_connection_context& cntxt)
@@ -1318,7 +1320,7 @@ namespace nodetool
 
     const bool is_public = (zone == epee::net_utils::zone::public_);
     if(is_public && server->second.m_config.m_peer_id == peer.id)
-      return true;//dont make connections to ourself
+      return true;//don't make connections to ourself
 
     bool used = false;
     server->second.m_net_server.get_config_object().foreach_connection([&, is_public](const p2p_connection_context& cntxt)
@@ -1554,7 +1556,7 @@ namespace nodetool
         const boost::asio::ip::address_v6 actual_ip = address.as<const epee::net_utils::ipv6_network_address>().ip();
         if (actual_ip.is_v4_mapped())
         {
-          boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
+          auto v4ip = boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
           uint32_t actual_ipv4;
           memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
           return epee::net_utils::ipv4_network_address(actual_ipv4, 0).host_str();
@@ -1591,7 +1593,7 @@ namespace nodetool
 
     std::set<uint64_t> tried_peers;  // all peers ever tried
 
-    // Outer try loop, with up to 3 attempts to actually connect to a suitable randomly choosen candidate
+    // Outer try loop, with up to 3 attempts to actually connect to a suitable randomly chosen candidate
     size_t outer_loop_count = 0;
     while ((outer_loop_count < 3) && !zone.m_net_server.is_stop_signal_sent())
     {
@@ -1620,7 +1622,7 @@ namespace nodetool
             const boost::asio::ip::address_v6 &actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
             if (actual_ip.is_v4_mapped())
             {
-              boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
+              auto v4ip = boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
               uint32_t actual_ipv4;
               memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
               connected_subnets.insert(actual_ipv4 & subnet_mask);
@@ -1676,7 +1678,7 @@ namespace nodetool
               const boost::asio::ip::address_v6 &actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
               if (actual_ip.is_v4_mapped())
               {
-                boost::asio::ip::address_v4 v4ip = make_address_v4_from_v6(actual_ip);
+                auto v4ip = boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
                 uint32_t actual_ipv4;
                 memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
                 uint32_t subnet = actual_ipv4 & subnet_mask;

@@ -29,6 +29,7 @@
 #include "cryptonote_basic.h"
 
 #include "cryptonote_basic_impl.h"
+#include "crypto/wire.h"
 #include "serialization/wire.h"
 #include "serialization/wire/adapted/vector.h"
 #include "serialization/wire/wrapper/array.h"
