@@ -97,7 +97,7 @@ The fuzz tests can also be built locally with Clang's libFuzzer, without using D
 
 ```sh
 $ LIB_FUZZING_ENGINE="-fsanitize=fuzzer" \
-  cmake -S . -B build/libfuzzer -G Ninja \
+  cmake -S . -B build/libfuzzer \
     -D OSSFUZZ=ON \
     -D BUILD_TESTS=ON \
     -D STATIC=OFF \
@@ -108,7 +108,7 @@ $ LIB_FUZZING_ENGINE="-fsanitize=fuzzer" \
     -D CMAKE_C_FLAGS="-fsanitize=fuzzer-no-link,address,undefined" \
     -D CMAKE_CXX_FLAGS="-fsanitize=fuzzer-no-link,address,undefined" \
     -D CMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
-$ cmake --build build/libfuzzer --target base58_fuzz_tests
+$ make -C build/libfuzzer base58_fuzz_tests
 ```
 
 Use a Clang toolchain that includes the libFuzzer runtime. Some platform-provided Clang installations do not include it; if linking fails with a missing `libclang_rt.fuzzer` library, install a complete LLVM toolchain and point `CMAKE_C_COMPILER` and `CMAKE_CXX_COMPILER` at that `clang` and `clang++`.
