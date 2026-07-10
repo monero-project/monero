@@ -1841,7 +1841,7 @@ namespace nodetool
         pe_seed.adr = server.m_seed_nodes[current_index];
         if (is_peer_used(pe_seed))
           is_connected_to_at_least_one_seed_node = true;
-        else if (try_to_connect_and_handshake_with_new_peer(server.m_seed_nodes[current_index], true))
+        else if (!is_addr_recently_failed(pe_seed.adr) && try_to_connect_and_handshake_with_new_peer(pe_seed.adr, true))
           break;
         if(++try_count > server.m_seed_nodes.size())
         {
