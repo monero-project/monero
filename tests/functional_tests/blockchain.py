@@ -57,12 +57,20 @@ class BlockchainTest():
         daemon.pop_blocks(res.height - 1)
         daemon.flush_txpool()
 
+    def _check_blocktemplate_reserved_offset(self, daemon, address, reserve_size):
+        res = daemon.getblocktemplate(address, reserve_size = reserve_size)
+        assert res.reserved_offset > 0
+        block_blob = bytes.fromhex(res.blocktemplate_blob)
+        reserved_bytes = block_blob[res.reserved_offset:res.reserved_offset + reserve_size]
+        assert reserved_bytes == bytes(reserve_size)
+
     def _test_generateblocks(self, blocks):
         assert blocks >= 2
 
         print("Test generating", blocks, 'blocks')
 
         daemon = Daemon()
+        address = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
 
         # check info/height before generating blocks
         res_info = daemon.get_info()
@@ -86,7 +94,7 @@ class BlockchainTest():
         assert res.fee <= 1200000
 
         # generate blocks
-        res_generateblocks = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', blocks)
+        res_generateblocks = daemon.generateblocks(address, blocks)
 
         # check info/height after generateblocks blocks
         assert res_generateblocks.height == height + blocks - 1
@@ -131,7 +139,7 @@ class BlockchainTest():
         assert res_getblockheaderbyheight.block_header == block_header
 
         # getting a block template after that should have the right height, etc
-        res_getblocktemplate = daemon.getblocktemplate('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm')
+        res_getblocktemplate = daemon.getblocktemplate(address)
         assert res_getblocktemplate.height == height + blocks
         assert res_getblocktemplate.reserved_offset > 0
         assert res_getblocktemplate.prev_hash == res_info.top_block_hash
@@ -140,6 +148,10 @@ class BlockchainTest():
         assert len(res_getblocktemplate.blocktemplate_blob) > 0
         assert len(res_getblocktemplate.blockhashing_blob) > 0
         assert int(res_getblocktemplate.wide_difficulty, 16) == (res_getblocktemplate.difficulty_top64 << 64) + res_getblocktemplate.difficulty
+
+        # 255 matches TX_EXTRA_NONCE_MAX_COUNT in the C++ code.
+        for reserve_size in (1, 127, 128, 255):
+            self._check_blocktemplate_reserved_offset(daemon, address, reserve_size)
 
         # diff etc should be the same
         assert res_getblocktemplate.prev_hash == res_info.top_block_hash
