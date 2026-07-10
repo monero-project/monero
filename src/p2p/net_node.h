@@ -378,7 +378,7 @@ namespace nodetool
     bool try_get_support_flags(const p2p_connection_context& context, std::function<void(p2p_connection_context&, const uint32_t&)> f);
     bool make_expected_connections_count(network_zone& zone, PeerType peer_type, size_t expected_connections);
     void record_addr_failed(const epee::net_utils::network_address& addr);
-    bool is_addr_recently_failed(const epee::net_utils::network_address& addr);
+    bool is_addr_recently_failed(const epee::net_utils::network_address& addr, time_t forget_seconds = P2P_FAILED_ADDR_FORGET_SECONDS);
     bool is_priority_node(const epee::net_utils::network_address& na);
     std::set<std::string> get_ip_seed_nodes() const;
     std::set<std::string> get_dns_seed_nodes();
