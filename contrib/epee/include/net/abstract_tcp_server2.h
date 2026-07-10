@@ -99,6 +99,14 @@ namespace net_utils
   {
   public:
     typedef typename t_protocol_handler::connection_context t_connection_context;
+
+    enum status_t {
+      TERMINATED,
+      RUNNING,
+      INTERRUPTED,
+      TERMINATING,
+      WASTED,
+    };
   private:
     using connection_t = connection<t_protocol_handler>;
     using connection_ptr = boost::shared_ptr<connection_t>;
@@ -147,14 +155,6 @@ namespace net_utils
       bool is_multithreaded,
       boost::optional<network_address> real_remote
     );
-
-    enum status_t {
-      TERMINATED,
-      RUNNING,
-      INTERRUPTED,
-      TERMINATING,
-      WASTED,
-    };
 
     struct state_t {
       struct stat_t {
@@ -320,6 +320,8 @@ namespace net_utils
 		bool speed_limit_is_enabled() const; ///< tells us should we be sleeping here (e.g. do not sleep on RPC connections)
 
     bool cancel(bool wait_for_shutdown = false);
+
+    status_t get_status() const noexcept { return m_state.status; }
     
   private:
     //----------------- i_service_endpoint ---------------------
