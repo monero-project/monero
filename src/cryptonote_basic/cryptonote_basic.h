@@ -282,8 +282,17 @@ namespace cryptonote
           PREPARE_CUSTOM_VECTOR_SERIALIZATION(signature_size, signatures[i]);
           if (signature_size != signatures[i].size())
             return false;
+          else if (0 == signature_size)
+            continue; // v1 miner txs serialize an empty signatures outer array
 
-          FIELDS(signatures[i]);
+          // for non-miner, serialize all inner `crypto::signature`s for this input in one big blob
+          static_assert(std::has_unique_object_representations_v<crypto::signature>);
+          ar.serialize_blob(signatures[i].data(), signature_size * sizeof(crypto::signature));
+          if (!ar.good())
+          {
+            if (!Archive<W>::is_saving()) signatures.clear(); // on load failure, clear all sigs for good measure
+            return false;
+          }
 
           if (vin.size() - i > 1)
             ar.delimit_array();
