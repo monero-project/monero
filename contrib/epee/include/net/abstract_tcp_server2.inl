@@ -826,7 +826,8 @@ namespace net_utils
       return false;
 
     // Wait for the write queue to fall below the max. If it doesn't after a
-    // randomized delay, drop the connection.
+    // randomized delay, drop the connection. P2P senders fail fast instead of
+    // parking an io_context worker thread here.
     auto wait_consume = [this] {
       auto random_delay = []{
         using engine = std::mt19937;
@@ -850,6 +851,12 @@ namespace net_utils
       if (m_state.data.write.queue.size() <= ABSTRACT_SERVER_SEND_QUE_MAX_COUNT &&
           m_state.data.write.total_bytes <= static_cast<shared_state&>(connection_basic::get_state()).response_soft_limit)
         return true;
+
+      if (m_connection_type == e_connection_type_P2P) {
+        MWARNING("Connection " << m_conn_context.m_connection_id << " tripped write limit, terminating");
+        terminate_async();
+        return false;
+      }
       m_state.data.write.wait_consume = true;
       bool success = m_state.condition.wait_for(
         m_state.lock,
@@ -888,7 +895,11 @@ namespace net_utils
     };
     if (!wait_sender())
       return false;
-    constexpr size_t CHUNK_SIZE = 32 * 1024;
+    /* CHUNK_SIZE indirectly caps outgoing to 128 * 1024 * 1000
+     (ABSTRACT_SERVER_SEND_QUE_MAX_COUNT). The "soft" limit total is currently
+     100 MiB (ABSTRACT_SERVER_SEND_QUE_MAX_BYTES_DEFAULT). These values will
+     need to be re-visited alongside block limit increases. */
+    constexpr size_t CHUNK_SIZE = 128 * 1024;
     if (m_connection_type == e_connection_type_RPC ||
       message.size() <= 2 * CHUNK_SIZE
     ) {
@@ -900,13 +911,19 @@ namespace net_utils
       start_write();
     }
     else {
+      std::size_t soft_limit = 0;
+      const epee::misc_utils::auto_scope_leave_caller scope_exit_handler =
+        epee::misc_utils::create_scope_leave_handler([&soft_limit, this] {
+          m_state.data.write.total_bytes += soft_limit;
+        });
+
       while (!message.empty()) {
         if (!wait_consume())
           return false;
         m_state.data.write.queue.emplace_front(
           message.take_slice(CHUNK_SIZE)
         );
-        m_state.data.write.total_bytes += m_state.data.write.queue.front().size();
+        soft_limit += m_state.data.write.queue.front().size();
         start_write();
       }
     }
