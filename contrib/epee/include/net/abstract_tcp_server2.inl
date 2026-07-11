@@ -1219,16 +1219,13 @@ namespace net_utils
   template<typename T>
   bool connection<T>::add_ref()
   {
-    try {
-      auto self = connection<T>::shared_from_this();
-      std::lock_guard<std::mutex> guard(m_state.lock);
-      this->self = std::move(self);
-      ++m_state.protocol.reference_counter;
-      return true;
-    }
-    catch (boost::bad_weak_ptr &exception) {
+    auto self = connection<T>::weak_from_this().lock();
+    if (!self)
       return false;
-    }
+    std::lock_guard<std::mutex> guard(m_state.lock);
+    this->self = std::move(self);
+    ++m_state.protocol.reference_counter;
+    return true;
   }
 
   template<typename T>
