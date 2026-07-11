@@ -155,7 +155,7 @@ LoggingPerformanceTimer::~LoggingPerformanceTimer()
   const bool log = ELPP->vRegistry()->allowed(level, cat.c_str());
   if (log)
   {
-    char s[12];
+    char s[24];
     snprintf(s, sizeof(s), "%8llu  ", (unsigned long long)(ticks_to_ns(ticks) / (1000000000 / unit)));
     size_t size = 0; for (const auto *tmp: *performance_timers) if (!tmp->paused || tmp==this) ++size;
     PERF_LOG_ALWAYS(level, cat.c_str(), "PERF " << s << std::string(size * 2, ' ') << "  " << name);
