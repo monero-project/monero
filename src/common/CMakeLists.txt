@@ -67,6 +67,11 @@ monero_add_library(common
   ${common_headers}
   ${common_private_headers}
   DEPENDS generate_translations_header)
+
+if (STACK_TRACE_USE_WRAP)
+  target_compile_definitions(obj_common PRIVATE STACK_TRACE_USE_WRAP)
+endif()
+
 target_link_libraries(common
   PUBLIC
     cncrypto
@@ -81,6 +86,12 @@ target_link_libraries(common
   PRIVATE
     ${OPENSSL_LIBRARIES}
     ${EXTRA_LIBRARIES})
+
+if (STACK_TRACE_USE_WRAP)
+  set_property(TARGET common APPEND PROPERTY INTERFACE_LINK_OPTIONS
+    "-Wl,--wrap=__cxa_throw"
+    "-Wl,-u,__wrap___cxa_throw")
+endif()
 
 #monero_install_headers(common
 #  ${common_headers})

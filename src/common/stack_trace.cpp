@@ -40,7 +40,7 @@
 #include <libunwind.h>
 #include <cxxabi.h>
 #endif
-#ifndef STATICLIB
+#if !defined(STATICLIB) && !defined(STACK_TRACE_USE_WRAP)
 #include <dlfcn.h>
 #endif
 #include <boost/algorithm/string.hpp>
@@ -71,12 +71,12 @@
 #define CXA_THROW_INFO_T void
 #endif // !__clang__
 
-#ifdef STATICLIB
+#if defined(STATICLIB) || defined(STACK_TRACE_USE_WRAP)
 #define CXA_THROW __wrap___cxa_throw
 extern "C"
 __attribute__((noreturn))
 void __real___cxa_throw(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*));
-#else // !STATICLIB
+#else // STATICLIB || STACK_TRACE_USE_WRAP
 #define CXA_THROW __cxa_throw
 extern "C"
 typedef
@@ -84,7 +84,7 @@ typedef
 __attribute__((noreturn))
 #endif // __clang__
 void (cxa_throw_t)(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*));
-#endif // !STATICLIB
+#endif // STATICLIB || STACK_TRACE_USE_WRAP
 
 extern "C"
 __attribute__((noreturn))
@@ -96,12 +96,12 @@ void CXA_THROW(void *ex, CXA_THROW_INFO_T *info, void (*dest)(void*))
   tools::log_stack_trace((std::string("Exception: ")+((!status && dsym) ? dsym : (const char*)info)).c_str());
   free(dsym);
 
-#ifndef STATICLIB
+#if !defined(STATICLIB) && !defined(STACK_TRACE_USE_WRAP)
 #ifndef __clang__ // for GCC the attr can't be applied in typedef like for clang
   __attribute__((noreturn))
 #endif // !__clang__
    cxa_throw_t *__real___cxa_throw = (cxa_throw_t*)dlsym(RTLD_NEXT, "__cxa_throw");
-#endif // !STATICLIB
+#endif // !STATICLIB && !STACK_TRACE_USE_WRAP
   __real___cxa_throw(ex, info, dest);
 }
 
