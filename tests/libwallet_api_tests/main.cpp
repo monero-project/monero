@@ -383,6 +383,43 @@ TEST_F(WalletManagerTest, WalletManagerRecoversWallet)
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
 }
 
+TEST_F(WalletManagerTest, WalletManagerStoresPasswordOfWalletRecoveredFromSeed)
+{
+    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    std::string seed1 = wallet1->seed();
+    std::string address1 = wallet1->mainAddress();
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+    Utils::deleteWallet(WALLET_NAME);
+    Monero::Wallet * wallet2 = wmgr->recoveryWallet(WALLET_NAME, WALLET_PASS, seed1, Monero::NetworkType::MAINNET, 0);
+    ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);
+    ASSERT_TRUE(wallet2->mainAddress() == address1);
+    ASSERT_TRUE(wallet2->store(WALLET_NAME_COPY));
+    ASSERT_TRUE(wmgr->closeWallet(wallet2));
+    Monero::Wallet * wallet3 = wmgr->openWallet(WALLET_NAME_COPY, WALLET_PASS, Monero::NetworkType::MAINNET);
+    ASSERT_TRUE(wallet3->status() == Monero::Wallet::Status_Ok);
+    ASSERT_TRUE(wallet3->mainAddress() == address1);
+    ASSERT_TRUE(wmgr->closeWallet(wallet3));
+}
+
+TEST_F(WalletManagerTest, WalletManagerStoresPasswordOfWalletRecoveredFromKeys)
+{
+    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    std::string address1 = wallet1->mainAddress();
+    std::string viewkey1 = wallet1->secretViewKey();
+    std::string spendkey1 = wallet1->secretSpendKey();
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+    Utils::deleteWallet(WALLET_NAME);
+    Monero::Wallet * wallet2 = wmgr->createWalletFromKeys(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET, 0, address1, viewkey1, spendkey1);
+    ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);
+    ASSERT_TRUE(wallet2->mainAddress() == address1);
+    ASSERT_TRUE(wallet2->store(WALLET_NAME_COPY));
+    ASSERT_TRUE(wmgr->closeWallet(wallet2));
+    Monero::Wallet * wallet3 = wmgr->openWallet(WALLET_NAME_COPY, WALLET_PASS, Monero::NetworkType::MAINNET);
+    ASSERT_TRUE(wallet3->status() == Monero::Wallet::Status_Ok);
+    ASSERT_TRUE(wallet3->mainAddress() == address1);
+    ASSERT_TRUE(wmgr->closeWallet(wallet3));
+}
+
 
 TEST_F(WalletManagerTest, WalletManagerStoresWallet1)
 {
