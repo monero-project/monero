@@ -175,7 +175,7 @@ target_link_libraries(load-from-binary_fuzz_tests
   PRIVATE
     common
     epee
-    epee_wire_epee
+    wire-epee
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES}
@@ -189,7 +189,7 @@ target_link_libraries(load-from-json_fuzz_tests
   PRIVATE
     common
     epee
-    epee_wire_json
+    wire-json
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES}
