@@ -52,7 +52,7 @@ namespace wire
 
     The `is_array` trait can also be used, but is default treated as an optional
     field. The trait `is_optional_on_empty` traits can be specialized to disable
-    the optional on empty behavior. See `wire/traits.h` for more ifnormation
+    the optional on empty behavior. See `wire/traits.h` for more information
     on the `is_optional_on_empty` trait.
 
     `container_type` is `T` with optional `std::reference_wrapper` removed.

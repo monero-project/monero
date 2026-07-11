@@ -39,6 +39,8 @@ namespace error
     {
     default:
       break;
+    case epee::invalid_null:
+      return "epee_writer cannot output NULL value";
     case epee::invalid_tag:
       return "Found an unknown epee type tag";
     case epee::invalid_varint_type:

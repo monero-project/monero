@@ -32,13 +32,9 @@
 
 #include "serialization/wire/traits.h"
 
-//! A required field with the same key name and C/C++ name
-#define WIRE_FIELD_ID(id, name)                         \
-  ::wire::field< id >( #name , std::ref( self . name ))
-
 //! A required field has the same key name and C/C++ name
 #define WIRE_FIELD(name) \
-  WIRE_FIELD_ID(0, name)
+  ::wire::field( #name , std::ref( self . name ))
 
 //! A required field has the same key name and C/C++ name AND is cheap to copy (faster output).
 #define WIRE_FIELD_COPY(name)                   \
@@ -96,7 +92,7 @@ namespace wire
 
     Basically each input/output format needs a unique type so that the compiler
     knows how to "dispatch" the read/write calls. */
-  template<typename T, bool Required, unsigned I = 0>
+  template<typename T, bool Required>
   struct field_
   {
     using value_type = unwrap_reference_t<T>;
@@ -107,7 +103,6 @@ namespace wire
 
     static constexpr bool is_required() noexcept { return Required && !optional_on_empty(); }
     static constexpr std::size_t count() noexcept { return 1; }
-    static constexpr unsigned id() noexcept { return I; }
 
     const char* name;
     T value;
@@ -117,15 +112,15 @@ namespace wire
   };
 
   //! Links `name` to `value`. Use `std::ref` if de-serializing.
-  template<unsigned I = 0, typename T = void>
-  constexpr inline field_<T, true, I> field(const char* name, T value)
+  template<typename T>
+  constexpr inline field_<T, true> field(const char* name, T value)
   {
     return {name, std::move(value)};
   }
 
   //! Links `name` to optional `value`. Use `std::ref` if de-serializing.
-  template<unsigned I = 0, typename T = void>
-  constexpr inline field_<T, false, I> optional_field(const char* name, T value)
+  template<typename T>
+  constexpr inline field_<T, false> optional_field(const char* name, T value)
   {
     return {name, std::move(value)};
   }

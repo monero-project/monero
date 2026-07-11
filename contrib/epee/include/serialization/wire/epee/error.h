@@ -36,6 +36,7 @@ namespace error
   enum class epee : int
   {
     none = 0,
+    invalid_null,
     invalid_tag,
     invalid_varint_type,
     key_size, //!< Output error, field name too long

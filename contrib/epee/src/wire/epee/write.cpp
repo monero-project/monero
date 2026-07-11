@@ -102,6 +102,11 @@ namespace wire
   epee::byte_slice epee_writer::take_bytes()
   { return epee::byte_slice{take_buffer()}; }
 
+  void epee_writer::null_value()
+  {
+    WIRE_DLOG_THROW_(error::epee::invalid_null);
+  }
+
   void epee_writer::boolean(const bool source)
   { write_arithmetic(source); }
 

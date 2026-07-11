@@ -34,11 +34,6 @@
 
 namespace wire
 {
-  static void write_bytes(writer& dest, const std::nullptr_t&)
-  {
-    throw std::logic_error{"nullptr output not yet defined for wire::writer"};
-  }
-
   void basic_value::reset()
   {
     value = nullptr;
