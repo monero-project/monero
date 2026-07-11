@@ -86,9 +86,12 @@ void tree_hash(const char (*hashes)[HASH_SIZE], size_t count, char *root_hash) {
     char *ints = calloc(cnt, HASH_SIZE);  // zero out as extra protection for using uninitialized mem
     assert(ints);
 
-    memcpy(ints, hashes, (2 * cnt - count) * HASH_SIZE);
+    const size_t initial_count = 2 * cnt - count;
+    for (i = 0; i < initial_count; ++i) {
+      memcpy(ints + i * HASH_SIZE, hashes[i], HASH_SIZE);
+    }
 
-    for (i = 2 * cnt - count, j = 2 * cnt - count; j < cnt; i += 2, ++j) {
+    for (i = initial_count, j = initial_count; j < cnt; i += 2, ++j) {
       cn_fast_hash(hashes[i], 64, ints + j * HASH_SIZE);
     }
     assert(i == count);
