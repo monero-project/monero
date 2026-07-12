@@ -2053,7 +2053,9 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       return false;
     }
 
-    // Add pool supplement txs to the main mempool with relay_method::block
+    // Add pool supplement txs to the main mempool with relay_method::block. They were verified
+    // for the alt chain above, but must also satisfy the current main chain's pool rules.
+    const uint8_t current_hf_version = get_current_hard_fork_version();
     CRITICAL_REGION_LOCAL(m_tx_pool);
     for (auto& extra_block_tx : extra_block_txs)
     {
@@ -2064,7 +2066,7 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       tx_verification_context tvc{};
       if ((!m_tx_pool.have_tx(txid, relay_category::legacy) &&
           !m_db->tx_exists(txid) &&
-          !m_tx_pool.add_tx(tx, tvc, relay_method::block, /*relayed=*/true, hf_version, hf_version))
+          !m_tx_pool.add_tx(tx, tvc, relay_method::block, /*relayed=*/true, current_hf_version, hf_version))
           || tvc.m_verifivation_failed)
       {
         MERROR_VER("Transaction " << txid <<
