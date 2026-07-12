@@ -60,7 +60,7 @@ namespace cryptonote
 
   typedef std::vector<crypto::signature> ring_signature;
   using block_blob_min = wire::min_element_size<73>;
-  using tx_blob_min = wire::min_element_size<42>;
+  using tx_blob_min = wire::min_element_size<41>;
 
   /* outputs */
 

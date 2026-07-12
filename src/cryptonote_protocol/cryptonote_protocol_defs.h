@@ -121,13 +121,10 @@ namespace cryptonote
   {
     blobdata blob;
     crypto::hash prunable_hash;
-    BEGIN_KV_SERIALIZE_MAP()
-      KV_SERIALIZE(blob)
-      KV_SERIALIZE_VAL_POD_AS_BLOB(prunable_hash)
-    END_KV_SERIALIZE_MAP()
-
-    tx_blob_entry(const blobdata &bd = {}, const crypto::hash &h = crypto::null_hash): blob(bd), prunable_hash(h) {}
+    bool pruned; //! not serialized, needed by serialization routines
+    tx_blob_entry(const blobdata &bd = {}, const crypto::hash &h = crypto::null_hash, bool pruned = false): blob(bd), prunable_hash(h), pruned(pruned) {}
   };
+  WIRE_EPEE_DECLARE_OBJECT(tx_blob_entry);
 
   struct block_complete_entry
   {
