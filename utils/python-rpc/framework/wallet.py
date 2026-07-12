@@ -487,6 +487,9 @@ class Wallet(object):
         set_daemon = {
             'method': 'set_daemon',
             'params' : {
+                'username': '',
+                'password': '',
+                'ssl_ca_file': '',
                 'address': address,
                 'trusted': trusted,
                 'ssl_support': ssl_support,
