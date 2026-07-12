@@ -62,7 +62,8 @@ jobs:
         run: |
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT}}
-          ${{env.CTEST_EXCLUDE_SLOW}}
+      - name: reduced tests
+        run: ${{env.CTEST_EXCLUDE_SLOW}}
       - name: save ccache
         uses: actions/cache/save@v5
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
@@ -100,7 +101,8 @@ jobs:
         run: |
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT}}
-          ${{env.CTEST_EXCLUDE_SLOW}}
+      - name: reduced tests
+        run: ${{env.CTEST_EXCLUDE_SLOW}}
       - name: save ccache
         uses: actions/cache/save@v5
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
