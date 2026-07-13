@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -162,6 +162,8 @@ int main(int argc, char* argv[])
     // Mempool
     GENERATE_AND_PLAY(txpool_spend_key_public);
     GENERATE_AND_PLAY(txpool_spend_key_all);
+    GENERATE_AND_PLAY(txpool_drops_tx_into_blockchain);
+    GENERATE_AND_PLAY(txpool_cleanup_after_hf);
     GENERATE_AND_PLAY(txpool_future_receive_time);
     GENERATE_AND_PLAY(txpool_double_spend_norelay);
     GENERATE_AND_PLAY(txpool_double_spend_local);
@@ -290,6 +292,9 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_rct2_tx_clsag_malleability);
 
     GENERATE_AND_PLAY(gen_block_low_coinbase);
+
+    GENERATE_AND_PLAY(gen_reorg_over_hf_1)
+    GENERATE_AND_PLAY(gen_reorg_over_hf_2)
 
     el::Level level = (failed_tests.empty() ? el::Level::Info : el::Level::Error);
     if (!list_tests)

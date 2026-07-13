@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Monero Project
+// Copyright (c) 2019-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -31,7 +31,6 @@
 #include <boost/chrono/chrono.hpp>
 #include <boost/thread/thread_only.hpp>
 #include <ctime>
-#include <limits>
 #include "blockchain_db/locked_txn.h"
 #include "string_tools.h"
 
@@ -46,15 +45,49 @@
 
 txpool_base::txpool_base()
   : test_chain_unit_base()
+  , m_all_ki_count(0)
   , m_all_tx_count(0)
 {
   REGISTER_CALLBACK_METHOD(txpool_spend_key_public, increase_all_tx_count);
+  REGISTER_CALLBACK_METHOD(txpool_spend_key_public, decrease_all_tx_count);
+  REGISTER_CALLBACK_METHOD(txpool_spend_key_public, increase_all_ki_count);
+  REGISTER_CALLBACK_METHOD(txpool_spend_key_public, decrease_all_ki_count);
   REGISTER_CALLBACK_METHOD(txpool_spend_key_public, check_txpool_spent_keys);
 }
 
 bool txpool_base::increase_all_tx_count(cryptonote::core& /*c*/, size_t /*ev_index*/, const std::vector<test_event_entry>& /*events*/)
 {
   ++m_all_tx_count;
+  ++m_all_ki_count;
+  return true;
+}
+
+bool txpool_base::decrease_all_tx_count(cryptonote::core& /*c*/, size_t /*ev_index*/, const std::vector<test_event_entry>& /*events*/)
+{
+  if (0 == m_all_tx_count || 0 == m_all_ki_count)
+  {
+    MERROR("txpool_base: cannot decrease tx/ki count past 0");
+    return false;
+  }
+  --m_all_tx_count;
+  --m_all_ki_count;
+  return true;
+}
+
+bool txpool_base::increase_all_ki_count(cryptonote::core& /*c*/, size_t /*ev_index*/, const std::vector<test_event_entry>& /*events*/)
+{
+  ++m_all_ki_count;
+  return true;
+}
+
+bool txpool_base::decrease_all_ki_count(cryptonote::core& /*c*/, size_t /*ev_index*/, const std::vector<test_event_entry>& /*events*/)
+{
+  if (0 == m_all_ki_count)
+  {
+    MERROR("txpool_base: cannot decrease ki count past 0");
+    return false;
+  }
+  --m_all_ki_count;
   return true;
 }
 
@@ -62,9 +95,21 @@ bool txpool_base::check_txpool_spent_keys(cryptonote::core& c, size_t /*ev_index
 {
   std::vector<cryptonote::tx_info> infos{};
   std::vector<cryptonote::spent_key_image_info> key_images{};
-  if (!c.get_pool_transactions_and_spent_keys_info(infos, key_images) || infos.size() != m_all_tx_count || key_images.size() != m_all_tx_count)
+  if (!c.get_pool_transactions_and_spent_keys_info(infos, key_images))
   {
-    MERROR("Failed all spent keys retrieval - Expected All Count: " << m_all_tx_count << " Actual Info Count: " << infos.size() << " Actual Key Image Count: " << key_images.size());
+    MERROR("Failed to fetch mempool info");
+    return false;
+  }
+
+  if (infos.size() != m_all_tx_count)
+  {
+    MERROR("Failed mempool tx count: expected " << m_all_tx_count << " vs actual " << infos.size());
+    return false;
+  }
+
+  if (key_images.size() != m_all_ki_count)
+  {
+    MERROR("Failed mempool spent keys count: expected " << m_all_ki_count << " vs actual " << key_images.size());
     return false;
   }
 
@@ -94,6 +139,230 @@ bool txpool_spend_key_all::generate(std::vector<test_event_entry>& events)
   DO_CALLBACK(events, "check_txpool_spent_keys");
 
   return true;
+}
+
+bool txpool_drops_tx_into_blockchain::generate(std::vector<test_event_entry>& events) const
+{
+  INIT_MEMPOOL_TEST();
+
+  // test 0 in mempool
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+
+  // add 1 tx to mempool
+  MAKE_TX(events, tx_0, miner_account, bob_account, send_amount, blk_0r);
+  DO_CALLBACK(events, "increase_all_tx_count");
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+
+  // mine block, which removes tx from mempool
+  MAKE_NEXT_BLOCK_TX1(events, blk_1, blk_0r, miner_account, tx_0)
+  DO_CALLBACK(events, "decrease_all_tx_count");
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+
+  return true;
+}
+
+txpool_cleanup_after_hf::txpool_cleanup_after_hf(): txpool_base(),
+  m_main_chain_txid(), m_cleaned_txid(), m_post_v16_fork()
+{
+  REGISTER_CALLBACK_METHOD(txpool_cleanup_after_hf, set_txids_from_events)
+  REGISTER_CALLBACK_METHOD(txpool_cleanup_after_hf, set_post_v16_fork)
+  REGISTER_CALLBACK_METHOD(txpool_cleanup_after_hf, check_txid_in_chain)
+  REGISTER_CALLBACK_METHOD(txpool_cleanup_after_hf, wait_until_txid_gone)
+}
+
+bool txpool_cleanup_after_hf::generate(std::vector<test_event_entry>& events) const
+{
+  uint64_t send_amount = 1000;
+  uint64_t ts_start = 1338224400;
+  GENERATE_ACCOUNT(miner_account);
+  GENERATE_ACCOUNT(bob_account);
+  MAKE_GENESIS_BLOCK(events, blk_0, miner_account, ts_start);
+
+  static const event_replay_settings settings{
+    .hard_forks = {{
+        {1, 1},
+        {2, 2},
+        {3, 3},
+        {4, 4},
+        {5, 5},
+        {6, 6},
+        {7, 7},
+        {8, 8},
+        {9, 9},
+        {10, 10},
+        {11, 11},
+        {12, 12},
+        {13, 13},
+        {14, 14},
+        {15, 15},
+        {16, 80}, //v16 is the softfork disallowing BP range proofs and no-view-tag txs
+    }}
+  };
+  events.push_back(settings);
+  const auto get_ideal_hf_version = [](size_t h) -> uint8_t {
+    for (auto it = settings.hard_forks->crbegin(); it != settings.hard_forks->crend(); ++it)
+      if (h >= it->second)
+        return it->first;
+    return 0;
+  };
+
+  // mine to 1 block before v16 soft fork
+  const size_t height_target = settings.hard_forks->back().second - 1;
+  size_t height = 1;
+  cryptonote::block blk_0r = blk_0;
+  for (; height < height_target; ++height)
+  {
+    const uint8_t hf_version = get_ideal_hf_version(height);
+    if (!generator.construct_block(blk_0r, blk_0r, miner_account, {}, hf_version))
+      return false;
+    events.push_back(blk_0r);
+  }
+
+  const auto make_bp_tx = [&]() -> cryptonote::transaction {
+    cryptonote::transaction tx;
+    if (!construct_tx_to_key(events, tx, blk_0r, miner_account, bob_account,
+        send_amount, TESTS_DEFAULT_FEE, /*nmix=*/15, /*rct=*/true,
+        rct::RangeProofPaddedBulletproof, /*bp_version=*/3,
+        /*check_unlock_time=*/true, /*fnc_tx_in_accept=*/{},
+        /*use_view_tags=*/false))
+      throw std::runtime_error("Could not make a BP tx");
+    events.push_back(tx);
+    return tx;
+  };
+
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+
+  // add BP / no-view-tag TX to mempool
+  const cryptonote::transaction tx_0 = make_bp_tx();
+  DO_CALLBACK(events, "increase_all_tx_count");
+  for (size_t i = 1; i < tx_0.vin.size(); ++i)
+    DO_CALLBACK(events, "increase_all_ki_count");
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+
+  // add another
+  const cryptonote::transaction tx_1 = make_bp_tx();
+  DO_CALLBACK(events, "increase_all_tx_count");
+  for (size_t i = 1; i < tx_1.vin.size(); ++i)
+    DO_CALLBACK(events, "increase_all_ki_count");
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+  DO_CALLBACK(events, "set_txids_from_events");
+
+  // mine last v15 block containing only first tx
+  MAKE_NEXT_BLOCK_TX_LIST(events, last_bp_block, blk_0r, miner_account,
+    {tx_0});
+  DO_CALLBACK(events, "decrease_all_tx_count");
+  for (size_t i = 1; i < tx_0.vin.size(); ++i)
+    DO_CALLBACK(events, "decrease_all_ki_count");
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+  DO_CALLBACK(events, "set_post_v16_fork");
+  DO_CALLBACK(events, "check_txid_in_chain");
+
+  // try add another tx (should fail, checked in our `check_tx_verification_context()`)
+  make_bp_tx();
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+
+  // wait until old tx is cleaned up
+  DO_CALLBACK(events, "wait_until_txid_gone");
+  DO_CALLBACK(events, "decrease_all_tx_count");
+  for (size_t i = 1; i < tx_1.vin.size(); ++i)
+    DO_CALLBACK(events, "decrease_all_ki_count");
+  DO_CALLBACK(events, "check_txpool_spent_keys");
+
+  return true;
+}
+
+bool txpool_cleanup_after_hf::check_tx_verification_context(const cryptonote::tx_verification_context& tvc, bool tx_added, size_t /*event_index*/, const cryptonote::transaction& tx)
+{
+  if (m_post_v16_fork && tx.version == 2 && tx.rct_signatures.type == rct::RCTTypeCLSAG)
+    return !tx_added && tvc.m_verifivation_failed;
+  return !tvc.m_verifivation_failed;
+}
+
+bool txpool_cleanup_after_hf::set_txids_from_events(cryptonote::core& c,
+  size_t ev_index,
+  const std::vector<test_event_entry>& events)
+{
+  // step back until right at v16 change
+  auto it = events.crbegin();
+  for (; it != events.crend(); ++it)
+  {
+    const callback_entry *pcb = boost::strict_get<callback_entry>(&*it);
+    if (pcb && pcb->callback_name == "set_post_v16_fork")
+      break;
+  }
+  // assign last TXID to `m_cleaned_txid` and 2nd last to `m_main_chain_txid`
+  for (; it != events.crend(); ++it)
+  {
+    const cryptonote::transaction *ptx = boost::strict_get<cryptonote::transaction>(&*it);
+    if (!ptx)
+      continue;
+    if (m_cleaned_txid == crypto::null_hash)
+    {
+      m_cleaned_txid = cryptonote::get_transaction_hash(*ptx);
+    }
+    else
+    {
+      m_main_chain_txid = cryptonote::get_transaction_hash(*ptx);
+      break;
+    }
+  }
+  return m_cleaned_txid != crypto::null_hash && m_main_chain_txid != crypto::null_hash;
+}
+
+bool txpool_cleanup_after_hf::set_post_v16_fork(cryptonote::core& c,
+  size_t ev_index, const std::vector<test_event_entry>& events)
+{
+  m_post_v16_fork = true;
+  return true;
+}
+
+bool txpool_cleanup_after_hf::check_txid_in_chain(cryptonote::core& c,
+  size_t ev_index, const std::vector<test_event_entry>& events)
+{
+  CHECK_AND_ASSERT_MES(m_main_chain_txid != crypto::null_hash, false,
+    "txpool_cleanup_after_hf main chain txid wasn't set");
+  const bool in_chain = c.get_blockchain_storage().have_tx(m_main_chain_txid);
+  CHECK_AND_ASSERT_MES(in_chain, false, "Missing expected TX in blockchain");
+  return true;
+}
+
+bool txpool_cleanup_after_hf::wait_until_txid_gone(cryptonote::core& c,
+  size_t ev_index, const std::vector<test_event_entry>& events)
+{
+  constexpr auto max_wait_time = std::chrono::seconds(32);
+  const auto start_time = std::chrono::steady_clock::now();
+
+  c.on_idle();
+
+  CHECK_AND_ASSERT_MES(m_cleaned_txid != crypto::null_hash, false,
+    "txpool_cleanup_after_hf cleaned txid wasn't set");
+
+  while (std::chrono::steady_clock::now() - start_time < max_wait_time)
+  {
+    const bool in_chain = c.get_blockchain_storage().have_tx(m_cleaned_txid);
+    CHECK_AND_ASSERT_MES(!in_chain, false,
+      "TX to be cleaned is unexpectedly in blockchain");
+    std::vector<crypto::hash> pool_txids;
+    CHECK_AND_ASSERT_MES(c.get_pool_transaction_hashes(pool_txids), false,
+      "Faild to fetch mempool TXIDs");
+    if (pool_txids.empty())
+    {
+      const auto elapsed_ms = std::chrono::duration_cast
+        <std::chrono::milliseconds>(
+          std::chrono::steady_clock::now() - start_time).count();
+      MINFO("Mempool was cleaned in " << elapsed_ms << "ms");
+      return true;
+    }
+    CHECK_AND_ASSERT_MES(pool_txids.size() == 1, false,
+      "Too many TXIDs in mempool");
+    CHECK_AND_ASSERT_MES(pool_txids.at(0) == m_cleaned_txid, false,
+      "Unexpected TX in mempool while waiting for cleanse");
+    boost::this_thread::sleep_for(boost::chrono::milliseconds(500));
+    c.on_idle();
+  }
+
+  MERROR("Timed out waiting for expired tx to exit mempool");
+  return false;
 }
 
 txpool_future_receive_time::txpool_future_receive_time()
