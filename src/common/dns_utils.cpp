@@ -182,24 +182,13 @@ struct DNSResolverData
   ub_ctx* m_ub_context;
 };
 
-// work around for bug https://www.nlnetlabs.nl/bugs-script/show_bug.cgi?id=515 needed for it to compile on e.g. Debian 7
-class string_copy {
-public:
-    string_copy(const char *s): str(strdup(s)) {}
-    ~string_copy() { free(str); }
-    operator char*() { return str; }
-
-public:
-    char *str;
-};
-
 static void add_anchors(ub_ctx *ctx)
 {
   const char * const *ds = ::get_builtin_ds();
   while (*ds)
   {
     MINFO("adding trust anchor: " << *ds);
-    ub_ctx_add_ta(ctx, string_copy(*ds++));
+    ub_ctx_add_ta(ctx, *ds++);
   }
 }
 
@@ -228,9 +217,9 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
   if (use_dns_public)
   {
     for (const auto &ip: dns_public_addr)
-      ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip.c_str()));
-    ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
-    ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
+      ub_ctx_set_fwd(m_data->m_ub_context, ip.c_str());
+    ub_ctx_set_option(m_data->m_ub_context, "do-udp:", "no");
+    ub_ctx_set_option(m_data->m_ub_context, "do-tcp:", "yes");
   }
   else {
     // look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
@@ -255,9 +244,9 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
       m_data->m_ub_context = ub_ctx_create();
       add_anchors(m_data->m_ub_context);
       for (const auto &ip: DEFAULT_DNS_PUBLIC_ADDR)
-        ub_ctx_set_fwd(m_data->m_ub_context, string_copy(ip));
-      ub_ctx_set_option(m_data->m_ub_context, string_copy("do-udp:"), string_copy("no"));
-      ub_ctx_set_option(m_data->m_ub_context, string_copy("do-tcp:"), string_copy("yes"));
+        ub_ctx_set_fwd(m_data->m_ub_context, ip);
+      ub_ctx_set_option(m_data->m_ub_context, "do-udp:", "no");
+      ub_ctx_set_option(m_data->m_ub_context, "do-tcp:", "yes");
     }
   }
 }
@@ -290,7 +279,7 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
   MDEBUG("Performing DNSSEC " << get_record_name(record_type) << " record query for " << url);
 
   // call DNS resolver, blocking.  if return value not zero, something went wrong
-  if (!ub_resolve(m_data->m_ub_context, string_copy(url.c_str()), record_type, DNS_CLASS_IN, &result))
+  if (!ub_resolve(m_data->m_ub_context, url.c_str(), record_type, DNS_CLASS_IN, &result))
   {
     dnssec_available = (result->secure || result->bogus);
     dnssec_valid = result->secure && !result->bogus;
