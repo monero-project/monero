@@ -719,13 +719,6 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
   m_tx_pool.on_blockchain_dec(top_block_height, top_block_hash);
   invalidate_block_template_cache();
 
-  const uint8_t new_hf_version = get_current_hard_fork_version();
-  if (new_hf_version != previous_hf_version)
-  {
-    MINFO("Validating txpool for v" << (unsigned)new_hf_version);
-    m_tx_pool.validate(new_hf_version);
-  }
-
   return popped_block;
 }
 //------------------------------------------------------------------
@@ -3910,11 +3903,13 @@ bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
     cryptonote::blobdata txblob;
     size_t tx_weight;
     uint64_t fee;
+    uint8_t nic_verified_hf_version;
     crypto::hash valid_input_verification_id;
     bool relayed, do_not_relay, double_spend_seen, pruned;
     MINFO("Removing txid " << txid << " from the pool");
     if (m_tx_pool.have_tx(txid, relay_category::all) && !m_tx_pool.take_tx(txid, tx, txblob,
-      tx_weight, fee, valid_input_verification_id, relayed, do_not_relay, double_spend_seen, pruned))
+      tx_weight, fee, nic_verified_hf_version, valid_input_verification_id, relayed, do_not_relay,
+      double_spend_seen, pruned))
     {
       MERROR("Failed to remove txid " << txid << " from the pool");
       res = false;
@@ -4098,8 +4093,8 @@ leave:
   size_t cumulative_block_weight = coinbase_weight;
 
   std::vector<std::pair<transaction, blobdata>> txs;
-  //                          txid     weight mempool?  verID
-  std::vector<std::tuple<crypto::hash, size_t, bool, crypto::hash>> txs_meta;
+  //                          txid     weight mempool? NIC HF  verID
+  std::vector<std::tuple<crypto::hash, size_t, bool, uint8_t, crypto::hash>> txs_meta;
 
   // This will be the data sent to the ZMQ pool listeners for txs which skipped the mempool
   std::vector<txpool_event> txpool_events;
@@ -4124,7 +4119,8 @@ leave:
       const crypto::hash &txid = std::get<0>(txs_meta[i]);
       const blobdata &tx_blob = txs[i].second;
       const size_t tx_weight = std::get<1>(txs_meta[i]);
-      const crypto::hash &valid_input_verification_id = std::get<3>(txs_meta[i]);
+      const uint8_t nic_verified_hf_version = std::get<3>(txs_meta[i]);
+      const crypto::hash &valid_input_verification_id = std::get<4>(txs_meta[i]);
 
       // We assume that if they were in a block, the transactions are already known to the network
       // as a whole. However, if we had mined that block, that might not be always true. Unlikely
@@ -4135,7 +4131,7 @@ leave:
       // version, we can return it without re-verifying the consensus rules on it.
       cryptonote::tx_verification_context tvc{};
       if (!m_tx_pool.add_tx(tx, txid, tx_blob, tx_weight, tvc, relay_method::block, true,
-          hf_version, hf_version, valid_input_verification_id))
+          hf_version, nic_verified_hf_version, valid_input_verification_id))
         MERROR("Failed to return taken transaction with hash: " << txid << " to tx_pool");
     }
   };
@@ -4187,6 +4183,7 @@ leave:
     blobdata &txblob = txs.back().second;
     size_t tx_weight{};
     uint64_t fee{};
+    uint8_t nic_verified_hf_version{};
     crypto::hash valid_input_verification_id{};
     bool pruned{};
 
@@ -4198,7 +4195,7 @@ leave:
      */
     bool _unused1, _unused2, _unused3;
     const bool found_tx_in_pool{
-        m_tx_pool.take_tx(tx_id, tx, txblob, tx_weight, fee, valid_input_verification_id,
+        m_tx_pool.take_tx(tx_id, tx, txblob, tx_weight, fee, nic_verified_hf_version, valid_input_verification_id,
           _unused1, _unused2, _unused3, pruned, /*suppress_missing_msgs=*/true)
       };
     bool find_tx_failure{!found_tx_in_pool};
@@ -4211,6 +4208,7 @@ leave:
         txblob = std::move(extra_txs_it->second.second);
         tx_weight = tx.pruned ? get_pruned_transaction_weight(tx) : get_transaction_weight(tx, txblob.size());
         fee = get_tx_fee(tx);
+        nic_verified_hf_version = fast_check ? 0 : hf_version; // see above invocation of ver_non_input_consensus()
         pruned = tx.pruned;
         extra_block_txs.erase(extra_txs_it);
         txpool_events.emplace_back(txpool_event{tx, tx_id, txblob.size(), tx_weight, true});
@@ -4244,7 +4242,7 @@ leave:
     // add the transaction to the temp list of transactions, so we can either
     // store the list of transactions all at once or return the ones we've
     // taken from the tx_pool back to it if the block fails verification.
-    txs_meta.emplace_back(tx_id, tx_weight, found_tx_in_pool, valid_input_verification_id);
+    txs_meta.emplace_back(tx_id, tx_weight, found_tx_in_pool, nic_verified_hf_version, valid_input_verification_id);
     TIME_MEASURE_START(dd);
 
     // FIXME: the storage should not be responsible for validation.
@@ -4268,15 +4266,33 @@ leave:
     if (!fast_check)
 #endif
     {
-      // validate that transaction inputs and the keys spending them are correct.
-      tx_verification_context tvc;
-      if(!check_tx_inputs(tx, tvc, valid_input_verification_id))
-      {
-        MERROR_VER("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
+      tx_verification_context tvc{};
+      bool valid = true;
 
+      // we may need to check NIC rules again after handling alt blocks or after upgrading fork versions
+      assert(hf_version);
+      if (nic_verified_hf_version != hf_version)
+      {
+        if (!ver_non_input_consensus(tx, tvc, hf_version))
+        {
+          valid = false;
+          MERROR_VER("Block with id: " << id  << " has at least one transaction (id: "
+            << tx_id << ") which breaks non-input consensus rules.");
+        }
+      }
+
+      // validate that transaction inputs and the keys spending them are correct.
+      if (valid && !check_tx_inputs(tx, tvc, valid_input_verification_id))
+      {
+        valid = false;
+        MERROR_VER("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
+      }
+
+      if (!valid || tvc.m_verifivation_failed)
+      {
         //TODO: why is this done?  make sure that keeping invalid blocks makes sense.
         add_block_as_invalid(bl, id);
-        MERROR_VER("Block with id " << id << " added as invalid because of wrong inputs in transactions");
+        MERROR_VER("Block with id " << id << " added as invalid because of one or more invalid transactions");
         bvc.m_verifivation_failed = true;
         return_txs_to_pool();
         return false;
@@ -4391,19 +4407,6 @@ leave:
   m_tx_pool.on_blockchain_inc(new_height, id);
   get_difficulty_for_next_block(); // just to cache it
   invalidate_block_template_cache();
-
-  const uint8_t new_hf_version = get_current_hard_fork_version();
-  if (new_hf_version != hf_version)
-  {
-    // the genesis block is added before everything's setup, and the txpool is empty
-    // when we start from scratch, so we skip this
-    const bool is_genesis_block = new_height == 1;
-    if (!is_genesis_block)
-    {
-      MGINFO("Validating txpool for v" << (unsigned)new_hf_version);
-      m_tx_pool.validate(new_hf_version);
-    }
-  }
 
   const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(new_height));
 
