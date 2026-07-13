@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -90,7 +90,7 @@ struct serialized_object
   cryptonote::blobdata data;
   BEGIN_SERIALIZE_OBJECT()
     FIELD(data)
-    END_SERIALIZE()
+  END_SERIALIZE()
 
 private:
   friend class boost::serialization::access;
@@ -447,12 +447,12 @@ bool construct_miner_tx_manually(size_t height, uint64_t already_generated_coins
 bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote::transaction& tx,
                          const cryptonote::block& blk_head, const cryptonote::account_base& from, const var_addr_t& to, uint64_t amount,
                          uint64_t fee, size_t nmix, bool rct=false, rct::RangeProofType range_proof_type=rct::RangeProofBorromean, int bp_version = 0,
-                         bool check_unlock_time = true, const boost::optional<fnc_accept_output_t>& fnc_tx_in_accept = boost::none);
+                         bool check_unlock_time = true, const fnc_accept_output_t& fnc_tx_in_accept = {});
 
 bool construct_tx_to_key(const std::vector<test_event_entry>& events, cryptonote::transaction& tx, const cryptonote::block& blk_head,
                          const cryptonote::account_base& from, const std::vector<cryptonote::tx_destination_entry>& destinations,
                          uint64_t fee, size_t nmix, bool rct=false, rct::RangeProofType range_proof_type=rct::RangeProofBorromean, int bp_version = 0,
-                         bool check_unlock_time = true, const boost::optional<fnc_accept_output_t>& fnc_tx_in_accept = boost::none);
+                         bool check_unlock_time = true, const fnc_accept_output_t& fnc_tx_in_accept = {});
 
 bool construct_tx_to_key(cryptonote::transaction& tx, const cryptonote::account_base& from, const var_addr_t& to, uint64_t amount,
                          std::vector<cryptonote::tx_source_entry> &sources,
@@ -485,7 +485,7 @@ bool find_block_chain(const std::vector<test_event_entry>& events, std::vector<c
 
 bool fill_tx_sources(std::vector<cryptonote::tx_source_entry>& sources, const std::vector<test_event_entry>& events,
                      const cryptonote::block& blk_head, const cryptonote::account_base& from, uint64_t amount, size_t nmix,
-                     bool check_unlock_time = true, const boost::optional<fnc_accept_output_t>& fnc_accept = boost::none);
+                     bool check_unlock_time = true, const fnc_accept_output_t& fnc_accept = {});
 
 void fill_tx_destinations(const var_addr_t& from, const cryptonote::account_public_address& to,
                           uint64_t amount, uint64_t fee,
@@ -512,7 +512,7 @@ void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& event
                                       std::vector<cryptonote::tx_source_entry>& sources,
                                       std::vector<cryptonote::tx_destination_entry>& destinations,
                                       bool check_unlock_time = true,
-                                      const boost::optional<fnc_accept_output_t>& fnc_tx_in_accept = boost::none);
+                                      const fnc_accept_output_t& fnc_tx_in_accept = {});
 
 void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& events, const cryptonote::block& blk_head,
                                       const cryptonote::account_base& from, const cryptonote::account_base& to,
@@ -520,7 +520,7 @@ void fill_tx_sources_and_destinations(const std::vector<test_event_entry>& event
                                       std::vector<cryptonote::tx_source_entry>& sources,
                                       std::vector<cryptonote::tx_destination_entry>& destinations,
                                       bool check_unlock_time = true,
-                                      const boost::optional<fnc_accept_output_t>& fnc_tx_in_accept = boost::none);
+                                      const fnc_accept_output_t& fnc_tx_in_accept = {});
 
 uint64_t get_balance(const cryptonote::account_base& addr, const std::vector<cryptonote::block>& blockchain, const map_hash2tx_t& mtx);
 
