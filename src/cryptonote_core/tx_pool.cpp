@@ -231,12 +231,26 @@ namespace cryptonote
       }
     }
 
-    // Do more expensive verification after plausible no-drop offenses
-    if (version != nic_verified_hf_version && !cryptonote::ver_non_input_consensus(tx, tvc, version))
+    if (kept_by_block)
     {
-      LOG_PRINT_L1("transaction " << id << " failed non-input consensus rule checks");
-      tvc.m_verifivation_failed = true; // should already be set, but just in case
-      return false;
+      // If tx was re-orged into the mempool, keep old NIC version and skip verification
+      if (0 == nic_verified_hf_version)
+      {
+        LOG_PRINT_L1("transaction " << id << " is in block but hasn't yet passed non-input consensus rule checks");
+        tvc.m_verifivation_failed = true;
+        return false;
+      }
+    }
+    else
+    {
+      // Do more expensive verification after plausible no-drop offenses
+      if (version != nic_verified_hf_version && !cryptonote::ver_non_input_consensus(tx, tvc, version))
+      {
+        LOG_PRINT_L1("transaction " << id << " failed non-input consensus rule checks");
+        tvc.m_verifivation_failed = true; // should already be set, but just in case
+        return false;
+      }
+      nic_verified_hf_version = version;
     }
 
     // assume failure during verification steps until success is certain
@@ -247,6 +261,7 @@ namespace cryptonote
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
     cryptonote::txpool_tx_meta_t meta{};
+    meta.nic_verified_hf_version = nic_verified_hf_version;
     meta.valid_input_verification_id = valid_input_verification_id;
     const bool ch_inp_res = check_tx_inputs([&tx]()->cryptonote::transaction&{ return tx; }, id,
       meta.valid_input_verification_id, max_used_block_height, max_used_block_id, tvc, kept_by_block);
@@ -553,6 +568,7 @@ namespace cryptonote
     cryptonote::blobdata &txblob,
     size_t& tx_weight,
     uint64_t& fee,
+    uint8_t &nic_verified_hf_version,
     crypto::hash &valid_input_verification_id,
     bool &relayed,
     bool &do_not_relay,
@@ -599,6 +615,7 @@ namespace cryptonote
       do_not_relay = meta.do_not_relay;
       double_spend_seen = meta.double_spend_seen;
       pruned = meta.pruned;
+      nic_verified_hf_version = meta.nic_verified_hf_version;
       valid_input_verification_id = meta.valid_input_verification_id;
       sensitive = !meta.matches(relay_category::broadcasted);
 
@@ -1442,6 +1459,22 @@ namespace cryptonote
       return false; // we are already sure that this tx isn't passing for this exact chain
 
     tx_verification_context tvc{};
+
+    // try verify non-input consensus rules if not already verified for this HF version
+    const uint8_t hf_version = m_blockchain.get_current_hard_fork_version();
+    if (txd.nic_verified_hf_version != hf_version)
+    {
+      if (!ver_non_input_consensus(lazy_tx(), tvc, hf_version))
+      {
+        txd.last_failed_height = top_block_height;
+        txd.last_failed_id = top_block_hash;
+        return false;
+      }
+      // set NIC verified HF version on success
+      txd.nic_verified_hf_version = hf_version;
+    }
+
+    // try verify input consensus rules using potentially cached verID, setting verID on success
     if (!check_tx_inputs([&lazy_tx]()->cryptonote::transaction&{ return lazy_tx(); },
       txid,
       txd.valid_input_verification_id,
@@ -1572,6 +1605,7 @@ namespace cryptonote
     selected_backlog.reserve(std::min<size_t>(2 * median_weight / min_tx_size_approx, CRYPTONOTE_MAX_TX_PER_BLOCK));
 
     std::unordered_set<crypto::key_image> k_images;
+    std::deque<crypto::hash> pool_txs_to_remove;
 
     LOG_PRINT_L2("Filling block template, median weight " << median_weight << ", " << m_txs_by_fee_and_receive_time.size() << " txes in the pool");
 
@@ -1681,6 +1715,11 @@ namespace cryptonote
       if (!ready)
       {
         LOG_PRINT_L2("  not ready to go");
+        if (!meta.kept_by_block)
+        {
+          LOG_PRINT_L2("  and will be removed from the mempool");
+          pool_txs_to_remove.push_back(sorted_it->get_right());
+        }
         continue;
       }
 
@@ -1719,89 +1758,31 @@ namespace cryptonote
       k_images.merge(tx_k_images);
       LOG_PRINT_L2("  added, new block weight " << total_weight << "/" << max_total_weight << ", coinbase " << print_money(best_coinbase));
     }
+
+    // Remove txs from the mempool which weren't ready and weren't kept-by-block.
+    // This will save us time making block templates later
+    for (const crypto::hash &pool_tx_to_remove : pool_txs_to_remove)
+    {
+      cryptonote::transaction tx;
+      cryptonote::blobdata tx_blob;
+      size_t tx_weight;
+      uint64_t tx_fee;
+      uint8_t nic_verified_hf_version;
+      crypto::hash valid_input_verification_id;
+      bool relayed, do_not_relay, double_spend_seen, pruned;
+      const bool removed = take_tx(pool_tx_to_remove, tx, tx_blob, tx_weight,
+        tx_fee, nic_verified_hf_version, valid_input_verification_id, relayed,
+        do_not_relay, double_spend_seen, pruned);
+      if (!removed)
+        MERROR("Failed to remove TX " << pool_tx_to_remove << " from the mempool during block template construction");
+    }
+
     lock.commit();
 
     LOG_PRINT_L2("Block template backlog filled with " << selected_backlog.size() << " txes, weight "
         << total_weight << "/" << max_total_weight << ", coinbase " << print_money(best_coinbase)
         << " (including " << print_money(fee) << " in fees)");
     return true;
-  }
-  //---------------------------------------------------------------------------------
-  size_t tx_memory_pool::validate(uint8_t version)
-  {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-    CRITICAL_REGION_LOCAL1(m_blockchain);
-
-    // Simply throw away incremental info, too difficult to update
-    m_added_txs_by_id.clear();
-    m_added_txs_start_time = (time_t)0;
-    m_removed_txs_by_time.clear();
-    m_removed_txs_start_time = (time_t)0;
-
-    MINFO("Validating txpool contents for v" << (unsigned)version);
-
-    LockedTXN lock(m_blockchain.get_db());
-
-    struct tx_entry_t
-    {
-      crypto::hash txid;
-      txpool_tx_meta_t meta;
-    };
-
-    // get all txids
-    std::vector<tx_entry_t> txes;
-    m_blockchain.for_all_txpool_txes([&txes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
-      if (!meta.pruned) // skip pruned txes
-        txes.push_back({txid, meta});
-      return true;
-    }, false, relay_category::all);
-
-    // take them all out and add them back in, some might fail
-    size_t added = 0;
-    for (auto &e: txes)
-    {
-      try
-      {
-        size_t weight;
-        uint64_t fee;
-        cryptonote::transaction tx;
-        cryptonote::blobdata blob;
-        bool relayed, do_not_relay, double_spend_seen, pruned;
-        crypto::hash valid_input_verification_id;
-        if (!take_tx(e.txid, tx, blob, weight, fee, valid_input_verification_id, relayed, do_not_relay, double_spend_seen, pruned))
-          MERROR("Failed to get tx " << e.txid << " from txpool for re-validation");
-
-        cryptonote::tx_verification_context tvc{};
-        relay_method tx_relay = e.meta.get_relay_method();
-        if (!add_tx(tx, e.txid, blob, e.meta.weight, tvc, tx_relay, relayed, version,
-          /*nic_verified_hf_version=*/0, valid_input_verification_id))
-        {
-          MINFO("Failed to re-validate tx " << e.txid << " for v" << (unsigned)version << ", dropped");
-          continue;
-        }
-        // keep the prunable hash add_tx just computed, rather than overwriting it below
-        txpool_tx_meta_t new_meta;
-        if (m_blockchain.get_txpool_tx_meta(e.txid, new_meta) && new_meta.prunable_hash_valid)
-        {
-          e.meta.prunable_hash = new_meta.prunable_hash;
-          e.meta.prunable_hash_valid = true;
-        }
-        m_blockchain.update_txpool_tx(e.txid, e.meta);
-        ++added;
-      }
-      catch (const std::exception &e)
-      {
-        MERROR("Failed to re-validate tx from pool");
-        continue;
-      }
-    }
-
-    lock.commit();
-
-    const size_t n_removed = txes.size() - added;
-    if (n_removed > 0)
-      ++m_cookie;
-    return n_removed;
   }
   //---------------------------------------------------------------------------------
   void tx_memory_pool::add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time, bool sensitive)

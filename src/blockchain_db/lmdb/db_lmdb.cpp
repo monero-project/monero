@@ -2587,6 +2587,8 @@ std::string BlockchainLMDB::get_db_name() const
 
 void BlockchainLMDB::add_txpool_tx(const crypto::hash &txid, const cryptonote::blobdata_ref &blob, const txpool_tx_meta_t &meta)
 {
+  static_assert(alignof(txpool_tx_meta_t) == alignof(std::uint64_t), "txpool_tx_meta_t will be unaligned in LMDB DB");
+
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
   mdb_txn_cursors *m_cursors = &m_wcursors;

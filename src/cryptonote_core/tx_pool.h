@@ -146,15 +146,16 @@ namespace cryptonote
      * @brief takes a transaction with the given hash from the pool
      *
      * @param id the hash of the transaction
-     * @param tx return-by-reference the transaction taken
-     * @param txblob return-by-reference the transaction as a blob
-     * @param tx_weight return-by-reference the transaction's weight
+     * @param tx the transaction taken
+     * @param txblob the transaction as a blob
+     * @param tx_weight the transaction's weight
      * @param fee the transaction fee
-     * @param[out] valid_input_verification_id return-by-reference was a previously valid verID if non-null
-     * @param[out] relayed return-by-reference was transaction relayed to us by the network?
-     * @param[out] do_not_relay return-by-reference is transaction not to be relayed to the network?
-     * @param[out] double_spend_seen return-by-reference was a double spend seen for that transaction?
-     * @param[out] pruned return-by-reference is the tx pruned
+     * @param[out] nic_verified_hf_version if non-zero, was a HF version for which ver_non_input_consensus() passed
+     * @param[out] valid_input_verification_id was a previously valid verID if non-null
+     * @param[out] relayed was transaction relayed to us by the network?
+     * @param[out] do_not_relay is transaction not to be relayed to the network?
+     * @param[out] double_spend_seen was a double spend seen for that transaction?
+     * @param[out] pruned is the tx pruned
      * @param[out] suppress_missing_msgs suppress warning msgs when txid is missing (optional, defaults to `false`)
      *
      * @return true unless the transaction cannot be found in the pool
@@ -164,6 +165,7 @@ namespace cryptonote
       cryptonote::blobdata &txblob,
       size_t& tx_weight,
       uint64_t& fee,
+      uint8_t &nic_verified_hf_version,
       crypto::hash &valid_input_verification_id,
       bool &relayed,
       bool &do_not_relay,
@@ -403,19 +405,6 @@ namespace cryptonote
      * @return the string
      */
     std::string print_pool(bool short_format) const;
-
-    /**
-     * @brief remove transactions from the pool which are no longer valid
-     *
-     * With new versions of the currency, what conditions render a transaction
-     * invalid may change.  This function clears those which were received
-     * before a version change and no longer conform to requirements.
-     *
-     * @param version the version the transactions must conform to
-     *
-     * @return the number of transactions removed
-     */
-    size_t validate(uint8_t version);
 
      /**
       * @brief return the cookie
