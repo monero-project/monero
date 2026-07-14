@@ -86,6 +86,9 @@ DISABLE_VS_WARNINGS(4267)
 // used to overestimate the block reward when estimating a per kB to use
 #define BLOCK_REWARD_OVERESTIMATE (10 * 1000000000000)
 
+/// @brief Parameter for block template backlog fetching: targets total weight 112.5% of the block's limit
+#define DEFAULT_RPC_TX_BACKLOG_OVERPICK 0.125f
+
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_reset_timestamps_and_difficulties_height(true), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
@@ -1672,7 +1675,8 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   CHECK_AND_ASSERT_MES(diffic, false, "difficulty overhead.");
 
   std::vector<tx_block_template_backlog_entry> selected_backlog;
-  if (!m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins, b.major_version, selected_backlog))
+  if (!m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins,
+    b.major_version, /*overpick=*/0, selected_backlog))
   {
     return false;
   }
@@ -1853,7 +1857,8 @@ bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto
   median_weight = m_current_block_cumul_weight_median;
   already_generated_coins = m_db->get_block_already_generated_coins(height - 1);
 
-  return m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins, major_version, tx_backlog);
+  return m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins, major_version,
+    DEFAULT_RPC_TX_BACKLOG_OVERPICK, tx_backlog);
 }
 //------------------------------------------------------------------
 // for an alternate chain, get the timestamps from the main chain to complete
@@ -5618,14 +5623,16 @@ void Blockchain::send_miner_notifications(uint64_t height, const crypto::hash &s
   const uint8_t major_version = m_hardfork->get_ideal_version(height);
   const difficulty_type diff = get_difficulty_for_next_block();
   const uint64_t median_weight = m_current_block_cumul_weight_median;
+  const float overpick = DEFAULT_RPC_TX_BACKLOG_OVERPICK;
 
   std::vector<tx_block_template_backlog_entry> tx_backlog;
-  if (!m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins, major_version, tx_backlog))
+  if (!m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins, major_version,
+    overpick, tx_backlog))
   {
     MERROR("Could not retreive mempool's block template backlog for block " << height
       << ": median weight " << median_weight << " already generated coins "
       << already_generated_coins << " major version " << major_version
-      << ". Miner notifications will not be sent.");
+      << " overpick ratio " << overpick << ". Miner notifications will not be sent.");
     return;
   }
 

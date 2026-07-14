@@ -263,15 +263,22 @@ namespace cryptonote
      * @param median_weight the current median block weight used for penalty calculations
      * @param already_generated_coins the current total number of coins "minted"
      * @param hf_version the current hard fork version
+     * @param overpick if >0, the ratio over the hard weight limit for which to limit total weight of `selected_backlog`
      * @param[out] selected_backlog potential (TXID, weight, fee) tuples, in descending preference order
      *
-     * Not all transactions in the pool will be returned for performance and/or consensus reasons.
-     * If there are too many transactions in the pool, only the highest-paying transactions
-     * will be returned - but enough for the miner to create a full block. Transactions which do not
-     * pass validation rules for the next block are also filtered out. However, @warning,
-     * `selected_backlog` may also contain *too many entries*, such that block weight limit is
-     * surpassed after including the coinbase transaction. In this case, it is a good idea to pop
-     * candidates from the back of the list until the weight is within the limit.
+     * Not all transactions in the pool will be returned for performance, consensus, and/or
+     * profitability reasons. If there are too many transactions in the pool, only the
+     * highest-paying / oldest transactions will be returned - but enough for the miner to create a
+     * full block. Transactions which do not pass validation rules for the next block are also
+     * filtered out. However, @warning, `selected_backlog` may also contain *too many entries*, even
+     * when `overpick_ratio` == 0, such that block weight limit is surpassed after including the
+     * coinbase transaction. In this case, it is a good idea to pop candidates from the back of the
+     * list until the weight is within the limit.
+     *
+     * The target limit is calculated as (1 + `overpick`) * theoretical block weight limit. So for
+     * example, an `overpick` value of 0.1 will try to fill `selected_backlog` so that it's total
+     * weight is 110% of the block weight limit. When `overpick` > 0, entries in `selected_backlog`
+     * may not be net profitable to include in the block, even if they fit within the block.
      *
      * This function *may* do some upkeep on the mempool, including updating transaction
      * verification metadata, and removing stale unverifiable transactions.
@@ -281,6 +288,7 @@ namespace cryptonote
     bool get_block_template_backlog(size_t median_weight,
       uint64_t already_generated_coins,
       uint8_t hf_version,
+      float overpick,
       std::vector<tx_block_template_backlog_entry> &selected_backlog);
 
     /**

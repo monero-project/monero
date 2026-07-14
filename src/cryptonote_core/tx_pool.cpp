@@ -1519,9 +1519,13 @@ namespace cryptonote
   bool tx_memory_pool::get_block_template_backlog(size_t median_weight,
     uint64_t already_generated_coins,
     uint8_t version/*AKA hf_version*/,
+    float overpick,
     std::vector<tx_block_template_backlog_entry> &selected_backlog)
   {
     selected_backlog.clear();
+
+    CHECK_AND_ASSERT_MES(overpick >= 0, false, "Block template blocklog overpick cannot be negative");
+    CHECK_AND_ASSERT_MES(overpick <= 100, false, "Block template blocklog overpick should be less than 10000%");
 
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -1540,7 +1544,9 @@ namespace cryptonote
     static_assert(MAX_HF_VERSION == 16, "Check below weights and limits");
     const size_t max_total_weight_pre_v5 = (130 * median_weight) / 100;
     const size_t max_total_weight_v5 = 2 * median_weight;
-    const size_t max_total_weight = version >= 5 ? max_total_weight_v5 : max_total_weight_pre_v5;
+    const size_t consensus_max_total_weight = version >= 5 ? max_total_weight_v5 : max_total_weight_pre_v5;
+    const size_t max_total_weight = consensus_max_total_weight
+      + static_cast<size_t>(overpick * consensus_max_total_weight);
     const uint64_t reference_tx_weight = DYNAMIC_FEE_REFERENCE_TRANSACTION_WEIGHT;
     constexpr size_t min_tx_size_approx = 1200;
 
@@ -1580,7 +1586,7 @@ namespace cryptonote
         continue;
       }
 
-      // Can not exceed maximum block weight
+      // Cannot exceed max weight limit we set (may be greater than the block weight limit, depending on `overpick`)
       if (max_total_weight < total_weight + meta.weight)
       {
         LOG_PRINT_L2("  would exceed maximum block weight");
@@ -1590,8 +1596,7 @@ namespace cryptonote
           break; // stop searching once the block is reasonably full, since next txs will have worse fee per weight
       }
 
-      // start using the optimal filling algorithm from v5
-      if (version >= 5)
+      if (0 == overpick)
       {
         // If we're getting lower coinbase tx,
         // stop including more tx
@@ -1605,16 +1610,6 @@ namespace cryptonote
         if (coinbase < best_coinbase)
         {
           LOG_PRINT_L2("  would decrease coinbase to " << print_money(coinbase));
-          break;
-        }
-      }
-      else
-      {
-        // If we've exceeded the penalty free weight,
-        // stop including more tx
-        if (total_weight > median_weight)
-        {
-          LOG_PRINT_L2("  would exceed median block weight");
           break;
         }
       }
@@ -1651,7 +1646,7 @@ namespace cryptonote
         continue;
       }
 
-      // test key images do not conflict w/ other txs' key images in the template
+      // Test key images do not conflict w/ other txs' key images in the template
       std::unordered_set<crypto::key_image> tx_k_images;
       const auto tx_ki_range = m_spent_key_images.right.equal_range(txid);
       bool has_ki_conflict = false;
