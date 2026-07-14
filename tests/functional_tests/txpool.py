@@ -35,6 +35,8 @@ from framework.daemon import Daemon
 from framework.wallet import Wallet
 from framework.zmq import Zmq
 
+DEFAULT_TXPOOL_MAX_WEIGHT = 648000000 # See cryptonote_config.h
+
 class TransferTest():
     def run_test(self):
         self.reset()
@@ -144,6 +146,19 @@ class TransferTest():
             total_fee += x.fee
             min_bytes = min(min_bytes, x.blob_size)
             max_bytes = max(max_bytes, x.blob_size)
+
+        print('Checking miner data: when pool size less than median block weight')
+        assert total_bytes < DEFAULT_TXPOOL_MAX_WEIGHT, total_bytes # test needs updating for this case
+        pool_res = res
+        miner_data_res = daemon.get_miner_data()
+        assert miner_data_res.major_version == daemon.get_for
+        assert total_bytes < miner_data_res.median_weight, total_bytes # test needs updating for this case
+        pool_txids = set(x.id_hash for x in pool_res.transactions)
+        miner_data_txids = set(x.id for x in miner_data_res.tx_backlog)
+        assert len(pool_txids) == len(pool_res.transactions) # dups
+        assert len(miner_data_txids) == len(miner_data_res.tx_backlog) # dups
+        assert pool_txids == miner_data_txids
+
 
         print('Checking all txs received via zmq')
         for i in range(len(txes.keys())):
