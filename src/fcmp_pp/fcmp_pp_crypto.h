@@ -59,10 +59,44 @@ static const crypto::ec_scalar EC_INV_EIGHT = {{
     static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(6))
   }};
 //----------------------------------------------------------------------------------------------------------------------
+// Field elems needed to get wei x and y coords
+// Take note of the bounds, and make sure downstream field ops can take said bounds as input.
+struct EdDerivatives final
+{
+    fe one_plus_y;        // bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
+    fe one_minus_y;       // bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
+    fe one_minus_y_mul_x; // bounded by 1.01*2^25,1.01*2^24,1.01*2^25,1.01*2^24,etc.
+};
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 bool mul8_is_identity_vartime(const ge_p3 &point);
 crypto::ec_point clear_torsion_vartime(const ge_p3 &point);
 bool get_valid_torsion_cleared_point_vartime(const crypto::ec_point &point, crypto::ec_point &torsion_cleared_out);
+
+/*
+point_to_ed_derivatives converts an Ed25519 point to Ed25519 derivatives used for converting to
+Weierstrauss coords, as per https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2.
+
+We expect that a point passed in this function has been validated to be in the main subgroup with no torsion,
+and does not equal identity. The `torsion_free_point` param is expected to be the output of
+get_valid_torsion_cleared_point_vartime.
+*/
+bool point_to_ed_derivatives(const crypto::ec_point &torsion_free_point, EdDerivatives &ed_derivatives);
+
+/*
+ed_derivatives_to_wei_x_y expects as input the output from point_to_ed_derivatives. No point passed in to
+point_to_ed_derivatives can have torsion, otherwise this function has undefined behavior.
+*/
+bool ed_derivatives_to_wei_x_y(const EdDerivatives &ed_derivatives, crypto::ec_coord &wei_x, crypto::ec_coord &wei_y);
+
+/*
+point_to_wei_x_y takes a torsion free point as input, and coverts to Weierstrauss coordinates.
+
+We expect that a point passed in this function has been validated to be in the main subgroup with no torsion,
+and does not equal identity. The `torsion_free_point` param is expected to be the output of
+get_valid_torsion_cleared_point_vartime.
+*/
+bool point_to_wei_x_y(const crypto::ec_point &torsion_free_point, crypto::ec_coord &wei_x, crypto::ec_coord &wei_y);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp
