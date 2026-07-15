@@ -46,7 +46,6 @@
 #include <memory>
 #include <condition_variable>
 
-#include <boost/asio.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/strand.hpp>

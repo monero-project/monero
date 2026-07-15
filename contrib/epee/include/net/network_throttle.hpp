@@ -37,7 +37,6 @@
 #ifndef INCLUDED_network_throttle_hpp
 #define INCLUDED_network_throttle_hpp
 
-#include <boost/asio.hpp>
 #include <string>
 #include <vector>
 #include <boost/noncopyable.hpp>

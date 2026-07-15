@@ -33,6 +33,9 @@
 #pragma once
 
 #include <boost/asio/post.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/placeholders.hpp>
+#include <boost/asio/ip/v6_only.hpp>
 #include <boost/foreach.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
