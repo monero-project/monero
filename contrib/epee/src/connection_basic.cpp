@@ -34,12 +34,9 @@
 
 #include "net/connection_basic.hpp"
 
-#include "net/net_utils_base.h" 
 #include "misc_log_ex.h" 
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread.hpp>
-#include "misc_language.h"
-#include <iomanip>
 
 #include <boost/asio/basic_socket.hpp>
 

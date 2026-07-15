@@ -30,8 +30,6 @@
 
 #include <boost/regex.hpp>
 
-#include "misc_language.h"
-#include "portable_storage_base.h"
 #include "parserse_base_utils.h"
 #include "warnings.h"
 #include "misc_log_ex.h"
@@ -39,7 +37,10 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/numeric/conversion/bounds.hpp>
 #include <typeinfo>
+
+#ifndef HAVE_STRPTIME
 #include <iomanip>
+#endif
 
 namespace epee
 {

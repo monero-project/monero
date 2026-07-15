@@ -43,19 +43,17 @@
 #include <boost/serialization/unordered_map.hpp>
 #include <boost/functional/hash.hpp>
 
-#include "include_base_utils.h"
 #include "chaingen_serialization.h"
 #include "common/command_line.h"
 #include "common/threadpool.h"
+#include "misc_log_ex.h"
 
 #include "cryptonote_basic/account_boost_serialization.h"
 #include "cryptonote_basic/cryptonote_basic.h"
-#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_protocol/enums.h"
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
-#include "misc_language.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "tests.core"
@@ -596,7 +594,7 @@ public:
   {
     log_event("cryptonote::transaction");
 
-    cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+    cryptonote::tx_verification_context tvc{};
     size_t pool_size = m_c.get_pool_transactions_count();
     m_c.handle_incoming_tx(t_serializable_object_to_blob(tx), tvc, m_tx_relay, false);
     bool tx_added = pool_size + 1 == m_c.get_pool_transactions_count();
@@ -611,7 +609,7 @@ public:
 
     std::vector<cryptonote::blobdata> tx_blobs;
     std::vector<cryptonote::tx_verification_context> tvcs;
-     cryptonote::tx_verification_context tvc0 = AUTO_VAL_INIT(tvc0);
+     cryptonote::tx_verification_context tvc0{};
     for (const auto &tx: txs)
     {
       tx_blobs.emplace_back(t_serializable_object_to_blob(tx));
@@ -630,7 +628,7 @@ public:
   {
     log_event("cryptonote::block");
 
-    cryptonote::block_verification_context bvc = AUTO_VAL_INIT(bvc);
+    cryptonote::block_verification_context bvc{};
     cryptonote::blobdata bd = t_serializable_object_to_blob(b);
     std::vector<cryptonote::block> pblocks;
     cryptonote::block_complete_entry bce;
@@ -665,7 +663,7 @@ public:
   {
     log_event("serialized_block");
 
-    cryptonote::block_verification_context bvc = AUTO_VAL_INIT(bvc);
+    cryptonote::block_verification_context bvc{};
     std::vector<cryptonote::block> pblocks;
     cryptonote::block_complete_entry bce;
     bce.pruned = false;
@@ -695,7 +693,7 @@ public:
   {
     log_event("serialized_transaction");
 
-    cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
+    cryptonote::tx_verification_context tvc{};
     size_t pool_size = m_c.get_pool_transactions_count();
     m_c.handle_incoming_tx(sr_tx.data, tvc, m_tx_relay, false);
     bool tx_added = pool_size + 1 == m_c.get_pool_transactions_count();

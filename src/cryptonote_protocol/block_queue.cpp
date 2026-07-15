@@ -32,7 +32,9 @@
 #include <unordered_map>
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <boost/uuid/uuid_hash.hpp>
 #include "string_tools.h"
+#include "cryptonote_config.h"
 #include "cryptonote_protocol_defs.h"
 #include "common/pruning.h"
 #include "block_queue.h"
@@ -488,7 +490,7 @@ bool block_queue::has_spans(const boost::uuids::uuid &connection_id) const
 float block_queue::get_speed(const boost::uuids::uuid &connection_id) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  std::unordered_map<boost::uuids::uuid, float, boost::hash<boost::uuids::uuid>> speeds;
+  std::unordered_map<boost::uuids::uuid, float> speeds;
   for (const auto &span: blocks)
   {
     if (span.blocks.empty())

@@ -233,7 +233,7 @@ bool mock_daemon::run_main()
     this->stop_p2p();
   });
 
-  epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){
+  const epee::scope_guard scope_exit_handler([&](){
     m_stopped = true;
     stop_thread.join();
   });

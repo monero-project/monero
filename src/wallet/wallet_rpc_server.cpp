@@ -35,8 +35,6 @@
 #include <cstdint>
 #include <chrono>
 #include <cstring>
-#include "include_base_utils.h"
-using namespace epee;
 
 #include "version.h"
 #include "wallet_rpc_server.h"
@@ -49,7 +47,6 @@ using namespace epee;
 #include "cryptonote_basic/account.h"
 #include "multisig/multisig.h"
 #include "wallet_rpc_server_commands_defs.h"
-#include "misc_language.h"
 #include "string_coding.h"
 #include "string_tools.h"
 #include "crypto/hash.h"
@@ -135,6 +132,8 @@ using namespace epee;
       return false; \
     } \
   } while (0)
+
+using namespace epee;
 
 namespace
 {
@@ -3519,7 +3518,7 @@ namespace tools
       return false;
     }
 
-    cryptonote::COMMAND_RPC_START_MINING::request daemon_req = AUTO_VAL_INIT(daemon_req); 
+    cryptonote::COMMAND_RPC_START_MINING::request daemon_req{};
     daemon_req.miner_address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
     daemon_req.threads_count        = req.threads_count;
     daemon_req.do_background_mining = req.do_background_mining;

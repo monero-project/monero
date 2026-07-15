@@ -29,7 +29,6 @@
 #include "portable_storage_template_helper.h"
 #include <boost/utility/string_ref.hpp>
 #include <boost/utility/value_init.hpp>
-#include <functional>
 #include "byte_slice.h"
 #include "span.h"
 #include "net/levin_base.h"
@@ -66,7 +65,7 @@ namespace epee
       stg.store_to_binary(to_send.buffer);
       int res = transport.invoke_async(command, std::move(to_send), conn_id, [cb, command](int code, const epee::span<const uint8_t> buff, typename t_transport::connection_context& context)->bool
       {
-        t_result result_struct = AUTO_VAL_INIT(result_struct);
+        t_result result_struct{};
         if( code <=0 )
         {
           if (!buff.empty())

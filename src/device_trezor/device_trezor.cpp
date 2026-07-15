@@ -180,7 +180,7 @@ namespace trezor {
 
     bool device_trezor::get_public_address_with_no_passphrase(cryptonote::account_public_address &pubkey) {
       m_reply_with_empty_passphrase = true;
-      const auto empty_passphrase_reverter = epee::misc_utils::create_scope_leave_handler([&]() {
+      const epee::scope_guard empty_passphrase_reverter([&]() {
         m_reply_with_empty_passphrase = false;
       });
 

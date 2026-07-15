@@ -217,7 +217,7 @@ TEST(test_epee_connection, test_lifetime)
 
   boost::asio::post(io_context, [&io_context, &work, &endpoint, &server]{
     shared_state_ptr shared_state;
-    auto scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&work, &shared_state]{
+    const epee::scope_guard scope_exit_handler([&work, &shared_state]{
       work.reset();
       if (shared_state)
         shared_state->set_handler(nullptr, nullptr);

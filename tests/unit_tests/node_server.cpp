@@ -378,7 +378,7 @@ TEST(ban, file_banlist)
 
   const auto node_dir = create_temp_dir();
   ASSERT_TRUE(!node_dir.empty());
-  auto auto_remove_node_dir = epee::misc_utils::create_scope_leave_handler([&node_dir](){
+  const epee::scope_guard auto_remove_node_dir([&node_dir](){
       boost::filesystem::remove_all(node_dir);
     });
 
@@ -1310,7 +1310,7 @@ TEST(regtest, isolates_p2p_state_from_mainnet_data_dir)
 {
   const path_t dir = create_temp_dir("regtest-%%%%%%%%%%%%%%%%");
   ASSERT_TRUE(!dir.empty());
-  auto cleanup = epee::misc_utils::create_scope_leave_handler([&dir]{
+  const epee::scope_guard cleanup([&dir]{
     remove_tree(dir);
   });
 

@@ -30,26 +30,17 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <string>
-#include <vector>
-
-#include <memory>
-
 #include "syncobj.h"
 
-#include "net/net_utils_base.h" 
 #include "misc_log_ex.h" 
 #include <boost/chrono.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/thread/thread.hpp> 
-#include "misc_language.h"
 #include <algorithm>
 
 
 #include "cryptonote_protocol_handler.h"
 #include "net/network_throttle.hpp"
-
-#include "cryptonote_core/cryptonote_core.h" // e.g. for the send_stop_signal()
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.cn"
