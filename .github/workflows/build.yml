@@ -26,7 +26,7 @@ env:
     ccache --max-size=150M
   CTEST_EXCLUDE_SLOW: |
     cd build
-    env GTEST_FILTER="-select_outputs.*:DNSResolver.*:AddressFromURL.*" ctest --output-on-failure -E "functional_tests_rpc|core_tests|cnv4-jit|hash-variant2-int-sqrt|wide_difficulty"
+    env DNS_PUBLIC=tcp GTEST_FILTER="-select_outputs.*" ctest --output-on-failure -E "functional_tests_rpc|core_tests|cnv4-jit|hash-variant2-int-sqrt|wide_difficulty"
   USE_DEVICE_TREZOR_MANDATORY: ON
   INSTALL_RUST: |
     curl -O https://static.rust-lang.org/rustup/archive/1.29.0/x86_64-unknown-linux-gnu/rustup-init
@@ -248,7 +248,7 @@ jobs:
           ${{env.BUILD_DEFAULT}}
       - name: run tests except core_tests
         env:
-          DNS_PUBLIC: tcp://9.9.9.9
+          DNS_PUBLIC: tcp
         run: ctest --test-dir build --output-on-failure -E core_tests
       - name: use reduced slow-hash iterations for core_tests
         if: github.event_name == 'pull_request'
