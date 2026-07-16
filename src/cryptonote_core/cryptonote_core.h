@@ -949,20 +949,28 @@ namespace cryptonote
      bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
 
      /**
-      * @brief add a new transaction to the transaction pool
+      * @brief Verify input and non-input consensus rules for an incoming mempool transaction
       *
-      * Adds a new transaction to the transaction pool.
+      * @param tx -
+      * @param tx_hash TXID
+      * @param hf_version HF version to pass to ver_non_input_consensus()
+      * @param[inout] tvc tx verification context
+      * @param[out] nic_verified_hf_version_out on success, set to `hf_version`, otherwise it is set to 0
+      * @param[out] valid_input_verification_id_out on success, a valid verID is set, otherwise it is set to null
+      * @return true on verification success, false otherwise
       *
-      * @param tx the transaction to add
-      * @param tvc return-by-reference metadata about the transaction's verification process
-      * @param tx_relay how the transaction was received
-      * @param relayed whether or not the transaction was relayed to us
-      *
-      * @return true if the transaction is already in the transaction pool,
-      * is already in a block on the Blockchain, or is successfully added
-      * to the transaction pool
-      */
-     bool add_new_tx(transaction& tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
+      * Dispatches `ver_non_input_consensus()` for given `hf_version`, dereferences input data, then
+      * dispatches applicable ver_input_proofs_*(), given ring signatures or FCMP++s as inputs. If
+      * this function returns a verification success, `nic_verified_hf_version_out` and
+      * `valid_input_verification_id_out` can be used for future consensus function calls for this
+      * `tx`.
+     */
+     bool ver_consensus_rules_incoming_tx(transaction& tx,
+       const crypto::hash &tx_hash,
+       const std::uint8_t &hf_version,
+       tx_verification_context& tvc,
+       std::uint8_t &nic_verified_hf_version_out,
+       crypto::hash &valid_input_verification_id_out) const;
 
      /**
       * @copydoc Blockchain::add_new_block

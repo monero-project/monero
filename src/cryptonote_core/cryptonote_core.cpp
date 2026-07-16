@@ -784,8 +784,6 @@ namespace cryptonote
 
     TRY_ENTRY();
 
-    CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
-
     if (tx_blob.size() > get_max_tx_size())
     {
       LOG_PRINT_L1("WRONG TRANSACTION BLOB, too big size " << tx_blob.size() << ", rejected");
@@ -1076,15 +1074,6 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::add_new_tx(transaction& tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed)
-  {
-    crypto::hash tx_hash = get_transaction_hash(tx);
-    blobdata bl;
-    t_serializable_object_to_blob(tx, bl);
-    size_t tx_weight = get_transaction_weight(tx, bl.size());
-    return add_new_tx(tx, tx_hash, bl, tx_weight, tvc, tx_relay, relayed);
-  }
-  //-----------------------------------------------------------------------------------------------
   size_t core::get_blockchain_total_transactions() const
   {
     return m_blockchain_storage.get_total_transactions();
@@ -1104,8 +1093,32 @@ namespace cryptonote
       return true;
     }
 
-    uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
-    const bool res = m_mempool.add_tx(tx, tx_hash, blob, tx_weight, tvc, tx_relay, relayed, version);
+    const uint8_t hf_version = m_blockchain_storage.get_current_hard_fork_version();
+    uint8_t nic_verified_hf_version = 0;
+    crypto::hash valid_input_verification_id = crypto::null_hash;
+    if (!ver_consensus_rules_incoming_tx(tx, tx_hash, hf_version, tvc,
+      nic_verified_hf_version, valid_input_verification_id))
+    {
+      MERROR("tx " << tx_hash << " failed consensus verification while handling incoming to mempool");
+      return false;
+    }
+
+    // Notice that incoming mempool tx handling does not hold any locks until this point. This can
+    // cause some race conditions, but all of resulting scenarioes should be fine. In the worst
+    // case, we may attempt to "double verify" a transaction, wasting CPU resources. Since we query
+    // `hf_version` before the call to `m_mempool.add_tx()`, we may also add a tx into the mempool
+    // for the non-current HF version when the blokchain is crossing the boundary. This shouldn't
+    // cause consensus issues though because the `Blockchain` code checks this. However, letting
+    // cryptographic consensus verification be multi-threaded saves the lion's share of the CPU time
+    // in `tx_memory_pool:add_tx()`, which is not multi-threaded, so we greatly improve mempool
+    // sync throughput in normal conditions.
+    /// @TODO: A non-blocking, non-duplicating locked version ver_consensus_rules_incoming_tx() to
+    ///        prevent acidental "double-verification" to 2 txs are made known to this node in
+    ///        quick succession.
+    CRITICAL_REGION_LOCAL(m_incoming_tx_lock);
+
+    const bool res = m_mempool.add_tx(tx, tx_hash, blob, tx_weight, tvc, tx_relay, relayed,
+      hf_version, nic_verified_hf_version, valid_input_verification_id);
 
     // If new incoming tx passed verification and entered the pool, notify ZMQ
     if (!tvc.m_verifivation_failed && res && matches_category(tvc.m_relay, relay_category::legacy))
@@ -1119,6 +1132,93 @@ namespace cryptonote
     }
 
     return res;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::ver_consensus_rules_incoming_tx(transaction& tx,
+    const crypto::hash &tx_hash,
+    const std::uint8_t &hf_version,
+    tx_verification_context& tvc,
+    std::uint8_t &nic_verified_hf_version_out,
+    crypto::hash &valid_input_verification_id_out) const
+  {
+    // Do any applicable locking outside of this function
+    static_assert(MAX_HF_VERSION == 16,
+      "Check that we correctly cover computationally-expensive consensus verification rules for the new HF version");
+
+    nic_verified_hf_version_out = 0;
+    valid_input_verification_id_out = crypto::null_hash;
+
+    if (tvc.m_verifivation_failed)
+      return false;
+
+    // Verify NIC rules and set tvc.m_verifivation_failed conservatively
+    if (!ver_non_input_consensus(tx, tvc, hf_version) || tvc.m_verifivation_failed)
+    {
+      tvc.m_verifivation_failed = true;
+      tvc.m_invalid_output = true;
+      return false;
+    }
+    tvc.m_verifivation_failed = true;
+
+    nic_verified_hf_version_out = hf_version;
+
+    CHECK_AND_ASSERT_MES(tx.version <= 2 && tx.rct_signatures.type <= rct::RCTTypeBulletproofPlus,
+      false, "Got unexpected tx version while handling incoming tx");
+
+    // Collect (amount, offset) ring member pairs
+    std::vector<rct::xmr_amount> ring_member_amounts;
+    std::vector<std::uint64_t> ring_member_offsets;
+    ring_member_amounts.reserve(tx.vin.size() * 16);
+    ring_member_offsets.reserve(tx.vin.size() * 16);
+    for (const auto &inp : tx.vin)
+    {
+      CHECKED_GET_SPECIFIC_VARIANT(inp, const txin_to_key, txin, false);
+      std::uint64_t absolute_offset = 0;
+      for (const std::uint64_t key_offset : txin.key_offsets)
+      {
+        absolute_offset += key_offset;
+        ring_member_amounts.push_back(txin.amount);
+        ring_member_offsets.push_back(absolute_offset);
+      }
+    }
+
+    // Fetch ring member info from DB, unlocked
+    std::vector<output_data_t> ring_member_datas_flat;
+    m_blockchain_storage.get_db().get_output_key(epee::to_span(ring_member_amounts),
+      ring_member_offsets, ring_member_datas_flat, /*allow_partial=*/true);
+    CHECK_AND_ASSERT_MES(ring_member_datas_flat.size() == ring_member_amounts.size(), false,
+      "Missing ring member info while handling incoming tx");
+
+    /// Collect into ctkeyM
+    rct::ctkeyM dereferenced_mix_ring;
+    dereferenced_mix_ring.reserve(tx.vin.size());
+    std::size_t flat_idx = 0;
+    for (const auto &inp : tx.vin)
+    {
+      CHECKED_GET_SPECIFIC_VARIANT(inp, const txin_to_key, txin, false);
+
+      rct::ctkeyV &this_ring_pubkeys = dereferenced_mix_ring.emplace_back();
+      this_ring_pubkeys.reserve(txin.key_offsets.size());
+      for (size_t i = 0; i < txin.key_offsets.size(); ++i)
+      {
+        const output_data_t &ring_member_data = ring_member_datas_flat.at(flat_idx);
+        this_ring_pubkeys.push_back({rct::pk2rct(ring_member_data.pubkey), ring_member_data.commitment});
+        ++flat_idx;
+      }
+    }
+
+    /// @TODO: Check inputs too young before expensive input crypto verification?
+
+    // Verify input signatures
+    if (!ver_input_proofs_rings(tx, dereferenced_mix_ring))
+    {
+      tvc.m_invalid_input = true;
+      return false;
+    }
+
+    valid_input_verification_id_out = make_input_verification_id(tx_hash, dereferenced_mix_ring);
+    tvc.m_verifivation_failed = false;
+    return true;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::relay_txpool_transactions()
