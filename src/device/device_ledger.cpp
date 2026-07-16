@@ -1530,7 +1530,7 @@ namespace hw {
 
       this->buffer_send[4] = offset-5;
       this->length_send = offset;
-      this->exchange_wait_on_input();
+      CHECK_AND_ASSERT_THROW_MES(this->exchange_wait_on_input() == 0, "Transaction denied on device.");
 
       //hash remains
       int cnt = 0;
