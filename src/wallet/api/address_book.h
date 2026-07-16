@@ -45,6 +45,7 @@ public:
     void refresh() override;
     std::vector<AddressBookRow*> getAll() const override;
     bool addRow(const std::string &dst_addr , const std::string &payment_id, const std::string &description) override;
+    bool setAddress(std::size_t index, const std::string &address) override;
     bool setDescription(std::size_t index, const std::string &description) override;
     bool deleteRow(std::size_t rowId) override;
      
