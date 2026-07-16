@@ -78,18 +78,9 @@ namespace cryptonote
     }
   }; 
 
-  class hashCompare
-  {
-  public:
-    bool operator()(const crypto::hash& a, const crypto::hash& b) const
-    {
-      return memcmp(a.data, b.data, sizeof(crypto::hash)) < 0;
-    }
-  };
-
   //! container for sorting transactions by fee per unit size
   typedef boost::bimap<boost::bimaps::multiset_of<std::pair<double, std::time_t>, txFeeCompare>,
-                       boost::bimaps::set_of<crypto::hash, hashCompare>> sorted_tx_container;
+                       boost::bimaps::set_of<crypto::hash>> sorted_tx_container;
   
 
   /**
