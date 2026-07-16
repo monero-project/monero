@@ -261,16 +261,22 @@ TEST(select_outputs, exact_unlock_block)
 
 TEST(select_outputs, exact_unlock_block_tiny)
 {
-  // Create chain of length CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE where there is one output in block 0
-  std::vector<uint64_t> offsets(std::max(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE, 1), 0);
-  offsets[0] = 1;
+  // Create a chain of length CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE with one
+  // output in block 0. Since rct_offsets is cumulative, later blocks retain
+  // that output even though they contain no additional outputs.
+  std::vector<uint64_t> offsets(std::max(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE, 1), 1);
   tools::gamma_picker picker(offsets);
 
-  constexpr size_t MAX_PICK_TRIES = 10;
+  constexpr size_t MAX_PICK_TRIES = 1000;
   bool found_the_one_output = false;
   for (size_t i = 0; i < MAX_PICK_TRIES; ++i)
+  {
     if (picker.pick() == 0)
+    {
       found_the_one_output = true;
+      break;
+    }
+  }
 
   EXPECT_TRUE(found_the_one_output);
 }
