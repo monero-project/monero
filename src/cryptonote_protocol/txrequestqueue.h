@@ -53,22 +53,36 @@
 
 struct tx_request
 {
-    boost::uuids::uuid peer_id;
-    crypto::hash tx_hash;
-    mutable std::chrono::steady_clock::time_point last_action_timestamp;
-    mutable bool in_flight = false;
+    /*const*/ boost::uuids::uuid peer_id;
+    /*const*/ crypto::hash tx_hash;
+
+    uint64_t nonce = 0;
+    bool in_flight = false;
+    bool processing = false;
+    std::chrono::steady_clock::time_point last_action_timestamp;
 
     tx_request(const boost::uuids::uuid& _peer_id,
         const crypto::hash& _tx_hash,
+        const uint64_t _nonce,
         const bool _in_flight):
             peer_id(_peer_id),
             tx_hash(_tx_hash),
+            nonce(_nonce),
             last_action_timestamp(std::chrono::steady_clock::now()),
             in_flight(_in_flight)
     {}
 
 public:
-    void fly() const { in_flight = true; last_action_timestamp = std::chrono::steady_clock::now(); };
+    void fly(const uint64_t _nonce) noexcept {
+        nonce = _nonce;
+        in_flight = true;
+        last_action_timestamp = std::chrono::steady_clock::now();
+    }
+
+    void start_processing() noexcept {
+        processing = true;
+        last_action_timestamp = std::chrono::steady_clock::now();
+    }
 };
 
 using boost::multi_index::hashed_non_unique;
@@ -85,10 +99,15 @@ typedef multi_index_container<
         hashed_non_unique<member<tx_request, boost::uuids::uuid, &tx_request::peer_id>>,
         // Index 1: by tx_hash - all requests for a tx
         hashed_non_unique<member<tx_request, crypto::hash, &tx_request::tx_hash>>,
-        // Index 2: by (peer_id, tx_hash) - unique requests
+        // Index 2: by (peer_id, tx_hash) - unique txs requested
         hashed_unique<composite_key<tx_request,
             member<tx_request, boost::uuids::uuid, &tx_request::peer_id>,
             member<tx_request, crypto::hash, &tx_request::tx_hash>
+        >>,
+        // Index 3: by (peer_id, nonce) - all requests for a given peer and nonce
+        hashed_non_unique<composite_key<tx_request,
+            member<tx_request, boost::uuids::uuid, &tx_request::peer_id>,
+            member<tx_request, uint64_t, &tx_request::nonce>
         >>
     >
 > request_container;
@@ -106,6 +125,11 @@ decltype(auto) get_requests_by_tx_hash(container_t&& container) {
 template<typename container_t>
 decltype(auto) get_requests_by_peer_and_tx(container_t&& container) {
     return std::forward<container_t>(container).template get<2>();
+}
+
+template<typename container_t>
+decltype(auto) get_requests_by_peer_and_nonce(container_t&& container) {
+    return std::forward<container_t>(container).template get<3>();
 }
 
 #endif // CRYPTONOTE_PROTOCOL_TXREQUESTQUEUE_H
