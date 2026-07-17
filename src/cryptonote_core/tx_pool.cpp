@@ -1327,8 +1327,10 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::get_transaction(const crypto::hash& id, cryptonote::blobdata& txblob, relay_category tx_category) const
   {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-    CRITICAL_REGION_LOCAL1(m_blockchain);
+    // WARNING: this function does not take m_blockchain_lock, and thus should only call read only
+    // m_db functions which do not depend on one another (ie, no getheight + gethash(height-1), as
+    // well as not accessing class members, even read only (ie, m_invalid_blocks). The caller must
+    // lock if it is otherwise needed.
     try
     {
       return m_blockchain.get_txpool_tx_blob(id, txblob, tx_category);
@@ -1357,8 +1359,10 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::have_tx(const crypto::hash &id, relay_category tx_category) const
   {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-    CRITICAL_REGION_LOCAL1(m_blockchain);
+    // WARNING: this function does not take m_blockchain_lock, and thus should only call read only
+    // m_db functions which do not depend on one another (ie, no getheight + gethash(height-1), as
+    // well as not accessing class members, even read only (ie, m_invalid_blocks). The caller must
+    // lock if it is otherwise needed.
     return m_blockchain.get_db().txpool_has_tx(id, tx_category);
   }
   //---------------------------------------------------------------------------------

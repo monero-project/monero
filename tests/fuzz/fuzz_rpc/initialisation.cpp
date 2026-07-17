@@ -309,16 +309,18 @@ bool generate_random_blocks(cryptonote::core& core, FuzzedDataProvider& provider
   }
 
   for (const auto& tx_blob : cached_txs) {
-    cryptonote::tx_verification_context tvc;
+    cryptonote::transaction tx{};
     crypto::hash tx_hash;
-    bool accepted = core.handle_incoming_tx(tx_blob, tvc, cryptonote::relay_method::block, true, tx_hash);
-    if (accepted || tvc.m_added_to_pool) {
-      // Store legit hashes
-      cryptonote::transaction tx;
-      if (cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx)) {
-        cached_tx_hashes.push_back(cryptonote::get_transaction_hash(tx));
-      }
+    if (!cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash))
+      continue;
+    cryptonote::tx_verification_context tvc{};
+    if (!core.handle_incoming_tx(tx_blob, tx, tx_hash, tvc, cryptonote::relay_method::block, true)
+      && !tvc.m_added_to_pool)
+    {
+      continue;
     }
+    // Store legit hashes
+    cached_tx_hashes.push_back(tx_hash);
   }
 
   return added_block;

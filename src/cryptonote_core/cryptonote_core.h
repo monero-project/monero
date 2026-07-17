@@ -116,18 +116,19 @@ namespace cryptonote
      /**
       * @brief handles an incoming transaction
       *
-      * Parses an incoming transaction and, if nothing is obviously wrong,
+      * Processes an incoming transaction and, if nothing is obviously wrong,
       * passes it along to the transaction pool
       *
       * @param tx_blob the tx to handle
+      * @param tx the parsed tx to handle (may expand the tx)
+      * @param txid the tx hash to handle
       * @param tvc metadata about the transaction's validity
       * @param tx_relay how the transaction was received
       * @param relayed whether or not the transaction was relayed to us
-      * @param txid return by reference
       *
       * @return true if the transaction was accepted, false otherwise
       */
-     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed, crypto::hash& txid);
+     bool handle_incoming_tx(const blobdata& tx_blob, transaction& tx, const crypto::hash& txid, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
 
     /**
       * @brief handles a single incoming block

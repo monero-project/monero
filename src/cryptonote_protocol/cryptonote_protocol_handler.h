@@ -174,14 +174,14 @@ namespace cryptonote
     bool should_ask_for_pruned_data(cryptonote_connection_context& context, uint64_t first_block_height, uint64_t nblocks, bool check_block_weights) const;
     void drop_connection(cryptonote_connection_context &context, bool add_fail, bool flush_all_spans);
     void drop_connection_with_score(cryptonote_connection_context &context, unsigned int score, bool flush_all_spans);
-    void drop_connection(const boost::uuids::uuid&);
+    void drop_connection(const boost::uuids::uuid&, bool add_fail);
     void drop_connections(const epee::net_utils::network_address address);
     bool kick_idle_peers();
     bool check_standby_peers();
     bool update_sync_search();
-    void send_txs_request(cryptonote_connection_context &context, std::vector<crypto::hash> &&tx_hashes);
-    std::mutex m_check_tx_request_queue_mutex;
+    void send_txs_request(cryptonote_connection_context &context, request_manager::tx_request_t &&tx_req);
     bool check_tx_request_queue();
+    void fly_available_requests_in_queue(const std::unordered_set<boost::uuids::uuid> &ignore_peers = {});
     int try_add_next_blocks(cryptonote_connection_context &context);
     void notify_new_stripe(cryptonote_connection_context &context, uint32_t stripe);
     size_t skip_unneeded_hashes(cryptonote_connection_context& context, bool check_block_queue) const;

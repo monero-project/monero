@@ -203,11 +203,13 @@ namespace cryptonote
       std::vector<blobdata>   txs;
       std::string _; // padding
       bool dandelionpp_fluff; //zero initialization defaults to stem mode
+      uint64_t nonce; // if responding to NOTIFY_REQUEST_TX_POOL_TXS, includes nonce in resp
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txs)
         KV_SERIALIZE(_)
         KV_SERIALIZE_OPT(dandelionpp_fluff, true) // backwards compatible mode is fluff
+        KV_SERIALIZE_OPT(nonce, (uint64_t)0)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -448,9 +450,11 @@ namespace cryptonote
 
     struct request_t
     {
+      uint64_t n; // request nonce
       std::vector<crypto::hash> t;
 
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(n)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(t)
       END_KV_SERIALIZE_MAP()
     };

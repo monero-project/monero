@@ -465,7 +465,7 @@ namespace levin
           // When i2p/tor, only fluff to outbound connections
           if (source != id && (zone->nzone == epee::net_utils::zone::public_ || !context.m_is_income))
           {
-            if (context.fluff_txs.empty())
+            if (context.tx_relay_v2 ? context.fluff_txs_v2.empty() : context.fluff_txs.empty())
               context.flush_time = now + (context.m_is_income ? in_duration() : out_duration());
 
             next_flush = std::min(next_flush, context.flush_time);

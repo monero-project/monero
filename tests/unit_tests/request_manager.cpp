@@ -54,21 +54,21 @@ TEST(request_manager, basic_usage)
     for (char i = 0; i < MAX_IN_FLIGHT; ++i)
     {
         // Success case
-        ASSERT_TRUE(req_manager.add_request(crypto::hash{i}, peer));
+        ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{i}}, peer).tx_hashes.size(), 1);
 
         // Can't re-add
-        ASSERT_FALSE(req_manager.add_request(crypto::hash{i}, peer));
+        ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{i}}, peer).tx_hashes.size(), 0);
     }
 
     // 2. Queue is full and can't let any others fly. Queue this one
-    ASSERT_FALSE(req_manager.add_request(crypto::hash{MAX_IN_FLIGHT}, peer));
+    ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{MAX_IN_FLIGHT}}, peer).tx_hashes.size(), 0);
 
     // 3. Remove 1 from the queue to make room for one queued above
     ASSERT_TRUE(req_manager.remove_request(crypto::hash{0}));
     ASSERT_FALSE(req_manager.remove_request(crypto::hash{0}));
 
     // 4. Make sure the one queued above enters flight
-    const auto tx_reqs = req_manager.fly_available_requests(peer);
+    const auto tx_reqs = req_manager.fly_available_requests(peer).tx_hashes;
     ASSERT_EQ(tx_reqs.size(), 1);
     ASSERT_EQ(tx_reqs.front(), crypto::hash{MAX_IN_FLIGHT});
 
@@ -92,10 +92,10 @@ TEST(request_manager, multiple_peers)
         const boost::uuids::uuid peer = uuid_from_char(i);
 
         // Success case
-        ASSERT_TRUE(req_manager.add_request(hash, peer));
+        ASSERT_EQ(req_manager.enqueue_requests({hash}, peer).tx_hashes.size(), 1);
 
         // Can't re-add
-        ASSERT_FALSE(req_manager.add_request(hash, peer));
+        ASSERT_EQ(req_manager.enqueue_requests({hash}, peer).tx_hashes.size(), 0);
     }
 
     // 2. No stale requests and none available
@@ -105,7 +105,7 @@ TEST(request_manager, multiple_peers)
         for (uint8_t i = 0; i < MAX_IN_FLIGHT; ++i)
         {
             const boost::uuids::uuid peer = uuid_from_char(i);
-            const auto tx_hashes = req_manager.fly_available_requests(peer);
+            const auto tx_hashes = req_manager.fly_available_requests(peer).tx_hashes;
             ASSERT_TRUE(tx_hashes.empty());
         }
     }
@@ -120,19 +120,19 @@ TEST(request_manager, multiple_peers)
     {
         const crypto::hash hash{i};
         const boost::uuids::uuid peer = uuid_from_char(MAX_IN_FLIGHT - i - 1);
-        ASSERT_FALSE(req_manager.add_request(hash, peer));
+        ASSERT_EQ(req_manager.enqueue_requests({hash}, peer).tx_hashes.size(), 0);
     }
 
     // 5. Remove stale requests
     const auto drop_peers = req_manager.remove_stale_requests();
     ASSERT_TRUE(drop_peers.empty());
 
-    // 6. Available reqs should be all the tx hashes from step 3
+    // 6. Available reqs should be all the tx hashes from step 4
     for (char i = 0; i < MAX_IN_FLIGHT; ++i)
     {
         const crypto::hash hash{i};
         const boost::uuids::uuid peer = uuid_from_char(MAX_IN_FLIGHT - i - 1);
-        const auto tx_hashes = req_manager.fly_available_requests(peer);
+        const auto tx_hashes = req_manager.fly_available_requests(peer).tx_hashes;
 
         ASSERT_EQ(tx_hashes.size(), 1);
         ASSERT_EQ(tx_hashes.front(), hash);
@@ -156,7 +156,7 @@ TEST(request_manager, drop_peers)
 
     // 1. Add many requests
     for (char i = 0; i < MAX_IN_FLIGHT; ++i)
-        ASSERT_TRUE(req_manager.add_request(crypto::hash{i}, peer));
+        ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{i}}, peer).tx_hashes.size(), 1);
 
     // 2. Sleep to let requests timeout
     MINFO("Sleeping for 20ms to let requests timeout");
@@ -168,6 +168,88 @@ TEST(request_manager, drop_peers)
     ASSERT_EQ(drop_peers.count(peer), 1);
 
     // 4. Remove peers
+    req_manager.remove_peer(peer);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(request_manager, dont_rm_processing_txs)
+{
+    const uint8_t MAX_IN_FLIGHT = P2P_MIN_SAMPLE_SIZE_FOR_DROPPING;
+    const int64_t TIMEOUT_MS = 10;
+    request_manager req_manager(MAX_IN_FLIGHT, TIMEOUT_MS);
+
+    const boost::uuids::uuid peer{};
+
+    // 1. Add many requests
+    std::vector<crypto::hash> init_hashes;
+    init_hashes.reserve(MAX_IN_FLIGHT);
+    for (char i = 0; i < MAX_IN_FLIGHT; ++i)
+        init_hashes.emplace_back(crypto::hash{i});
+    const auto tx_req = req_manager.enqueue_requests(init_hashes, peer);
+    ASSERT_EQ(tx_req.tx_hashes, init_hashes);
+    ASSERT_EQ(tx_req.nonce, 1);
+
+    // 2. Indicate that we're processing all of the tx requests
+    // Note: the last one is explicitly not included in the processing_hashes, which technically is supposed to mean
+    // the peer didn't have the tx and it can be removed from the request queue.
+    const std::vector<crypto::hash> processing_hashes(init_hashes.begin(), init_hashes.end() - 1);
+    ASSERT_TRUE(req_manager.processing_txs(peer, tx_req.nonce, processing_hashes));
+    ASSERT_FALSE(req_manager.remove_request(init_hashes.back()));
+
+    // 3. Sleep to let requests timeout
+    MINFO("Sleeping for 20ms to let requests timeout");
+    std::this_thread::sleep_for(std::chrono::milliseconds{TIMEOUT_MS * 2});
+
+    // 4. There should be no stale requests.
+    const auto drop_peers = req_manager.remove_stale_requests();
+    ASSERT_EQ(drop_peers.size(), 0);
+
+    // 5. Remove peers
+    req_manager.remove_peer(peer);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(request_manager, dont_rm_processing_txs_enqueue_overage)
+{
+    const uint8_t MAX_IN_FLIGHT = 2;
+    const int64_t TIMEOUT_MS = 10;
+    request_manager req_manager(MAX_IN_FLIGHT, TIMEOUT_MS);
+
+    const boost::uuids::uuid peer{};
+
+    // 1. Enqueue 1 more request than max allowed in flight
+    const uint8_t TOTAL_TXS = MAX_IN_FLIGHT + 1;
+    std::vector<crypto::hash> init_hashes;
+    init_hashes.reserve(TOTAL_TXS);
+    for (char i = 0; i < TOTAL_TXS; ++i)
+        init_hashes.emplace_back(crypto::hash{i});
+    const auto tx_req = req_manager.enqueue_requests(init_hashes, peer);
+    ASSERT_EQ(tx_req.tx_hashes, std::vector<crypto::hash>(init_hashes.begin(), init_hashes.begin() + MAX_IN_FLIGHT));
+    ASSERT_EQ(tx_req.nonce, 1);
+
+    // 2. Remove 1 req to make room for the last one
+    ASSERT_TRUE(req_manager.remove_request(init_hashes.front()));
+
+    // 3. Now fly the last one
+    const auto tx_req2 = req_manager.fly_available_requests(peer);
+    ASSERT_EQ(tx_req2.tx_hashes, std::vector<crypto::hash>{init_hashes.back()});
+    ASSERT_EQ(tx_req2.nonce, 2);
+
+    // 4. Indicate that we're processing Step 3's tx
+    ASSERT_FALSE(req_manager.processing_txs(peer, tx_req2.nonce, tx_req2.tx_hashes));
+
+    // 5. Sleep to let requests timeout
+    MINFO("Sleeping for 20ms to let requests timeout");
+    std::this_thread::sleep_for(std::chrono::milliseconds{TIMEOUT_MS * 2});
+
+    // 6. The processing tx from step 4 should still be present, since it's processing and shouldn't have been rm'd.
+    //    init_hashes.at(1) should have timed out and rm'd. Since this is only the first stale tx req rm'd, the peer
+    //    is not expected to drop.
+    static_assert(P2P_MIN_SAMPLE_SIZE_FOR_DROPPING > 1);
+    const auto drop_peers = req_manager.remove_stale_requests();
+    ASSERT_EQ(drop_peers.size(), 0);
+    ASSERT_FALSE(req_manager.remove_request(init_hashes.at(1)));
+    ASSERT_TRUE(req_manager.remove_request(init_hashes.back()));
+
+    // 7. Remove peer
     req_manager.remove_peer(peer);
 }
 //----------------------------------------------------------------------------------------------------------------------

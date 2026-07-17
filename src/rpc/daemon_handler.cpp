@@ -397,8 +397,11 @@ namespace rpc
 
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
 
+    cryptonote::transaction tx{};
     crypto::hash txid;
-    if(!m_core.handle_incoming_tx(tx_blob, tvc, (relay ? relay_method::local : relay_method::none), false, txid) || tvc.m_verifivation_failed)
+    if(!parse_and_validate_tx_from_blob(tx_blob, tx, txid, true)
+      || !m_core.handle_incoming_tx(tx_blob, tx, txid, tvc, (relay ? relay_method::local : relay_method::none), false)
+      || tvc.m_verifivation_failed)
     {
       if (tvc.m_verifivation_failed)
       {
