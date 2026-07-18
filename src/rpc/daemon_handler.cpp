@@ -33,6 +33,7 @@
 #include <chrono>
 #include <cstring>
 #include <stdexcept>
+#include <unordered_set>
 
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/utility/string_ref.hpp>
@@ -281,6 +282,7 @@ namespace rpc
     // if any missing from blockchain, check in tx pool
     if (!missed_vec.empty())
     {
+      std::unordered_set<crypto::hash> missed_set(missed_vec.begin(), missed_vec.end());
       std::vector<cryptonote::transaction> pool_txs;
 
       m_core.get_pool_transactions(pool_txs);
@@ -289,17 +291,15 @@ namespace rpc
       {
         crypto::hash h = get_transaction_hash(tx);
 
-        auto itr = std::find(missed_vec.begin(), missed_vec.end(), h);
-
-        if (itr != missed_vec.end())
+        if (missed_set.erase(h))
         {
           found_hashes.push_back(h);
           found_txs_vec.push_back(tx);
           heights.push_back(std::numeric_limits<uint64_t>::max());
           in_pool.push_back(true);
-          missed_vec.erase(itr);
         }
       }
+      missed_vec.assign(missed_set.begin(), missed_set.end());
     }
 
     for (size_t i=0; i < found_hashes.size(); i++)
