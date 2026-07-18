@@ -8627,13 +8627,13 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
         running_balance -= transfer.amount + transfer.fee;
     }
 
-    crypto::secret_key tx_key;
-    std::vector<crypto::secret_key> additional_tx_keys;
-    bool found_tx_key = m_wallet->get_tx_key(transfer.hash, tx_key, additional_tx_keys);
     std::string key_string;
-    if (export_keys && found_tx_key)
+    if (export_keys)
     {
-      key_string = get_tx_key_stream(tx_key, additional_tx_keys);
+      crypto::secret_key tx_key;
+      std::vector<crypto::secret_key> additional_tx_keys;
+      if (m_wallet->get_tx_key(transfer.hash, tx_key, additional_tx_keys))
+        key_string = get_tx_key_stream(tx_key, additional_tx_keys);
     }
 
     file << formatter
