@@ -1550,7 +1550,7 @@ class TransferTest():
             self.wallet[0].get_address_index(address_0_999)
             assert False # address should not already be loaded
         except Exception as e:
-            assert str(e) ==  "{'error': {'code': -2, 'message': \"Address doesn't belong to the wallet\"}, 'id': '0', 'jsonrpc': '2.0'}"
+            assert str(e) ==  "{'jsonrpc': '2.0', 'id': '0', 'error': {'code': -2, 'message': \"Address doesn't belong to the wallet\"}}"
         # update the lookahead and assert the high index address is now in the table
         self.wallet[0].set_subaddress_lookahead(50, 1000)
         res = self.wallet[0].get_address_index(address_0_999)

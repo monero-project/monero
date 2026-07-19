@@ -35,6 +35,10 @@
 #include "cryptonote_core/i_core_events.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.inl"
+#include "net/serialization.h"
+#include "serialization/wire.h"
+#include "serialization/wire/epee.h"
+#include "serialization/wire/wrappers_impl.h"
 #include "unit_tests_utils.h"
 #include <condition_variable>
 #include <thread>
@@ -482,6 +486,24 @@ TEST(node_server, bind_same_p2p_port)
   EXPECT_TRUE(init(new_node(), port_another));
 }
 
+namespace
+{
+  struct messages_race {
+    WIRE_DEFINE_CONVERSIONS()
+
+    struct core {
+      using sync = cryptonote::CORE_SYNC_DATA;
+    };
+    using handshake = nodetool::COMMAND_HANDSHAKE_T<core::sync>;
+  };
+}
+
+namespace nodetool
+{
+  WIRE_EPEE_DEFINE_CONVERSION(messages_race::handshake::request_t);
+  WIRE_EPEE_DEFINE_CONVERSION(messages_race::handshake::response_t);
+}
+
 TEST(cryptonote_protocol_handler, race_condition)
 {
   struct contexts {
@@ -601,12 +623,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     );
     core.get_blockchain_storage().get_db().batch_stop();
   };
-  struct messages {
-    struct core {
-      using sync = cryptonote::CORE_SYNC_DATA;
-    };
-    using handshake = nodetool::COMMAND_HANDSHAKE_T<core::sync>;
-  };
+  using messages = messages_race;
   struct net_node_t: commands_handler_t, p2p_endpoint_t {
     using span_t = epee::span<const uint8_t>;
     using zone_t = epee::net_utils::zone;
@@ -1182,12 +1199,7 @@ TEST(node_server, race_condition)
   };
   using node_server_t = nodetool::node_server<protocol_t>;
   auto conduct_test = [](protocol_t &protocol){
-    struct messages {
-      struct core {
-        using sync = cryptonote::CORE_SYNC_DATA;
-      };
-      using handshake = nodetool::COMMAND_HANDSHAKE_T<core::sync>;
-    };
+    using messages = messages_race;
     using handler_t = epee::levin::async_protocol_handler<context_t>;
     using connection_t = epee::net_utils::connection<handler_t>;
     using connection_ptr = boost::shared_ptr<connection_t>;

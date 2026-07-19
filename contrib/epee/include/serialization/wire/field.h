@@ -33,7 +33,7 @@
 #include "serialization/wire/traits.h"
 
 //! A required field has the same key name and C/C++ name
-#define WIRE_FIELD(name)                                \
+#define WIRE_FIELD(name) \
   ::wire::field( #name , std::ref( self . name ))
 
 //! A required field has the same key name and C/C++ name AND is cheap to copy (faster output).

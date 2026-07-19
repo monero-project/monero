@@ -38,4 +38,9 @@ namespace wire
   WIRE_DECLARE_BLOB_NS(crypto::hash);
   WIRE_DECLARE_BLOB_NS(crypto::hash8);
   WIRE_DECLARE_BLOB_NS(crypto::ec_point);
+  WIRE_DECLARE_BLOB_NS(crypto::ec_scalar);
+  WIRE_DECLARE_BLOB_NS(crypto::key_image);
+  WIRE_DECLARE_BLOB_NS(crypto::public_key);
+  WIRE_DECLARE_BLOB_NS(crypto::signature);
+  WIRE_DECLARE_BLOB_NS(crypto::view_tag);
 }

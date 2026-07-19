@@ -31,6 +31,7 @@
 #pragma  once 
 
 #include <memory>
+#include <type_traits>
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
@@ -73,6 +74,17 @@ namespace cryptonote
     static const command_line::arg_descriptor<std::size_t> arg_rpc_response_soft_limit;
 
     typedef epee::net_utils::connection_context_base connection_context;
+
+    struct invoke_http_mode
+    {
+      enum class mode { JON, BIN, JON_RPC };
+
+      template<mode value>
+      using constant = std::integral_constant<mode, value>;
+      static constexpr const constant<mode::JON> JON{};
+      static constexpr const constant<mode::BIN> BIN{};
+      static constexpr const constant<mode::JON_RPC> JON_RPC{};
+    };
 
     core_rpc_server(
         core& cr
@@ -267,9 +279,9 @@ private:
       const std::string &address,
       const boost::optional<epee::net_utils::http::login> &credentials,
       const std::string &proxy);
-    enum invoke_http_mode { JON, BIN, JON_RPC };
-    template <typename COMMAND_TYPE>
-    bool use_bootstrap_daemon_if_necessary(const invoke_http_mode &mode, const std::string &command_name, const typename COMMAND_TYPE::request& req, typename COMMAND_TYPE::response& res, bool &r);
+
+    template <typename COMMAND_TYPE, typename MODE>
+    bool use_bootstrap_daemon_if_necessary(const MODE &mode, const std::string &command_name, const typename COMMAND_TYPE::request& req, typename COMMAND_TYPE::response& res, bool &r);
     bool get_block_template(const account_public_address &address, const crypto::hash *prev_block, const cryptonote::blobdata &extra_nonce, size_t &reserved_offset, cryptonote::difficulty_type &difficulty, uint64_t &height, uint64_t &expected_reward, uint64_t& cumulative_weight, block &b, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, epee::json_rpc::error &error_resp);
     bool handle_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res, const connection_context *ctx, std::size_t &cumul_block_data_size_out);
 

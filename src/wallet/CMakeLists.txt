@@ -48,7 +48,7 @@ monero_add_library(wallet
   ${wallet_private_headers})
 target_link_libraries(wallet
   PUBLIC
-    rpc_base
+    rpc
     multisig
     common
     cryptonote_core
@@ -66,6 +66,7 @@ target_link_libraries(wallet
 
 if(NOT IOS)
   set(wallet_rpc_sources
+    wallet_rpc_server_commands_defs.cpp
     wallet_rpc_server.cpp)
 
   set(wallet_rpc_headers)
@@ -89,6 +90,7 @@ if(NOT IOS)
       common
       version
       daemonizer
+      wire-json
       ${EPEE_READLINE}
       ${Boost_PROGRAM_OPTIONS_LIBRARY}
       ${Boost_FILESYSTEM_LIBRARY}

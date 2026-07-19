@@ -108,6 +108,8 @@ namespace wire
     //! \throw std::logic_error if incomplete JSON tree
     void check_complete();
 
+    void null_value() override final;
+
     void boolean(bool) override final;
 
     void integer(std::intmax_t) override final;

@@ -49,6 +49,7 @@
 #include "net/dandelionpp.h"
 #include "net/levin_base.h"
 #include "span.h"
+#include "serialization/wire/epee/base.h"
 
 namespace
 {
@@ -225,12 +226,8 @@ namespace
             if (queue.front().command != T::ID)
                 throw std::logic_error{"Unexpected ID at front of message queue"};
 
-            epee::serialization::portable_storage storage{};
-            if(!storage.load_from_binary(epee::strspan<std::uint8_t>(queue.front().payload)))
-                throw std::logic_error{"Unable to parse epee binary format"};
-
             typename T::request request{};
-            if (!request.load(storage))
+            if (wire::epee_bin::from_bytes(epee::strspan<std::uint8_t>(queue.front().payload), request))
                 throw std::logic_error{"Unable to load into expected request"};
 
             boost::uuids::uuid connection = queue.front().connection;

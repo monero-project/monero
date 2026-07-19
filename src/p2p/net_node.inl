@@ -58,6 +58,7 @@
 #include "cryptonote_core/cryptonote_core.h"
 #include "net/parse.h"
 #include "p2p/net_node.h"
+#include "file_io_utils.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.p2p"

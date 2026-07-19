@@ -39,10 +39,12 @@
 #include "common/threadpool.h"
 #include "crypto/crypto.h"
 #include <boost/thread/mutex.hpp>
+#include <boost/asio/ip/address.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
 #include <boost/utility/string_ref.hpp>
-#include <boost/asio/ip/address.hpp>
+#include <deque>
+#include <set>
 using namespace epee;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY

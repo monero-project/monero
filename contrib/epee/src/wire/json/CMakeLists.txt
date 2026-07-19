@@ -26,7 +26,6 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(wire-json_sources write.cpp)
-
-add_library(wire-json ${wire-json_sources})
+set(wire-json_sources error.cpp read.cpp write.cpp)
+monero_add_library(wire-json ${wire-json_sources})
 target_link_libraries(wire-json wire)

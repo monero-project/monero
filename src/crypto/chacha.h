@@ -38,9 +38,11 @@
 
 #if defined(__cplusplus)
 
+#include "generic-ops.h"
 #include "memwipe.h"
 #include "mlocker.h"
 #include "hash.h"
+#include "serialization/wire/traits.h"
 
 namespace crypto {
   extern "C" {
@@ -91,5 +93,8 @@ namespace crypto {
     return generate_chacha_key(password.data(), password.size(), key, kdf_rounds);
   }
 }
+
+CRYPTO_MAKE_COMPARABLE(crypto::chacha_iv)
+WIRE_DECLARE_BLOB(crypto::chacha_iv)
 
 #endif
