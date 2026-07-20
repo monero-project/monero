@@ -26,11 +26,10 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "include_base_utils.h"
-#include "file_io_utils.h"
 #include "cryptonote_basic/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "cryptonote_core/tx_verification_utils.h"
 #include "fuzzer.h"
 
 BEGIN_INIT_SIMPLE_FUZZER()
@@ -39,4 +38,9 @@ END_INIT_SIMPLE_FUZZER()
 BEGIN_SIMPLE_FUZZER()
   cryptonote::transaction tx = AUTO_VAL_INIT(tx);
   parse_and_validate_tx_from_blob(std::string((const char*)buf, len), tx);
+  for (uint8_t hf_version = 1; hf_version <= MAX_HF_VERSION; ++hf_version)
+  {
+    cryptonote::tx_verification_context tvc{};
+    cryptonote::ver_non_input_consensus(tx, tvc, hf_version);
+  }
 END_SIMPLE_FUZZER()
