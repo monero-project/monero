@@ -45,6 +45,8 @@
 #include <boost/thread/thread.hpp>
 
 #include <iostream>
+#include <fstream>
+#include <cstring>
 #include <vector>
 #include <atomic>
 #include <functional>
@@ -59,10 +61,9 @@ namespace Consts
 // TODO: get rid of hardcoded paths
 
 const char * WALLET_NAME = "testwallet";
-const char * WALLET_NAME_MAINNET = "testwallet_mainnet";
 const char * WALLET_NAME_COPY = "testwallet_copy";
 const char * WALLET_NAME_WITH_DIR = "walletdir/testwallet_test";
-const char * WALLET_NAME_WITH_DIR_NON_WRITABLE = "/var/walletdir/testwallet_test";
+const char * WALLET_NAME_WITH_DIR_NON_WRITABLE = "not_a_directory/testwallet_test";
 const char * WALLET_PASS = "password";
 const char * WALLET_PASS2 = "password22";
 const char * WALLET_LANG = "English";
@@ -86,8 +87,9 @@ const uint64_t AMOUNT_1XMR  =  1000000000000L;
 
 const std::string PAYMENT_ID_EMPTY = "";
 
-std::string TESTNET_DAEMON_ADDRESS = "localhost:38081";
-std::string MAINNET_DAEMON_ADDRESS = "localhost:18081";
+std::string DAEMON_ADDRESS;
+Monero::NetworkType WALLET_NETWORK_TYPE = Monero::NetworkType::MAINNET;
+std::string RING_DATABASE_DIR;
 
 
 }
@@ -95,6 +97,32 @@ std::string MAINNET_DAEMON_ADDRESS = "localhost:18081";
 
 
 using namespace Consts;
+
+static void configure_wallet(Monero::Wallet *wallet)
+{
+    if (!wallet)
+        return;
+    wallet->allowMismatchedDaemonVersion(true);
+    wallet->setRefreshFromBlockHeight(1);
+    if (!RING_DATABASE_DIR.empty())
+        wallet->setRingDatabase(RING_DATABASE_DIR);
+}
+
+static bool init_wallet(Monero::Wallet *wallet, const std::string &daemon_address)
+{
+    configure_wallet(wallet);
+    if (!wallet || !wallet->init(daemon_address, 0))
+        return false;
+    // init() applies the new-wallet fast-sync height, so restore the fixture's
+    // explicit height afterwards to scan its pre-mined funding outputs.
+    wallet->setRefreshFromBlockHeight(1);
+    return true;
+}
+
+static bool init_wallet(Monero::Wallet *wallet)
+{
+    return init_wallet(wallet, DAEMON_ADDRESS);
+}
 
 struct Utils
 {
@@ -129,7 +157,7 @@ struct Utils
     static std::string get_wallet_address(const std::string &filename, const std::string &password)
     {
         Monero::WalletManager *wmgr = Monero::WalletManagerFactory::getWalletManager();
-        Monero::Wallet * w = wmgr->openWallet(filename, password, Monero::NetworkType::TESTNET);
+        Monero::Wallet * w = wmgr->openWallet(filename, password, WALLET_NETWORK_TYPE);
         std::string result = w->mainAddress();
         wmgr->closeWallet(w);
         return result;
@@ -149,6 +177,7 @@ struct WalletManagerTest : public testing::Test
         // Monero::WalletManagerFactory::setLogLevel(Monero::WalletManagerFactory::LogLevel_4);
         Utils::deleteWallet(WALLET_NAME);
         Utils::deleteDir(boost::filesystem::path(WALLET_NAME_WITH_DIR).parent_path().string());
+        Utils::deleteDir(boost::filesystem::path(WALLET_NAME_WITH_DIR_NON_WRITABLE).parent_path().string());
     }
 
 
@@ -160,25 +189,45 @@ struct WalletManagerTest : public testing::Test
 
 };
 
-struct WalletManagerMainnetTest : public testing::Test
+static int generate_test_wallets()
 {
-    Monero::WalletManager * wmgr;
+    boost::filesystem::create_directories(WALLETS_ROOT_DIR);
+    Monero::WalletManager *wmgr = Monero::WalletManagerFactory::getWalletManager();
+    std::string miner_address;
+    std::string pulse_miner_address;
 
-
-    WalletManagerMainnetTest()
+    for (int i = 1; i <= 6; ++i)
     {
-        std::cout << __FUNCTION__ << std::endl;
-        wmgr = Monero::WalletManagerFactory::getWalletManager();
-        Utils::deleteWallet(WALLET_NAME_MAINNET);
+        const std::string wallet_name = WALLETS_ROOT_DIR + "/wallet_0" + std::to_string(i) + ".bin";
+        Utils::deleteWallet(wallet_name);
+        Monero::Wallet *wallet = wmgr->createWallet(wallet_name, TESTNET_WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
+        if (!wallet || wallet->status() != Monero::Wallet::Status_Ok)
+        {
+            std::cerr << "Failed to create wallet " << wallet_name;
+            if (wallet)
+            {
+                std::cerr << ": " << wallet->errorString();
+                wmgr->closeWallet(wallet);
+            }
+            std::cerr << std::endl;
+            return 1;
+        }
+        configure_wallet(wallet);
+        if (i == 5)
+            miner_address = wallet->mainAddress();
+        if (i == 6)
+            pulse_miner_address = wallet->mainAddress();
+        if (!wmgr->closeWallet(wallet))
+        {
+            std::cerr << "Failed to close wallet " << wallet_name << std::endl;
+            return 1;
+        }
     }
 
-
-    ~WalletManagerMainnetTest()
-    {
-        std::cout << __FUNCTION__ << std::endl;
-    }
-
-};
+    std::cout << "miner_address=" << miner_address << std::endl;
+    std::cout << "pulse_miner_address=" << pulse_miner_address << std::endl;
+    return miner_address.empty() || pulse_miner_address.empty() ? 1 : 0;
+}
 
 struct WalletTest1 : public testing::Test
 {
@@ -207,7 +256,7 @@ struct WalletTest2 : public testing::Test
 TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
 {
 
-    Monero::Wallet * wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(!wallet->seed().empty());
     std::vector<std::string> words;
@@ -224,13 +273,14 @@ TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
 TEST_F(WalletManagerTest, WalletManagerOpensWallet)
 {
 
-    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
     std::string seed1 = wallet1->seed();
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
-    Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
     std::cout << "** seed: " << wallet2->seed() << std::endl;
+    ASSERT_TRUE(wmgr->closeWallet(wallet2));
 }
 
 
@@ -260,9 +310,12 @@ void open_wallet_helper(Monero::WalletManager *wmgr, Monero::Wallet **wallet, co
     if (mutex)
         mutex->lock();
     LOG_PRINT_L3("opening wallet in thread: " << boost::this_thread::get_id());
-    *wallet = wmgr->openWallet(WALLET_NAME, pass, Monero::NetworkType::TESTNET);
-    LOG_PRINT_L3("wallet address: " << (*wallet)->mainAddress());
-    LOG_PRINT_L3("wallet status: " << (*wallet)->status());
+    *wallet = wmgr->openWallet(WALLET_NAME, pass, WALLET_NETWORK_TYPE);
+    if (*wallet)
+    {
+        LOG_PRINT_L3("wallet address: " << (*wallet)->mainAddress());
+        LOG_PRINT_L3("wallet status: " << (*wallet)->status());
+    }
     LOG_PRINT_L3("closing wallet in thread: " << boost::this_thread::get_id());
     if (mutex)
         mutex->unlock();
@@ -276,7 +329,7 @@ void open_wallet_helper(Monero::WalletManager *wmgr, Monero::Wallet **wallet, co
 //    // create password protected wallet
 //    std::string wallet_pass = "password";
 //    std::string wrong_wallet_pass = "1111";
-//    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, wallet_pass, WALLET_LANG, Monero::NetworkType::TESTNET);
+//    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, wallet_pass, WALLET_LANG, WALLET_NETWORK_TYPE);
 //    std::string seed1 = wallet1->seed();
 //    ASSERT_TRUE(wmgr->closeWallet(wallet1));
 
@@ -302,7 +355,7 @@ TEST_F(WalletManagerTest, WalletManagerOpensWalletWithPasswordAndReopen)
     // create password protected wallet
     std::string wallet_pass = "password";
     std::string wrong_wallet_pass = "1111";
-    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, wallet_pass, WALLET_LANG, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, wallet_pass, WALLET_LANG, WALLET_NETWORK_TYPE);
     std::string seed1 = wallet1->seed();
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 
@@ -325,57 +378,63 @@ TEST_F(WalletManagerTest, WalletManagerOpensWalletWithPasswordAndReopen)
 TEST_F(WalletManagerTest, WalletManagerStoresWallet)
 {
 
-    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
     std::string seed1 = wallet1->seed();
     wallet1->store("");
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
-    Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
+    ASSERT_TRUE(wmgr->closeWallet(wallet2));
 }
 
 
 TEST_F(WalletManagerTest, WalletManagerMovesWallet)
 {
 
-    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
-    std::string WALLET_NAME_MOVED = std::string("/tmp/") + WALLET_NAME + ".moved";
+    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
+    const std::string WALLET_NAME_MOVED =
+            (boost::filesystem::temp_directory_path() / (std::string(WALLET_NAME) + ".moved")).string();
+    Utils::deleteWallet(WALLET_NAME_MOVED);
     std::string seed1 = wallet1->seed();
     ASSERT_TRUE(wallet1->store(WALLET_NAME_MOVED));
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
 
-    Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME_MOVED, WALLET_PASS, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME_MOVED, WALLET_PASS, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet2->filename() == WALLET_NAME_MOVED);
     ASSERT_TRUE(wallet2->keysFilename() == WALLET_NAME_MOVED + ".keys");
     ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
+    ASSERT_TRUE(wmgr->closeWallet(wallet2));
 }
 
 
 TEST_F(WalletManagerTest, WalletManagerChangesPassword)
 {
-    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
     std::string seed1 = wallet1->seed();
     ASSERT_TRUE(wallet1->setPassword(WALLET_PASS2));
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
-    Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS2, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME, WALLET_PASS2, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
     ASSERT_TRUE(wmgr->closeWallet(wallet2));
-    Monero::Wallet * wallet3 = wmgr->openWallet(WALLET_NAME, WALLET_PASS, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet3 = wmgr->openWallet(WALLET_NAME, WALLET_PASS, WALLET_NETWORK_TYPE);
     ASSERT_FALSE(wallet3->status() == Monero::Wallet::Status_Ok);
+    ASSERT_TRUE(wmgr->closeWallet(wallet3));
 }
 
 
 
 TEST_F(WalletManagerTest, WalletManagerRecoversWallet)
 {
-    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
     std::string seed1 = wallet1->seed();
     std::string address1 = wallet1->mainAddress();
     ASSERT_FALSE(address1.empty());
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
     Utils::deleteWallet(WALLET_NAME);
-    Monero::Wallet * wallet2 = wmgr->recoveryWallet(WALLET_NAME, seed1, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet2 = wmgr->recoveryWallet(WALLET_NAME, seed1, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
     ASSERT_TRUE(wallet2->mainAddress() == address1);
@@ -422,14 +481,14 @@ TEST_F(WalletManagerTest, WalletManagerStoresPasswordOfWalletRecoveredFromKeys)
 
 TEST_F(WalletManagerTest, WalletManagerStoresWallet1)
 {
-    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
     std::string seed1 = wallet1->seed();
     std::string address1 = wallet1->mainAddress();
 
     ASSERT_TRUE(wallet1->store(""));
     ASSERT_TRUE(wallet1->store(WALLET_NAME_COPY));
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
-    Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME_COPY, WALLET_PASS, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet2 = wmgr->openWallet(WALLET_NAME_COPY, WALLET_PASS, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet2->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet2->seed() == seed1);
     ASSERT_TRUE(wallet2->mainAddress() == address1);
@@ -439,14 +498,14 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet1)
 
 TEST_F(WalletManagerTest, WalletManagerStoresWallet2)
 {
-    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
     std::string seed1 = wallet1->seed();
     std::string address1 = wallet1->mainAddress();
 
     ASSERT_TRUE(wallet1->store(WALLET_NAME_WITH_DIR));
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 
-    wallet1 = wmgr->openWallet(WALLET_NAME_WITH_DIR, WALLET_PASS, Monero::NetworkType::MAINNET);
+    wallet1 = wmgr->openWallet(WALLET_NAME_WITH_DIR, WALLET_PASS, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet1->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet1->seed() == seed1);
     ASSERT_TRUE(wallet1->mainAddress() == address1);
@@ -456,20 +515,23 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet2)
 
 TEST_F(WalletManagerTest, WalletManagerStoresWallet3)
 {
-    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
     std::string seed1 = wallet1->seed();
     std::string address1 = wallet1->mainAddress();
+    const boost::filesystem::path parent = boost::filesystem::path(WALLET_NAME_WITH_DIR_NON_WRITABLE).parent_path();
+    boost::filesystem::remove_all(parent);
+    std::ofstream(parent.string()).close();
 
     ASSERT_FALSE(wallet1->store(WALLET_NAME_WITH_DIR_NON_WRITABLE));
-    ASSERT_TRUE(wmgr->closeWallet(wallet1));
+    ASSERT_TRUE(wmgr->closeWallet(wallet1, false));
 
-    wallet1 = wmgr->openWallet(WALLET_NAME_WITH_DIR_NON_WRITABLE, WALLET_PASS, Monero::NetworkType::MAINNET);
+    wallet1 = wmgr->openWallet(WALLET_NAME_WITH_DIR_NON_WRITABLE, WALLET_PASS, WALLET_NETWORK_TYPE);
     ASSERT_FALSE(wallet1->status() == Monero::Wallet::Status_Ok);
 
     // "close" always returns true;
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 
-    wallet1 = wmgr->openWallet(WALLET_NAME, WALLET_PASS, Monero::NetworkType::MAINNET);
+    wallet1 = wmgr->openWallet(WALLET_NAME, WALLET_PASS, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet1->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet1->seed() == seed1);
     ASSERT_TRUE(wallet1->mainAddress() == address1);
@@ -480,7 +542,7 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet3)
 
 TEST_F(WalletManagerTest, WalletManagerStoresWallet4)
 {
-    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    Monero::Wallet * wallet1 = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
     std::string seed1 = wallet1->seed();
     std::string address1 = wallet1->mainAddress();
 
@@ -492,7 +554,7 @@ TEST_F(WalletManagerTest, WalletManagerStoresWallet4)
 
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 
-    wallet1 = wmgr->openWallet(WALLET_NAME, WALLET_PASS, Monero::NetworkType::MAINNET);
+    wallet1 = wmgr->openWallet(WALLET_NAME, WALLET_PASS, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet1->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet1->seed() == seed1);
     ASSERT_TRUE(wallet1->mainAddress() == address1);
@@ -512,6 +574,56 @@ TEST_F(WalletManagerTest, WalletManagerFindsWallet)
     }
 }
 
+TEST_F(WalletManagerTest, WalletSubaddresses)
+{
+    Monero::Wallet * wallet = wmgr->createWallet(
+            WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(wallet != nullptr);
+    ASSERT_TRUE(wallet->status() == Monero::Wallet::Status_Ok);
+
+    ASSERT_TRUE(wallet->numSubaddressAccounts() == 1);
+    ASSERT_TRUE(wallet->numSubaddresses(0) == 1);
+    ASSERT_TRUE(wallet->address(0, 0) == wallet->mainAddress());
+
+    wallet->addSubaddress(0, "Savings");
+    ASSERT_TRUE(wallet->numSubaddresses(0) == 2);
+    ASSERT_TRUE(wallet->getSubaddressLabel(0, 1) == "Savings");
+    ASSERT_TRUE(wallet->address(0, 1) != wallet->mainAddress());
+    ASSERT_TRUE(Monero::Wallet::addressValid(wallet->address(0, 1), WALLET_NETWORK_TYPE));
+
+    wallet->addSubaddressAccount("Account 1");
+    ASSERT_TRUE(wallet->numSubaddressAccounts() == 2);
+    ASSERT_TRUE(wallet->numSubaddresses(1) == 1);
+    ASSERT_TRUE(wallet->getSubaddressLabel(1, 0) == "Account 1");
+    ASSERT_TRUE(Monero::Wallet::addressValid(wallet->address(1, 0), WALLET_NETWORK_TYPE));
+
+    Monero::Subaddress * subaddresses = wallet->subaddress();
+    subaddresses->refresh(0);
+    ASSERT_TRUE(subaddresses->getAll().size() == 2);
+    ASSERT_TRUE(subaddresses->getAll()[1]->getAddress() == wallet->address(0, 1));
+    ASSERT_TRUE(subaddresses->getAll()[1]->getLabel() == "Savings");
+
+    subaddresses->setLabel(0, 1, "Spending");
+    ASSERT_TRUE(wallet->getSubaddressLabel(0, 1) == "Spending");
+    subaddresses->addRow(0, "Donations");
+    ASSERT_TRUE(wallet->numSubaddresses(0) == 3);
+    ASSERT_TRUE(subaddresses->getAll()[2]->getLabel() == "Donations");
+
+    Monero::SubaddressAccount * accounts = wallet->subaddressAccount();
+    accounts->refresh();
+    ASSERT_TRUE(accounts->getAll().size() == 2);
+    ASSERT_TRUE(accounts->getAll()[1]->getAddress() == wallet->address(1, 0));
+    ASSERT_TRUE(accounts->getAll()[1]->getLabel() == "Account 1");
+
+    accounts->setLabel(1, "Secondary");
+    ASSERT_TRUE(wallet->getSubaddressLabel(1, 0) == "Secondary");
+    accounts->addRow("Account 2");
+    ASSERT_TRUE(wallet->numSubaddressAccounts() == 3);
+    ASSERT_TRUE(accounts->getAll()[2]->getLabel() == "Account 2");
+
+    ASSERT_TRUE(wmgr->closeWallet(wallet));
+}
+
 
 TEST_F(WalletTest1, WalletGeneratesPaymentId)
 {
@@ -524,22 +636,26 @@ TEST_F(WalletTest1, WalletGeneratesIntegratedAddress)
 {
     std::string payment_id = Monero::Wallet::genPaymentId();
 
-    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     std::string integrated_address = wallet1->integratedAddress(payment_id);
     ASSERT_TRUE(integrated_address.length() == 106);
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
 
 TEST_F(WalletTest1, WalletShowsBalance)
 {
-    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet1));
+    ASSERT_TRUE(wallet1->refresh());
     ASSERT_TRUE(wallet1->balance(0) > 0);
     ASSERT_TRUE(wallet1->unlockedBalance(0) > 0);
 
     uint64_t balance1 = wallet1->balance(0);
     uint64_t unlockedBalance1 = wallet1->unlockedBalance(0);
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
-    Monero::Wallet * wallet2 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet2 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    configure_wallet(wallet2);
 
     ASSERT_TRUE(balance1 == wallet2->balance(0));
     std::cout << "wallet balance: " << wallet2->balance(0) << std::endl;
@@ -550,7 +666,7 @@ TEST_F(WalletTest1, WalletShowsBalance)
 
 TEST_F(WalletTest1, WalletReturnsCurrentBlockHeight)
 {
-    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet1->blockChainHeight() > 0);
     wmgr->closeWallet(wallet1);
 }
@@ -558,16 +674,17 @@ TEST_F(WalletTest1, WalletReturnsCurrentBlockHeight)
 
 TEST_F(WalletTest1, WalletReturnsDaemonBlockHeight)
 {
-    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     // wallet not connected to daemon
+    configure_wallet(wallet1);
     ASSERT_TRUE(wallet1->daemonBlockChainHeight() == 0);
-    ASSERT_TRUE(wallet1->status() != Monero::Wallet::Status_Ok);
-    ASSERT_FALSE(wallet1->errorString().empty());
+    ASSERT_TRUE(wallet1->status() == Monero::Wallet::Status_Ok);
     wmgr->closeWallet(wallet1);
 
-    wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     // wallet connected to daemon
-    wallet1->init(TESTNET_DAEMON_ADDRESS, 0);
+    init_wallet(wallet1);
+    ASSERT_TRUE(wallet1->refresh());
     ASSERT_TRUE(wallet1->daemonBlockChainHeight() > 0);
     std::cout << "daemonBlockChainHeight: " << wallet1->daemonBlockChainHeight() << std::endl;
     wmgr->closeWallet(wallet1);
@@ -578,10 +695,10 @@ TEST_F(WalletTest1, WalletRefresh)
 {
 
     std::cout << "Opening wallet: " << CURRENT_SRC_WALLET << std::endl;
-    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     // make sure testnet daemon is running
-    std::cout << "connecting to daemon: " << TESTNET_DAEMON_ADDRESS << std::endl;
-    ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
+    std::cout << "connecting to daemon: " << DAEMON_ADDRESS << std::endl;
+    ASSERT_TRUE(init_wallet(wallet1));
     ASSERT_TRUE(wallet1->refresh());
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
@@ -602,9 +719,9 @@ TEST_F(WalletTest1, WalletConvertsToString)
 TEST_F(WalletTest1, WalletTransaction)
 
 {
-    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     // make sure testnet daemon is running
-    ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(init_wallet(wallet1));
     ASSERT_TRUE(wallet1->refresh());
     uint64_t balance = wallet1->balance(0);
     ASSERT_TRUE(wallet1->status() == Monero::PendingTransaction::Status_Ok);
@@ -644,11 +761,11 @@ TEST_F(WalletTest1, WalletTransactionWithMixin)
 
     std::string payment_id = "";
 
-    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
 
 
     // make sure testnet daemon is running
-    ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(init_wallet(wallet1));
     ASSERT_TRUE(wallet1->refresh());
     uint64_t balance = wallet1->balance(0);
     ASSERT_TRUE(wallet1->status() == Monero::PendingTransaction::Status_Ok);
@@ -678,10 +795,10 @@ TEST_F(WalletTest1, WalletTransactionWithPriority)
 
     std::string payment_id = "";
 
-    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
 
     // make sure testnet daemon is running
-    ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(init_wallet(wallet1));
     ASSERT_TRUE(wallet1->refresh());
     uint64_t balance = wallet1->balance(0);
     ASSERT_TRUE(wallet1->status() == Monero::PendingTransaction::Status_Ok);
@@ -718,9 +835,9 @@ TEST_F(WalletTest1, WalletTransactionWithPriority)
 
 TEST_F(WalletTest1, WalletHistory)
 {
-    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet1 = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     // make sure testnet daemon is running
-    ASSERT_TRUE(wallet1->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(init_wallet(wallet1));
     ASSERT_TRUE(wallet1->refresh());
     Monero::TransactionHistory * history = wallet1->history();
     history->refresh();
@@ -731,14 +848,15 @@ TEST_F(WalletTest1, WalletHistory)
         ASSERT_TRUE(t != nullptr);
         Utils::print_transaction(t);
     }
+    ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
 TEST_F(WalletTest1, WalletTransactionAndHistory)
 {
     return;
-    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     // make sure testnet daemon is running
-    ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(init_wallet(wallet_src));
     ASSERT_TRUE(wallet_src->refresh());
     Monero::TransactionHistory * history = wallet_src->history();
     history->refresh();
@@ -775,9 +893,9 @@ TEST_F(WalletTest1, WalletTransactionAndHistory)
 TEST_F(WalletTest1, WalletTransactionWithPaymentId)
 {
 
-    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     // make sure testnet daemon is running
-    ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(init_wallet(wallet_src));
     ASSERT_TRUE(wallet_src->refresh());
     Monero::TransactionHistory * history = wallet_src->history();
     history->refresh();
@@ -790,16 +908,21 @@ TEST_F(WalletTest1, WalletTransactionWithPaymentId)
         Utils::print_transaction(t);
     }
 
-    std::string wallet4_addr = Utils::get_wallet_address(CURRENT_DST_WALLET, TESTNET_WALLET_PASS);
-
     std::string payment_id = Monero::Wallet::genPaymentId();
     ASSERT_TRUE(payment_id.length() == 16);
+    Monero::Wallet * wallet_dst = wmgr->openWallet(CURRENT_DST_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(wallet_dst != nullptr);
+    std::string integrated_address = wallet_dst->integratedAddress(payment_id);
+    ASSERT_FALSE(integrated_address.empty());
+    ASSERT_TRUE(wmgr->closeWallet(wallet_dst));
 
-
-    Monero::PendingTransaction * tx = wallet_src->createTransaction(wallet4_addr,
-                                                                       payment_id,
+    Monero::PendingTransaction * tx = wallet_src->createTransaction(integrated_address,
+                                                                       PAYMENT_ID_EMPTY,
                                                                        AMOUNT_1XMR, 1, Monero::PendingTransaction::Priority_Medium, 0, std::set<uint32_t>{});
 
+    std::cerr << "Transaction status: " << tx->status() << std::endl;
+    std::cerr << "Transaction fee: " << Monero::Wallet::displayAmount(tx->fee()) << std::endl;
+    std::cerr << "Transaction error: " << tx->errorString() << std::endl;
     ASSERT_TRUE(tx->status() == Monero::PendingTransaction::Status_Ok);
     ASSERT_TRUE(tx->commit());
     history = wallet_src->history();
@@ -818,6 +941,49 @@ TEST_F(WalletTest1, WalletTransactionWithPaymentId)
     }
 
     ASSERT_TRUE(payment_id_in_history);
+    ASSERT_TRUE(wmgr->closeWallet(wallet_src));
+}
+
+TEST_F(WalletTest1, WalletTransactionMultDestWithPaymentId)
+{
+    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet_src));
+    ASSERT_TRUE(wallet_src->refresh());
+    Monero::TransactionHistory * history = wallet_src->history();
+    history->refresh();
+    size_t count = history->count();
+
+    std::string payment_id = Monero::Wallet::genPaymentId();
+    ASSERT_TRUE(payment_id.length() == 16);
+    Monero::Wallet * wallet_dst = wmgr->openWallet(CURRENT_DST_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(wallet_dst != nullptr);
+    std::string integrated_address = wallet_dst->integratedAddress(payment_id);
+    ASSERT_FALSE(integrated_address.empty());
+    ASSERT_TRUE(wmgr->closeWallet(wallet_dst));
+
+    const std::vector<std::string> destinations{integrated_address, wallet_src->mainAddress()};
+    const std::vector<uint64_t> amounts{AMOUNT_1XMR, AMOUNT_1XMR};
+    Monero::PendingTransaction * tx = wallet_src->createTransactionMultDest(
+            destinations, PAYMENT_ID_EMPTY, amounts, 1,
+            Monero::PendingTransaction::Priority_Medium, 0, std::set<uint32_t>{});
+
+    std::cerr << "Transaction status: " << tx->status() << std::endl;
+    std::cerr << "Transaction fee: " << Monero::Wallet::displayAmount(tx->fee()) << std::endl;
+    std::cerr << "Transaction error: " << tx->errorString() << std::endl;
+    ASSERT_TRUE(tx->status() == Monero::PendingTransaction::Status_Ok);
+    ASSERT_TRUE(tx->commit());
+    history->refresh();
+    ASSERT_TRUE(count != history->count());
+
+    bool payment_id_in_history = false;
+    for (auto t: history->getAll()) {
+        ASSERT_TRUE(t != nullptr);
+        if (t->paymentId() == payment_id) {
+            payment_id_in_history = true;
+        }
+    }
+    ASSERT_TRUE(payment_id_in_history);
+    ASSERT_TRUE(wmgr->closeWallet(wallet_src));
 }
 
 
@@ -917,14 +1083,13 @@ struct MyWalletListener : public Monero::WalletListener
 TEST_F(WalletTest2, WalletCallBackRefreshedSync)
 {
 
-    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     MyWalletListener * wallet_src_listener = new MyWalletListener(wallet_src);
-    ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
-    ASSERT_TRUE(wallet_src_listener->refresh_triggered);
+    ASSERT_TRUE(init_wallet(wallet_src));
     ASSERT_TRUE(wallet_src->connected());
-    boost::chrono::seconds wait_for = boost::chrono::seconds(60*3);
-    boost::unique_lock<boost::mutex> lock (wallet_src_listener->mutex);
-    wallet_src_listener->cv_refresh.wait_for(lock, wait_for);
+    wallet_src_listener->reset();
+    ASSERT_TRUE(wallet_src->refresh());
+    ASSERT_TRUE(wallet_src_listener->refresh_triggered);
     wmgr->closeWallet(wallet_src);
 }
 
@@ -934,12 +1099,12 @@ TEST_F(WalletTest2, WalletCallBackRefreshedSync)
 TEST_F(WalletTest2, WalletCallBackRefreshedAsync)
 {
 
-    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     MyWalletListener * wallet_src_listener = new MyWalletListener(wallet_src);
 
     boost::chrono::seconds wait_for = boost::chrono::seconds(20);
     boost::unique_lock<boost::mutex> lock (wallet_src_listener->mutex);
-    wallet_src->init(MAINNET_DAEMON_ADDRESS, 0);
+    init_wallet(wallet_src);
     wallet_src->startRefresh();
     std::cerr << "TEST: waiting on refresh lock...\n";
     wallet_src_listener->cv_refresh.wait_for(lock, wait_for);
@@ -956,14 +1121,14 @@ TEST_F(WalletTest2, WalletCallBackRefreshedAsync)
 TEST_F(WalletTest2, WalletCallbackSent)
 {
 
-    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     // make sure testnet daemon is running
-    ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(init_wallet(wallet_src));
     ASSERT_TRUE(wallet_src->refresh());
     MyWalletListener * wallet_src_listener = new MyWalletListener(wallet_src);
     uint64_t balance = wallet_src->balance(0);
     std::cout << "** Balance: " << wallet_src->displayAmount(wallet_src->balance(0)) <<  std::endl;
-    Monero::Wallet * wallet_dst = wmgr->openWallet(CURRENT_DST_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet_dst = wmgr->openWallet(CURRENT_DST_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
 
     uint64_t amount = AMOUNT_1XMR * 5;
     std::cout << "** Sending " << Monero::Wallet::displayAmount(amount) << " to " << wallet_dst->mainAddress();
@@ -978,7 +1143,8 @@ TEST_F(WalletTest2, WalletCallbackSent)
     ASSERT_TRUE(tx->status() == Monero::PendingTransaction::Status_Ok);
     ASSERT_TRUE(tx->commit());
 
-    boost::chrono::seconds wait_for = boost::chrono::seconds(60*3);
+    wallet_src->startRefresh();
+    boost::chrono::seconds wait_for = boost::chrono::seconds(20);
     boost::unique_lock<boost::mutex> lock (wallet_src_listener->mutex);
     std::cerr << "TEST: waiting on send lock...\n";
     wallet_src_listener->cv_send.wait_for(lock, wait_for);
@@ -995,14 +1161,14 @@ TEST_F(WalletTest2, WalletCallbackSent)
 TEST_F(WalletTest2, WalletCallbackReceived)
 {
 
-    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet_src = wmgr->openWallet(CURRENT_SRC_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     // make sure testnet daemon is running
-    ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(init_wallet(wallet_src));
     ASSERT_TRUE(wallet_src->refresh());
     std::cout << "** Balance src1: " << wallet_src->displayAmount(wallet_src->balance(0)) <<  std::endl;
 
-    Monero::Wallet * wallet_dst = wmgr->openWallet(CURRENT_DST_WALLET, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
-    ASSERT_TRUE(wallet_dst->init(TESTNET_DAEMON_ADDRESS, 0));
+    Monero::Wallet * wallet_dst = wmgr->openWallet(CURRENT_DST_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet_dst));
     ASSERT_TRUE(wallet_dst->refresh());
     uint64_t balance = wallet_dst->balance(0);
     std::cout << "** Balance dst1: " << wallet_dst->displayAmount(wallet_dst->balance(0)) <<  std::endl;
@@ -1020,7 +1186,8 @@ TEST_F(WalletTest2, WalletCallbackReceived)
     ASSERT_TRUE(tx->status() == Monero::PendingTransaction::Status_Ok);
     ASSERT_TRUE(tx->commit());
 
-    boost::chrono::seconds wait_for = boost::chrono::seconds(60*4);
+    wallet_dst->startRefresh();
+    boost::chrono::seconds wait_for = boost::chrono::seconds(20);
     boost::unique_lock<boost::mutex> lock (wallet_dst_listener->mutex);
     std::cerr << "TEST: waiting on receive lock...\n";
     wallet_dst_listener->cv_receive.wait_for(lock, wait_for);
@@ -1042,9 +1209,9 @@ TEST_F(WalletTest2, WalletCallbackReceived)
 TEST_F(WalletTest2, WalletCallbackNewBlock)
 {
 
-    Monero::Wallet * wallet_src = wmgr->openWallet(TESTNET_WALLET5_NAME, TESTNET_WALLET_PASS, Monero::NetworkType::TESTNET);
+    Monero::Wallet * wallet_src = wmgr->openWallet(TESTNET_WALLET5_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     // make sure testnet daemon is running
-    ASSERT_TRUE(wallet_src->init(TESTNET_DAEMON_ADDRESS, 0));
+    ASSERT_TRUE(init_wallet(wallet_src));
     ASSERT_TRUE(wallet_src->refresh());
     uint64_t bc1 = wallet_src->blockChainHeight();
     std::cout << "** Block height: " << bc1 << std::endl;
@@ -1052,8 +1219,8 @@ TEST_F(WalletTest2, WalletCallbackNewBlock)
 
     std::unique_ptr<MyWalletListener> wallet_listener (new MyWalletListener(wallet_src));
 
-    // wait max 4 min for new block
-    boost::chrono::seconds wait_for = boost::chrono::seconds(60*4);
+    wallet_src->startRefresh();
+    boost::chrono::seconds wait_for = boost::chrono::seconds(20);
     boost::unique_lock<boost::mutex> lock (wallet_listener->mutex);
     std::cerr << "TEST: waiting on newblock lock...\n";
     wallet_listener->cv_newblock.wait_for(lock, wait_for);
@@ -1066,128 +1233,27 @@ TEST_F(WalletTest2, WalletCallbackNewBlock)
 
 }
 
-TEST_F(WalletManagerMainnetTest, CreateOpenAndRefreshWalletMainNetSync)
-{
-
-    Monero::Wallet * wallet = wmgr->createWallet(WALLET_NAME_MAINNET, "", WALLET_LANG, Monero::NetworkType::MAINNET);
-    std::unique_ptr<MyWalletListener> wallet_listener (new MyWalletListener(wallet));
-    wallet->init(MAINNET_DAEMON_ADDRESS, 0);
-    std::cerr << "TEST: waiting on refresh lock...\n";
-    //wallet_listener->cv_refresh.wait_for(lock, wait_for);
-    std::cerr << "TEST: refresh lock acquired...\n";
-    ASSERT_TRUE(wallet_listener->refresh_triggered);
-    ASSERT_TRUE(wallet->connected());
-    ASSERT_TRUE(wallet->blockChainHeight() == wallet->daemonBlockChainHeight());
-    std::cerr << "TEST: closing wallet...\n";
-    wmgr->closeWallet(wallet);
-}
-
-
-TEST_F(WalletManagerMainnetTest, CreateAndRefreshWalletMainNetAsync)
-{
-    // supposing 120 seconds should be enough for fast refresh
-    int SECONDS_TO_REFRESH = 120;
-
-    Monero::Wallet * wallet = wmgr->createWallet(WALLET_NAME_MAINNET, "", WALLET_LANG, Monero::NetworkType::MAINNET);
-    std::unique_ptr<MyWalletListener> wallet_listener (new MyWalletListener(wallet));
-
-    boost::chrono::seconds wait_for = boost::chrono::seconds(SECONDS_TO_REFRESH);
-    boost::unique_lock<boost::mutex> lock (wallet_listener->mutex);
-    wallet->init(MAINNET_DAEMON_ADDRESS, 0);
-    wallet->startRefresh();
-    std::cerr << "TEST: waiting on refresh lock...\n";
-    wallet_listener->cv_refresh.wait_for(lock, wait_for);
-    std::cerr << "TEST: refresh lock acquired...\n";
-    ASSERT_TRUE(wallet->status() == Monero::Wallet::Status_Ok);
-    ASSERT_TRUE(wallet_listener->refresh_triggered);
-    ASSERT_TRUE(wallet->connected());
-    ASSERT_TRUE(wallet->blockChainHeight() == wallet->daemonBlockChainHeight());
-    std::cerr << "TEST: closing wallet...\n";
-    wmgr->closeWallet(wallet);
-}
-
-TEST_F(WalletManagerMainnetTest, OpenAndRefreshWalletMainNetAsync)
-{
-
-    // supposing 120 seconds should be enough for fast refresh
-    int SECONDS_TO_REFRESH = 120;
-    Monero::Wallet * wallet = wmgr->createWallet(WALLET_NAME_MAINNET, "", WALLET_LANG, Monero::NetworkType::MAINNET);
-    wmgr->closeWallet(wallet);
-    wallet = wmgr->openWallet(WALLET_NAME_MAINNET, "", Monero::NetworkType::MAINNET);
-
-    std::unique_ptr<MyWalletListener> wallet_listener (new MyWalletListener(wallet));
-
-    boost::chrono::seconds wait_for = boost::chrono::seconds(SECONDS_TO_REFRESH);
-    boost::unique_lock<boost::mutex> lock (wallet_listener->mutex);
-    wallet->init(MAINNET_DAEMON_ADDRESS, 0);
-    wallet->startRefresh();
-    std::cerr << "TEST: waiting on refresh lock...\n";
-    wallet_listener->cv_refresh.wait_for(lock, wait_for);
-    std::cerr << "TEST: refresh lock acquired...\n";
-    ASSERT_TRUE(wallet->status() == Monero::Wallet::Status_Ok);
-    ASSERT_TRUE(wallet_listener->refresh_triggered);
-    ASSERT_TRUE(wallet->connected());
-    ASSERT_TRUE(wallet->blockChainHeight() == wallet->daemonBlockChainHeight());
-    std::cerr << "TEST: closing wallet...\n";
-    wmgr->closeWallet(wallet);
-
-}
-
-TEST_F(WalletManagerMainnetTest, RecoverAndRefreshWalletMainNetAsync)
-{
-
-    // supposing 120 seconds should be enough for fast refresh
-    int SECONDS_TO_REFRESH = 120;
-    Monero::Wallet * wallet = wmgr->createWallet(WALLET_NAME_MAINNET, "", WALLET_LANG, Monero::NetworkType::MAINNET);
-    std::string seed = wallet->seed();
-    std::string address = wallet->mainAddress();
-    wmgr->closeWallet(wallet);
-
-    // deleting wallet files
-    Utils::deleteWallet(WALLET_NAME_MAINNET);
-    // ..and recovering wallet from seed
-
-    wallet = wmgr->recoveryWallet(WALLET_NAME_MAINNET, seed, Monero::NetworkType::MAINNET);
-    ASSERT_TRUE(wallet->status() == Monero::Wallet::Status_Ok);
-    ASSERT_TRUE(wallet->mainAddress() == address);
-    std::unique_ptr<MyWalletListener> wallet_listener (new MyWalletListener(wallet));
-    boost::chrono::seconds wait_for = boost::chrono::seconds(SECONDS_TO_REFRESH);
-    boost::unique_lock<boost::mutex> lock (wallet_listener->mutex);
-    wallet->init(MAINNET_DAEMON_ADDRESS, 0);
-    wallet->startRefresh();
-    std::cerr << "TEST: waiting on refresh lock...\n";
-
-    // here we wait for 120 seconds and test if wallet doesn't syncrnonize blockchain completely,
-    // as it needs much more than 120 seconds for mainnet
-
-    wallet_listener->cv_refresh.wait_for(lock, wait_for);
-    ASSERT_TRUE(wallet->status() == Monero::Wallet::Status_Ok);
-    ASSERT_FALSE(wallet_listener->refresh_triggered);
-    ASSERT_TRUE(wallet->connected());
-    ASSERT_FALSE(wallet->blockChainHeight() == wallet->daemonBlockChainHeight());
-    std::cerr << "TEST: closing wallet...\n";
-    wmgr->closeWallet(wallet);
-    std::cerr << "TEST: wallet closed\n";
-
-}
-
-
-
 int main(int argc, char** argv)
 {
     TRY_ENTRY();
 
     tools::on_startup();
-    // we can override default values for "TESTNET_DAEMON_ADDRESS" and "WALLETS_ROOT_DIR"
+    // The CTest wrapper runs these tests against a fresh fakechain daemon.
 
-    const char * testnet_daemon_addr = std::getenv("TESTNET_DAEMON_ADDRESS");
-    if (testnet_daemon_addr) {
-        TESTNET_DAEMON_ADDRESS = testnet_daemon_addr;
+    const char *daemon_addr = std::getenv("DAEMON_ADDRESS");
+    if (daemon_addr && daemon_addr[0])
+    {
+        DAEMON_ADDRESS = daemon_addr;
+    }
+    else
+    {
+        std::cerr << "DAEMON_ADDRESS must be set" << std::endl;
+        return 1;
     }
 
-    const char * mainnet_daemon_addr = std::getenv("MAINNET_DAEMON_ADDRESS");
-    if (mainnet_daemon_addr) {
-        MAINNET_DAEMON_ADDRESS = mainnet_daemon_addr;
+    const char * ring_database_dir = std::getenv("LIBWALLET_API_TESTS_RINGDB_DIR");
+    if (ring_database_dir) {
+        RING_DATABASE_DIR = ring_database_dir;
     }
 
 
@@ -1207,6 +1273,12 @@ int main(int argc, char** argv)
 
     CURRENT_SRC_WALLET = TESTNET_WALLET5_NAME;
     CURRENT_DST_WALLET = TESTNET_WALLET1_NAME;
+
+    for (int i = 1; i < argc; ++i)
+    {
+        if (strcmp(argv[i], "--generate-test-wallets") == 0)
+            return generate_test_wallets();
+    }
 
     ::testing::InitGoogleTest(&argc, argv);
     Monero::WalletManagerFactory::setLogLevel(Monero::WalletManagerFactory::LogLevel_Max);
