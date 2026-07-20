@@ -1166,12 +1166,17 @@ static const int rcon[] = {
 	0x01,0x01,0x01,0x01,
 	0x0c0f0e0d,0x0c0f0e0d,0x0c0f0e0d,0x0c0f0e0d,	// rotate-n-splat
 	0x1b,0x1b,0x1b,0x1b };
+const uint8_t *key_ptr = key;
+uint8_t *expanded_key_ptr = expandedKey;
+const int *rcon_ptr = rcon;
+int count;
+
 __asm__(
 "	eor	v0.16b,v0.16b,v0.16b\n"
 "	ld1	{v3.16b},[%0],#16\n"
 "	ld1	{v1.4s,v2.4s},[%2],#32\n"
 "	ld1	{v4.16b},[%0]\n"
-"	mov	w2,#5\n"
+"	mov	%w3,#5\n"
 "	st1	{v3.4s},[%1],#16\n"
 "\n"
 "1:\n"
@@ -1179,7 +1184,7 @@ __asm__(
 "	ext	v5.16b,v0.16b,v3.16b,#12\n"
 "	st1	{v4.4s},[%1],#16\n"
 "	aese	v6.16b,v0.16b\n"
-"	subs	w2,w2,#1\n"
+"	subs	%w3,%w3,#1\n"
 "\n"
 "	eor	v3.16b,v3.16b,v5.16b\n"
 "	ext	v5.16b,v0.16b,v5.16b,#12\n"
@@ -1205,7 +1210,15 @@ __asm__(
 "	eor	v4.16b,v4.16b,v6.16b\n"
 "	b	1b\n"
 "\n"
-"2:\n" : : "r"(key), "r"(expandedKey), "r"(rcon));
+"2:\n"
+	: "+&r"(key_ptr),
+	  "+&r"(expanded_key_ptr),
+	  "+&r"(rcon_ptr),
+	  "=&r"(count),
+	  "=m"(*(uint8_t (*)[176]) expandedKey)
+	: "m"(*(const int (*)[8]) rcon),
+	  "m"(*(const uint8_t (*)[32]) key)
+	: "v0", "v1", "v2", "v3", "v4", "v5", "v6", "cc");
 }
 
 /* An ordinary AES round is a sequence of SubBytes, ShiftRows, MixColumns, AddRoundKey. There
