@@ -88,6 +88,8 @@ target_link_libraries(common
     ${EXTRA_LIBRARIES})
 
 if (STACK_TRACE_USE_WRAP)
+  set_property(TARGET common APPEND PROPERTY LINK_FLAGS
+    "-Wl,--wrap=__cxa_throw")
   set_property(TARGET common APPEND PROPERTY INTERFACE_LINK_OPTIONS
     "-Wl,--wrap=__cxa_throw"
     "-Wl,-u,__wrap___cxa_throw")
