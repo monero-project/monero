@@ -83,8 +83,6 @@ namespace epee
       void read(section& sec);
       void read(std::string& str);
       void read(array_entry &ae);
-      template<class t_type>
-      size_t min_bytes() const;
       void set_limits(size_t objects, size_t fields, size_t strings);
     private:
       struct recursuion_limitation_guard

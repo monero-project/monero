@@ -97,17 +97,6 @@ el::Level performance_timer_log_level = el::Level::Info;
   static thread_local std::vector<LoggingPerformanceTimer*> *performance_timers = NULL;
 #endif
 
-void set_performance_timer_log_level(el::Level level)
-{
-  if (level != el::Level::Debug && level != el::Level::Trace && level != el::Level::Info
-   && level != el::Level::Warning && level != el::Level::Error && level != el::Level::Fatal)
-  {
-    MERROR("Wrong log level: " << el::LevelHelper::convertToString(level) << ", using Info");
-    level = el::Level::Info;
-  }
-  performance_timer_log_level = level;
-}
-
 PerformanceTimer::PerformanceTimer(bool paused): started(true), paused(paused)
 {
   if (paused)

@@ -106,36 +106,6 @@ private:
   T t_copy;
 };
 
-template<>
-struct MDB_val_copy<cryptonote::blobdata>: public MDB_val
-{
-  MDB_val_copy(const cryptonote::blobdata &bd) :
-    data(new char[bd.size()])
-  {
-    memcpy(data.get(), bd.data(), bd.size());
-    mv_size = bd.size();
-    mv_data = data.get();
-  }
-private:
-  std::unique_ptr<char[]> data;
-};
-
-template<>
-struct MDB_val_copy<const char*>: public MDB_val
-{
-  MDB_val_copy(const char *s):
-    size(strlen(s)+1), // include the NUL, makes it easier for compares
-    data(new char[size])
-  {
-    mv_size = size;
-    mv_data = data.get();
-    memcpy(mv_data, s, size);
-  }
-private:
-  size_t size;
-  std::unique_ptr<char[]> data;
-};
-
 }
 
 namespace cryptonote
