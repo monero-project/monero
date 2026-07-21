@@ -77,6 +77,7 @@ namespace cryptonote
     core_rpc_server(
         core& cr
       , nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
+      , bool restricted = false
       );
     ~core_rpc_server();
 

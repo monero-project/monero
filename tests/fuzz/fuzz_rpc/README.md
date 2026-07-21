@@ -24,7 +24,7 @@ These source files handle the creation of the necessary request and response obj
 The same `fuzz_rpc.cpp` is compiled into two versions of the fuzzer, one with the `SAFE` macro defined and one without. Meanwhile, `fuzz_zmq` is compiled into a single version.
 
 * With `SAFE` defined: Only safe endpoint functions are fuzzed.
-* Without `SAFE`: Both safe and risky functions are included in the fuzzing process, and payment modules are configured.
+* Without `SAFE`: Both safe and risky functions are included in the fuzzing process.
 
 # Fuzzing Harness Flow
 
@@ -35,8 +35,7 @@ Random data is used to generate selectors that choose an RPC endpoint function /
 
 ## `initialise_rpc_core` / `initialise_rpc_server`
 
-At the start of each fuzzing iteration, a `core_rpc_server` object is created and initialised with dummy protocols, P2P, payment modules, and more.
-If the `SAFE` macro is not defined, the payment module will also be initialised.
+At the start of each fuzzing iteration, a `core_rpc_server` object is created and initialised with dummy protocols and P2P. The fuzz input selects whether the server runs in restricted or unrestricted RPC mode.
 This step is skipped for `fuzz_zmq`.
 
 ## `generate_random_blocks`
