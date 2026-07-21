@@ -463,7 +463,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   }
 
   // set --trusted-daemon if local and not overridden by command line or set_daemon
-  if (!trusted_daemon)
+  if (!trusted_daemon.is_initialized())
   {
     try
     {
