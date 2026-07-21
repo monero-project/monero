@@ -462,6 +462,7 @@ namespace net_utils
 
 				if (ec)
 				{
+					m_connected = false;
                     MTRACE("READ ENDS: Connection err_code " << ec.value());
                     if(ec == boost::asio::error::eof)
                     {
@@ -472,7 +473,6 @@ namespace net_utils
                     }
 
 					MDEBUG("Problems at read: " << ec.message());
-                    m_connected = false;
 					return false;
 				}else
 				{
