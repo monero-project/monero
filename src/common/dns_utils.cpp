@@ -50,11 +50,11 @@ using namespace epee;
 
 static const char *DEFAULT_DNS_PUBLIC_ADDR[] =
 {
+  "9.9.9.10",           // Quad9 (unfiltered)
+  "149.112.112.10",     // Quad9 secondary
+  "76.76.2.0",          // Control D (unfiltered)
+  "76.76.10.0",         // Control D secondary
   "194.150.168.168",    // CCC (Germany)
-  "80.67.169.40",       // FDN (France)
-  "89.233.43.71",       // http://censurfridns.dk (Denmark)
-  "109.69.8.51",        // punCAT (Spain)
-  "193.58.251.251",     // SkyDNS (Russia)
 };
 
 static boost::mutex instance_lock;
