@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -3902,6 +3902,39 @@ int sc_isnonzero(const unsigned char *s) {
     s[9] | s[10] | s[11] | s[12] | s[13] | s[14] | s[15] | s[16] | s[17] |
     s[18] | s[19] | s[20] | s[21] | s[22] | s[23] | s[24] | s[25] | s[26] |
     s[27] | s[28] | s[29] | s[30] | s[31]) - 1) >> 8) + 1;
+}
+
+static int edwardsYZ_to_x25519(unsigned char *xbytes, const fe Y, const fe Z) {
+  //! @see Section 4.1 of RFC 7748: https://www.rfc-editor.org/rfc/rfc7748.html#section-4.1
+  //
+  // y = Y/Z
+  // x_mont = (1 + y) / (1 - y)
+  //        = (1 + Y/Z) / (1 - Y/Z)
+  //        = (Z + Y) / (Z - Y)
+
+  fe tmp0;
+  fe tmp1;
+  int r;
+  fe_add(tmp0, Z, Y);       // Z + Y
+  fe_sub(tmp1, Z, Y);       // Z - Y
+  r = -!fe_isnonzero(tmp1); // succeed iff 0 != (Z - Y). AKA fail if identity point or some invalid reprs
+  fe_invert(tmp1, tmp1);    // 1/(Z - Y)
+  fe_mul(tmp0, tmp0, tmp1); // (Z + Y) / (Z - Y)
+  fe_tobytes(xbytes, tmp0); // tobytes((Z + Y) / (Z - Y))
+  return r;                 // 0 on success, otherwise -1
+}
+
+int ge_p3_to_x25519(unsigned char *xbytes, const ge_p3 *h) {
+  return edwardsYZ_to_x25519(xbytes, h->Y, h->Z);
+}
+
+int edwards_bytes_to_x25519_vartime(unsigned char *xbytes, const unsigned char *s) {
+  ge_p3 h;
+  const int r = ge_frombytes_vartime(&h, s);
+  if (0 != r)
+    return r;
+
+  return edwardsYZ_to_x25519(xbytes, h.Y, h.Z);
 }
 
 int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
