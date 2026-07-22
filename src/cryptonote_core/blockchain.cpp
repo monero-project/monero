@@ -35,28 +35,25 @@
 #include <boost/range/adaptor/reversed.hpp>
 #include <boost/format.hpp>
 
-#include "include_base_utils.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "tx_pool.h"
 #include "blockchain.h"
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_basic/events.h"
 #include "cryptonote_config.h"
-#include "cryptonote_basic/miner.h"
 #include "hardforks/hardforks.h"
 #include "misc_language.h"
 #include "profile_tools.h"
-#include "file_io_utils.h"
 #include "int-util.h"
 #include "common/threadpool.h"
 #include "warnings.h"
 #include "crypto/hash.h"
 #include "cryptonote_core.h"
-#include "ringct/rctSigs.h"
 #include "common/perf_timer.h"
 #include "common/notify.h"
 #include "common/varint.h"
 #include "common/pruning.h"
+#include "scope_guard.h"
 #include "time_helper.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -1539,7 +1536,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   seed_hash = crypto::null_hash;
 
   m_tx_pool.lock();
-  const auto unlock_guard = epee::misc_utils::create_scope_leave_handler([&]() { m_tx_pool.unlock(); });
+  const epee::scope_guard unlock_guard([&]() { m_tx_pool.unlock(); });
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   if (m_btc_valid && !from_block) {
     // The pool cookie is atomic. The lack of locking is OK, as if it changes
@@ -4394,7 +4391,7 @@ leave:
 bool Blockchain::prune_blockchain(uint32_t pruning_seed)
 {
   m_tx_pool.lock();
-  epee::misc_utils::auto_scope_leave_caller unlocker = epee::misc_utils::create_scope_leave_handler([&](){m_tx_pool.unlock();});
+  const epee::scope_guard unlocker([&](){m_tx_pool.unlock();});
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   return m_db->prune_blockchain(pruning_seed);
@@ -4403,7 +4400,7 @@ bool Blockchain::prune_blockchain(uint32_t pruning_seed)
 bool Blockchain::update_blockchain_pruning()
 {
   m_tx_pool.lock();
-  epee::misc_utils::auto_scope_leave_caller unlocker = epee::misc_utils::create_scope_leave_handler([&](){m_tx_pool.unlock();});
+  const epee::scope_guard unlocker([&](){m_tx_pool.unlock();});
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   return m_db->update_pruning();
@@ -4412,7 +4409,7 @@ bool Blockchain::update_blockchain_pruning()
 bool Blockchain::check_blockchain_pruning()
 {
   m_tx_pool.lock();
-  epee::misc_utils::auto_scope_leave_caller unlocker = epee::misc_utils::create_scope_leave_handler([&](){m_tx_pool.unlock();});
+  const epee::scope_guard unlocker([&](){m_tx_pool.unlock();});
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
   return m_db->check_pruning();

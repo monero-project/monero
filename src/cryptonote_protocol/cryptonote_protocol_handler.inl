@@ -644,7 +644,7 @@ namespace cryptonote
     // validating the next block. Needs more research into if this is a DoS vector or not. Invalid
     // block validation will cause disconnects and bans, so it might not be that bad.
     m_core.pause_mine();
-    const auto resume_mine_on_leave = epee::misc_utils::create_scope_leave_handler([this](){ m_core.resume_mine(); });
+    const epee::scope_guard resume_mine_on_leave([this](){ m_core.resume_mine(); });
 
     // This set allows us to quickly sanity check that the block binds all txs contained in this
     // fluffy payload, which means that no extra stowaway txs can be harbored. In the case of a
@@ -1362,7 +1362,7 @@ namespace cryptonote
         m_core.pause_mine();
         m_add_timer.resume();
         bool starting = true;
-        epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([this, &starting]() {
+        const epee::scope_guard scope_exit_handler([this, &starting]() {
           m_add_timer.pause();
           m_core.resume_mine();
           if (!starting)

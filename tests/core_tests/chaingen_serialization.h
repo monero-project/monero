@@ -36,6 +36,7 @@
 #include <boost/filesystem/operations.hpp>
 
 #include "common/util.h"
+#include "misc_log_ex.h"
 
 namespace tools
 {

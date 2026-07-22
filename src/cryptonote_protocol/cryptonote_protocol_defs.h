@@ -30,10 +30,12 @@
 
 #pragma once
 
-#include <list>
-#include "serialization/keyvalue_serialization.h"
-#include "cryptonote_basic/cryptonote_basic.h"
+#include "crypto/hash.h"
 #include "cryptonote_basic/blobdatatype.h"
+#include "misc_language.h"
+#include "serialization/keyvalue_serialization.h"
+
+#include <list>
 
 namespace cryptonote
 {

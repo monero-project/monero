@@ -35,6 +35,7 @@
 #include "common/pruning.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+#include "scope_guard.h"
 #include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -169,7 +170,7 @@ static uint32_t get_blockchain_db_version(MDB_env *env)
   MDB_val v;
   uint32_t db_version = std::numeric_limits<uint32_t>::max();
 
-  const epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){
+  const epee::scope_guard txn_dtor([&](){
     if (tx_active) mdb_txn_abort(txn);
   });
 
@@ -209,7 +210,7 @@ static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned
 
   MINFO("Copying " << table);
 
-  epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){
+  const epee::scope_guard txn_dtor([&](){
     if (tx_active1) mdb_txn_abort(txn1);
     if (tx_active0) mdb_txn_abort(txn0);
   });
@@ -304,7 +305,7 @@ static void prune(MDB_env *env0, MDB_env *env1)
 
   MGINFO("Creating pruned txs_prunable");
 
-  epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){
+  const epee::scope_guard txn_dtor([&](){
     if (tx_active1) mdb_txn_abort(txn1);
     if (tx_active0) mdb_txn_abort(txn0);
   });

@@ -242,7 +242,7 @@ bool t_daemon::run(bool interactive)
     if (shutdown)
       this->stop_p2p();
   });
-  epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){
+  const epee::scope_guard scope_exit_handler([&](){
     stop = true;
     stop_thread.join();
   });

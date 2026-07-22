@@ -3780,7 +3780,7 @@ void wallet2::update_pool_state_by_pool_query(std::vector<std::tuple<cryptonote:
   MTRACE("update_pool_state_by_pool_query start");
   process_txs.clear();
 
-  auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
+  const epee::scope_guard keys_reencryptor([&, this]() {
     m_encrypt_keys_after_refresh.reset();
   });
 
@@ -3854,7 +3854,7 @@ void wallet2::update_pool_state_by_pool_query(std::vector<std::tuple<cryptonote:
 void wallet2::update_pool_state_from_pool_data(bool incremental, const std::vector<crypto::hash> &removed_pool_txids, const std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &added_pool_txs, std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> &process_txs, bool refreshed)
 {
   MTRACE("update_pool_state_from_pool_data start");
-  auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
+  const epee::scope_guard keys_reencryptor([&, this]() {
     m_encrypt_keys_after_refresh.reset();
   });
 
@@ -4111,11 +4111,11 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   // subsequent pulls in this refresh.
   start_height = 0;
 
-  auto keys_reencryptor = epee::misc_utils::create_scope_leave_handler([&, this]() {
+  const epee::scope_guard keys_reencryptor([&, this]() {
     m_encrypt_keys_after_refresh.reset();
   });
 
-  auto scope_exit_handler_hwdev = epee::misc_utils::create_scope_leave_handler([&](){hwdev.computing_key_images(false);});
+  const epee::scope_guard scope_exit_handler_hwdev([&](){hwdev.computing_key_images(false);});
 
   std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> process_pool_txs;
   // Getting and processing the pool state has moved down into method 'pull_blocks' to
@@ -8316,7 +8316,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<
       {
         rct::keyM local_nonces_k(sd.selected_transfers.size(), rct::keyV(multisig::signing::kAlphaComponents));
         rct::key skey = rct::zero();
-        auto wiper = epee::misc_utils::create_scope_leave_handler([&]{
+        const epee::scope_guard wiper([&]{
           for (auto& e: local_nonces_k)
             memwipe(e.data(), e.size() * sizeof(rct::key));
           memwipe(&skey, sizeof(rct::key));
@@ -10000,7 +10000,7 @@ void wallet2::transfer_selected_rct(std::vector<cryptonote::tx_destination_entry
       //            because LR nonces can only be used for one tx attempt.
       for (std::size_t j = 0; j < num_sources; ++j) {
         rct::keyV alpha(num_alpha_components);
-        auto alpha_wiper = epee::misc_utils::create_scope_leave_handler([&]{
+        const epee::scope_guard alpha_wiper([&]{
           memwipe(static_cast<rct::key *>(alpha.data()), alpha.size() * sizeof(rct::key));
         });
         for (std::size_t m = 0; m < num_alpha_components; ++m) {
@@ -13553,7 +13553,7 @@ void wallet2::process_background_cache(const background_sync_data_t &background_
   // We expect the spend key to be in a decrypted state while
   // m_processing_background_cache is true
   m_processing_background_cache = true;
-  auto done_processing = epee::misc_utils::create_scope_leave_handler([&, this]() {
+  const epee::scope_guard done_processing([&, this]() {
     m_processing_background_cache = false;
   });
 
@@ -14791,7 +14791,7 @@ T wallet2::decrypt(const std::string &ciphertext, const crypto::secret_key &skey
       error::wallet_internal_error, "Failed to authenticate ciphertext");
   }
   std::unique_ptr<char[]> buffer{new char[ciphertext.size() - prefix_size]};
-  auto wiper = epee::misc_utils::create_scope_leave_handler([&]() { memwipe(buffer.get(), ciphertext.size() - prefix_size); });
+  const epee::scope_guard wiper([&]() { memwipe(buffer.get(), ciphertext.size() - prefix_size); });
   crypto::chacha20(ciphertext.data() + sizeof(iv), ciphertext.size() - prefix_size, key, iv, buffer.get());
   return T(buffer.get(), ciphertext.size() - prefix_size);
 }

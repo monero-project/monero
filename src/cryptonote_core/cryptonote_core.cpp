@@ -32,6 +32,7 @@
 #include <boost/uuid/nil_generator.hpp>
 
 #include "misc_log_ex.h"
+#include "scope_guard.h"
 #include "string_tools.h"
 using namespace epee;
 
@@ -40,20 +41,16 @@ using namespace epee;
 #include "common/util.h"
 #include "common/updates.h"
 #include "common/download.h"
-#include "common/threadpool.h"
 #include "common/command_line.h"
 #include "cryptonote_basic/events.h"
 #include "warnings.h"
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
-#include "misc_language.h"
 #include "file_io_utils.h"
 #include <csignal>
 #include "checkpoints/checkpoints.h"
 #include "ringct/rctTypes.h"
 #include "blockchain_db/blockchain_db.h"
-#include "ringct/rctSigs.h"
-#include "rpc/zmq_pub.h"
 #include "common/notify.h"
 #include "hardforks/hardforks.h"
 #include "tx_verification_utils.h"
@@ -1468,7 +1465,7 @@ namespace cryptonote
     // Match each call to prepare_handle_incoming_block_no_preprocess() with a call to
     // cleanup_handle_incoming_blocks()
     m_blockchain_storage.prepare_handle_incoming_block_no_preprocess(block_total_bytes);
-    const auto auto_cleanup = epee::misc_utils::create_scope_leave_handler([this](){
+    const epee::scope_guard auto_cleanup([this](){
       this->m_blockchain_storage.cleanup_handle_incoming_blocks();
     });
 

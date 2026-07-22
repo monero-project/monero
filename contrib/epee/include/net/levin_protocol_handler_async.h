@@ -31,13 +31,12 @@
 #include <boost/smart_ptr/make_shared.hpp>
 
 #include <atomic>
-#include <deque>
 
 #include "levin_base.h"
 #include "buffer.h"
 #include "misc_language.h"
+#include "scope_guard.h"
 #include "syncobj.h"
-#include "time_helper.h"
 #include "int-util.h"
 
 #include <random>
@@ -381,8 +380,7 @@ public:
 
   void request_callback()
   {
-    misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler(
-      boost::bind(&async_protocol_handler::finish_outer_call, this));
+    const scope_guard scope_exit_handler(boost::bind(&async_protocol_handler::finish_outer_call, this));
 
     m_pservice_endpoint->request_callback();
   }
@@ -614,8 +612,7 @@ public:
   template<class callback_t>
   bool async_invoke(int command, message_writer in_msg, const callback_t &cb, std::chrono::milliseconds timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
   {
-    misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler(
-      boost::bind(&async_protocol_handler::finish_outer_call, this));
+    const scope_guard scope_exit_handler(boost::bind(&async_protocol_handler::finish_outer_call, this));
 
     if(timeout == LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
       timeout = m_config.m_invoke_timeout;
@@ -662,9 +659,7 @@ public:
       \return 1 on success */
   int send(byte_slice message)
   {
-    const misc_utils::auto_scope_leave_caller scope_exit_handler = misc_utils::create_scope_leave_handler(
-      boost::bind(&async_protocol_handler::finish_outer_call, this)
-    );
+    const scope_guard scope_exit_handler(boost::bind(&async_protocol_handler::finish_outer_call, this));
 
     if (!send_message(std::move(message)))
     {
@@ -693,7 +688,7 @@ void async_protocol_handler_config<t_connection_context>::delete_connections(siz
 {
   std::vector<typename connections_map::mapped_type> connections;
 
-  auto scope_exit_handler = misc_utils::create_scope_leave_handler([&connections]{
+  const scope_guard scope_exit_handler([&connections]{
     for (auto &aph: connections)
       aph->finish_outer_call();
   });
@@ -772,7 +767,7 @@ bool async_protocol_handler_config<t_connection_context>::foreach_connection(con
 {
   std::vector<typename connections_map::mapped_type> conn;
 
-  auto scope_exit_handler = misc_utils::create_scope_leave_handler([&conn]{
+  const scope_guard scope_exit_handler([&conn]{
     for (auto &aph: conn)
       aph->finish_outer_call();
   });
@@ -797,7 +792,7 @@ bool async_protocol_handler_config<t_connection_context>::for_connection(const b
   async_protocol_handler<t_connection_context>* aph = nullptr;
   if (find_and_lock_connection(connection_id, aph) != LEVIN_OK)
     return false;
-  auto scope_exit_handler = misc_utils::create_scope_leave_handler(
+  const scope_guard scope_exit_handler(
     boost::bind(&async_protocol_handler<t_connection_context>::finish_outer_call, aph));
   if(!cb(aph->get_context_ref()))
     return false;
@@ -856,7 +851,7 @@ bool async_protocol_handler_config<t_connection_context>::close(boost::uuids::uu
   async_protocol_handler<t_connection_context>* aph = nullptr;
   if (find_and_lock_connection(connection_id, aph) != LEVIN_OK)
     return false;
-  auto scope_exit_handler = misc_utils::create_scope_leave_handler(
+  const scope_guard scope_exit_handler(
     boost::bind(&async_protocol_handler<t_connection_context>::finish_outer_call, aph));
   if (!aph->close(wait_for_shutdown))
     return false;

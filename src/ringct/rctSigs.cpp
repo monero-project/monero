@@ -33,15 +33,14 @@
 #include <atomic>
 
 #include "misc_log_ex.h"
-#include "misc_language.h"
 #include "common/perf_timer.h"
 #include "common/threadpool.h"
-#include "common/util.h"
 #include "bulletproofs.h"
 #include "bulletproofs_plus.h"
 #include "cryptonote_config.h"
 #include "device/device.hpp"
 #include "fcmp_pp/fcmp_pp_crypto.h"
+#include "scope_guard.h"
 #include "serialization/crypto.h"
 
 using namespace crypto;
@@ -180,7 +179,7 @@ namespace rct {
     //Borromean (c.f. gmax/andytoshi's paper)
     boroSig genBorromean(const key64 x, const key64 P1, const key64 P2, const bits indices) {
         key64 L[2], alpha;
-        auto wiper = epee::misc_utils::create_scope_leave_handler([&](){memwipe(alpha, sizeof(alpha));});
+        const epee::scope_guard wiper([&](){memwipe(alpha, sizeof(alpha));});
         key c;
         int naught = 0, prime = 0, ii = 0, jj=0;
         boroSig bb;
@@ -397,7 +396,7 @@ namespace rct {
         vector<geDsmp> Ip(dsRows);
         rv.II = keyV(dsRows);
         keyV alpha(rows);
-        auto wiper = epee::misc_utils::create_scope_leave_handler([&](){memwipe(alpha.data(), alpha.size() * sizeof(alpha[0]));});
+        const epee::scope_guard wiper([&](){memwipe(alpha.data(), alpha.size() * sizeof(alpha[0]));});
         keyV aG(rows);
         rv.ss = keyM(cols, aG);
         keyV aHP(dsRows);

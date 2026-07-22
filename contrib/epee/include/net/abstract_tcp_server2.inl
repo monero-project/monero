@@ -47,13 +47,11 @@
 #include <boost/thread/condition_variable.hpp> // TODO
 #include <boost/make_shared.hpp>
 #include <boost/thread.hpp>
-#include "warnings.h"
 #include "string_tools_lexical.h"
 #include "misc_language.h"
 #include "net/abstract_tcp_server2.h"
+#include "scope_guard.h"
 
-#include <sstream>
-#include <iomanip>
 #include <algorithm>
 #include <functional>
 #include <random>
@@ -1849,7 +1847,7 @@ namespace net_utils
     connections_.insert(new_connection_l);
     MDEBUG("connections_ size now " << connections_.size());
     connections_mutex.unlock();
-    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ CRITICAL_REGION_LOCAL(connections_mutex); connections_.erase(new_connection_l); });
+    const scope_guard scope_exit_handler([&](){ CRITICAL_REGION_LOCAL(connections_mutex); connections_.erase(new_connection_l); });
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
 
     bool try_ipv6 = false;
@@ -1976,7 +1974,7 @@ namespace net_utils
     connections_.insert(new_connection_l);
     MDEBUG("connections_ size now " << connections_.size());
     connections_mutex.unlock();
-    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ CRITICAL_REGION_LOCAL(connections_mutex); connections_.erase(new_connection_l); });
+    const scope_guard scope_exit_handler([&](){ CRITICAL_REGION_LOCAL(connections_mutex); connections_.erase(new_connection_l); });
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
     
     bool try_ipv6 = false;

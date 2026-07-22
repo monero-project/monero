@@ -106,12 +106,12 @@ namespace epee
     template<class t_request, class t_response, class t_transport>
     bool invoke_http_json_rpc(const boost::string_ref uri, std::string method_name, const t_request& out_struct, t_response& result_struct, epee::json_rpc::error &error_struct, t_transport& transport, std::chrono::milliseconds timeout = std::chrono::seconds(15), const boost::string_ref http_method = "POST", const std::string& req_id = "0")
     {
-      epee::json_rpc::request<t_request> req_t = AUTO_VAL_INIT(req_t);
+      epee::json_rpc::request<t_request> req_t{};
       req_t.jsonrpc = "2.0";
       req_t.id = req_id;
       req_t.method = std::move(method_name);
       req_t.params = out_struct;
-      epee::json_rpc::response<t_response, epee::json_rpc::error> resp_t = AUTO_VAL_INIT(resp_t);
+      epee::json_rpc::response<t_response, epee::json_rpc::error> resp_t{};
       if(!epee::net_utils::invoke_http_json(uri, req_t, resp_t, transport, timeout, http_method))
       {
         error_struct = {};

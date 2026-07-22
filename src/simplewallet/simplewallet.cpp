@@ -110,7 +110,7 @@ using tools::fee_priority;
   m_wallet->stop(); \
   boost::unique_lock<boost::mutex> lock(m_idle_mutex); \
   m_idle_cond.notify_all(); \
-  epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \
+  const epee::scope_guard scope_exit_handler([&](){ \
     /* m_idle_mutex is still locked here */ \
     m_auto_refresh_enabled.store(auto_refresh_enabled, std::memory_order_relaxed); \
     m_idle_cond.notify_one(); \
@@ -1425,7 +1425,7 @@ bool simple_wallet::import_multisig_main(const std::vector<std::string> &args, b
   try
   {
     m_in_manual_refresh.store(true, std::memory_order_relaxed);
-    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
+    const epee::scope_guard scope_exit_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
     size_t n_outputs = m_wallet->import_multisig(info);
     // Clear line "Height xxx of xxx"
     std::cout << "\r                                                                \r";
@@ -3851,7 +3851,7 @@ static bool datestr_to_int(const std::string &heightstr, uint16_t &year, uint8_t
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::init(const boost::program_options::variables_map& vm)
 {
-  epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){
+  const epee::scope_guard scope_exit_handler([&](){
     m_electrum_seed.wipe();
   });
 
@@ -5605,7 +5605,7 @@ bool simple_wallet::refresh_main(uint64_t start_height, enum ResetType reset, bo
   try
   {
     m_in_manual_refresh.store(true, std::memory_order_relaxed);
-    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
+    const epee::scope_guard scope_exit_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
     // For manual refresh don't allow incremental checking of the pool: Because we did not process the txs
     // for us in the pool during automatic refresh we could miss some of them if we checked the pool
     // incrementally here
@@ -6268,7 +6268,7 @@ bool simple_wallet::on_command(bool (simple_wallet::*cmd)(const std::vector<std:
   m_last_activity_time = time(NULL);
 
   m_in_command = true;
-  epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){
+  const epee::scope_guard scope_exit_handler([&](){
     m_last_activity_time = time(NULL);
     m_in_command = false;
   });
@@ -8404,7 +8404,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
     try
     {
       m_in_manual_refresh.store(true, std::memory_order_relaxed);
-      epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
+      const epee::scope_guard scope_exit_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
 
       std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> process_txs;
       m_wallet->update_pool_state(process_txs);
@@ -8892,7 +8892,7 @@ bool simple_wallet::rescan_blockchain(const std::vector<std::string> &args_)
   }
 
   m_in_manual_refresh.store(true, std::memory_order_relaxed);
-  epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
+  const epee::scope_guard scope_exit_handler([&](){m_in_manual_refresh.store(false, std::memory_order_relaxed);});
   return refresh_main(start_height, reset_type, true);
 }
 //----------------------------------------------------------------------------------------------------

@@ -27,17 +27,17 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "common/dns_utils.h"
+#include "common/threadpool.h"
+#include "crypto/crypto.h"
 // check local first (in the event of static or in-source compilation of libunbound)
-#include "misc_language.h"
+#include "misc_log_ex.h"
+#include "scope_guard.h"
 #include "unbound.h"
 
 #include <deque>
 #include <set>
 #include <stdlib.h>
 #include <cstring>
-#include "include_base_utils.h"
-#include "common/threadpool.h"
-#include "crypto/crypto.h"
 #include <boost/thread/mutex.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/optional.hpp>
@@ -271,8 +271,7 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
   
   ub_result *result;
   // Make sure we are cleaning after result.
-  epee::misc_utils::auto_scope_leave_caller scope_exit_handler =
-    epee::misc_utils::create_scope_leave_handler([&](){
+  const epee::scope_guard scope_exit_handler([&](){
     ub_resolve_free(result);
   });
   

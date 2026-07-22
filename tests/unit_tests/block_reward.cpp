@@ -31,6 +31,7 @@
 #include "gtest/gtest.h"
 
 #include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "misc_language.h"
 
 using namespace cryptonote;
 

@@ -40,8 +40,8 @@
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
+#include "scope_guard.h"
 #include "wipeable_string.h"
-#include "misc_language.h"
 #include "int-util.h"
 #include "mnemonics/electrum-words.h"
 #include <boost/crc.hpp>
@@ -291,7 +291,8 @@ namespace crypto
       }
 
       std::vector<uint32_t> matched_indices;
-      auto wiper = epee::misc_utils::create_scope_leave_handler([&](){memwipe(matched_indices.data(), matched_indices.size() * sizeof(matched_indices[0]));});
+      const epee::scope_guard wiper([&](){
+        memwipe(matched_indices.data(), matched_indices.size() * sizeof(matched_indices[0]));});
       Language::Base *language;
       if (!find_seed_language(seed, has_checksum, matched_indices, &language))
       {

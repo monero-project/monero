@@ -65,7 +65,7 @@ using namespace cryptonote;
     m_refreshCV.notify_one(); \
     boost::mutex::scoped_lock lock(m_refreshMutex); \
     boost::mutex::scoped_lock lock2(m_refreshMutex2); \
-    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \
+    const epee::scope_guard scope_exit_handler([&](){ \
         /* m_refreshMutex's still locked here */ \
         if (refresh_enabled) \
             startRefresh(); \
