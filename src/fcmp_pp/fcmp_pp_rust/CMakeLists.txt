@@ -25,22 +25,3 @@
 # INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
-set(fcmp_pp_sources
-  curve_trees.cpp
-  fcmp_pp_crypto.cpp
-  fcmp_pp_types.cpp)
-
-monero_find_all_headers(fcmp_pp_headers "${CMAKE_CURRENT_SOURCE_DIR}")
-
-add_subdirectory(fcmp_pp_rust)
-
-monero_add_library(fcmp_pp
-  ${fcmp_pp_sources}
-  ${fcmp_pp_headers})
-
-target_link_libraries(fcmp_pp
-  PUBLIC
-    cncrypto
-  PRIVATE
-    ${EXTRA_LIBRARIES})
