@@ -4827,14 +4827,17 @@ namespace tools
       std::move(req.ssl_private_key_path), std::move(req.ssl_certificate_path)
     };
 
+    // If a proxy or SSL is explicitly enabled, then ssl_allow_any_cert, ssl_ca_file, ssl_allowed_fingerprints, or use of a .onion or .i2p address is required
+    const boost::string_ref real_daemon = boost::string_ref{req.address}.substr(0, req.address.rfind(':'));
+    const bool use_proxy = !req.proxy.empty();
     const bool verification_required =
       ssl_options.verification != epee::net_utils::ssl_verification_t::none &&
-      ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled;
+      (ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled || use_proxy);
 
-    if (verification_required && !ssl_options.has_strong_verification(boost::string_ref{}))
+    if (verification_required && !ssl_options.has_strong_verification(real_daemon))
     {
       er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
-      er.message = "SSL is enabled but no user certificate or fingerprints were provided";
+      er.message = "SSL or proxy is enabled but no strong verification was configured; set ssl_allow_any_cert, ssl_ca_file, or ssl_allowed_fingerprints, or use a .onion or .i2p address";
       return false;
     }
 
