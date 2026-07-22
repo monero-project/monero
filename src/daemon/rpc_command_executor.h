@@ -164,12 +164,6 @@ public:
 
   bool version();
 
-  bool set_bootstrap_daemon(
-    const std::string &address,
-    const std::string &username,
-    const std::string &password,
-    const std::string &proxy);
-
   bool flush_cache(bool invalid_blocks);
 };
 
