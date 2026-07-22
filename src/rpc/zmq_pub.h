@@ -59,14 +59,17 @@ class zmq_pub
 
     net::zmq::socket relay_;
     std::deque<std::vector<txpool_event>> txes_;
-    std::array<std::size_t, 2> chain_subs_;
-    std::array<std::size_t, 1> miner_subs_;
-    std::array<std::size_t, 2> txpool_subs_;
+    std::array<std::size_t, 4> chain_subs_;
+    std::array<std::size_t, 2> miner_subs_;
+    std::array<std::size_t, 4> txpool_subs_;
     boost::mutex sync_; //!< Synchronizes counts in `*_subs_` arrays.
 
   public:
     //! \return Name of ZMQ_PAIR endpoint for pub notifications
     static constexpr const char* relay_endpoint() noexcept { return "inproc://pub_relay"; }
+
+    //! \return List of all available PUB filters
+    static std::vector<std::string> get_all_filters();
 
     explicit zmq_pub(void* context);
 

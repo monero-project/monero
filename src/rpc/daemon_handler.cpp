@@ -42,6 +42,7 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/blobdatatype.h"
 #include "ringct/rctSigs.h"
+#include "rpc/zmq_pub.h"
 #include "version.h"
 
 namespace
@@ -580,6 +581,7 @@ namespace rpc
     res.info.adjusted_time = m_core.get_blockchain_storage().get_adjusted_time(res.info.height);
     res.info.start_time = m_restricted ? 0 : (uint64_t)m_core.get_start_time();
     res.info.version = m_restricted ? "" : MONERO_VERSION;
+    res.info.pub_filters = listener::zmq_pub::get_all_filters();
 
     res.status = Message::STATUS_OK;
     res.error_details = "";

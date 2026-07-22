@@ -1456,6 +1456,7 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::r
   INSERT_INTO_JSON_OBJECT(dest, adjusted_time, info.adjusted_time);
   INSERT_INTO_JSON_OBJECT(dest, start_time, info.start_time);
   INSERT_INTO_JSON_OBJECT(dest, version, info.version);
+  INSERT_INTO_JSON_OBJECT(dest, pub_filters, info.pub_filters);
 
   dest.EndObject();
 }
@@ -1497,6 +1498,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::DaemonInfo& inf
   GET_FROM_JSON_OBJECT(val, info.adjusted_time, adjusted_time);
   GET_FROM_JSON_OBJECT(val, info.start_time, start_time);
   GET_FROM_JSON_OBJECT(val, info.version, version);
+  GET_FROM_JSON_OBJECT(val, info.pub_filters, pub_filters);
 
   info.wide_difficulty = difficulty_top64;
   info.wide_difficulty <<= 64;

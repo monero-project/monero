@@ -43,6 +43,7 @@
 #include "serialization/debug_archive.h"
 #include "serialization/crypto.h"
 #include "serialization/keyvalue_serialization.h" // eepe named serialization
+#include "serialization/wire/fwd.h"
 #include "cryptonote_config.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
@@ -344,6 +345,7 @@ namespace cryptonote
   private:
     static size_t get_signature_size(const txin_v& tx_in);
   };
+  WIRE_DECLARE_OBJECT(transaction);
 
   inline transaction::transaction(const transaction &t):
     transaction_prefix(t),
@@ -571,6 +573,7 @@ namespace cryptonote
         return false;
     END_SERIALIZE()
   };
+  WIRE_DECLARE_OBJECT(block);
 
 
   /************************************************************************/

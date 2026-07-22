@@ -105,6 +105,7 @@ set(unit_tests_sources
   is_hdd.cpp
   aligned.cpp
   rpc_version_str.cpp
+  wire.cpp
   zmq_rpc.cpp)
 
 set(unit_tests_headers
@@ -127,6 +128,7 @@ target_link_libraries(unit_tests
     net
     serialization
     wallet
+    wire-cbor
     p2p
     version
     ${Boost_CHRONO_LIBRARY}
