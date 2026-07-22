@@ -12912,6 +12912,8 @@ bool wallet2::is_out_to_acc(const cryptonote::account_public_address &address, c
 
   if (!found && !additional_derivations.empty())
   {
+    THROW_WALLET_EXCEPTION_IF(output_index >= additional_derivations.size(), error::wallet_internal_error,
+      "wrong number of additional derivations");
     const crypto::key_derivation &additional_derivation = additional_derivations[output_index];
     if (out_can_be_to_acc(view_tag_opt, additional_derivation, output_index))
     {
