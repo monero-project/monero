@@ -59,6 +59,7 @@
 #include "net/error.h"
 #include "net/host.h"
 #include "net/i2p_address.h"
+#include "net/net_helper.h"
 #include "net/net_utils_base.h"
 #include "net/socks.h"
 #include "net/socks_connect.h"
@@ -93,6 +94,48 @@ namespace
         "civ5tgldg3yx73ytse6hvvk3nm6q3zctbqvytpszihm35b33ze73kxad.onion";
     static constexpr const char v3_onion_bad_version[] =
         "zpv4fa3szgel7vf6jdjeugizdclq2vzkelscs2bhbgnlldzzggcen3ac.onion";
+}
+
+TEST(blocked_mode_client, eof_marks_disconnected_and_allows_reconnect)
+{
+    boost::asio::io_context server_io;
+    boost::asio::ip::tcp::acceptor acceptor{
+        server_io,
+        {boost::asio::ip::address_v4::loopback(), 0}
+    };
+
+    epee::net_utils::blocked_mode_client client;
+    client.set_ssl(epee::net_utils::ssl_options_t{
+        epee::net_utils::ssl_support_t::e_ssl_support_disabled
+    });
+    const std::string port = std::to_string(acceptor.local_endpoint().port());
+    ASSERT_TRUE(client.connect("127.0.0.1", port, std::chrono::seconds{5}));
+
+    boost::system::error_code error;
+    boost::asio::ip::tcp::socket first_peer{server_io};
+    acceptor.accept(first_peer, error);
+    ASSERT_FALSE(error);
+    boost::asio::write(first_peer, boost::asio::buffer("x", 1), error);
+    ASSERT_FALSE(error);
+    first_peer.shutdown(boost::asio::ip::tcp::socket::shutdown_send, error);
+    ASSERT_FALSE(error);
+
+    std::string response;
+    ASSERT_TRUE(client.recv(response, std::chrono::seconds{5}));
+    EXPECT_EQ("x", response);
+
+    ASSERT_TRUE(client.recv(response, std::chrono::seconds{5}));
+    EXPECT_TRUE(response.empty());
+    EXPECT_FALSE(client.is_connected());
+
+    ASSERT_TRUE(client.connect("127.0.0.1", port, std::chrono::seconds{5}));
+    boost::asio::ip::tcp::socket second_peer{server_io};
+    acceptor.accept(second_peer, error);
+    ASSERT_FALSE(error);
+    boost::asio::write(second_peer, boost::asio::buffer("y", 1), error);
+    ASSERT_FALSE(error);
+    ASSERT_TRUE(client.recv(response, std::chrono::seconds{5}));
+    EXPECT_EQ("y", response);
 }
 
 TEST(tor_address, constants)
