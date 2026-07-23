@@ -68,17 +68,17 @@ constexpr public_key G = bytes_to<public_key>({ 0x58, 0x66, 0x66, 0x66, 0x66, 0x
 constexpr public_key H = bytes_to<public_key>({ 0x8b, 0x65, 0x59, 0x70, 0x15, 0x37, 0x99, 0xaf, 0x2a, 0xea, 0xdc, 0x9f, 0xf1,
     0xad, 0xd0, 0xea, 0x6c, 0x72, 0x51, 0xd5, 0x41, 0x54, 0xcf, 0xa9, 0x2c, 0x17, 0x3a, 0x0d, 0xd3, 0x9c, 0x1f, 0x94 });
 //FCMP++ generator T: unbiased_hash_to_ec(Keccak256("Monero Generator T"))
-//Source: https://github.com/monero-oxide/monero-oxide/blob/0e438aed2cce5c0ab8a935916c1a89bb0077f97f/monero-oxide/ed25519/src/compressed_point.rs#L76-L79
-constexpr public_key T = bytes_to<public_key>({ 97, 183, 54, 206, 147, 182, 42, 61, 55, 120, 171, 32, 77, 168, 93, 59, 76,
-  220, 7, 37, 15, 93, 167, 227, 223, 38, 41, 146, 129, 52, 213, 38 });
+//Source: @TODO
+constexpr public_key T = bytes_to<public_key>({ 220, 66, 225, 211, 48, 123, 45, 75, 59, 2, 114, 154, 190, 87, 126, 35,
+    29, 121, 71, 129, 65, 203, 91, 49, 12, 169, 250, 110, 18, 118, 22, 163});
 //FCMP++ generator U: unbiased_hash_to_ec(Keccak256("Monero FCMP++ Generator U"))
-//Source: https://github.com/monero-oxide/monero-oxide/blob/0e438aed2cce5c0ab8a935916c1a89bb0077f97f/monero-oxide/ringct/fcmp%2B%2B/generators/src/lib.rs#L16-L18
-constexpr public_key U = bytes_to<public_key>({ 80, 107, 35, 246, 214, 229, 48, 153, 122, 188, 172, 198, 253, 52, 119, 52,
-  177, 76, 43, 215, 155, 234, 0, 238, 176, 72, 87, 232, 234, 221, 26, 138 });
+//Source: @TODO
+constexpr public_key U = bytes_to<public_key>({ 138, 148, 142, 40, 84, 7, 58, 160, 188, 184, 47, 134, 60, 128, 134, 91,
+    92, 201, 190, 23, 151, 35, 252, 28, 191, 28, 37, 184, 133, 89, 126, 84});
 //FCMP++ generator V: unbiased_hash_to_ec(Keccak256("Monero FCMP++ Generator V"))
-//Source: https://github.com/monero-oxide/monero-oxide/blob/0e438aed2cce5c0ab8a935916c1a89bb0077f97f/monero-oxide/ringct/fcmp%2B%2B/generators/src/lib.rs#L20-L22
-constexpr public_key V = bytes_to<public_key>({ 105, 53, 244, 19, 248, 49, 9, 19, 138, 122, 20, 180, 9, 85, 45, 59, 118,
-  216, 143, 202, 129, 187, 89, 39, 233, 161, 225, 48, 205, 254, 41, 249 });
+//Source: @TODO
+constexpr public_key V = bytes_to<public_key>({26, 66, 53, 9, 247, 103, 94, 145, 32, 17, 209, 75, 86, 16, 168, 87, 221,
+    213, 136, 115, 52, 19, 181, 21, 224, 3, 188, 64, 85, 133, 91, 241,});
 static ge_p3 G_p3;
 static ge_p3 H_p3;
 static ge_p3 T_p3;
@@ -193,9 +193,9 @@ static void init_gens()
         // sanity check the generators
         static_assert(static_cast<unsigned char>(G.data[0]) == 0x58, "compile-time constant sanity check");
         static_assert(static_cast<unsigned char>(H.data[0]) == 0x8b, "compile-time constant sanity check");
-        static_assert(static_cast<unsigned char>(T.data[0]) == 0x61, "compile-time constant sanity check");
-        static_assert(static_cast<unsigned char>(U.data[0]) == 0x50, "compile-time constant sanity check");
-        static_assert(static_cast<unsigned char>(V.data[0]) == 0x69, "compile-time constant sanity check");
+        static_assert(static_cast<unsigned char>(T.data[0]) == 0xdc, "compile-time constant sanity check");
+        static_assert(static_cast<unsigned char>(U.data[0]) == 0x8a, "compile-time constant sanity check");
+        static_assert(static_cast<unsigned char>(V.data[0]) == 0x1a, "compile-time constant sanity check");
 
         // build ge_p3 representations of generators
         const int G_deserialize = ge_frombytes_vartime(&G_p3, to_bytes(G));
