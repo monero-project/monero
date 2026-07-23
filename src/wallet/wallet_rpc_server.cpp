@@ -3406,6 +3406,9 @@ namespace tools
     {
       const auto new_period = req.enable ? req.period ? req.period : DEFAULT_AUTO_REFRESH_PERIOD : 0;
       m_auto_refresh_period.store(new_period, std::memory_order_relaxed);
+      // refresh on the next idle tick rather than after a full period
+      if (new_period)
+        m_last_auto_refresh_time = std::chrono::steady_clock::now() - std::chrono::seconds(new_period);
       MINFO("Auto refresh now " << (new_period ? std::to_string(new_period) + " seconds" : std::string("disabled")));
       return true;
     }
