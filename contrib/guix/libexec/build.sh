@@ -336,7 +336,7 @@ mkdir -p "$DISTSRC"
     esac
 
     # Turn off unused default options
-    CMAKEFLAGS+=" -DUSE_COMPILER_CACHE=OFF -DBUILD_DOCUMENTATION=OFF"
+    CMAKEFLAGS+=" -DCOMPILER_CACHE=none -DBUILD_DOCUMENTATION=OFF"
 
     # Configure this DISTSRC for $HOST
     # shellcheck disable=SC2086
