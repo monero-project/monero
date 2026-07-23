@@ -143,7 +143,7 @@ namespace
   {
     store_128(difficulty, sdiff, swdiff, stop64);
   }
-}
+} //anonymous namespace
 
 namespace cryptonote
 {
@@ -477,16 +477,6 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  class pruned_transaction {
-    transaction& tx;
-  public:
-    pruned_transaction(transaction& tx) : tx(tx) {}
-    BEGIN_SERIALIZE_OBJECT()
-      bool r = tx.serialize_base(ar);
-      if (!r) return false;
-    END_SERIALIZE()
-  };
-  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res, const connection_context *ctx)
   {
     RPC_TRACKER(get_blocks);
@@ -548,24 +538,19 @@ namespace cryptonote
         return true;
       }
 
-      res.added_pool_txs.clear();
-      for (const auto &added_pool_tx: added_pool_txs)
+      res.added_pool_txs.reserve(added_pool_txs.size());
+      for (auto &added_pool_tx: added_pool_txs)
       {
-        COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info info;
+        COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info &info = res.added_pool_txs.emplace_back();
         info.tx_hash = added_pool_tx.first;
-        std::stringstream oss;
-        binary_archive<true> ar(oss);
-        bool r = req.prune
-          ? const_cast<cryptonote::transaction&>(added_pool_tx.second.tx).serialize_base(ar)
-          : ::serialization::serialize(ar, const_cast<cryptonote::transaction&>(added_pool_tx.second.tx));
-        if (!r)
+        tx_memory_pool::tx_details &tx_details = added_pool_tx.second;
+        info.tx_blob = std::move(tx_details.tx_blob);
+        if (req.prune && !prune_transaction_blob(info.tx_blob, /*known_unprunable_size=*/0))
         {
-          res.status = "Failed to serialize transaction";
+          res.status = "Failed to prune pool transaction";
           return true;
         }
-        info.tx_blob = oss.str();
-        info.double_spend_seen = added_pool_tx.second.double_spend_seen;
-        res.added_pool_txs.push_back(std::move(info));
+        info.double_spend_seen = tx_details.double_spend_seen;
       }
 
       res.pool_info_extent = incremental
@@ -741,7 +726,6 @@ namespace cryptonote
     RPC_TRACKER(get_transactions);
 
     const bool restricted = m_restricted && ctx;
-    const bool request_has_rpc_origin = ctx != NULL;
 
     if (restricted && req.txs_hashes.size() > RESTRICTED_TRANSACTIONS_COUNT)
     {
@@ -775,61 +759,92 @@ namespace cryptonote
     }
     LOG_PRINT_L2("Found " << txs.size() << "/" << vh.size() << " transactions on the blockchain");
 
-    // try the pool for any missing txes
-    size_t found_in_pool = 0;
-    std::unordered_set<crypto::hash> pool_tx_hashes;
+    /**
+     * @brief maps TXID -> mempol tx details
+     * @note: `per_tx_pool_tx_details` *will* be missing blobs
+     */
     std::unordered_map<crypto::hash, tx_memory_pool::tx_details> per_tx_pool_tx_details;
+
+    // try the pool for any missing txes
     if (!missed_txs.empty())
     {
       std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> pool_txs;
-      bool r = m_core.get_pool_transactions_info(missed_txs, pool_txs, !request_has_rpc_origin || !restricted);
+      bool r = m_core.get_pool_transactions_info(missed_txs, pool_txs, !restricted);
       if(r)
       {
-        // sort to match original request
+        // merge blockchain and pool txs into original request order
         std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>> sorted_txs;
-        std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>::const_iterator i;
+        sorted_txs.reserve(txs.size() + pool_txs.size());
         unsigned txs_processed = 0;
+        unsigned pool_txs_processed = 0;
+        unsigned missed_txs_counted = 0;
         for (const crypto::hash &h: vh)
         {
-          if (std::find(missed_txs.begin(), missed_txs.end(), h) == missed_txs.end())
+          // The below logic assumes that both blockchain and mempool responses are returned in the
+          // same order that they requested, minus txs which were missed. Also, `missed_txs` at this
+          // point is a superset of `pool_txs`
+          if (txs_processed < txs.size() && std::get<0>(txs[txs_processed]) == h)
           {
-            if (txs.size() == txs_processed)
-            {
-              res.status = "Failed: internal error - txs is empty";
-              return true;
-            }
-            // core returns the ones it finds in the right order
-            if (std::get<0>(txs[txs_processed]) != h)
-            {
-              res.status = "Failed: tx hash mismatch";
-              return true;
-            }
             sorted_txs.push_back(std::move(txs[txs_processed]));
             ++txs_processed;
           }
-          else if ((i = std::find_if(pool_txs.begin(), pool_txs.end(), [h](const std::pair<crypto::hash, tx_memory_pool::tx_details> &pt) { return h == pt.first; })) != pool_txs.end())
+          else if (pool_txs_processed < pool_txs.size() && pool_txs[pool_txs_processed].first == h)
           {
-            const tx_memory_pool::tx_details &td = i->second;
-            std::stringstream ss;
-            binary_archive<true> ba(ss);
-            bool r = const_cast<cryptonote::transaction&>(td.tx).serialize_base(ba);
-            if (!r)
+            tx_memory_pool::tx_details &td = pool_txs[pool_txs_processed].second;
+
+            // split pruned/prunable tx blobs
+            blobdata pruned_tx_blob = td.tx_blob;
+            blobdata &prunable_tx_blob = td.tx_blob;
+            if (!prune_transaction_blob(pruned_tx_blob, /*known_unprunable_size=*/0))
             {
-              res.status = "Failed to serialize transaction base";
+              res.status = "Failed to prune transaction blob";
               return true;
             }
-            const cryptonote::blobdata pruned = ss.str();
-            const crypto::hash prunable_hash = td.tx.version == 1 ? crypto::null_hash : get_transaction_prunable_hash(td.tx);
-            sorted_txs.push_back(std::make_tuple(h, pruned, prunable_hash, std::string(td.tx_blob, pruned.size())));
-            missed_txs.erase(std::find(missed_txs.begin(), missed_txs.end(), h));
-            pool_tx_hashes.insert(h);
-            per_tx_pool_tx_details.insert(std::make_pair(h, td));
-            ++found_in_pool;
+            assert(pruned_tx_blob.size() <= prunable_tx_blob.size());
+            prunable_tx_blob.erase(prunable_tx_blob.cbegin(), prunable_tx_blob.cbegin() + pruned_tx_blob.size());
+
+            // calculate unprunable hash if applicable
+            crypto::hash prunable_hash = crypto::null_hash;
+            {
+              const std::size_t tx_version = get_tx_version(pruned_tx_blob);
+              if (1 != tx_version && !calculate_transaction_prunable_hash(tx_version, prunable_tx_blob, prunable_hash))
+              {
+                res.status = "Failed to calculate transaction prunable hash";
+                return true;
+              }
+            }
+
+            sorted_txs.emplace_back(h, std::move(pruned_tx_blob), prunable_hash, std::move(prunable_tx_blob));
+            per_tx_pool_tx_details.emplace(h, std::move(td));
+            ++pool_txs_processed;
+            ++missed_txs_counted;
+          }
+          else if (missed_txs_counted < missed_txs.size() && missed_txs[missed_txs_counted] == h)
+          {
+            ++missed_txs_counted;
+          }
+          else
+          {
+            res.status = "Business logic error in on_get_transactions() while trying to merge sorted tx list";
+            return true;
           }
         }
-        txs = sorted_txs;
+        txs = std::move(sorted_txs);
+        LOG_PRINT_L2("Found " << pool_txs_processed << "/" << vh.size() << " transactions in the pool");
+
+        // now erase missed_txs which are present in the mempool response
+        size_t erase_head = 0;
+        for (size_t erase_tail = 0; erase_tail < missed_txs.size(); ++erase_tail)
+        {
+          const bool erase = per_tx_pool_tx_details.count(missed_txs[erase_tail]);
+          if (!erase)
+          {
+            missed_txs[erase_head] = missed_txs[erase_tail];
+            ++erase_head;
+          }
+        }
+        missed_txs.resize(erase_head);
       }
-      LOG_PRINT_L2("Found " << found_in_pool << "/" << vh.size() << " transactions in the pool");
     }
 
     CHECK_AND_ASSERT_MES(txs.size() + missed_txs.size() == vh.size(), false, "mismatched number of txs");
@@ -838,6 +853,10 @@ namespace cryptonote
     auto vhi = vh.cbegin();
     auto missedi = missed_txs.cbegin();
 
+    res.txs.reserve(txs.size());
+    res.txs_as_hex.reserve(txs.size());
+    if (req.decode_as_json)
+      res.txs_as_json.reserve(txs.size());
     for(auto& tx: txs)
     {
       res.txs.push_back(COMMAND_RPC_GET_TRANSACTIONS::entry());
@@ -859,8 +878,8 @@ namespace cryptonote
       bool pruned = std::get<3>(tx).empty();
       if (pruned)
       {
-        cryptonote::transaction t;
-        if (cryptonote::parse_and_validate_tx_base_from_blob(std::get<1>(tx), t) && is_coinbase(t))
+        unprunable_summary_t tx_desc;
+        if (get_transaction_unprunable_summary(std::get<1>(tx), tx_desc) && tx_desc.is_coinbase)
           pruned = false;
       }
 
@@ -880,8 +899,8 @@ namespace cryptonote
             tx_data = std::get<1>(tx);
             if (cryptonote::parse_and_validate_tx_base_from_blob(tx_data, t))
             {
-              pruned_transaction pruned_tx{t};
-              e.as_json = obj_to_json_str(pruned_tx);
+              assert(t.pruned);
+              e.as_json = obj_to_json_str(t);
             }
             else
             {
@@ -924,25 +943,15 @@ namespace cryptonote
           }
         }
       }
-      e.in_pool = pool_tx_hashes.find(tx_hash) != pool_tx_hashes.end();
+      const auto pool_it = per_tx_pool_tx_details.find(tx_hash);
+      e.in_pool = pool_it != per_tx_pool_tx_details.cend();
       if (e.in_pool)
       {
         e.block_height = e.block_timestamp = std::numeric_limits<uint64_t>::max();
         e.confirmations = 0;
-        auto it = per_tx_pool_tx_details.find(tx_hash);
-        if (it != per_tx_pool_tx_details.end())
-        {
-          e.double_spend_seen = it->second.double_spend_seen;
-          e.relayed = it->second.relayed;
-          e.received_timestamp = it->second.receive_time;
-        }
-        else
-        {
-          MERROR("Failed to determine pool info for " << tx_hash);
-          e.double_spend_seen = false;
-          e.relayed = false;
-          e.received_timestamp = 0;
-        }
+        e.double_spend_seen = pool_it->second.double_spend_seen;
+        e.relayed = pool_it->second.relayed;
+        e.received_timestamp = pool_it->second.receive_time;
       }
       else
       {
@@ -960,7 +969,7 @@ namespace cryptonote
         res.txs_as_json.push_back(e.as_json);
 
       // output indices too if not in pool
-      if (pool_tx_hashes.find(tx_hash) == pool_tx_hashes.end())
+      if (!e.in_pool)
       {
         bool r = m_core.get_tx_outputs_gindexs(tx_hash, e.output_indices);
         if (!r)
@@ -971,6 +980,7 @@ namespace cryptonote
       }
     }
 
+    res.missed_tx.reserve(missed_txs.size());
     for(const auto& miss_tx: missed_txs)
     {
       res.missed_tx.push_back(string_tools::pod_to_hex(miss_tx));
