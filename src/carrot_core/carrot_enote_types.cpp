@@ -42,23 +42,23 @@ namespace carrot
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const CarrotEnoteV1 &a, const CarrotEnoteV1 &b)
 {
-    return a.onetime_address    == b.onetime_address    &&
-           a.amount_commitment  == b.amount_commitment  &&
-           a.amount_enc         == b.amount_enc         &&
-           a.anchor_enc         == b.anchor_enc         &&
-           a.view_tag           == b.view_tag           &&
-           a.tx_first_key_image == b.tx_first_key_image &&
-           memcmp(a.enote_ephemeral_pubkey.data, b.enote_ephemeral_pubkey.data, sizeof(mx25519_pubkey)) == 0;
+    return a.onetime_address        == b.onetime_address    &&
+           a.amount_commitment      == b.amount_commitment  &&
+           a.amount_enc             == b.amount_enc         &&
+           a.anchor_enc             == b.anchor_enc         &&
+           a.view_tag               == b.view_tag           &&
+           a.tx_first_key_image     == b.tx_first_key_image &&
+           a.enote_ephemeral_pubkey == b.enote_ephemeral_pubkey;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool operator==(const CarrotCoinbaseEnoteV1 &a, const CarrotCoinbaseEnoteV1 &b)
 {
-    return a.onetime_address == b.onetime_address &&
-           a.amount          == b.amount          &&
-           a.anchor_enc      == b.anchor_enc      &&
-           a.view_tag        == b.view_tag        &&
-           a.block_index     == b.block_index     &&
-           memcmp(a.enote_ephemeral_pubkey.data, b.enote_ephemeral_pubkey.data, sizeof(mx25519_pubkey)) == 0;
+    return a.onetime_address        == b.onetime_address &&
+           a.amount                 == b.amount          &&
+           a.anchor_enc             == b.anchor_enc      &&
+           a.view_tag               == b.view_tag        &&
+           a.block_index            == b.block_index     &&
+           a.enote_ephemeral_pubkey == b.enote_ephemeral_pubkey;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

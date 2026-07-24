@@ -38,7 +38,6 @@
 #include "carrot_mock_helpers.h"
 #include "core_types.h"
 #include "crypto/generators.h"
-#include "mx25519.h"
 #include "ringct/rctOps.h"
 
 #include <openssl/evp.h>
@@ -57,13 +56,13 @@ TEST(carrot_core, ECDH_cryptonote_completeness)
     crypto::secret_key k_ephem = rct::rct2sk(rct::skGen());
     ASSERT_NE(k_view, k_ephem);
 
-    mx25519_pubkey enote_ephemeral_pubkey;
+    crypto::x25519_pubkey enote_ephemeral_pubkey;
     make_carrot_enote_ephemeral_pubkey_cryptonote(k_ephem, enote_ephemeral_pubkey);
 
-    mx25519_pubkey s_sr_sender;
+    crypto::x25519_pubkey s_sr_sender;
     ASSERT_TRUE(try_make_carrot_shared_key_sender(k_ephem, view_pubkey, s_sr_sender));
 
-    mx25519_pubkey s_sr_receiver;
+    crypto::x25519_pubkey s_sr_receiver;
     ASSERT_TRUE(try_make_carrot_shared_key_receiver(k_view, enote_ephemeral_pubkey, s_sr_receiver));
 
     EXPECT_EQ(s_sr_sender, s_sr_receiver);
@@ -77,13 +76,13 @@ TEST(carrot_core, ECDH_subaddress_completeness)
     crypto::secret_key k_ephem = rct::rct2sk(rct::skGen());
     ASSERT_NE(k_view, k_ephem);
 
-    mx25519_pubkey enote_ephemeral_pubkey;
+    crypto::x25519_pubkey enote_ephemeral_pubkey;
     ASSERT_TRUE(try_make_carrot_enote_ephemeral_pubkey_subaddress(k_ephem, spend_pubkey, enote_ephemeral_pubkey));
 
-    mx25519_pubkey s_sr_sender;
+    crypto::x25519_pubkey s_sr_sender;
     ASSERT_TRUE(try_make_carrot_shared_key_sender(k_ephem, view_pubkey, s_sr_sender));
 
-    mx25519_pubkey s_sr_receiver;
+    crypto::x25519_pubkey s_sr_receiver;
     ASSERT_TRUE(try_make_carrot_shared_key_receiver(k_view, enote_ephemeral_pubkey, s_sr_receiver));
 
     EXPECT_EQ(s_sr_sender, s_sr_receiver);
@@ -91,18 +90,19 @@ TEST(carrot_core, ECDH_subaddress_completeness)
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, ECDH_mx25519_convergence)
 {
-    const mx25519_pubkey P = gen_x25519_pubkey();
+    const crypto::x25519_pubkey P = crypto::x25519_pubkey_gen();
     const crypto::secret_key a = rct::rct2sk(rct::skGen());
 
-    const mx25519_impl *impl = mx25519_select_impl(MX25519_TYPE_AUTO);
+    const crypto::mx25519_impl *impl = crypto::mx25519_select_impl(crypto::MX25519_TYPE_AUTO);
     ASSERT_NE(nullptr, impl);
 
-    // do Q = a * P using mx25519
-    mx25519_pubkey Q_mx25519;
-    mx25519_scmul_key(impl, &Q_mx25519, reinterpret_cast<const mx25519_privkey*>(&a), &P);
+    // do Q = a * P using crypto::x25519
+    crypto::x25519_pubkey Q_mx25519;
+    crypto::mx25519_scmul_key_unclamped(impl, &Q_mx25519,
+        reinterpret_cast<const crypto::mx25519_privkey*>(&a), &P, crypto::MX25519_UNCLAMP_ALL);
 
     // do Q = a * P using try_make_carrot_shared_key_receiver()
-    mx25519_pubkey Q_carrot;
+    crypto::x25519_pubkey Q_carrot;
     ASSERT_TRUE(try_make_carrot_shared_key_receiver(a, P, Q_carrot));
 
     // check equal
@@ -125,7 +125,7 @@ TEST(carrot_core, ECDH_openssl_convergence_clamped)
     ASSERT_TRUE(ssl_privkey);
 
     // generate pubkey and load into OpenSSL from bytes
-    const mx25519_pubkey P = gen_x25519_pubkey();
+    const crypto::x25519_pubkey P = crypto::x25519_pubkey_gen();
     EVP_PKEY* ssl_peer_pubkey = EVP_PKEY_new_raw_public_key(EVP_PKEY_X25519, NULL, P.data, sizeof(P));
     ASSERT_TRUE(ssl_peer_pubkey);
 
@@ -139,11 +139,11 @@ TEST(carrot_core, ECDH_openssl_convergence_clamped)
     ASSERT_EQ(32, ecdh_len); // sanity check shared secret buffer length
 
     // do ECDH (OpenSSL)
-    mx25519_pubkey Q_ssl{};
+    crypto::x25519_pubkey Q_ssl{};
     ASSERT_GT(EVP_PKEY_derive(ctx, Q_ssl.data, &ecdh_len), 0);
 
     // do ECDH (carrot_core lib)
-    mx25519_pubkey Q_cc;
+    crypto::x25519_pubkey Q_cc;
     ASSERT_TRUE(try_make_carrot_shared_key_receiver(k, P, Q_cc));
 
     // compare results
@@ -181,7 +181,7 @@ TEST(carrot_core, main_address_normal_scan_completeness)
         = commit_carrot_amount(enote_proposal.amount, enote_proposal.amount_blinding_factor);
     ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     try_make_carrot_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
         enote_proposal.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -251,7 +251,7 @@ TEST(carrot_core, subaddress_normal_scan_completeness)
         = commit_carrot_amount(enote_proposal.amount, enote_proposal.amount_blinding_factor);
     ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     try_make_carrot_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
         enote_proposal.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -318,7 +318,7 @@ TEST(carrot_core, integrated_address_normal_scan_completeness)
         = commit_carrot_amount(enote_proposal.amount, enote_proposal.amount_blinding_factor);
     ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     try_make_carrot_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
         enote_proposal.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -390,7 +390,7 @@ TEST(carrot_core, main_address_special_scan_completeness)
             = commit_carrot_amount(enote_proposal.amount, enote_proposal.amount_blinding_factor);
         ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
-        mx25519_pubkey s_sender_receiver;
+        crypto::x25519_pubkey s_sender_receiver;
         try_make_carrot_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
             enote_proposal.enote.enote_ephemeral_pubkey,
             s_sender_receiver);
@@ -468,7 +468,7 @@ TEST(carrot_core, subaddress_special_scan_completeness)
             = commit_carrot_amount(enote_proposal.amount, enote_proposal.amount_blinding_factor);
         ASSERT_EQ(enote_proposal.enote.amount_commitment, recomputed_amount_commitment);
 
-        mx25519_pubkey s_sender_receiver;
+        crypto::x25519_pubkey s_sender_receiver;
         try_make_carrot_shared_key_receiver(keys.legacy_acb.get_keys().m_view_secret_key,
             enote_proposal.enote.enote_ephemeral_pubkey,
             s_sender_receiver);
@@ -670,7 +670,7 @@ TEST(carrot_core, main_address_coinbase_scan_completeness)
 
     ASSERT_EQ(proposal.amount, enote.amount);
 
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     try_make_carrot_shared_key_receiver(keys.k_view_incoming_dev,
         enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -952,7 +952,7 @@ static void get_output_proposal_janus_attack_v1(const JanusAttackProposalV1 &pro
         output_enote_out.enote.enote_ephemeral_pubkey));
 
     // 6. s_sr = d_e ConvertPointE(K^j_v)
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     try_make_carrot_shared_key_sender(enote_ephemeral_privkey,
         destination.address_view_pubkey,
         s_sender_receiver);
@@ -1036,7 +1036,7 @@ TEST(carrot_core, janus_protection_non_coinbase_main_sub_readjust_NOT_in_d_e)
     get_output_proposal_janus_attack_v1(proposal, tx_first_key_image, output_enote, encrypted_payment_id);
 
     // s_sr = k_v D_e
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -1126,7 +1126,7 @@ TEST(carrot_core, janus_protection_non_coinbase_main_sub_readjust_in_d_e)
     get_output_proposal_janus_attack_v1(proposal, tx_first_key_image, output_enote, encrypted_payment_id);
 
     // s_sr = k_v D_e
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -1216,7 +1216,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_main_readjust_NOT_in_d_e)
     get_output_proposal_janus_attack_v1(proposal, tx_first_key_image, output_enote, encrypted_payment_id);
 
     // s_sr = k_v D_e
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -1306,7 +1306,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_main_readjust_in_d_e)
     get_output_proposal_janus_attack_v1(proposal, tx_first_key_image, output_enote, encrypted_payment_id);
 
     // s_sr = k_v D_e
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -1396,7 +1396,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_NOT_in_d_e)
     get_output_proposal_janus_attack_v1(proposal, tx_first_key_image, output_enote, encrypted_payment_id);
 
     // s_sr = k_v D_e
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -1486,7 +1486,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_in_d_e)
     get_output_proposal_janus_attack_v1(proposal, tx_first_key_image, output_enote, encrypted_payment_id);
 
     // s_sr = k_v D_e
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -1588,7 +1588,7 @@ static void get_coinbase_output_proposal_janus_attack_v1(const JanusAttackPropos
         output_enote_out.enote_ephemeral_pubkey));
 
     // 6. s_sr = d_e ConvertPointE(K^j_v)
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     try_make_carrot_shared_key_sender(enote_ephemeral_privkey,
         destination.address_view_pubkey,
         s_sender_receiver);
@@ -1650,7 +1650,7 @@ TEST(carrot_core, janus_protection_coinbase_main_sub_readjust_NOT_in_d_e)
     get_coinbase_output_proposal_janus_attack_v1(proposal, block_index, output_enote);
 
     // s_sr = k_v D_e
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -1717,7 +1717,7 @@ TEST(carrot_core, janus_protection_coinbase_main_sub_readjust_in_d_e)
     get_coinbase_output_proposal_janus_attack_v1(proposal, block_index, output_enote);
 
     // s_sr = k_v D_e
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -2078,7 +2078,7 @@ TEST(carrot_core, pq_turnstile_completeness_main)
     crypto::hash s_sender_receiver_ctx;
     {
         // s_sr = k_v D_e
-        mx25519_pubkey s_sender_receiver;
+        crypto::x25519_pubkey s_sender_receiver;
         try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
             output_enote.enote.enote_ephemeral_pubkey,
             s_sender_receiver);
@@ -2110,7 +2110,7 @@ TEST(carrot_core, pq_turnstile_completeness_main)
     EXPECT_TRUE(pq_ver);
 
     // scan and compute key image to test pq_turnstile_verify()
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -2175,7 +2175,7 @@ TEST(carrot_core, pq_turnstile_completeness_sub)
     crypto::hash s_sender_receiver_ctx;
     {
         // s_sr = k_v D_e
-        mx25519_pubkey s_sender_receiver;
+        crypto::x25519_pubkey s_sender_receiver;
         try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
             output_enote.enote.enote_ephemeral_pubkey,
             s_sender_receiver);
@@ -2207,7 +2207,7 @@ TEST(carrot_core, pq_turnstile_completeness_sub)
     EXPECT_TRUE(pq_ver);
 
     // scan and compute key image to test pq_turnstile_verify()
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -2260,7 +2260,7 @@ TEST(carrot_core, pq_turnstile_completeness_coinbase)
     crypto::hash s_sender_receiver_ctx;
     {
         // s_sr = k_v D_e
-        mx25519_pubkey s_sender_receiver;
+        crypto::x25519_pubkey s_sender_receiver;
         try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
             output_enote.enote_ephemeral_pubkey,
             s_sender_receiver);
@@ -2289,7 +2289,7 @@ TEST(carrot_core, pq_turnstile_completeness_coinbase)
     EXPECT_TRUE(pq_ver);
 
     // scan and compute key image to test pq_turnstile_verify()
-    mx25519_pubkey s_sender_receiver;
+    crypto::x25519_pubkey s_sender_receiver;
     try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote_ephemeral_pubkey,
         s_sender_receiver);
@@ -2328,10 +2328,10 @@ TEST(carrot_core, tx_inout_proof_normal_main)
     const crypto::secret_key enote_ephemeral_privkey = get_enote_ephemeral_privkey(normal_payment_proposal,
         input_context);
     const crypto::public_key enote_ephemeral_pubkey_ed25519 = rct::rct2pk(rct::scalarmultBase(rct::sk2rct(enote_ephemeral_privkey)));
-    const mx25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(normal_payment_proposal, input_context);
-    mx25519_pubkey enote_ephemeral_pubkey_conv;
+    const crypto::x25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(normal_payment_proposal, input_context);
+    crypto::x25519_pubkey enote_ephemeral_pubkey_conv;
     ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(enote_ephemeral_pubkey_conv.data, to_bytes(enote_ephemeral_pubkey_ed25519)));
-    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(mx25519_pubkey)));
+    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(crypto::x25519_pubkey)));
 
     // s_sr [edwards]
     const crypto::public_key s_sender_receiver_ed25519 = rct::rct2pk(rct::scalarmultKey(
@@ -2342,7 +2342,7 @@ TEST(carrot_core, tx_inout_proof_normal_main)
         get_output_proposal_normal_v1(normal_payment_proposal, tx_first_key_image, output_enote, pid_enc);
 
         // test scannability for fun
-        mx25519_pubkey s_sender_receiver;
+        crypto::x25519_pubkey s_sender_receiver;
         ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(s_sender_receiver.data, to_bytes(s_sender_receiver_ed25519)));
         crypto::secret_key k_g_o, k_t_o, k_a;
         crypto::public_key K_j_s;
@@ -2398,10 +2398,10 @@ TEST(carrot_core, tx_inout_proof_normal_subaddr)
         input_context);
     const crypto::public_key enote_ephemeral_pubkey_ed25519 = rct::rct2pk(rct::scalarmultKey(
         rct::pk2rct(normal_payment_proposal.destination.address_spend_pubkey), rct::sk2rct(enote_ephemeral_privkey)));
-    const mx25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(normal_payment_proposal, input_context);
-    mx25519_pubkey enote_ephemeral_pubkey_conv;
+    const crypto::x25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(normal_payment_proposal, input_context);
+    crypto::x25519_pubkey enote_ephemeral_pubkey_conv;
     ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(enote_ephemeral_pubkey_conv.data, to_bytes(enote_ephemeral_pubkey_ed25519)));
-    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(mx25519_pubkey)));
+    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(crypto::x25519_pubkey)));
 
     // s_sr [edwards]
     const crypto::public_key s_sender_receiver_ed25519 = rct::rct2pk(rct::scalarmultKey(
@@ -2412,7 +2412,7 @@ TEST(carrot_core, tx_inout_proof_normal_subaddr)
         get_output_proposal_normal_v1(normal_payment_proposal, tx_first_key_image, output_enote, pid_enc);
 
         // test scannability for fun
-        mx25519_pubkey s_sender_receiver;
+        crypto::x25519_pubkey s_sender_receiver;
         ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(s_sender_receiver.data, to_bytes(s_sender_receiver_ed25519)));
         crypto::secret_key k_g_o, k_t_o, k_a;
         crypto::public_key K_j_s;
@@ -2473,11 +2473,11 @@ TEST(carrot_core, tx_inout_proof_special_Nout_main)
         nullptr, nullptr, tx_first_key_image);
     const crypto::public_key enote_ephemeral_pubkey_ed25519 = rct::rct2pk(rct::scalarmultKey(
         rct::G, rct::sk2rct(enote_ephemeral_privkey)));
-    const mx25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
+    const crypto::x25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
         nullptr, nullptr, tx_first_key_image);
-    mx25519_pubkey enote_ephemeral_pubkey_conv;
+    crypto::x25519_pubkey enote_ephemeral_pubkey_conv;
     ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(enote_ephemeral_pubkey_conv.data, to_bytes(enote_ephemeral_pubkey_ed25519)));
-    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(mx25519_pubkey)));
+    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(crypto::x25519_pubkey)));
     ASSERT_EQ(selfsend_payment_proposal.enote_ephemeral_privkey.value(), enote_ephemeral_privkey);
 
     // s_sr [edwards]
@@ -2491,7 +2491,7 @@ TEST(carrot_core, tx_inout_proof_special_Nout_main)
             nullptr, nullptr, output_enote);
 
         // test scannability for fun
-        mx25519_pubkey s_sender_receiver;
+        crypto::x25519_pubkey s_sender_receiver;
         ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(s_sender_receiver.data, to_bytes(s_sender_receiver_ed25519)));
         crypto::secret_key k_g_o, k_t_o, k_a;
         crypto::public_key K_j_s;
@@ -2550,11 +2550,11 @@ TEST(carrot_core, tx_inout_proof_special_Nout_subaddr)
         nullptr, nullptr, tx_first_key_image);
     const crypto::public_key enote_ephemeral_pubkey_ed25519 = rct::rct2pk(rct::scalarmultKey(
         rct::pk2rct(bob_addr.address_spend_pubkey), rct::sk2rct(enote_ephemeral_privkey)));
-    const mx25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
+    const crypto::x25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
         nullptr, nullptr, tx_first_key_image);
-    mx25519_pubkey enote_ephemeral_pubkey_conv;
+    crypto::x25519_pubkey enote_ephemeral_pubkey_conv;
     ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(enote_ephemeral_pubkey_conv.data, to_bytes(enote_ephemeral_pubkey_ed25519)));
-    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(mx25519_pubkey)));
+    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(crypto::x25519_pubkey)));
     ASSERT_EQ(selfsend_payment_proposal.enote_ephemeral_privkey.value(), enote_ephemeral_privkey);
 
     // s_sr [edwards]
@@ -2568,7 +2568,7 @@ TEST(carrot_core, tx_inout_proof_special_Nout_subaddr)
             nullptr, nullptr, output_enote);
 
         // test scannability for fun
-        mx25519_pubkey s_sender_receiver;
+        crypto::x25519_pubkey s_sender_receiver;
         ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(s_sender_receiver.data, to_bytes(s_sender_receiver_ed25519)));
         crypto::secret_key k_g_o, k_t_o, k_a;
         crypto::public_key K_j_s;
@@ -2637,11 +2637,11 @@ TEST(carrot_core, tx_inout_proof_special_2out_1selfsend_main)
     const crypto::public_key base_ephemeral_pubkey = bob_addr.is_subaddress ? bob_addr.address_spend_pubkey : crypto::get_G();
     const crypto::public_key enote_ephemeral_pubkey_ed25519 = rct::rct2pk(rct::scalarmultKey(
         rct::pk2rct(base_ephemeral_pubkey), rct::sk2rct(enote_ephemeral_privkey)));
-    const mx25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
+    const crypto::x25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
         &other_normal_payment_proposal, nullptr, tx_first_key_image);
-    mx25519_pubkey enote_ephemeral_pubkey_conv;
+    crypto::x25519_pubkey enote_ephemeral_pubkey_conv;
     ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(enote_ephemeral_pubkey_conv.data, to_bytes(enote_ephemeral_pubkey_ed25519)));
-    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(mx25519_pubkey)));
+    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(crypto::x25519_pubkey)));
     ASSERT_EQ(get_enote_ephemeral_privkey(other_normal_payment_proposal, input_context),
             enote_ephemeral_privkey);
     ASSERT_EQ(get_enote_ephemeral_pubkey(other_normal_payment_proposal, input_context),
@@ -2668,7 +2668,7 @@ TEST(carrot_core, tx_inout_proof_special_2out_1selfsend_main)
             bob_enote, pid_enc);
 
         // test scannability for fun
-        mx25519_pubkey s_sender_receiver_alice;
+        crypto::x25519_pubkey s_sender_receiver_alice;
         ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(s_sender_receiver_alice.data,
             to_bytes(s_sender_receiver_ed25519_alice)));
         crypto::secret_key k_g_o, k_t_o, k_a;
@@ -2684,7 +2684,7 @@ TEST(carrot_core, tx_inout_proof_special_2out_1selfsend_main)
         ASSERT_EQ(a, selfsend_payment_proposal.amount);
         ASSERT_EQ(K_j_s, selfsend_payment_proposal.destination_address_spend_pubkey);
 
-        mx25519_pubkey s_sender_receiver_bob;
+        crypto::x25519_pubkey s_sender_receiver_bob;
         ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(s_sender_receiver_bob.data,
             to_bytes(s_sender_receiver_ed25519_bob)));
         ASSERT_TRUE(try_scan_carrot_enote_external_receiver(bob_enote.enote,
@@ -2764,11 +2764,11 @@ TEST(carrot_core, tx_inout_proof_special_2out_1selfsend_subaddr)
     const crypto::public_key base_ephemeral_pubkey = bob_addr.is_subaddress ? bob_addr.address_spend_pubkey : crypto::get_G();
     const crypto::public_key enote_ephemeral_pubkey_ed25519 = rct::rct2pk(rct::scalarmultKey(
         rct::pk2rct(base_ephemeral_pubkey), rct::sk2rct(enote_ephemeral_privkey)));
-    const mx25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
+    const crypto::x25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
         &other_normal_payment_proposal, nullptr, tx_first_key_image);
-    mx25519_pubkey enote_ephemeral_pubkey_conv;
+    crypto::x25519_pubkey enote_ephemeral_pubkey_conv;
     ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(enote_ephemeral_pubkey_conv.data, to_bytes(enote_ephemeral_pubkey_ed25519)));
-    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(mx25519_pubkey)));
+    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(crypto::x25519_pubkey)));
     ASSERT_EQ(get_enote_ephemeral_privkey(other_normal_payment_proposal, input_context),
             enote_ephemeral_privkey);
     ASSERT_EQ(get_enote_ephemeral_pubkey(other_normal_payment_proposal, input_context),
@@ -2795,7 +2795,7 @@ TEST(carrot_core, tx_inout_proof_special_2out_1selfsend_subaddr)
             bob_enote, pid_enc);
 
         // test scannability for fun
-        mx25519_pubkey s_sender_receiver_alice;
+        crypto::x25519_pubkey s_sender_receiver_alice;
         ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(s_sender_receiver_alice.data,
             to_bytes(s_sender_receiver_ed25519_alice)));
         crypto::secret_key k_g_o, k_t_o, k_a;
@@ -2811,7 +2811,7 @@ TEST(carrot_core, tx_inout_proof_special_2out_1selfsend_subaddr)
         ASSERT_EQ(a, selfsend_payment_proposal.amount);
         ASSERT_EQ(K_j_s, selfsend_payment_proposal.destination_address_spend_pubkey);
 
-        mx25519_pubkey s_sender_receiver_bob;
+        crypto::x25519_pubkey s_sender_receiver_bob;
         ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(s_sender_receiver_bob.data,
             to_bytes(s_sender_receiver_ed25519_bob)));
         ASSERT_TRUE(try_scan_carrot_enote_external_receiver(bob_enote.enote,
@@ -2889,11 +2889,11 @@ TEST(carrot_core, tx_inout_proof_special_2out_2selfsend_main)
         nullptr, &other_selfsend_payment_proposal, tx_first_key_image);
     const crypto::public_key enote_ephemeral_pubkey_ed25519 = rct::rct2pk(rct::scalarmultKey(
         rct::G, rct::sk2rct(enote_ephemeral_privkey)));
-    const mx25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
+    const crypto::x25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
         nullptr, &other_selfsend_payment_proposal, tx_first_key_image);
-    mx25519_pubkey enote_ephemeral_pubkey_conv;
+    crypto::x25519_pubkey enote_ephemeral_pubkey_conv;
     ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(enote_ephemeral_pubkey_conv.data, to_bytes(enote_ephemeral_pubkey_ed25519)));
-    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(mx25519_pubkey)));
+    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(crypto::x25519_pubkey)));
     ASSERT_EQ(selfsend_payment_proposal.enote_ephemeral_privkey.value(), enote_ephemeral_privkey);
     ASSERT_EQ(get_enote_ephemeral_privkey(other_selfsend_payment_proposal,
             nullptr, &selfsend_payment_proposal, tx_first_key_image),
@@ -2913,7 +2913,7 @@ TEST(carrot_core, tx_inout_proof_special_2out_2selfsend_main)
             nullptr, nullptr, output_enote);
 
         // test scannability for fun
-        mx25519_pubkey s_sender_receiver;
+        crypto::x25519_pubkey s_sender_receiver;
         ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(s_sender_receiver.data, to_bytes(s_sender_receiver_ed25519)));
         crypto::secret_key k_g_o, k_t_o, k_a;
         crypto::public_key K_j_s;
@@ -2992,11 +2992,11 @@ TEST(carrot_core, tx_inout_proof_special_2out_2selfsend_subaddr)
         nullptr, &other_selfsend_payment_proposal, tx_first_key_image);
     const crypto::public_key enote_ephemeral_pubkey_ed25519 = rct::rct2pk(rct::scalarmultKey(
         rct::pk2rct(bob_addr.address_spend_pubkey), rct::sk2rct(enote_ephemeral_privkey)));
-    const mx25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
+    const crypto::x25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
         nullptr, &other_selfsend_payment_proposal, tx_first_key_image);
-    mx25519_pubkey enote_ephemeral_pubkey_conv;
+    crypto::x25519_pubkey enote_ephemeral_pubkey_conv;
     ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(enote_ephemeral_pubkey_conv.data, to_bytes(enote_ephemeral_pubkey_ed25519)));
-    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(mx25519_pubkey)));
+    ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(crypto::x25519_pubkey)));
     ASSERT_EQ(selfsend_payment_proposal.enote_ephemeral_privkey.value(), enote_ephemeral_privkey);
     ASSERT_EQ(get_enote_ephemeral_privkey(other_selfsend_payment_proposal,
             nullptr, &selfsend_payment_proposal, tx_first_key_image),
@@ -3016,7 +3016,7 @@ TEST(carrot_core, tx_inout_proof_special_2out_2selfsend_subaddr)
             nullptr, nullptr, output_enote);
 
         // test scannability for fun
-        mx25519_pubkey s_sender_receiver;
+        crypto::x25519_pubkey s_sender_receiver;
         ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(s_sender_receiver.data, to_bytes(s_sender_receiver_ed25519)));
         crypto::secret_key k_g_o, k_t_o, k_a;
         crypto::public_key K_j_s;

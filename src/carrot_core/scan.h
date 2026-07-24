@@ -61,8 +61,8 @@ namespace carrot
  */
 bool try_make_carrot_shared_key_receiver(
     const view_incoming_key_device &k_view_dev,
-    const mx25519_pubkey &enote_ephemeral_pubkey,
-    mx25519_pubkey &s_sender_receiver_out);
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    crypto::x25519_pubkey &s_sender_receiver_out);
 /**
  * @brief Attempt scan process on coinbase enote
  * @param enote -
@@ -90,14 +90,14 @@ bool try_scan_carrot_coinbase_enote_sender(
     crypto::secret_key &sender_extension_t_out);
 bool try_scan_carrot_coinbase_enote_receiver(
     const CarrotCoinbaseEnoteV1 &enote,
-    const mx25519_pubkey &s_sender_receiver,
+    const crypto::x25519_pubkey &s_sender_receiver,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &main_address_spend_pubkey_out);
 bool try_scan_carrot_coinbase_enote_receiver(
     const CarrotCoinbaseEnoteV1 &enote,
-    const mx25519_pubkey &s_sender_receiver,
+    const crypto::x25519_pubkey &s_sender_receiver,
     const crypto::public_key &main_address_spend_pubkey,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out);
@@ -145,7 +145,7 @@ bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
 bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
     const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
     const CarrotDestinationV1 &destination,
-    const mx25519_pubkey &s_sender_receiver,
+    const crypto::x25519_pubkey &s_sender_receiver,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     xmr_amount &amount_out,
@@ -154,7 +154,7 @@ bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
     const bool check_pid = true);
 bool try_scan_carrot_enote_external_receiver(const CarrotEnoteV1 &enote,
     const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const mx25519_pubkey &s_sender_receiver,
+    const crypto::x25519_pubkey &s_sender_receiver,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     const view_incoming_key_device &k_view_dev,
     crypto::secret_key &sender_extension_g_out,

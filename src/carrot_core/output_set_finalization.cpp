@@ -278,12 +278,12 @@ void get_output_enote_proposals(const std::vector<CarrotPaymentProposalV1> &norm
     }
 
     // assert uniqueness of D_e if >2-out, shared otherwise. also check D_e is not trivial
-    memcmp_set<mx25519_pubkey> ephemeral_pubkeys;
+    memcmp_set<crypto::x25519_pubkey> ephemeral_pubkeys;
     for (const RCTOutputEnoteProposal &p : output_enote_proposals_out)
     {
         const bool trivial_enote_ephemeral_pubkey = memcmp(p.enote.enote_ephemeral_pubkey.data,
-            mx25519_pubkey{}.data,
-            sizeof(mx25519_pubkey)) == 0;
+            crypto::x25519_pubkey{}.data,
+            sizeof(crypto::x25519_pubkey)) == 0;
         CARROT_CHECK_AND_THROW(!trivial_enote_ephemeral_pubkey, missing_randomness,
             "this set contains enote ephemeral pubkeys with x=0");
         ephemeral_pubkeys.insert(p.enote.enote_ephemeral_pubkey);
@@ -358,12 +358,12 @@ void get_coinbase_output_enotes(const std::vector<CarrotPaymentProposalV1> &norm
     }
 
     // assert uniqueness and non-trivial-ness of D_e
-    memcmp_set<mx25519_pubkey> ephemeral_pubkeys;
+    memcmp_set<crypto::x25519_pubkey> ephemeral_pubkeys;
     for (const CarrotCoinbaseEnoteV1 &enote : output_coinbase_enotes_out)
     {
         const bool trivial_enote_ephemeral_pubkey = memcmp(enote.enote_ephemeral_pubkey.data,
-            mx25519_pubkey{}.data,
-            sizeof(mx25519_pubkey)) == 0;
+            crypto::x25519_pubkey{}.data,
+            sizeof(crypto::x25519_pubkey)) == 0;
         CARROT_CHECK_AND_THROW(!trivial_enote_ephemeral_pubkey,
             missing_randomness, "this set contains enote ephemeral pubkeys with x=0");
         ephemeral_pubkeys.insert(enote.enote_ephemeral_pubkey);

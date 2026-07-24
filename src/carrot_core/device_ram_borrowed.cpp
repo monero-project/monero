@@ -67,14 +67,14 @@ bool view_incoming_key_ram_borrowed_device::view_key_scalar_mult8_ed25519(const 
     return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool view_incoming_key_ram_borrowed_device::view_key_scalar_mult_x25519(const mx25519_pubkey &D,
-    mx25519_pubkey &kvD) const
+bool view_incoming_key_ram_borrowed_device::view_key_scalar_mult_x25519(const crypto::x25519_pubkey &D,
+    crypto::x25519_pubkey &kvD) const
 {
     return try_make_carrot_shared_key_receiver(m_k_view_incoming, D, kvD);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void view_incoming_key_ram_borrowed_device::make_janus_anchor_special(
-    const mx25519_pubkey &enote_ephemeral_pubkey,
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const input_context_t &input_context,
     const crypto::public_key &onetime_address,
     janus_anchor_t &anchor_special_out) const
@@ -94,7 +94,7 @@ void view_balance_secret_ram_borrowed_device::make_internal_view_tag(const input
 }
 //-------------------------------------------------------------------------------------------------------------------
 void view_balance_secret_ram_borrowed_device::make_internal_sender_receiver_secret(
-    const mx25519_pubkey &enote_ephemeral_pubkey,
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const input_context_t &input_context,
     crypto::hash &s_sender_receiver_ctx_out) const
 {

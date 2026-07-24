@@ -31,9 +31,9 @@
 #pragma once
 
 //local headers
-#include "crypto/crypto.h"
 #include "core_types.h"
-#include "mx25519.h"
+#include "crypto/crypto.h"
+#include "crypto/x25519.h"
 
 //third party headers
 
@@ -65,7 +65,7 @@ void make_carrot_enote_ephemeral_privkey(const janus_anchor_t &anchor_norm,
  * @param[out] enote_ephemeral_pubkey_out D_e
  */
 void make_carrot_enote_ephemeral_pubkey_cryptonote(const crypto::secret_key &enote_ephemeral_privkey,
-    mx25519_pubkey &enote_ephemeral_pubkey_out);
+    crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
 /**
  * @brief Derive enote ephemeral pubkey D_e for a subaddress
  *   D_e = d_e ConvertPointE(K^j_s)
@@ -77,7 +77,7 @@ void make_carrot_enote_ephemeral_pubkey_cryptonote(const crypto::secret_key &eno
 bool try_make_carrot_enote_ephemeral_pubkey_subaddress(
     const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_spend_pubkey,
-    mx25519_pubkey &enote_ephemeral_pubkey_out);
+    crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
 /**
  * @brief Derive enote ephemeral pubkey D_e for either address type
  *   [is_subaddress]: D_e = d_e ConvertPointE(K^j_s)
@@ -91,7 +91,7 @@ bool try_make_carrot_enote_ephemeral_pubkey_subaddress(
 bool try_make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_spend_pubkey,
     const bool is_subaddress,
-    mx25519_pubkey &enote_ephemeral_pubkey_out);
+    crypto::x25519_pubkey &enote_ephemeral_pubkey_out);
 /**
  * @brief Perform the receiver-side ECDH exchange for Carrot enotes
  *   s_sr = k_v D_e
@@ -101,8 +101,8 @@ bool try_make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephe
  * @return true if successful, false if a failure occurred in point decompression
  */
 bool try_make_carrot_shared_key_receiver(const crypto::secret_key &k_view,
-    const mx25519_pubkey &enote_ephemeral_pubkey,
-    mx25519_pubkey &s_sender_receiver_out);
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    crypto::x25519_pubkey &s_sender_receiver_out);
 /**
  * @brief Perform the sender-side ECDH exchange for Carrot enotes
  *   s_sr = d_e ConvertPointE(K^j_v)
@@ -113,7 +113,7 @@ bool try_make_carrot_shared_key_receiver(const crypto::secret_key &k_view,
  */
 bool try_make_carrot_shared_key_sender(const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_view_pubkey,
-    mx25519_pubkey &s_sender_receiver_out);
+    crypto::x25519_pubkey &s_sender_receiver_out);
 /**
  * @brief Derive view tag, used for optimized identification of enotes
  *    vt = H_3[s_sr](input_context || Ko)
@@ -150,7 +150,7 @@ input_context_t make_carrot_input_context(const crypto::key_image &first_rct_key
  *   - note: this is 'crypto::hash' instead of 'crypto::secret_key' for better performance in multithreaded environments
  */
 void make_carrot_contextualized_sender_receiver_secret(const unsigned char s_sender_receiver[32],
-    const mx25519_pubkey &enote_ephemeral_pubkey,
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const input_context_t &input_context,
     crypto::hash &s_sender_receiver_ctx_out);
 /**
@@ -350,7 +350,7 @@ payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t encrypted_pa
  * @param k_view k_v
  * @param[out] anchor_special_out anchor_sp
  */
-void make_carrot_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubkey,
+void make_carrot_janus_anchor_special(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const input_context_t &input_context,
     const crypto::public_key &onetime_address,
     const crypto::secret_key &k_view,
@@ -432,7 +432,7 @@ bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
     const crypto::public_key &nominal_address_spend_pubkey,
     const bool is_subaddress,
     const payment_id_t nominal_payment_id,
-    const mx25519_pubkey &enote_ephemeral_pubkey);
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey);
 /**
  * @brief Check Ed25519 point is valid and is in prime order subgroup
  * @param P -

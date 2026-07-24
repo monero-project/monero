@@ -219,8 +219,4 @@ extern const mock_carrot_and_legacy_keys eve;
 } //namespace people
 } //namespace mock
 } //namespace carrot
-static inline bool operator==(const mx25519_pubkey &a, const mx25519_pubkey &b)
-{
-    return 0 == memcmp(&a, &b, sizeof(mx25519_pubkey));
-}
 //----------------------------------------------------------------------------------------------------------------------
