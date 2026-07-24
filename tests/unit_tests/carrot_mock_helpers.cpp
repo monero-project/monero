@@ -415,7 +415,7 @@ void mock_scan_enote_set(const std::vector<CarrotEnoteV1> &enotes,
         const CarrotEnoteV1 &enote = enotes.at(output_index);
 
         // s_sr = k_v D_e
-        mx25519_pubkey s_sr;
+        crypto::x25519_pubkey s_sr;
         if (!keys.k_view_incoming_dev.view_key_scalar_mult_x25519(enote.enote_ephemeral_pubkey, s_sr))
             continue;
 
@@ -488,7 +488,7 @@ void mock_scan_coinbase_enote_set(const std::vector<CarrotCoinbaseEnoteV1> &coin
         scan_result.enote_type = CarrotEnoteType::PAYMENT;
         scan_result.internal_message = janus_anchor_t{};
 
-        mx25519_pubkey s_sender_receiver;
+        crypto::x25519_pubkey s_sender_receiver;
         try_make_carrot_shared_key_receiver(keys.k_view_incoming_dev,
             enote.enote_ephemeral_pubkey,
             s_sender_receiver);
@@ -601,7 +601,7 @@ CarrotEnoteV1 gen_carrot_enote_v1()
         .amount_enc = gen_encrypted_amount(),
         .anchor_enc = gen_janus_anchor(),
         .view_tag = gen_view_tag(),
-        .enote_ephemeral_pubkey = gen_x25519_pubkey(),
+        .enote_ephemeral_pubkey = crypto::x25519_pubkey_gen(),
         .tx_first_key_image = gen_key_image()
     };
 }
@@ -613,7 +613,7 @@ CarrotCoinbaseEnoteV1 gen_carrot_coinbase_enote_v1()
         .amount = COIN + rct::randXmrAmount(COIN),
         .anchor_enc = gen_janus_anchor(),
         .view_tag = gen_view_tag(),
-        .enote_ephemeral_pubkey = gen_x25519_pubkey(),
+        .enote_ephemeral_pubkey = crypto::x25519_pubkey_gen(),
         .block_index = crypto::rand_idx<std::uint64_t>(CRYPTONOTE_MAX_BLOCK_NUMBER)
     };
 }

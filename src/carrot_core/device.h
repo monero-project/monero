@@ -33,7 +33,7 @@
 //local headers
 #include "core_types.h"
 #include "crypto/crypto.h"
-#include "mx25519.h"
+#include "crypto/x25519.h"
 
 //third party headers
 
@@ -133,7 +133,7 @@ struct view_incoming_key_device
      * @param[out] kvD
      * @return true on success, false on failure (e.g. unable to decompress point)
      */
-    virtual bool view_key_scalar_mult_x25519(const mx25519_pubkey &D, mx25519_pubkey &kvD) const = 0;
+    virtual bool view_key_scalar_mult_x25519(const crypto::x25519_pubkey &D, crypto::x25519_pubkey &kvD) const = 0;
 
     /**
      * @brief Derive a janus anchor for "special" enotes
@@ -143,7 +143,7 @@ struct view_incoming_key_device
      * @param account_spend_pubkey K_s
      * @param[out] anchor_special_out anchor_sp
      */
-    virtual void make_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubkey,
+    virtual void make_janus_anchor_special(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
         const input_context_t &input_context,
         const crypto::public_key &onetime_address,
         janus_anchor_t &anchor_special_out) const = 0;
@@ -174,7 +174,7 @@ struct view_balance_secret_device
      * @param input_context input_context
      * @param[out] s_sender_receiver_ctx_out s^ctx_sr
      */
-    virtual void make_internal_sender_receiver_secret(const mx25519_pubkey &enote_ephemeral_pubkey,
+    virtual void make_internal_sender_receiver_secret(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
         const input_context_t &input_context,
         crypto::hash &s_sender_receiver_ctx_out) const = 0;
 

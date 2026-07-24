@@ -32,7 +32,6 @@
 //local headers
 #include "carrot_core/core_types.h"
 #include "config.h"
-#include "crypto/crypto.h"
 extern "C"
 {
 #include "crypto/crypto-ops.h"
@@ -40,7 +39,6 @@ extern "C"
 #include "crypto/generators.h"
 #include "hash_functions.h"
 #include "int-util.h"
-#include "mx25519.h"
 #include "transcript_fixed.h"
 
 //third party headers
@@ -54,23 +52,6 @@ namespace carrot
 {
 namespace
 {
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-static void carrot_x25519_scmul_base(mx25519_pubkey &result, const mx25519_privkey &key)
-{
-    static const mx25519_impl* auto_mx25519_impl = mx25519_select_impl(MX25519_TYPE_AUTO);
-    assert(auto_mx25519_impl != nullptr);
-    mx25519_scmul_base(auto_mx25519_impl, &result, &key);
-}
-//-------------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------------
-static void carrot_x25519_scmul_key(mx25519_pubkey &result,
-    const mx25519_privkey &key, const mx25519_pubkey &pt)
-{
-    static const mx25519_impl* auto_mx25519_impl = mx25519_select_impl(MX25519_TYPE_AUTO);
-    assert(auto_mx25519_impl != nullptr);
-    mx25519_scmul_key(auto_mx25519_impl, &result, &key, &pt);
-}
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 /**
@@ -202,16 +183,16 @@ void make_carrot_enote_ephemeral_privkey(const janus_anchor_t &anchor_norm,
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_enote_ephemeral_pubkey_cryptonote(const crypto::secret_key &enote_ephemeral_privkey,
-    mx25519_pubkey &enote_ephemeral_pubkey_out)
+    crypto::x25519_pubkey &enote_ephemeral_pubkey_out)
 {
     // D_e = d_e B
-    carrot_x25519_scmul_base(enote_ephemeral_pubkey_out,
-        reinterpret_cast<const mx25519_privkey&>(enote_ephemeral_privkey));
+    crypto::x25519_scmul_base_unclamped(reinterpret_cast<const crypto::x25519_scalar&>(enote_ephemeral_privkey),
+        enote_ephemeral_pubkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_spend_pubkey,
-    mx25519_pubkey &enote_ephemeral_pubkey_out)
+    crypto::x25519_pubkey &enote_ephemeral_pubkey_out)
 {
     // deserialize K^j_s
     ge_p3 address_spend_pubkey_p3;
@@ -231,7 +212,7 @@ bool try_make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key 
 bool try_make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_spend_pubkey,
     const bool is_subaddress,
-    mx25519_pubkey &enote_ephemeral_pubkey_out)
+    crypto::x25519_pubkey &enote_ephemeral_pubkey_out)
 {
     if (is_subaddress)
     {
@@ -249,34 +230,34 @@ bool try_make_carrot_enote_ephemeral_pubkey(const crypto::secret_key &enote_ephe
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_make_carrot_shared_key_receiver(const crypto::secret_key &k_view,
-    const mx25519_pubkey &enote_ephemeral_pubkey,
-    mx25519_pubkey &s_sender_receiver_out)
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
+    crypto::x25519_pubkey &s_sender_receiver_out)
 {
     // s_sr = k_v D_e
-    carrot_x25519_scmul_key(s_sender_receiver_out,
-        reinterpret_cast<const mx25519_privkey&>(k_view),
-        enote_ephemeral_pubkey);
+    crypto::x25519_scmul_key_unclamped(reinterpret_cast<const crypto::x25519_scalar&>(k_view),
+        enote_ephemeral_pubkey,
+        s_sender_receiver_out);
 
     return true;
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool try_make_carrot_shared_key_sender(const crypto::secret_key &enote_ephemeral_privkey,
     const crypto::public_key &address_view_pubkey,
-    mx25519_pubkey &s_sender_receiver_out)
+    crypto::x25519_pubkey &s_sender_receiver_out)
 {
     // if K^j_v not in prime order subgroup, then FAIL
     if (!verify_point_is_in_main_subgroup(address_view_pubkey))
         return false;
 
     // D^j_v = ConvertPointE(K^j_v)
-    mx25519_pubkey address_view_pubkey_x25519;
+    crypto::x25519_pubkey address_view_pubkey_x25519;
     if (0 != edwards_bytes_to_x25519_vartime(address_view_pubkey_x25519.data, to_bytes(address_view_pubkey)))
         return false;
 
     // s_sr = d_e D^j_v
-    carrot_x25519_scmul_key(s_sender_receiver_out,
-        reinterpret_cast<const mx25519_privkey&>(enote_ephemeral_privkey),
-        address_view_pubkey_x25519);
+    crypto::x25519_scmul_key_unclamped(reinterpret_cast<const crypto::x25519_scalar&>(enote_ephemeral_privkey),
+        address_view_pubkey_x25519,
+        s_sender_receiver_out);
 
     return true;
 }
@@ -310,7 +291,7 @@ input_context_t make_carrot_input_context(const crypto::key_image &first_rct_key
 }
 //-------------------------------------------------------------------------------------------------------------------
 void make_carrot_contextualized_sender_receiver_secret(const unsigned char s_sender_receiver[32],
-    const mx25519_pubkey &enote_ephemeral_pubkey,
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const input_context_t &input_context,
     crypto::hash &s_sender_receiver_ctx_out)
 {
@@ -543,7 +524,7 @@ payment_id_t decrypt_legacy_payment_id(const encrypted_payment_id_t encrypted_pa
     return payment_id;
 }
 //-------------------------------------------------------------------------------------------------------------------
-void make_carrot_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubkey,
+void make_carrot_janus_anchor_special(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const input_context_t &input_context,
     const crypto::public_key &onetime_address,
     const crypto::secret_key &k_view,
@@ -665,7 +646,7 @@ bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
     const crypto::public_key &nominal_address_spend_pubkey,
     const bool is_subaddress,
     const payment_id_t nominal_payment_id,
-    const mx25519_pubkey &enote_ephemeral_pubkey)
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey)
 {
     // d_e' = H_n(anchor_norm, input_context, K^j_s, pid)
     crypto::secret_key nominal_enote_ephemeral_privkey;
@@ -676,7 +657,7 @@ bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
         nominal_enote_ephemeral_privkey);
 
     // recompute D_e' for d_e' and address type
-    mx25519_pubkey nominal_enote_ephemeral_pubkey;
+    crypto::x25519_pubkey nominal_enote_ephemeral_pubkey;
     if (!try_make_carrot_enote_ephemeral_pubkey(nominal_enote_ephemeral_privkey,
             nominal_address_spend_pubkey,
             is_subaddress,
@@ -684,7 +665,7 @@ bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
         return false;
 
     // D_e' ?= D_e
-    return 0 == memcmp(&nominal_enote_ephemeral_pubkey, &enote_ephemeral_pubkey, sizeof(mx25519_pubkey));
+    return 0 == memcmp(&nominal_enote_ephemeral_pubkey, &enote_ephemeral_pubkey, sizeof(crypto::x25519_pubkey));
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool verify_point_is_in_main_subgroup(const crypto::ec_point &P)
