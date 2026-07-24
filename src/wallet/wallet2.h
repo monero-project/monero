@@ -1624,6 +1624,7 @@ private:
 
     bool should_expand(const cryptonote::subaddress_index &index) const;
     bool spends_one_of_ours(const cryptonote::transaction &tx) const;
+    void commit_tx(pending_tx& ptx, bool reconnect);
 
     cryptonote::account_base m_account;
     boost::optional<epee::net_utils::http::login> m_daemon_login;
