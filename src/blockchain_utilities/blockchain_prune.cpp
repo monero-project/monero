@@ -124,7 +124,9 @@ static void add_size(MDB_env *env, uint64_t bytes)
   mdb_env_stat(env, &mst);
 
   uint64_t new_mapsize = (uint64_t)mei.me_mapsize + bytes;
-  new_mapsize += (new_mapsize % mst.ms_psize);
+  const uint64_t remainder = new_mapsize % mst.ms_psize;
+  if (remainder)
+    new_mapsize += mst.ms_psize - remainder;
 
   int result = mdb_env_set_mapsize(env, new_mapsize);
   if (result)
