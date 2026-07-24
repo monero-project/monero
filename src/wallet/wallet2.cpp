@@ -582,7 +582,7 @@ std::pair<std::unique_ptr<tools::wallet2>, tools::password_container> generate_f
       {
         THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to parse view key secret key"));
       }
-      viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
+      memcpy(&unwrap(unwrap(viewkey)), viewkey_data.data(), sizeof(viewkey));
       crypto::public_key pkey;
       if (viewkey == crypto::null_skey)
         THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("view secret key may not be all zeroes"));
@@ -600,7 +600,7 @@ std::pair<std::unique_ptr<tools::wallet2>, tools::password_container> generate_f
       {
         THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("failed to parse spend key secret key"));
       }
-      spendkey = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
+      memcpy(&unwrap(unwrap(spendkey)), spendkey_data.data(), sizeof(spendkey));
       crypto::public_key pkey;
       if (spendkey == crypto::null_skey)
         THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("spend secret key may not be all zeroes"));
@@ -6299,7 +6299,7 @@ bool wallet2::parse_long_payment_id(const std::string& payment_id_str, crypto::h
   if(sizeof(crypto::hash) != payment_id_data.size())
     return false;
 
-  payment_id = *reinterpret_cast<const crypto::hash*>(payment_id_data.data());
+  memcpy(&payment_id, payment_id_data.data(), sizeof(payment_id));
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -6312,7 +6312,7 @@ bool wallet2::parse_short_payment_id(const std::string& payment_id_str, crypto::
   if(sizeof(crypto::hash8) != payment_id_data.size())
     return false;
 
-  payment_id = *reinterpret_cast<const crypto::hash8*>(payment_id_data.data());
+  memcpy(&payment_id, payment_id_data.data(), sizeof(payment_id));
   return true;
 }
 //----------------------------------------------------------------------------------------------------
