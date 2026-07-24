@@ -642,6 +642,11 @@ function (monero_add_library_with_deps)
   set_property(TARGET "${MONERO_ADD_LIBRARY_NAME}" PROPERTY FOLDER "libs")
   target_compile_definitions(${objlib}
     PRIVATE $<TARGET_PROPERTY:${MONERO_ADD_LIBRARY_NAME},INTERFACE_COMPILE_DEFINITIONS>)
+  # Propagate inherited include diretories of target to its obj_* counterparts
+  target_include_directories(${objlib}
+    PRIVATE $<TARGET_PROPERTY:${MONERO_ADD_LIBRARY_NAME},INCLUDE_DIRECTORIES>)
+  target_include_directories(${objlib}
+    PRIVATE $<TARGET_PROPERTY:${MONERO_ADD_LIBRARY_NAME},INTERFACE_INCLUDE_DIRECTORIES>)
 endfunction ()
 
 add_subdirectory(external)
