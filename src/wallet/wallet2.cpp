@@ -6840,9 +6840,25 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   bool same_file = had_old_wallet_files && path.empty();
   if (had_old_wallet_files && !path.empty())
   {
-    const std::string canonical_old_path = boost::filesystem::canonical(m_wallet_file).string();
-    const std::string canonical_new_path = boost::filesystem::weakly_canonical(path).string();
-    same_file = canonical_old_path == canonical_new_path;
+    try
+    {
+      const std::string canonical_old_path = boost::filesystem::canonical(m_wallet_file).string();
+      const std::string canonical_new_path = boost::filesystem::weakly_canonical(path).string();
+      same_file = canonical_old_path == canonical_new_path;
+    }
+    catch (const std::exception &e)
+    {
+#ifdef _WIN32
+      MWARNING("Failed to canonicalize wallet path while comparing wallet files: "
+        << e.what() << ". Falling back to absolute path comparison.");
+
+      const std::string new_path = boost::filesystem::absolute(path).lexically_normal().string();
+      const std::string old_path = boost::filesystem::absolute(m_wallet_file).lexically_normal().string();
+      same_file = old_path == new_path;
+#else
+      throw;
+#endif
+    }
   }
 
   THROW_WALLET_EXCEPTION_IF(m_is_background_wallet && !same_file, error::wallet_internal_error,
