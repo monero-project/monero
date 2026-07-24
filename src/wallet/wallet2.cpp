@@ -48,6 +48,7 @@
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <openssl/evp.h>
+#include <openssl/pem.h>
 #include "include_base_utils.h"
 using namespace epee;
 
@@ -6931,24 +6932,12 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   }
 
   // Save cache to new file. If storing to the same file, the temp path has the ".new" extension
-#ifdef WIN32
-    // On Windows avoid using std::ofstream which does not work with UTF-8 filenames
-    // The price to pay is temporary higher memory consumption for string stream + binary archive
-    std::ostringstream oss;
-    binary_archive<true> oar(oss);
-    bool success = ::serialization::serialize(oar, cache_file_data.get());
-    if (success) {
-        success = save_to_file(new_file, oss.str());
-    }
-    THROW_WALLET_EXCEPTION_IF(!success, error::file_save_error, new_file);
-#else
-    std::ofstream ostr;
-    ostr.open(new_file, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
-    binary_archive<true> oar(ostr);
-    bool success = ::serialization::serialize(oar, cache_file_data.get());
-    ostr.close();
-    THROW_WALLET_EXCEPTION_IF(!success || !ostr.good(), error::file_save_error, new_file);
-#endif
+  const bool success = epee::file_io_utils::save_stream_to_file(new_file, [&cache_file_data](std::ostream& stream)
+  {
+    binary_archive<true> oar(stream);
+    return ::serialization::serialize(oar, cache_file_data.get());
+  });
+  THROW_WALLET_EXCEPTION_IF(!success, error::file_save_error, new_file);
 
   if (same_file)
   {
@@ -15200,25 +15189,13 @@ bool wallet2::save_to_file(const std::string& path_to_file, const std::string& r
     return epee::file_io_utils::save_string_to_file(path_to_file, raw);
   }
 
-  FILE *fp = fopen(path_to_file.c_str(), "w+");
-  if (!fp)
+  return epee::file_io_utils::detail::save_fd_to_file(path_to_file, [&raw](const int fd)
   {
-    MERROR("Failed to open wallet file for writing: " << path_to_file << ": " << strerror(errno));
-    return false;
-  }
-
-  // Save the result b/c we need to close the fp before returning success/failure.
-  int write_result = PEM_write(fp, ASCII_OUTPUT_MAGIC.c_str(), "", (const unsigned char *) raw.c_str(), raw.length());
-  fclose(fp);
-
-  if (write_result == 0)
-  {
-    return false;
-  }
-  else
-  {
-    return true;
-  }
+    std::unique_ptr<BIO, decltype(&BIO_free)> bio{BIO_new_fd(fd, BIO_NOCLOSE), BIO_free};
+    return bio &&
+      PEM_write_bio(bio.get(), ASCII_OUTPUT_MAGIC.c_str(), "", (const unsigned char *) raw.c_str(), raw.length()) != 0 &&
+      BIO_flush(bio.get()) == 1;
+  });
 }
 //----------------------------------------------------------------------------------------------------
 
