@@ -385,6 +385,7 @@ if(NOT MANUAL_SUBMODULES)
     endfunction ()
     
     message(STATUS "Checking submodules")
+    check_submodule(external/mx25519)
     check_submodule(external/rapidjson)
     check_submodule(external/randomx)
     check_submodule(external/supercop)
@@ -460,7 +461,13 @@ elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
   set(BSDI TRUE)
 endif()
 
-include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external external/supercop/include)
+include_directories(external/rapidjson/include
+  external/easylogging++
+  external/mx25519/include
+  src
+  contrib/epee/include
+  external
+  external/supercop/include)
 
 option(STATIC "Link libraries statically" OFF)
 
