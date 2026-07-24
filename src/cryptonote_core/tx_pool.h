@@ -343,10 +343,11 @@ namespace cryptonote
      *
      * @param key_images [in] vector of key images to check
      * @param spent [out] vector of bool to return
+     * @param include_sensitive include key images from hidden pool transactions
      *
      * @return true
      */
-    bool check_for_key_images(const std::vector<crypto::key_image>& key_images, std::vector<bool>& spent) const;
+    bool check_for_key_images(const std::vector<crypto::key_image>& key_images, std::vector<bool>& spent, bool include_sensitive = false) const;
 
     /**
      * @brief get a specific transaction from the pool

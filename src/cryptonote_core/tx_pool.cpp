@@ -1332,12 +1332,13 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::check_for_key_images(const std::vector<crypto::key_image>& key_images, std::vector<bool>& spent) const
+  bool tx_memory_pool::check_for_key_images(const std::vector<crypto::key_image>& key_images, std::vector<bool>& spent, const bool include_sensitive) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
 
     spent.clear();
+    const relay_category category = include_sensitive ? relay_category::all : relay_category::broadcasted;
 
     for (const auto& image : key_images)
     {
@@ -1346,7 +1347,7 @@ namespace cryptonote
       if (found != m_spent_key_images.end())
       {
         for (const crypto::hash& tx_hash : found->second)
-          is_spent |= m_blockchain.txpool_tx_matches_category(tx_hash, relay_category::broadcasted);
+          is_spent |= m_blockchain.txpool_tx_matches_category(tx_hash, category);
       }
       spent.push_back(is_spent);
     }

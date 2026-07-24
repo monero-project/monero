@@ -997,11 +997,11 @@ namespace cryptonote
     return res;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::are_key_images_spent_in_pool(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent) const
+  bool core::are_key_images_spent_in_pool(const std::vector<crypto::key_image>& key_im, std::vector<bool> &spent, const bool include_sensitive) const
   {
     spent.clear();
 
-    return m_mempool.check_for_key_images(key_im, spent);
+    return m_mempool.check_for_key_images(key_im, spent, include_sensitive);
   }
   //-----------------------------------------------------------------------------------------------
   std::pair<boost::multiprecision::uint128_t, boost::multiprecision::uint128_t> core::get_coinbase_tx_sum(const uint64_t start_offset, const size_t count)
