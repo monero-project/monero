@@ -41,6 +41,7 @@
 #include <boost/bimap.hpp>
 #include <boost/bimap/set_of.hpp>
 #include <boost/bimap/multiset_of.hpp>
+#include <boost/bimap/unordered_multiset_of.hpp>
 
 #include "span.h"
 #include "string_tools.h"
@@ -250,17 +251,36 @@ namespace cryptonote
     /**
      * @brief Chooses transactions for a block to include
      *
-     * @param bl return-by-reference the block to fill in with transactions
-     * @param median_weight the current median block weight
+     * @param median_weight the current median block weight used for penalty calculations
      * @param already_generated_coins the current total number of coins "minted"
-     * @param total_weight return-by-reference the total weight of the new block
-     * @param fee return-by-reference the total of fees from the included transactions
-     * @param expected_reward return-by-reference the total reward awarded to the miner finding this block, including transaction fees
-     * @param version hard fork version to use for consensus rules
+     * @param hf_version the current hard fork version
+     * @param overpick if >0, the ratio over the hard weight limit for which to limit total weight of `selected_backlog`
+     * @param[out] selected_backlog potential (TXID, weight, fee) tuples, in descending preference order
      *
-     * @return true
+     * Not all transactions in the pool will be returned for performance, consensus, and/or
+     * profitability reasons. If there are too many transactions in the pool, only the
+     * highest-paying / oldest transactions will be returned - but enough for the miner to create a
+     * full block. Transactions which do not pass validation rules for the next block are also
+     * filtered out. However, @warning, `selected_backlog` may also contain *too many entries*, even
+     * when `overpick_ratio` == 0, such that block weight limit is surpassed after including the
+     * coinbase transaction. In this case, it is a good idea to pop candidates from the back of the
+     * list until the weight is within the limit.
+     *
+     * The target limit is calculated as (1 + `overpick`) * theoretical block weight limit. So for
+     * example, an `overpick` value of 0.1 will try to fill `selected_backlog` so that it's total
+     * weight is 110% of the block weight limit. When `overpick` > 0, entries in `selected_backlog`
+     * may not be net profitable to include in the block, even if they fit within the block.
+     *
+     * This function *may* do some upkeep on the mempool, including updating transaction
+     * verification metadata, and removing stale unverifiable transactions.
+     *
+     * @return true on success
      */
-    bool fill_block_template(block &bl, size_t median_weight, uint64_t already_generated_coins, size_t &total_weight, uint64_t &fee, uint64_t &expected_reward, uint8_t version);
+    bool get_block_template_backlog(size_t median_weight,
+      uint64_t already_generated_coins,
+      uint8_t hf_version,
+      float overpick,
+      std::vector<tx_block_template_backlog_entry> &selected_backlog);
 
     /**
      * @brief get a list of all transactions in the pool
@@ -288,19 +308,6 @@ namespace cryptonote
      *
      */
     void get_transaction_backlog(std::vector<tx_backlog_entry>& backlog, bool include_sensitive = false) const;
-
-    /**
-     * @brief get (hash, weight, fee) for transactions in the pool - the minimum required information to create a block template
-     *
-     * Not all transactions in the pool will be returned for performance reasons
-     * If there are too many transactions in the pool, only the highest-paying transactions
-     * will be returned - but enough for the miner to create a full block
-     *
-     * @param backlog return-by-reference that data
-     * @param include_sensitive return stempool, anonymity-pool, and unrelayed txes
-     *
-     */
-    void get_block_template_backlog(std::vector<tx_block_template_backlog_entry>& backlog, bool include_sensitive = false) const;
 
     /**
      * @brief get a summary statistics of all transaction hashes in the pool
@@ -575,37 +582,14 @@ namespace cryptonote
     bool remove_transaction_keyimages(const transaction_prefix& tx, const crypto::hash &txid);
 
     /**
-     * @brief check if any of a transaction's spent key images are present in a given set
-     *
-     * @param kic the set of key images to check against
-     * @param tx the transaction to check
-     *
-     * @return true if any key images present in the set, otherwise false
-     */
-    static bool have_key_images(const std::unordered_set<crypto::key_image>& kic, const transaction_prefix& tx);
-
-    /**
-     * @brief append the key images from a transaction to the given set
-     *
-     * @param kic the set of key images to append to
-     * @param tx the transaction
-     *
-     * @return false if any append fails, otherwise true
-     */
-    static bool append_key_images(std::unordered_set<crypto::key_image>& kic, const transaction_prefix& tx);
-
-    /**
      * @brief check if a transaction is a valid candidate for inclusion in a block
      *
      * @param txd the transaction to check (and info about it)
      * @param txid the txid of the transaction to check
-     * @param txblob the transaction blob to check
-     * @param tx the parsed transaction, if successful
      *
      * @return true if the transaction is good to go, otherwise false
      */
-    bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, const crypto::hash &txid, const cryptonote::blobdata_ref &txblob, transaction&tx) const;
-    bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, const crypto::hash &txid, const cryptonote::blobdata &txblob, transaction&tx) const;
+    bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, const crypto::hash &txid) const;
 
     /**
      * @brief mark all transactions double spending the one passed
@@ -625,14 +609,17 @@ namespace cryptonote
 
     //TODO: confirm the below comments and investigate whether or not this
     //      is the desired behavior
-    //! map key images to transactions which spent them
+    //! map key images to transactions which spent them, and vice versa
     /*! this seems odd, but it seems that multiple transactions can exist
      *  in the pool which both have the same spent key.  This would happen
      *  in the event of a reorg where someone creates a new/different
      *  transaction on the assumption that the original will not be in a
      *  block again.
      */
-    typedef std::unordered_map<crypto::key_image, std::unordered_set<crypto::hash>> key_images_container;
+    typedef boost::bimap<
+        boost::bimaps::unordered_multiset_of<crypto::key_image>,
+        boost::bimaps::unordered_multiset_of<crypto::hash>
+      > key_images_container;
 
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
 public:

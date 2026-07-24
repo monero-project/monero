@@ -83,6 +83,9 @@ DISABLE_VS_WARNINGS(4267)
 // used to overestimate the block reward when estimating a per kB to use
 #define BLOCK_REWARD_OVERESTIMATE (10 * 1000000000000)
 
+/// @brief Parameter for block template backlog fetching: targets total weight 112.5% of the block's limit
+#define DEFAULT_RPC_TX_BACKLOG_OVERPICK 0.125f
+
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_reset_timestamps_and_difficulties_height(true), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
@@ -1668,9 +1671,9 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 
   CHECK_AND_ASSERT_MES(diffic, false, "difficulty overhead.");
 
-  size_t txs_weight;
-  uint64_t fee;
-  if (!m_tx_pool.fill_block_template(b, median_weight, already_generated_coins, txs_weight, fee, expected_reward, b.major_version))
+  std::vector<tx_block_template_backlog_entry> selected_backlog;
+  if (!m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins,
+    b.major_version, /*overpick=*/0, selected_backlog))
   {
     return false;
   }
@@ -1728,6 +1731,21 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
       ", fee " << fee);
 #endif
 
+  // collect TXID list and total stats
+  uint64_t txs_weight = 0;
+  uint64_t fee = 0;
+  b.tx_hashes.reserve(selected_backlog.size());
+  for (const tx_block_template_backlog_entry &e : selected_backlog)
+  {
+    CHECK_AND_ASSERT_MES(std::numeric_limits<uint64_t>::max() - e.weight >= txs_weight,
+      false, "Overflow in block weight calculation");
+    CHECK_AND_ASSERT_MES(std::numeric_limits<uint64_t>::max() - e.fee >= fee,
+      false, "Overflow in block total fee calculation");
+    txs_weight += e.weight;
+    fee += e.fee;
+    b.tx_hashes.push_back(e.id);
+  }
+
   /*
    two-phase miner transaction generation: we don't know exact block weight until we prepare block, but we don't know reward until we know
    block weight, so first miner transaction generated with fake amount of money, and with phase we know think we know expected block weight
@@ -1735,18 +1753,33 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   //make blocks coin-base tx looks close to real coinbase tx to get truthful blob weight
   uint8_t hf_version = b.major_version;
   size_t max_outs = hf_version >= 4 ? 1 : 11;
-  bool r = construct_miner_tx(height, median_weight, already_generated_coins, txs_weight, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version);
-  CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, first chance");
-  cumulative_weight = txs_weight + get_transaction_weight(b.miner_tx);
+  cumulative_weight = txs_weight;
 #if defined(DEBUG_CREATE_BLOCK_TEMPLATE)
   MDEBUG("Creating block template: miner tx weight " << get_transaction_weight(b.miner_tx) <<
       ", cumulative weight " << cumulative_weight);
 #endif
   for (size_t try_count = 0; try_count != 10; ++try_count)
   {
-    r = construct_miner_tx(height, median_weight, already_generated_coins, cumulative_weight, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version);
+    const bool miner_tx_made = construct_miner_tx(height, median_weight, already_generated_coins,
+      cumulative_weight, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version);
 
-    CHECK_AND_ASSERT_MES(r, false, "Failed to construct miner tx, second chance");
+    // On miner tx creation failure, if we have txs to pop, try that...
+    if (!miner_tx_made)
+    {
+      CHECK_AND_ASSERT_MES(!b.tx_hashes.empty(),
+        false, "Failed to create miner transaction, but have no non-miner txs to pop");
+      b.tx_hashes.pop_back();
+      assert(selected_backlog.size() == b.tx_hashes.size());
+      const tx_block_template_backlog_entry &backlog_entry = selected_backlog.back();
+      assert(txs_weight >= backlog_entry.weight);
+      txs_weight -= backlog_entry.weight;
+      assert(fee >= backlog_entry.fee);
+      fee -= backlog_entry.fee;
+      selected_backlog.pop_back();
+      cumulative_weight = txs_weight;
+      continue;
+    }
+
     size_t coinbase_weight = get_transaction_weight(b.miner_tx);
     if (coinbase_weight > cumulative_weight - txs_weight)
     {
@@ -1788,6 +1821,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
         ", cumulative weight " << cumulative_weight << " is now good");
 #endif
 
+    expected_reward = get_outs_money_amount(b.miner_tx);
     if (!from_block)
       cache_block_template(b, miner_address, ex_nonce, diffic, height, expected_reward, cumulative_weight, seed_height, seed_hash, pool_cookie);
     return true;
@@ -1820,9 +1854,8 @@ bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto
   median_weight = m_current_block_cumul_weight_median;
   already_generated_coins = m_db->get_block_already_generated_coins(height - 1);
 
-  m_tx_pool.get_block_template_backlog(tx_backlog);
-
-  return true;
+  return m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins, major_version,
+    DEFAULT_RPC_TX_BACKLOG_OVERPICK, tx_backlog);
 }
 //------------------------------------------------------------------
 // for an alternate chain, get the timestamps from the main chain to complete
@@ -5560,8 +5593,8 @@ bool Blockchain::for_all_outputs(uint64_t amount, std::function<bool(uint64_t he
 
 void Blockchain::invalidate_block_template_cache()
 {
-  MDEBUG("Invalidating block template cache");
-  m_btc_valid = false;
+  if (std::exchange(m_btc_valid, false))
+    MDEBUG("Invalidating block template cache");
 }
 
 void Blockchain::cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t cumulative_weight, uint64_t seed_height, const crypto::hash &seed_hash, uint64_t pool_cookie)
@@ -5588,9 +5621,18 @@ void Blockchain::send_miner_notifications(uint64_t height, const crypto::hash &s
   const uint8_t major_version = m_hardfork->get_ideal_version(height);
   const difficulty_type diff = get_difficulty_for_next_block();
   const uint64_t median_weight = m_current_block_cumul_weight_median;
+  const float overpick = DEFAULT_RPC_TX_BACKLOG_OVERPICK;
 
   std::vector<tx_block_template_backlog_entry> tx_backlog;
-  m_tx_pool.get_block_template_backlog(tx_backlog);
+  if (!m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins, major_version,
+    overpick, tx_backlog))
+  {
+    MERROR("Could not retreive mempool's block template backlog for block " << height
+      << ": median weight " << median_weight << " already generated coins "
+      << already_generated_coins << " major version " << major_version
+      << " overpick ratio " << overpick << ". Miner notifications will not be sent.");
+    return;
+  }
 
   for (const auto& notifier : m_miner_notifiers)
   {
