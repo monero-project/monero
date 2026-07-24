@@ -12668,6 +12668,7 @@ std::string wallet2::get_keys_file() const
 
 std::string wallet2::get_daemon_address() const
 {
+  boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
   return m_daemon_address;
 }
 
