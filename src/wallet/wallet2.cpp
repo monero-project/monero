@@ -2732,6 +2732,9 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     auto it = m_key_images.find(in_to_key.k_image);
     if(it != m_key_images.end())
     {
+      THROW_WALLET_EXCEPTION_IF(it->second >= m_transfers.size(), error::wallet_internal_error,
+          std::string("Key images cache contains illegal transfer offset: ") + std::to_string(it->second)
+          + " m_transfers.size() = " + std::to_string(m_transfers.size()));
       transfer_details& td = m_transfers[it->second];
       uint64_t amount = in_to_key.amount;
       if (amount > 0)
@@ -6689,6 +6692,14 @@ void wallet2::load_wallet_cache(const bool use_fs, const std::string& cache_buf)
         ar >> *this;
       }
     }
+    for (const auto &key_image : m_key_images)
+      THROW_WALLET_EXCEPTION_IF(key_image.second >= m_transfers.size(), error::wallet_internal_error,
+          std::string("Key images cache contains illegal transfer offset: ") + std::to_string(key_image.second)
+          + " m_transfers.size() = " + std::to_string(m_transfers.size()));
+    for (const auto &pub_key : m_pub_keys)
+      THROW_WALLET_EXCEPTION_IF(pub_key.second >= m_transfers.size(), error::wallet_internal_error,
+          std::string("Public keys cache contains illegal transfer offset: ") + std::to_string(pub_key.second)
+          + " m_transfers.size() = " + std::to_string(m_transfers.size()));
     THROW_WALLET_EXCEPTION_IF(
       m_account_public_address.m_spend_public_key != m_account.get_keys().m_account_address.m_spend_public_key ||
       m_account_public_address.m_view_public_key  != m_account.get_keys().m_account_address.m_view_public_key,
@@ -11799,6 +11810,9 @@ std::string wallet2::get_spend_proof(const crypto::hash &txid, const std::string
     }
 
     // derive the real output keypair
+    THROW_WALLET_EXCEPTION_IF(found->second >= m_transfers.size(), error::wallet_internal_error,
+        std::string("Key images cache contains illegal transfer offset: ") + std::to_string(found->second)
+        + " m_transfers.size() = " + std::to_string(m_transfers.size()));
     const transfer_details& in_td = m_transfers[found->second];
     crypto::public_key in_tx_out_pkey = in_td.get_public_key();
     const crypto::public_key in_tx_pub_key = get_tx_pub_key_from_extra(in_td.m_tx, in_td.m_pk_index);
