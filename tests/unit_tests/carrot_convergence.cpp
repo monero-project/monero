@@ -41,11 +41,6 @@ using namespace carrot;
 
 namespace
 {
-bool operator==(const mx25519_pubkey &lhs, const mx25519_pubkey &rhs)
-{
-    return 0 == memcmp(lhs.data, rhs.data, sizeof(mx25519_pubkey));
-}
-
 template <typename T>
 const T &pod_unwrap(const T &v) { return v; }
 template <typename T>
@@ -121,9 +116,9 @@ static const hex_value_t<carrot::janus_anchor_t> anchor_special("dea14ab8268ba49
 static const hex_value_t<carrot::input_context_t> input_context("9423f74f3e869dc8427d8b35bb24c917480409c3f4750bff3c742f8e4d5af7bef7");
 static const hex_value_t<carrot::payment_id_t> payment_id("4321734f56621440");
 static const hex_value_t<crypto::secret_key> enote_ephemeral_privkey("6bd72042c79d9532a3b90b3689ee53c22725a11169ac2d251337bc4a69b2340d");
-static const hex_value_t<mx25519_pubkey> enote_ephemeral_pubkey_cryptonote("65b42ef1ed3bd2ab3e6e86d17a52d832bcb6c820a8987306bedd9f6453693869");
-static const hex_value_t<mx25519_pubkey> enote_ephemeral_pubkey_subaddress("d8e787047bb21d7dd348524741c78f311f549554b6dffd71c86ecc4a98a15720");
-static const hex_value_t<mx25519_pubkey> s_sender_receiver("513ee79c0c8d76fdd95665a36d607b618e2f76a4806cfdba340fafe64b7f805f");
+static const hex_value_t<crypto::x25519_pubkey> enote_ephemeral_pubkey_cryptonote("65b42ef1ed3bd2ab3e6e86d17a52d832bcb6c820a8987306bedd9f6453693869");
+static const hex_value_t<crypto::x25519_pubkey> enote_ephemeral_pubkey_subaddress("d8e787047bb21d7dd348524741c78f311f549554b6dffd71c86ecc4a98a15720");
+static const hex_value_t<crypto::x25519_pubkey> s_sender_receiver("513ee79c0c8d76fdd95665a36d607b618e2f76a4806cfdba340fafe64b7f805f");
 static const hex_value_t<crypto::hash> s_sender_receiver_ctx("6d4288869ce44ed5c38d4016b33083a1a0200daa2d8afc16625702d2108b62ae");
 static const rct::xmr_amount amount = 67000000000000;
 static const hex_value_t<crypto::secret_key> amount_blinding_factor_payment("2943f1f7cdabfcfef4803fe6a36df414065e912089ebcee5dbdad32a9685060a");
@@ -254,7 +249,7 @@ TEST(carrot_convergence, make_carrot_enote_ephemeral_privkey)
 //---------------------------------------------------------------------------------------------------------------------
 TEST(carrot_convergence, make_carrot_enote_ephemeral_pubkey_cryptonote)
 {
-    mx25519_pubkey enote_ephemeral_pubkey_rc;
+    crypto::x25519_pubkey enote_ephemeral_pubkey_rc;
     make_carrot_enote_ephemeral_pubkey_cryptonote(enote_ephemeral_privkey.value,
         enote_ephemeral_pubkey_rc);
     EXPECT_TRUE(enote_ephemeral_pubkey_cryptonote.matches(enote_ephemeral_pubkey_rc));
@@ -262,7 +257,7 @@ TEST(carrot_convergence, make_carrot_enote_ephemeral_pubkey_cryptonote)
 //---------------------------------------------------------------------------------------------------------------------
 TEST(carrot_convergence, make_carrot_enote_ephemeral_pubkey_subaddress)
 {
-    mx25519_pubkey enote_ephemeral_pubkey_rc;
+    crypto::x25519_pubkey enote_ephemeral_pubkey_rc;
     const bool r = try_make_carrot_enote_ephemeral_pubkey_subaddress(enote_ephemeral_privkey.value,
         subaddress_spend_pubkey.value,
         enote_ephemeral_pubkey_rc);
@@ -272,7 +267,7 @@ TEST(carrot_convergence, make_carrot_enote_ephemeral_pubkey_subaddress)
 //---------------------------------------------------------------------------------------------------------------------
 TEST(carrot_convergence, try_make_carrot_shared_key_receiver)
 {
-    mx25519_pubkey s_sender_receiver_rc;
+    crypto::x25519_pubkey s_sender_receiver_rc;
     try_make_carrot_shared_key_receiver(k_view_incoming.value,
         enote_ephemeral_pubkey_subaddress.value,
         s_sender_receiver_rc);
@@ -281,7 +276,7 @@ TEST(carrot_convergence, try_make_carrot_shared_key_receiver)
 //---------------------------------------------------------------------------------------------------------------------
 TEST(carrot_convergence, try_make_carrot_shared_key_sender)
 {
-    mx25519_pubkey s_sender_receiver_rc;
+    crypto::x25519_pubkey s_sender_receiver_rc;
     try_make_carrot_shared_key_sender(enote_ephemeral_privkey.value,
         subaddress_view_pubkey.value,
         s_sender_receiver_rc);
