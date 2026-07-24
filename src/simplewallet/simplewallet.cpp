@@ -3964,7 +3964,15 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       }
       else
       {
-        if (!crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key, old_language))
+        const bool has_mnemonic_language = !m_mnemonic_language.empty();
+        if (has_mnemonic_language && !crypto::ElectrumWords::is_valid_language(m_mnemonic_language))
+        {
+          fail_msg_writer() << tr("invalid mnemonic language");
+          return false;
+        }
+        if (!(has_mnemonic_language ?
+            crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key, old_language, m_mnemonic_language) :
+            crypto::ElectrumWords::words_to_bytes(m_electrum_seed, m_recovery_key, old_language)))
         {
           fail_msg_writer() << tr("Electrum-style word list failed verification");
           return false;
