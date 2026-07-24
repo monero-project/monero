@@ -75,6 +75,8 @@ namespace epee
     bool operator!=(const wipeable_string &other) const noexcept { return buffer != other.buffer; }
     wipeable_string &operator=(wipeable_string &&other);
     wipeable_string &operator=(const wipeable_string &other);
+    char& operator[](size_t idx);
+    const char& operator[](size_t idx) const;
 
   private:
     void grow(size_t sz, size_t reserved = 0);
