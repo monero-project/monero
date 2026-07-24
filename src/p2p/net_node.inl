@@ -1144,7 +1144,8 @@ namespace nodetool
     typename COMMAND_HANDSHAKE::request arg;
     typename COMMAND_HANDSHAKE::response rsp;
     get_local_node_data(arg.node_data, zone);
-    m_payload_handler.get_payload_sync_data(arg.payload_data);
+    if (!just_take_peerlist)
+      m_payload_handler.get_payload_sync_data(arg.payload_data);
 
     epee::simple_event ev;
     std::atomic<bool> hsh_result(false);
