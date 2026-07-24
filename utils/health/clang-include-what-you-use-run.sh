@@ -70,6 +70,6 @@ tar -cJvf "$RESULT.txz" "$RESULT"		# Zip the result, because it's huge.
 rm -v "$RESULT"
 
 echo ""
-echo "Readable result stored in: $DIR_BUILD/$RESULT.gz"
+echo "Readable result stored in: $DIR_BUILD/$RESULT.txz"
 
 echo "$KPI" > "kpis.txt"
