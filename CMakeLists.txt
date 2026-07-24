@@ -397,6 +397,7 @@ if(NOT MANUAL_SUBMODULES)
     endfunction ()
     
     message(STATUS "Checking submodules")
+    check_submodule(external/mx25519)
     check_submodule(external/rapidjson)
     check_submodule(external/randomx)
     check_submodule(external/supercop)
