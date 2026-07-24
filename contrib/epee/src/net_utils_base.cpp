@@ -1,6 +1,8 @@
 
 #include "net/net_utils_base.h"
 
+#include <algorithm>
+
 #include <boost/uuid/uuid_io.hpp>
 
 #include "string_tools.h"
@@ -44,6 +46,34 @@ namespace epee { namespace net_utils
 	std::string ipv6_network_address::host_str() const { return m_address.to_string(); }
 	bool ipv6_network_address::is_loopback() const { return m_address.is_loopback(); }
 	bool ipv6_network_address::is_local() const { return m_address.is_link_local(); }
+
+	static bool is_ipv6_unique_local(const boost::asio::ip::address_v6& ip)
+	{
+		const boost::asio::ip::address_v6::bytes_type bytes = ip.to_bytes();
+		return (bytes[0] & 0xfe) == 0xfc;
+	}
+
+	bool is_ipv6_public_connection_limit_address(const boost::asio::ip::address_v6& ip)
+	{
+		return !ip.is_unspecified() && !ip.is_loopback() && !ip.is_multicast() &&
+			!ip.is_link_local() && !ip.is_site_local() && !is_ipv6_unique_local(ip) &&
+			!ip.is_v4_mapped();
+	}
+
+	boost::asio::ip::address_v6 get_ipv6_subnet_address(const boost::asio::ip::address_v6& ip, const size_t prefix_bits)
+	{
+		boost::asio::ip::address_v6::bytes_type bytes = ip.to_bytes();
+		const size_t bits = std::min(prefix_bits, size_t{128});
+		if (bits < 128)
+		{
+			const size_t full_bytes = bits / 8;
+			const size_t remainder_bits = bits % 8;
+			if (remainder_bits != 0)
+				bytes[full_bytes] &= 0xff << (8 - remainder_bits);
+			std::fill(bytes.begin() + full_bytes + (remainder_bits != 0), bytes.end(), 0);
+		}
+		return boost::asio::ip::address_v6(bytes);
+	}
 
 
 	bool ipv4_network_subnet::equal(const ipv4_network_subnet& other) const noexcept
@@ -159,4 +189,3 @@ namespace epee { namespace net_utils
     return zone::invalid;
   }
 }}
-

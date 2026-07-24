@@ -32,6 +32,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address_v6.hpp>
+#include <cstddef>
 #include <typeinfo>
 #include <type_traits>
 #include "byte_slice.h"
@@ -207,6 +208,9 @@ namespace net_utils
 			KV_SERIALIZE(m_port)
 		END_KV_SERIALIZE_MAP()
 	};
+
+	bool is_ipv6_public_connection_limit_address(const boost::asio::ip::address_v6& ip);
+	boost::asio::ip::address_v6 get_ipv6_subnet_address(const boost::asio::ip::address_v6& ip, const size_t prefix_bits);
 
 	inline bool operator==(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
 	{ return lhs.equal(rhs); }

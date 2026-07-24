@@ -146,6 +146,98 @@ static bool is_blocked(Server &server, const epee::net_utils::network_address &a
   return false;
 }
 
+TEST(node_server, p2p_connection_limit_ipv6_by_64)
+{
+  const epee::net_utils::network_address ipv6_a{
+    epee::net_utils::ipv6_network_address{
+      boost::asio::ip::make_address_v6("2001:db8:abcd:1234:1111:2222:3333:4444"), 18080
+    }
+  };
+  const epee::net_utils::network_address ipv6_b{
+    epee::net_utils::ipv6_network_address{
+      boost::asio::ip::make_address_v6("2001:db8:abcd:1234:ffff:eeee:dddd:cccc"), 18080
+    }
+  };
+  const epee::net_utils::network_address ipv6_c{
+    epee::net_utils::ipv6_network_address{
+      boost::asio::ip::make_address_v6("2001:db8:abcd:1235::1"), 18080
+    }
+  };
+
+  EXPECT_TRUE(nodetool::is_same_p2p_connection_limit_host(ipv6_a, ipv6_b));
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(ipv6_a, ipv6_c));
+
+  const epee::net_utils::network_address loopback_a{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6::loopback(), 18080}
+  };
+  const epee::net_utils::network_address loopback_b{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("::2"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(loopback_a, loopback_b));
+
+  const epee::net_utils::network_address link_local_a{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fe80::1"), 18080}
+  };
+  const epee::net_utils::network_address link_local_b{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fe80::2"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(link_local_a, link_local_b));
+
+  const epee::net_utils::network_address unique_local_a{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fc00::1"), 18080}
+  };
+  const epee::net_utils::network_address unique_local_b{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fc00::2"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(unique_local_a, unique_local_b));
+
+  const epee::net_utils::network_address unique_local_c{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fd00::1"), 18080}
+  };
+  const epee::net_utils::network_address unique_local_d{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fd00::2"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(unique_local_c, unique_local_d));
+
+  const epee::net_utils::network_address multicast_a{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("ff00::1"), 18080}
+  };
+  const epee::net_utils::network_address multicast_b{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("ff00::2"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(multicast_a, multicast_b));
+
+  const epee::net_utils::network_address site_local_a{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fec0::1"), 18080}
+  };
+  const epee::net_utils::network_address site_local_b{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fec0::2"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(site_local_a, site_local_b));
+
+  const epee::net_utils::network_address ipv4_a{MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 1, 18080)};
+  const epee::net_utils::network_address ipv4_b{MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 2, 18080)};
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(ipv4_a, ipv4_b));
+
+  boost::asio::ip::address_v6::bytes_type bytes_a = {};
+  bytes_a[10] = 0xff;
+  bytes_a[11] = 0xff;
+  bytes_a[12] = 203;
+  bytes_a[13] = 0;
+  bytes_a[14] = 113;
+  bytes_a[15] = 1;
+  const epee::net_utils::network_address mapped_a{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes_a}, 18080}
+  };
+
+  boost::asio::ip::address_v6::bytes_type bytes_b = bytes_a;
+  bytes_b[15] = 2;
+  const epee::net_utils::network_address mapped_b{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes_b}, 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(mapped_a, mapped_b));
+}
+
 namespace
 {
   using path_t = boost::filesystem::path;

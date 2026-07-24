@@ -65,6 +65,19 @@ namespace net_utils
 			critical_section m_lock;
 		};
 
+		// RPC limits public IPv6 clients by /64 to avoid per-address limit bypasses.
+		inline std::string get_rpc_connection_limit_key(const net_utils::network_address& address)
+		{
+			if (address.get_type_id() == net_utils::ipv6_network_address::get_type_id())
+			{
+				const boost::asio::ip::address_v6 ip = address.as<const net_utils::ipv6_network_address>().ip();
+				if (net_utils::is_ipv6_public_connection_limit_address(ip))
+					return net_utils::get_ipv6_subnet_address(ip, 64).to_string() + "/64";
+			}
+
+			return address.host_str();
+		}
+
 		/************************************************************************/
 		/*                                                                      */
 		/************************************************************************/
