@@ -755,12 +755,6 @@ private:
     std::string path() const;
 
     /*!
-     * \brief has_proxy_option      Check the global proxy (--proxy) has been defined or not.
-     * \return                      returns bool representing the global proxy (--proxy).
-     */
-    bool has_proxy_option() const;
-
-    /*!
      * \brief verifies given password is correct for default wallet keys file
      */
     bool verify_password(const epee::wipeable_string& password) {crypto::secret_key key = crypto::null_skey; return verify_password(password, key);};

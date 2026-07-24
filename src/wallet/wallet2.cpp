@@ -1288,11 +1288,6 @@ bool wallet2::has_stagenet_option(const boost::program_options::variables_map& v
   return command_line::get_arg(vm, options().stagenet);
 }
 
-bool wallet2::has_proxy_option() const
-{
-  return !m_proxy.empty();
-}
-
 std::string wallet2::device_name_option(const boost::program_options::variables_map& vm)
 {
   return command_line::get_arg(vm, options().hw_device);
@@ -1387,9 +1382,8 @@ bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_u
 
   if(m_http_client->is_connected())
     m_http_client->disconnect();
-  CHECK_AND_ASSERT_MES2(m_proxy.empty() || proxy.empty() , "It is not possible to set global proxy (--proxy) and daemon specific proxy together.");
-  if(m_proxy.empty())
-    CHECK_AND_ASSERT_MES(set_proxy(proxy), false, "failed to set proxy address");
+  CHECK_AND_ASSERT_MES(set_proxy(proxy), false, "failed to set proxy address");
+  m_proxy = proxy;
   const bool changed = m_daemon_address != daemon_address;
   m_daemon_address = std::move(daemon_address);
   m_daemon_login = std::move(daemon_login);
@@ -1419,12 +1413,10 @@ bool wallet2::set_proxy(const std::string &address)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, const std::string &proxy_address, uint64_t upper_transaction_weight_limit, bool trusted_daemon, epee::net_utils::ssl_options_t ssl_options)
 {
-  m_proxy = proxy_address;
-  CHECK_AND_ASSERT_MES(set_proxy(m_proxy), false, "failed to set proxy address");
   m_checkpoints.init_default_checkpoints(m_nettype);
   m_is_initialized = true;
   m_upper_transaction_weight_limit = upper_transaction_weight_limit;
-  return set_daemon(daemon_address, daemon_login, trusted_daemon, std::move(ssl_options));
+  return set_daemon(daemon_address, daemon_login, trusted_daemon, std::move(ssl_options), proxy_address);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_deterministic() const
