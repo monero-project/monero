@@ -56,6 +56,11 @@ namespace
 
   struct test_protocol_handler_config
   {
+    template<typename T>
+    static constexpr bool after_init_connection(const std::shared_ptr<T>&) noexcept
+    {
+      return true;
+    }
   };
 
   struct test_protocol_handler
@@ -64,10 +69,6 @@ namespace
     typedef test_protocol_handler_config config_type;
 
     test_protocol_handler(epee::net_utils::i_service_endpoint* /*psnd_hndlr*/, config_type& /*config*/, connection_context& /*conn_context*/)
-    {
-    }
-
-    void after_init_connection()
     {
     }
 
@@ -171,7 +172,7 @@ TEST(test_epee_connection, test_lifetime)
 
   using handler_t = epee::levin::async_protocol_handler<context_t>;
   using connection_t = epee::net_utils::connection<handler_t>;
-  using connection_ptr = boost::shared_ptr<connection_t>;
+  using connection_ptr = std::shared_ptr<connection_t>;
   using shared_state_t = typename connection_t::shared_state;
   using shared_state_ptr = std::shared_ptr<shared_state_t>;
   using shared_states_t = std::vector<shared_state_ptr>;
@@ -185,7 +186,7 @@ TEST(test_epee_connection, test_lifetime)
   using server_t = epee::net_utils::boosted_tcp_server<handler_t>;
   using lock_t = std::mutex;
   using lock_guard_t = std::lock_guard<lock_t>;
-  using connection_weak_ptr = boost::weak_ptr<connection_t>;
+  using connection_weak_ptr = std::weak_ptr<connection_t>;
   struct shared_conn_t {
     lock_t lock;
     connection_weak_ptr conn;
@@ -239,7 +240,7 @@ TEST(test_epee_connection, test_lifetime)
     auto create_connection = [&io_context, &endpoint, &shared_state] {
         connection_ptr conn(new connection_t(io_context, shared_state, {}, {}));
         conn->socket().connect(endpoint);
-        conn->start({}, {});
+        EXPECT_TRUE(conn->start({}, {}));
         context_t context;
         conn->get_context(context);
         auto tag = context.m_connection_id;
@@ -604,26 +605,38 @@ TEST(test_epee_connection, ssl_handshake)
     workers.back().join();
 }
 
-
-TEST(boosted_tcp_server, strand_deadlock)
+namespace
 {
-  using context_t = epee::net_utils::connection_context_base;
-  using lock_t = std::mutex;
-  using unique_lock_t = std::unique_lock<lock_t>;
-
   struct config_t {
     using condition_t = std::condition_variable_any;
-    using lock_guard_t = std::lock_guard<lock_t>;
+    using lock_guard_t = std::lock_guard<std::mutex>;
     void notify_success()
     {
       lock_guard_t guard(lock);
       success = true;
       condition.notify_all();
     }
-    lock_t lock;
+
+    template<typename T>
+    static bool after_init_connection(const std::shared_ptr<T>& conn)
+    {
+      if (!conn)
+        return false;
+      conn->m_protocol_handler.after_init_connection();
+      return true;
+    }
+
+    std::mutex lock;
     condition_t condition;
     bool success;
   };
+}
+
+TEST(boosted_tcp_server, strand_deadlock)
+{
+  using context_t = epee::net_utils::connection_context_base;
+  using lock_t = std::mutex;
+  using unique_lock_t = std::unique_lock<lock_t>;
 
   struct handler_t {
     using config_type = config_t;
@@ -735,45 +748,66 @@ TEST(boosted_tcp_server, strand_deadlock)
   server.deinit_server();
 }
 
-TEST(boosted_tcp_server, shutdown)
+namespace
 {
-  struct context_t: epee::net_utils::connection_context_base {
+  struct shutdown_handler_t;
+  struct shutdown_context_t: epee::net_utils::connection_context_base {
     static constexpr size_t get_max_bytes(int) noexcept { return -1; }
     static constexpr int handshake_command() noexcept { return 1001; }
     static constexpr bool handshake_complete() noexcept { return true; }
   };
+}
 
-  struct config_t : epee::levin::async_protocol_handler_config<context_t> {
+namespace epee { namespace levin
+{
+  template<>
+  struct get_handler<shutdown_context_t> {
+    using type = shutdown_handler_t;
+  };
+}}
+
+namespace
+{
+  struct shutdown_config_t : epee::levin::async_protocol_handler_config<shutdown_context_t> {
     void received_handshake() { handshake_received.raise(); }
     epee::simple_event handshake_received;
   };
 
-  struct command_handler_t: epee::levin::levin_commands_handler<context_t> {
+  struct shutdown_command_handler_t: epee::levin::levin_commands_handler<shutdown_context_t> {
+    using context_t = shutdown_context_t;
     virtual int invoke(int, const epee::span<const uint8_t>, epee::byte_stream&, context_t&) override { return {}; }
     virtual int notify(int, const epee::span<const uint8_t>, context_t&) override { return {}; }
     virtual void callback(context_t&) override {}
     virtual void on_connection_new(context_t&) override {}
     virtual void on_connection_close(context_t&) override { }
-    virtual ~command_handler_t() override {}
+    virtual ~shutdown_command_handler_t() override {}
     static void destroy(epee::levin::levin_commands_handler<context_t>* ptr) { delete ptr; }
   };
 
-  struct handler_t : epee::levin::async_protocol_handler<context_t> {
-    using config_type = config_t;
-    using connection_context = context_t;
-    using epee::levin::async_protocol_handler<context_t>::async_protocol_handler;
+  struct shutdown_handler_t : epee::levin::async_protocol_handler<shutdown_context_t> {
+    using config_type = shutdown_config_t;
+    using connection_context = shutdown_context_t;
+    using epee::levin::async_protocol_handler<connection_context>::async_protocol_handler;
 
-    bool handle_recv(const void *data, size_t bytes_transferred)
+    bool handle_recv(const void *data, size_t bytes_transferred) override
     {
       // We don't respond to the handshake (the async_invoke_remote_command2 is waiting for a response)
       MINFO("handle_recv just came in");
-      config_t* config = dynamic_cast<config_t*>(&m_config);
+      config_type* config = dynamic_cast<config_type*>(&m_config);
       if (config == nullptr)
         throw std::runtime_error("m_config must be of type config_t");
       config->received_handshake();
       return true;
     }
   };
+}
+
+
+TEST(boosted_tcp_server, shutdown)
+{
+  using context_t = shutdown_context_t;
+  using command_handler_t = shutdown_command_handler_t;
+  using handler_t = shutdown_handler_t;
 
   boost::asio::ip::tcp::endpoint endpoint(boost::asio::ip::make_address("127.0.0.1"), 5262);
   epee::net_utils::boosted_tcp_server<handler_t> server(epee::net_utils::e_connection_type_P2P);
