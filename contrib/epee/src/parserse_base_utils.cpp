@@ -140,18 +140,31 @@ namespace misc_utils
             case '/':  //Slash character
               val.push_back('/');break;
             case 'u':  //Unicode code point
-              if (buf_end - it < 5)
               {
-                ASSERT_MES_AND_THROW("Invalid Unicode escape sequence");
-              }
-              else
-              {
-                uint32_t dst = 0;
-                for (int i = 0; i < 4; ++i)
+                auto read_hex4 = [&]() -> uint32_t {
+                  CHECK_AND_ASSERT_THROW_MES(buf_end - it >= 5, "Invalid Unicode escape sequence");
+                  uint32_t v = 0;
+                  for (int i = 0; i < 4; ++i)
+                  {
+                    const unsigned char tmp = isx[(unsigned char)*++it];
+                    CHECK_AND_ASSERT_THROW_MES(tmp != 0xff, "Bad Unicode encoding");
+                    v = v << 4 | tmp;
+                  }
+                  return v;
+                };
+                uint32_t dst = read_hex4();
+                // combine a UTF-16 surrogate pair into a single code point; reject lone surrogates
+                if (dst >= 0xd800 && dst <= 0xdbff)
                 {
-                  const unsigned char tmp = isx[(unsigned char)*++it];
-                  CHECK_AND_ASSERT_THROW_MES(tmp != 0xff, "Bad Unicode encoding");
-                  dst = dst << 4 | tmp;
+                  CHECK_AND_ASSERT_THROW_MES(buf_end - it >= 3 && *(it + 1) == '\\' && *(it + 2) == 'u', "Invalid UTF-16 surrogate pair");
+                  it += 2;
+                  const uint32_t low = read_hex4();
+                  CHECK_AND_ASSERT_THROW_MES(low >= 0xdc00 && low <= 0xdfff, "Invalid UTF-16 surrogate pair");
+                  dst = 0x10000 + ((dst - 0xd800) << 10) + (low - 0xdc00);
+                }
+                else
+                {
+                  CHECK_AND_ASSERT_THROW_MES(dst < 0xdc00 || dst > 0xdfff, "Invalid UTF-16 surrogate pair");
                 }
                 // encode as UTF-8
                 if (dst <= 0x7f)
@@ -171,7 +184,10 @@ namespace misc_utils
                 }
                 else
                 {
-                  ASSERT_MES_AND_THROW("Unicode code point is out or range");
+                  val.push_back(0xf0 | (dst >> 18));
+                  val.push_back(0x80 | ((dst >> 12) & 0x3f));
+                  val.push_back(0x80 | ((dst >> 6) & 0x3f));
+                  val.push_back(0x80 | (dst & 0x3f));
                 }
               }
               break;
