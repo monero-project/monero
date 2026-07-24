@@ -136,29 +136,19 @@ struct json_archive<true> : public json_archive_base<std::ostream, true>
     stream_ << std::dec << promote_to_printable_integer_type(v);
   }
 
-  void serialize_blob(void *buf, size_t len, const char *delimiter="\"") {
-    begin_string(delimiter);
+  void serialize_blob(void *buf, size_t len) {
+    stream_ << '"';
     for (size_t i = 0; i < len; i++) {
       unsigned char c = ((unsigned char *)buf)[i];
       stream_ << std::hex << std::setw(2) << std::setfill('0') << (int)c;
     }
-    end_string(delimiter);
+    stream_ << '"';
   }
 
   template <class T>
   void serialize_varint(T &v)
   {
     stream_ << std::dec << promote_to_printable_integer_type(v);
-  }
-
-  void begin_string(const char *delimiter="\"")
-  {
-    stream_ << delimiter;
-  }
-
-  void end_string(const char *delimiter="\"")
-  {
-    stream_ << delimiter;
   }
 
   void begin_array(size_t s=0)
