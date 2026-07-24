@@ -98,7 +98,7 @@ static bool scan_non_coinbase_info(const CarrotEnoteV1 &enote,
 //-------------------------------------------------------------------------------------------------------------------
 bool try_scan_carrot_coinbase_enote_no_janus(
     const CarrotCoinbaseEnoteV1 &enote,
-    const mx25519_pubkey &s_sender_receiver,
+    const crypto::x25519_pubkey &s_sender_receiver,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
@@ -161,7 +161,7 @@ bool try_scan_carrot_coinbase_enote_no_janus(
 //-------------------------------------------------------------------------------------------------------------------
 bool try_scan_carrot_enote_external_no_janus(const CarrotEnoteV1 &enote,
     const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
-    const mx25519_pubkey &s_sender_receiver,
+    const crypto::x25519_pubkey &s_sender_receiver,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &address_spend_pubkey_out,
@@ -227,7 +227,7 @@ bool try_scan_carrot_enote_internal_burnt(const CarrotEnoteV1 &enote,
 bool verify_carrot_normal_janus_protection(const input_context_t &input_context,
     const crypto::public_key &nominal_address_spend_pubkey,
     const bool is_subaddress,
-    const mx25519_pubkey &enote_ephemeral_pubkey,
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const janus_anchor_t &nominal_janus_anchor,
     payment_id_t &nominal_payment_id_inout)
 {
@@ -251,7 +251,7 @@ bool verify_carrot_normal_janus_protection(const input_context_t &input_context,
 }
 //-------------------------------------------------------------------------------------------------------------------
 bool verify_carrot_special_janus_protection(const crypto::key_image &tx_first_key_image,
-    const mx25519_pubkey &enote_ephemeral_pubkey,
+    const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const crypto::public_key &onetime_address,
     const view_incoming_key_device &k_view_dev,
     const janus_anchor_t &nominal_janus_anchor)

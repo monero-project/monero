@@ -124,7 +124,7 @@ crypto::secret_key get_enote_ephemeral_privkey(const CarrotPaymentProposalSelfSe
  * @param input_context -
  * @return D_e
  */
-mx25519_pubkey get_enote_ephemeral_pubkey(const CarrotPaymentProposalV1 &proposal,
+crypto::x25519_pubkey get_enote_ephemeral_pubkey(const CarrotPaymentProposalV1 &proposal,
     const input_context_t &input_context);
 /**
  * @brief Get self-send proposal's enote ephemeral pubkey D_e
@@ -134,7 +134,7 @@ mx25519_pubkey get_enote_ephemeral_pubkey(const CarrotPaymentProposalV1 &proposa
  * @param tx_first_key_image -
  * @return D_e
  */
-mx25519_pubkey get_enote_ephemeral_pubkey(const CarrotPaymentProposalSelfSendV1 &proposal,
+crypto::x25519_pubkey get_enote_ephemeral_pubkey(const CarrotPaymentProposalSelfSendV1 &proposal,
     const CarrotPaymentProposalV1 *other_normal_payment_proposal,
     const CarrotPaymentProposalSelfSendV1 *other_self_send_proposal,
     const crypto::key_image &tx_first_key_image);
@@ -178,7 +178,7 @@ void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &propo
 void get_output_proposal_special_v1(const CarrotPaymentProposalSelfSendV1 &proposal,
     const view_incoming_key_device &k_view_dev,
     const crypto::key_image &tx_first_key_image,
-    const mx25519_pubkey &explicit_enote_ephemeral_pubkey,
+    const crypto::x25519_pubkey &explicit_enote_ephemeral_pubkey,
     RCTOutputEnoteProposal &output_enote_out);
 /**
  * @brief Convert the carrot proposal to an output proposal (internal)

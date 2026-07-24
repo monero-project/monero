@@ -32,6 +32,7 @@
 
 //local headers
 #include "core_types.h"
+#include "crypto/x25519.h"
 
 //third party headers
 
@@ -59,7 +60,7 @@ struct CarrotEnoteV1 final
     /// view_tag
     view_tag_t view_tag;
     /// D_e
-    mx25519_pubkey enote_ephemeral_pubkey;
+    crypto::x25519_pubkey enote_ephemeral_pubkey;
     /// L_0
     crypto::key_image tx_first_key_image;
 };
@@ -82,7 +83,7 @@ struct CarrotCoinbaseEnoteV1 final
     /// view_tag
     view_tag_t view_tag;
     /// D_e
-    mx25519_pubkey enote_ephemeral_pubkey;
+    crypto::x25519_pubkey enote_ephemeral_pubkey;
     /// block_index
     std::uint64_t block_index;
 };

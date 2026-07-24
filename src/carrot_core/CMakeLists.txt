@@ -51,7 +51,6 @@ target_link_libraries(carrot_core
   PUBLIC
     cncrypto
     epee
-    mx25519_static
     wallet-crypto
   PRIVATE
     ${EXTRA_LIBRARIES})

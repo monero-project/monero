@@ -58,10 +58,10 @@ public:
     bool view_key_scalar_mult8_ed25519(const crypto::public_key &P,
         crypto::public_key &kv8P) const override;
 
-    bool view_key_scalar_mult_x25519(const mx25519_pubkey &D,
-        mx25519_pubkey &kvD) const override;
+    bool view_key_scalar_mult_x25519(const crypto::x25519_pubkey &D,
+        crypto::x25519_pubkey &kvD) const override;
 
-    void make_janus_anchor_special(const mx25519_pubkey &enote_ephemeral_pubkey,
+    void make_janus_anchor_special(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
         const input_context_t &input_context,
         const crypto::public_key &onetime_address,
         janus_anchor_t &anchor_special_out) const override;
@@ -83,7 +83,7 @@ public:
         const crypto::public_key &onetime_address,
         view_tag_t &view_tag_out) const override;
 
-    void make_internal_sender_receiver_secret(const mx25519_pubkey &enote_ephemeral_pubkey,
+    void make_internal_sender_receiver_secret(const crypto::x25519_pubkey &enote_ephemeral_pubkey,
         const input_context_t &input_context,
         crypto::hash &s_sender_receiver_ctx_out) const override;
 
