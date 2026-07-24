@@ -221,6 +221,35 @@ namespace net
         return {epee::net_utils::ipv4_network_subnet{ip, (uint8_t)mask}};
     }
 
+    expect<epee::net_utils::ipv6_network_subnet>
+    get_ipv6_subnet_address(const boost::string_ref address, bool allow_implicit_128)
+    {
+        uint32_t mask = 128;
+        const boost::string_ref::size_type slash = address.find_first_of('/');
+        if (slash != boost::string_ref::npos)
+        {
+            if (!epee::string_tools::get_xtype_from_string(mask, std::string{address.substr(slash + 1)}))
+                return make_error_code(net::error::invalid_mask);
+            if (mask > 128)
+                return make_error_code(net::error::invalid_mask);
+        }
+        else if (!allow_implicit_128)
+            return make_error_code(net::error::invalid_mask);
+
+        boost::string_ref host(address.data(), slash != boost::string_ref::npos ? slash : address.size());
+        if (host.starts_with("[") && host.ends_with("]"))
+            host = host.substr(1, host.size() - 2);
+        else if (host.find_first_of("[]") != boost::string_ref::npos)
+            return make_error_code(net::error::invalid_host);
+
+        boost::system::error_code ec;
+        const boost::asio::ip::address_v6 ip = boost::asio::ip::make_address_v6(std::string{host}, ec);
+        if (ec)
+            return make_error_code(net::error::invalid_host);
+
+        return {epee::net_utils::ipv6_network_subnet{ip, (uint8_t)mask}};
+    }
+
     expect<boost::asio::ip::tcp::endpoint> get_tcp_endpoint(const boost::string_ref address)
     {
         uint16_t port = 0;

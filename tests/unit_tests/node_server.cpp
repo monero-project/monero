@@ -56,6 +56,16 @@ namespace
       return path;
     return boost::filesystem::path{};
   }
+
+  epee::net_utils::ipv6_network_address make_ipv6_address(const char *address)
+  {
+    return {boost::asio::ip::make_address_v6(address), 0};
+  }
+
+  epee::net_utils::ipv6_network_subnet make_ipv6_subnet(const char *address, uint8_t mask)
+  {
+    return {boost::asio::ip::make_address_v6(address), mask};
+  }
 }
 
 namespace cryptonote {
@@ -132,16 +142,24 @@ static bool is_blocked(Server &server, const epee::net_utils::network_address &a
     }
   }
 
-  if (address.get_type_id() != epee::net_utils::address_type::ipv4)
-    return false;
-  
-  const epee::net_utils::ipv4_network_address ipv4_address = address.as<epee::net_utils::ipv4_network_address>();
+  if (address.get_type_id() == epee::net_utils::address_type::ipv4)
+  {
+    const epee::net_utils::ipv4_network_address ipv4_address = address.as<epee::net_utils::ipv4_network_address>();
 
-  // check if in a blocked ipv4 subnet
-  const std::map<epee::net_utils::ipv4_network_subnet, time_t> subnets = server.get_blocked_subnets();
-  for (const auto &subnet : subnets)
-    if (subnet.first.matches(ipv4_address))
-      return true;
+    const std::map<epee::net_utils::ipv4_network_subnet, time_t> subnets = server.get_blocked_subnets();
+    for (const auto &subnet : subnets)
+      if (subnet.first.matches(ipv4_address))
+        return true;
+  }
+  else if (address.get_type_id() == epee::net_utils::address_type::ipv6)
+  {
+    const epee::net_utils::ipv6_network_address ipv6_address = address.as<epee::net_utils::ipv6_network_address>();
+
+    const std::map<epee::net_utils::ipv6_network_subnet, time_t> subnets = server.get_blocked_ipv6_subnets();
+    for (const auto &subnet : subnets)
+      if (subnet.first.matches(ipv6_address))
+        return true;
+  }
 
   return false;
 }
@@ -353,6 +371,57 @@ TEST(ban, subnet)
   ASSERT_TRUE(server.get_blocked_subnets().size() == 0);
 }
 
+TEST(ban, ipv6_subnet)
+{
+  time_t seconds;
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  {
+    boost::program_options::options_description opts{};
+    Server::init_options(opts);
+    cryptonote::core::init_options(opts);
+
+    const char *argv[] = {"ban_ipv6_subnet_test"};
+    boost::program_options::variables_map vm;
+    boost::program_options::store(
+      boost::program_options::parse_command_line(1, argv, opts), vm
+    );
+    ASSERT_TRUE(server.init(vm));
+  }
+  cprotocol.set_p2p_endpoint(&server);
+
+  ASSERT_TRUE(server.block_subnet(make_ipv6_subnet("2001:db8:1:2::1234", 64), 10));
+  ASSERT_TRUE(server.get_blocked_ipv6_subnets().size() == 1);
+  ASSERT_TRUE(server.is_host_blocked(make_ipv6_address("2001:db8:1:2::1"), &seconds));
+  ASSERT_TRUE(seconds >= 9);
+  ASSERT_TRUE(server.is_host_blocked(make_ipv6_address("2001:db8:1:2:ffff::1"), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(make_ipv6_address("2001:db8:1:3::1"), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(make_ipv6_address("2001:db8:1:1:ffff::1"), &seconds));
+  ASSERT_FALSE(server.unblock_subnet(make_ipv6_subnet("2001:db8:1:3::", 64)));
+  ASSERT_TRUE(server.get_blocked_ipv6_subnets().size() == 1);
+  ASSERT_TRUE(server.unblock_subnet(make_ipv6_subnet("2001:db8:1:2::", 64)));
+  ASSERT_TRUE(server.get_blocked_ipv6_subnets().empty());
+  ASSERT_FALSE(server.is_host_blocked(make_ipv6_address("2001:db8:1:2::1"), &seconds));
+
+  ASSERT_TRUE(server.block_subnet(make_ipv6_subnet("2001:db8::", 32), 10));
+  ASSERT_TRUE(server.is_host_blocked(make_ipv6_address("2001:db8:ffff:ffff::1"), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(make_ipv6_address("2001:db9::1"), &seconds));
+  ASSERT_TRUE(server.unblock_subnet(make_ipv6_subnet("2001:db8::", 32)));
+  ASSERT_TRUE(server.get_blocked_ipv6_subnets().empty());
+
+  ASSERT_TRUE(server.block_subnet(make_ipv6_subnet("2001:db8::", 32), 10));
+  ASSERT_TRUE(server.block_host(make_ipv6_address("2001:db8:abcd::1234"), 10));
+  ASSERT_TRUE(server.unblock_subnet(make_ipv6_subnet("2001:db8:abcd::", 48)));
+  ASSERT_FALSE(server.is_host_blocked(make_ipv6_address("2001:db8:abcd::1"), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(make_ipv6_address("2001:db8:abcd::1234"), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(make_ipv6_address("2001:db8:abcc:ffff::1"), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(make_ipv6_address("2001:db8:abce::1"), &seconds));
+  ASSERT_FALSE(server.get_blocked_ipv6_subnets().empty());
+  ASSERT_TRUE(server.unblock_subnet(make_ipv6_subnet("2001:db8::", 32)));
+  ASSERT_TRUE(server.get_blocked_ipv6_subnets().empty());
+}
+
 TEST(ban, ignores_port)
 {
   test_core pr_core;
@@ -423,6 +492,10 @@ TEST(ban, file_banlist)
   EXPECT_TRUE(  is_blocked(server, MAKE_IPV4_ADDRESS_PORT(100,98,1,255,9999)) );
   EXPECT_FALSE( is_blocked(server, MAKE_IPV4_ADDRESS_PORT(100,98,2,0,9999)) );
   EXPECT_FALSE( is_blocked(server, MAKE_IPV4_ADDRESS_PORT(100,98,0,255,9999)) );
+  EXPECT_TRUE(  is_blocked(server, make_ipv6_address("2001:db8:1234::1")) );
+  EXPECT_TRUE(  is_blocked(server, make_ipv6_address("2001:db8:abcd::1")) );
+  EXPECT_TRUE(  is_blocked(server, make_ipv6_address("2001:db8:abcd:ffff::1")) );
+  EXPECT_FALSE( is_blocked(server, make_ipv6_address("2001:db8:abce::1")) );
 
   // angel
   EXPECT_FALSE( is_blocked(server, MAKE_IPV4_ADDRESS_PORT(007,007,007,007,9999)) );

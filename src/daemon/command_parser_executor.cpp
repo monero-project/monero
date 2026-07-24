@@ -712,13 +712,19 @@ bool t_command_parser_executor::ban(const std::vector<std::string>& args)
           ret &= m_executor.ban(subnet->str(), seconds);
           continue;
         }
+        auto ipv6_subnet = net::get_ipv6_subnet_address(line);
+        if (ipv6_subnet)
+        {
+          ret &= m_executor.ban(ipv6_subnet->str(), seconds);
+          continue;
+        }
         const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(line, 0);
         if (parsed_addr)
         {
           ret &= m_executor.ban(parsed_addr->host_str(), seconds);
           continue;
         }
-        std::cout << "Invalid IP address or IPv4 subnet: " << line << std::endl;
+        std::cout << "Invalid IP address or subnet: " << line << std::endl;
       }
       return ret;
     }
