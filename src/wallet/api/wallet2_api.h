@@ -140,6 +140,7 @@ struct UnsignedTransaction
     // returns a string with information about all transactions.
     virtual std::string confirmationMessage() const = 0;
     virtual std::vector<std::string> paymentId() const = 0;
+    // returns one address per destination, in the same order as amount().
     virtual std::vector<std::string> recipientAddress() const = 0;
     virtual uint64_t minMixinCount() const = 0;
     /*!

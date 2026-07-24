@@ -747,8 +747,6 @@ TEST_F(WalletTest1, WalletTransaction)
     ASSERT_TRUE(wmgr->closeWallet(wallet1));
 }
 
-
-
 TEST_F(WalletTest1, WalletTransactionWithMixin)
 {
 
@@ -957,12 +955,16 @@ TEST_F(WalletTest1, WalletTransactionMultDestWithPaymentId)
     ASSERT_TRUE(payment_id.length() == 16);
     Monero::Wallet * wallet_dst = wmgr->openWallet(CURRENT_DST_WALLET, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
     ASSERT_TRUE(wallet_dst != nullptr);
+    const std::string destination_address = wallet_dst->mainAddress();
     std::string integrated_address = wallet_dst->integratedAddress(payment_id);
     ASSERT_FALSE(integrated_address.empty());
     ASSERT_TRUE(wmgr->closeWallet(wallet_dst));
 
     const std::vector<std::string> destinations{integrated_address, wallet_src->mainAddress()};
+    const std::vector<std::string> recipient_addresses{destination_address, wallet_src->mainAddress()};
     const std::vector<uint64_t> amounts{AMOUNT_1XMR, AMOUNT_1XMR};
+    const std::string unsigned_tx_filename = "unsigned-multi-destination-with-payment-id";
+    boost::filesystem::remove(unsigned_tx_filename);
     Monero::PendingTransaction * tx = wallet_src->createTransactionMultDest(
             destinations, PAYMENT_ID_EMPTY, amounts, 1,
             Monero::PendingTransaction::Priority_Medium, 0, std::set<uint32_t>{});
@@ -971,6 +973,16 @@ TEST_F(WalletTest1, WalletTransactionMultDestWithPaymentId)
     std::cerr << "Transaction fee: " << Monero::Wallet::displayAmount(tx->fee()) << std::endl;
     std::cerr << "Transaction error: " << tx->errorString() << std::endl;
     ASSERT_TRUE(tx->status() == Monero::PendingTransaction::Status_Ok);
+    ASSERT_TRUE(tx->commit(unsigned_tx_filename)) << tx->errorString();
+
+    Monero::UnsignedTransaction * unsigned_transaction = wallet_src->loadUnsignedTx(unsigned_tx_filename);
+    ASSERT_EQ(Monero::UnsignedTransaction::Status_Ok, unsigned_transaction->status()) << unsigned_transaction->errorString();
+    ASSERT_EQ(1, unsigned_transaction->txCount());
+    EXPECT_EQ(amounts, unsigned_transaction->amount());
+    EXPECT_EQ(recipient_addresses, unsigned_transaction->recipientAddress());
+
+    delete unsigned_transaction;
+    boost::filesystem::remove(unsigned_tx_filename);
     ASSERT_TRUE(tx->commit());
     history->refresh();
     ASSERT_TRUE(count != history->count());
