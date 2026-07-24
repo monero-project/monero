@@ -44,8 +44,9 @@ namespace cryptonote
   {
     cryptonote_connection_context(): m_state(state_before_handshake), m_remote_blockchain_height(0), m_last_response_height(0),
         m_expected_heights_start(0), m_last_request_time(boost::date_time::not_a_date_time), m_callback_request_count(0),
-        m_last_known_hash(crypto::null_hash), m_pruning_seed(0), m_rpc_port(0), m_rpc_credits_per_hash(0), m_anchor(false), m_score(0),
-        m_expect_response(0), m_expect_height(0), m_num_requested(0) {}
+        m_last_known_hash(crypto::null_hash), m_pruning_seed(0), m_rpc_port(0), m_rpc_credits_per_hash(0), m_anchor(false),
+        m_requested_objects_from_chain_entry(false), m_score(0),
+        m_expect_response(0), m_expect_height(0) {}
 
     enum state
     {
@@ -111,10 +112,10 @@ namespace cryptonote
     uint16_t m_rpc_port;
     uint32_t m_rpc_credits_per_hash;
     bool m_anchor;
+    bool m_requested_objects_from_chain_entry;
     int32_t m_score;
     int m_expect_response;
     uint64_t m_expect_height;
-    size_t m_num_requested;
     copyable_atomic m_new_stripe_notification{0};
     copyable_atomic m_idle_peer_notification{0};
   };
