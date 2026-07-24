@@ -14870,6 +14870,14 @@ bool wallet2::parse_uri(const std::string &uri, std::string &address, std::strin
     error = std::string("URI has wrong address: ") + address;
     return false;
   }
+
+  payment_id.clear();
+  amount = 0;
+  tx_description.clear();
+  recipient_name.clear();
+  unknown_parameters.clear();
+  error.clear();
+
   if (!strchr(remainder.c_str(), '?'))
     return true;
 
@@ -14897,7 +14905,6 @@ bool wallet2::parse_uri(const std::string &uri, std::string &address, std::strin
 
     if (kv[0] == "tx_amount")
     {
-      amount = 0;
       if (!cryptonote::parse_amount(amount, kv[1]))
       {
         error = std::string("URI has invalid amount: ") + kv[1];

@@ -82,6 +82,27 @@ TEST(uri, good_address)
   ASSERT_EQ(address, TEST_ADDRESS);
 }
 
+TEST(uri, resets_outputs)
+{
+  std::string address = "old address";
+  std::string payment_id = "old payment id";
+  std::string recipient_name = "old recipient name";
+  std::string description = "old description";
+  std::string error = "old error";
+  uint64_t amount = 1;
+  std::vector<std::string> unknown_parameters{"old=parameter"};
+  tools::wallet2 w(cryptonote::TESTNET);
+
+  ASSERT_TRUE(w.parse_uri("monero:" TEST_ADDRESS, address, payment_id, amount, description, recipient_name, unknown_parameters, error));
+  EXPECT_EQ(address, TEST_ADDRESS);
+  EXPECT_EQ(amount, 0);
+  EXPECT_TRUE(payment_id.empty());
+  EXPECT_TRUE(description.empty());
+  EXPECT_TRUE(recipient_name.empty());
+  EXPECT_TRUE(unknown_parameters.empty());
+  EXPECT_TRUE(error.empty());
+}
+
 TEST(uri, good_integrated_address)
 {
   PARSE_URI("monero:" TEST_INTEGRATED_ADDRESS, true);
