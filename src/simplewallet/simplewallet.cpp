@@ -3231,15 +3231,15 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("check_tx_key",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::check_tx_key, _1),
                            tr(USAGE_CHECK_TX_KEY),
-                           tr("Check the amount going to <address> in <txid>."));
+                           tr("Check the amount going to <address> in <txid>. Transaction proofs do not prove that funds are currently spendable, unspent, unlocked, or not burned."));
   m_cmd_binder.set_handler("get_tx_proof",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::get_tx_proof, _1),
                            tr(USAGE_GET_TX_PROOF),
-                           tr("Generate a signature proving funds sent to <address> in <txid>, optionally with a challenge string <message>, using either the transaction secret key (when <address> is not your wallet's address) or the view secret key (otherwise), which does not disclose the secret key."));
+                           tr("Generate a signature proving funds sent to <address> in <txid>, optionally with a challenge string <message>, using either the transaction secret key (when <address> is not your wallet's address) or the view secret key (otherwise), which does not disclose the secret key. Transaction proofs do not prove that funds are currently spendable, unspent, unlocked, or not burned."));
   m_cmd_binder.set_handler("check_tx_proof",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::check_tx_proof, _1),
                            tr(USAGE_CHECK_TX_PROOF),
-                           tr("Check the proof for funds going to <address> in <txid> with the challenge string <message> if any."));
+                           tr("Check the proof for funds going to <address> in <txid> with the challenge string <message> if any. Transaction proofs do not prove that funds are currently spendable, unspent, unlocked, or not burned."));
   m_cmd_binder.set_handler("get_spend_proof",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::get_spend_proof, _1),
                            tr(USAGE_GET_SPEND_PROOF),
@@ -7867,7 +7867,10 @@ bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
     std::string sig_str = m_wallet->get_tx_proof(txid, info.address, info.is_subaddress, args.size() == 3 ? args[2] : "");
     const std::string filename = "monero_tx_proof";
     if (m_wallet->save_to_file(filename, sig_str, true))
+    {
       success_msg_writer() << tr("signature file saved to: ") << filename;
+      success_msg_writer() << tr("NOTE: Transaction proofs do not prove that funds are currently spendable, unspent, unlocked, or not burned.");
+    }
     else
       fail_msg_writer() << tr("failed to save signature file");
   }
@@ -7938,6 +7941,7 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
     if (received > 0)
     {
       success_msg_writer() << get_account_address_as_str(m_wallet->nettype(), info.is_subaddress, info.address) << " " << tr("received") << " " << print_money(received) << " " << tr("in txid") << " " << txid;
+      success_msg_writer() << tr("NOTE: This proof does not show whether those funds are currently spendable, unspent, unlocked, or not burned.");
       if (in_pool)
       {
         success_msg_writer() << tr("WARNING: this transaction is not yet included in the blockchain!");
@@ -8011,6 +8015,7 @@ bool simple_wallet::check_tx_proof(const std::vector<std::string> &args)
       if (received > 0)
       {
         success_msg_writer() << get_account_address_as_str(m_wallet->nettype(), info.is_subaddress, info.address) << " " << tr("received") << " " << print_money(received) << " " << tr("in txid") << " " << txid;
+        success_msg_writer() << tr("NOTE: This proof does not show whether those funds are currently spendable, unspent, unlocked, or not burned.");
         if (in_pool)
         {
           success_msg_writer() << tr("WARNING: this transaction is not yet included in the blockchain!");
