@@ -119,6 +119,27 @@ public:
 
 typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<test_core>> Server;
 
+TEST(node_server, ipv6_peer_group)
+{
+  const auto make_ipv6 = [](const char* ip) {
+    return epee::net_utils::network_address{
+      epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6(ip), 18080}
+    };
+  };
+
+  const boost::optional<nodetool::ipv6_peer_group> first = nodetool::get_ipv6_peer_group(make_ipv6("2001:db8:1::1"));
+  const boost::optional<nodetool::ipv6_peer_group> same = nodetool::get_ipv6_peer_group(make_ipv6("2001:db8:ffff::1"));
+  const boost::optional<nodetool::ipv6_peer_group> different = nodetool::get_ipv6_peer_group(make_ipv6("2001:db9::1"));
+
+  ASSERT_TRUE(first);
+  ASSERT_TRUE(same);
+  ASSERT_TRUE(different);
+  EXPECT_EQ(*first, *same);
+  EXPECT_NE(*first, *different);
+  EXPECT_FALSE(nodetool::get_ipv6_peer_group(make_ipv6("::ffff:192.0.2.1")));
+  EXPECT_FALSE(nodetool::get_ipv6_peer_group(MAKE_IPV4_ADDRESS(192, 0, 2, 1)));
+}
+
 static bool is_blocked(Server &server, const epee::net_utils::network_address &address, time_t *t = NULL)
 {
   std::map<std::string, time_t> hosts = server.get_blocked_hosts();
