@@ -51,7 +51,7 @@ class ZmqServer final
 {
   public:
 
-    ZmqServer(RpcHandler& h);
+    ZmqServer(RpcHandler& h, bool restricted);
 
     ~ZmqServer();
 
@@ -68,6 +68,7 @@ class ZmqServer final
 
   private:
     RpcHandler& handler;
+    const bool restricted;
 
     net::zmq::context context;
 

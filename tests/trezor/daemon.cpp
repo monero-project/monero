@@ -242,7 +242,7 @@ bool mock_daemon::run_main()
   {
     CHECK_AND_ASSERT_THROW_MES(m_rpc_server.run(2, false), "Failed to start RPC");
     cryptonote::rpc::DaemonHandler rpc_daemon_handler(*m_core, m_server);
-    cryptonote::rpc::ZmqServer zmq_server(rpc_daemon_handler);
+    cryptonote::rpc::ZmqServer zmq_server(rpc_daemon_handler, false);
 
     if (m_start_zmq)
     {
