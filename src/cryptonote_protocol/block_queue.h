@@ -78,9 +78,7 @@ namespace cryptonote
     bool remove_span(uint64_t start_block_height, std::vector<crypto::hash> *hashes = NULL);
     void remove_spans(const boost::uuids::uuid &connection_id, uint64_t start_block_height);
     uint64_t get_max_block_height() const;
-    void print() const;
     std::string get_overview(uint64_t blockchain_height) const;
-    bool has_unpruned_height(uint64_t block_height, uint64_t blockchain_height, uint32_t pruning_seed) const;
     std::pair<uint64_t, uint64_t> reserve_span(uint64_t first_block_height, uint64_t last_block_height, uint64_t max_blocks, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, bool sync_pruned_blocks, uint32_t local_pruning_seed, uint32_t pruning_seed, uint64_t blockchain_height, const std::vector<std::pair<crypto::hash, uint64_t>> &block_hashes, boost::posix_time::ptime time = boost::posix_time::microsec_clock::universal_time());
     uint64_t get_next_needed_height(uint64_t blockchain_height) const;
     std::pair<uint64_t, uint64_t> get_next_span_if_scheduled(std::vector<crypto::hash> &hashes, boost::uuids::uuid &connection_id, boost::posix_time::ptime &time) const;
@@ -90,12 +88,8 @@ namespace cryptonote
     bool has_next_span(const boost::uuids::uuid &connection_id, bool &filled, boost::posix_time::ptime &time) const;
     bool has_next_span(uint64_t height, bool &filled, boost::posix_time::ptime &time, boost::uuids::uuid &connection_id) const;
     size_t get_data_size() const;
-    size_t get_num_filled_spans_prefix() const;
     size_t get_num_filled_spans() const;
-    crypto::hash get_last_known_hash(const boost::uuids::uuid &connection_id) const;
-    bool has_spans(const boost::uuids::uuid &connection_id) const;
     float get_speed(const boost::uuids::uuid &connection_id) const;
-    float get_download_rate(const boost::uuids::uuid &connection_id) const;
     bool foreach(std::function<bool(const span&)> f) const;
     bool requested(const crypto::hash &hash) const;
     bool have(const crypto::hash &hash) const;
