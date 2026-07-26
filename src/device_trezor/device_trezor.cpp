@@ -205,6 +205,8 @@ namespace trezor {
 
         return true;
 
+      } catch(const exc::proto::CancelledException &){
+        CHECK_AND_ASSERT_THROW_MES(false, "Key export rejected on device");
       } catch(std::exception const& e){
         MERROR("Get secret keys exception: " << e.what());
         return false;
