@@ -633,19 +633,6 @@ namespace rct {
         return hash;
      }
     
-    //cn_fast_hash for a 128 byte unsigned char
-    key cn_fast_hash128(const void * in) {
-        key hash;
-        keccak((const uint8_t *)in, 128, hash.bytes, 32);
-        return hash;
-    }
-    
-    key hash_to_scalar128(const void * in) {
-        key hash = cn_fast_hash128(in);
-        sc_reduce32(hash.bytes);
-        return hash;
-    }
-    
     //cn_fast_hash for multisig purpose
     //This takes the outputs and commitments
     //and hashes them into a 32 byte sized key
@@ -701,15 +688,6 @@ namespace rct {
       ge_p1p1 hash8_p1p1;
       ge_mul8(&hash8_p1p1, &hash_p2);
       ge_p1p1_to_p3(&hash8_p3, &hash8_p1p1);
-    }
-
-    //sums a vector of curve points (for scalars use sc_add)
-    void sumKeys(key & Csum, const keyV &  Cis) {
-        identity(Csum);
-        size_t i = 0;
-        for (i = 0; i < Cis.size(); i++) {
-            addKeys(Csum, Csum, Cis[i]);
-        }
     }
 
     //Elliptic Curve Diffie-Hellman: encodes and decodes the amount b and mask a

@@ -64,7 +64,6 @@ namespace rct {
     inline void identity(key &Id) { memcpy(&Id, &I, 32); }
     //Creates a key equal to the curve order
     inline key curveOrder() { return L; }
-    inline void curveOrder(key &l) { l = L; }
     //copies a scalar or point
     inline void copy(key &AA, const key &A) { memcpy(&AA, &A, 32); }
     inline key copy(const key & A) { key AA; memcpy(&AA, &A, 32); return AA; }
@@ -156,8 +155,6 @@ namespace rct {
     key cn_fast_hash(const key &in);
     key hash_to_scalar(const key &in);
     //for mg sigs
-    key cn_fast_hash128(const void * in);
-    key hash_to_scalar128(const void * in);
     key cn_fast_hash(const ctkeyV &PC);
     key hash_to_scalar(const ctkeyV &PC);
     //for mg sigs 
@@ -169,8 +166,6 @@ namespace rct {
 
     void hash_to_p3(ge_p3 &hash8_p3, const key &k);
 
-    //sums a vector of curve points (for scalars use sc_add)
-    void sumKeys(key & Csum, const key &Cis);
 
     //Elliptic Curve Diffie-Hellman: encodes and decodes the amount b and mask a
     // where C= aG + bH

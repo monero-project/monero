@@ -154,34 +154,6 @@ namespace rct {
         return true;
     }
     
-    //32 byte key to int[64]
-    void h2b(bits amountb2, const key & test) {
-        int val = 0, i = 0, j = 0;
-        for (j = 0; j < 8; j++) {
-            val = (unsigned char)test.bytes[j];
-            i = 0;
-            while (i < 8) {
-                amountb2[j*8+i++] = val & 1;
-                val >>= 1;
-            }
-        }
-    }
-    
-    //int[64] to 32 byte key
-    void b2h(key & amountdh, const bits amountb2) {
-        int byte, i, j;
-        for (j = 0; j < 8; j++) {
-            byte = 0;
-            for (i = 7; i > -1; i--) {
-                byte = byte * 2 + amountb2[8 * j + i];
-            }
-            amountdh[j] = (unsigned char)byte;
-        }
-        for (j = 8; j < 32; j++) {
-            amountdh[j] = (unsigned char)(0x00);
-        }
-    }
-    
     //int[64] to uint long long
     xmr_amount b2d(bits amountb) {
         xmr_amount vali = 0;
