@@ -829,13 +829,16 @@ bool simple_wallet::viewkey(const std::vector<std::string> &args/* = std::vector
 {
   // don't log
   PAUSE_READLINE();
-  if (m_wallet->key_on_device()) {
-    std::cout << "secret: On device. Not available" << std::endl;
-  } else {
-    SCOPED_WALLET_UNLOCK();
+  SCOPED_WALLET_UNLOCK();
+  crypto::secret_key viewkey = m_wallet->get_account().get_keys().m_view_secret_key;
+  bool available = viewkey != crypto::null_skey;
+  if (!available && m_wallet->key_on_device()) available = m_wallet->get_account().get_device().get_cached_view_key(viewkey);
+  if (available) {
     printf("secret: ");
-    print_secret_key(m_wallet->get_account().get_keys().m_view_secret_key);
+    print_secret_key(viewkey);
     putchar('\n');
+  } else {
+    std::cout << "secret: On device. Not available" << std::endl;
   }
   std::cout << "public: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_account_address.m_view_public_key) << std::endl;
 
