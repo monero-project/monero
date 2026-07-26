@@ -562,7 +562,13 @@ public:
                 return false;
             }
             else
-              m_config.m_pcommands_handler->notify(m_current_head.m_command, buff_to_invoke, m_connection_context);
+            {
+              const int notify_result = m_config.m_pcommands_handler->notify(
+                m_current_head.m_command, buff_to_invoke, m_connection_context
+              );
+              if(notify_result < 0)
+                return false;
+            }
           }
           // reuse small buffer
           if (!temp.empty() && temp.capacity() <= 64 * 1024)
