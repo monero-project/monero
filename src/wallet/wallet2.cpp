@@ -306,6 +306,8 @@ uint64_t calculate_fee(uint64_t fee_per_kb, size_t bytes)
 
 uint64_t calculate_fee_from_weight(uint64_t base_fee, uint64_t weight, uint64_t fee_quantization_mask)
 {
+  THROW_WALLET_EXCEPTION_IF(base_fee != 0 && weight > std::numeric_limits<uint64_t>::max() / base_fee,
+      tools::error::wallet_internal_error, "Fee calculation overflow");
   uint64_t fee = weight * base_fee;
   fee = (fee + fee_quantization_mask - 1) / fee_quantization_mask * fee_quantization_mask;
   return fee;
