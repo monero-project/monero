@@ -67,20 +67,6 @@ namespace
         return 0;
     }
 
-    template<typename T>
-    epee::net_utils::network_address get_address(const boost::string_ref value)
-    {
-        expect<T> address = T::make(value);
-        if (!address)
-        {
-            MERROR(
-                "Failed to parse " << epee::net_utils::zone_to_string(T::get_zone()) << " address \"" << value << "\": " << address.error().message()
-            );
-            return {};
-        }
-        return {std::move(*address)};
-    }
-
     bool start_socks(std::shared_ptr<net::socks::client> client, const net::socks::endpoint& proxy, const epee::net_utils::network_address& remote)
     {
         CHECK_AND_ASSERT_MES(client != nullptr, false, "Unexpected null client");
@@ -296,7 +282,6 @@ namespace nodetool
                 return boost::none;
             }
 
-            // get_address returns default constructed address on error
             if (inbounds.back().our_address == epee::net_utils::network_address{})
                 return boost::none;
 

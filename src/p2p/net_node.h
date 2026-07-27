@@ -129,8 +129,6 @@ namespace nodetool
                      public epee::net_utils::i_connection_filter,
                      public epee::net_utils::i_connection_limit
   {
-    struct by_conn_id{};
-    struct by_peer_id{};
     struct by_addr{};
 
     typedef p2p_connection_context_t<typename t_payload_net_handler::connection_context> p2p_connection_context;
@@ -265,7 +263,6 @@ namespace nodetool
     t_payload_net_handler& get_payload_object();
 
     // debug functions
-    bool log_peerlist();
     bool log_connections();
 
     // These functions only return information for the "public" zone
@@ -325,8 +322,6 @@ namespace nodetool
     int handle_ping(int command, COMMAND_PING::request& arg, COMMAND_PING::response& rsp, p2p_connection_context& context);
     int handle_get_support_flags(int command, COMMAND_REQUEST_SUPPORT_FLAGS::request& arg, COMMAND_REQUEST_SUPPORT_FLAGS::response& rsp, p2p_connection_context& context);
     bool init_config();
-    bool make_default_peer_id();
-    bool make_default_config();
     bool store_config();
 
 
@@ -349,14 +344,12 @@ namespace nodetool
     virtual bool is_host_limit(const epee::net_utils::network_address &address);
     //-----------------------------------------------------------------------------------------------
 
-    bool parse_peer_from_string(epee::net_utils::network_address& pe, const std::string& node_addr, uint16_t default_port = 0);
     bool handle_command_line(
         const boost::program_options::variables_map& vm
       );
     bool idle_worker();
     bool handle_remote_peerlist(const std::vector<peerlist_entry>& peerlist, const epee::net_utils::connection_context_base& context);
     bool get_local_node_data(basic_node_data& node_data, const network_zone& zone);
-    //bool get_local_handshake_data(handshake_data& hshd);
 
     bool sanitize_peerlist(std::vector<peerlist_entry>& local_peerlist);
 
@@ -400,9 +393,7 @@ namespace nodetool
     bool set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit);
 
     bool has_too_many_connections(const epee::net_utils::network_address &address);
-    size_t get_incoming_connections_count();
     size_t get_incoming_connections_count(network_zone&);
-    size_t get_outgoing_connections_count();
     size_t get_outgoing_connections_count(network_zone&);
 
     bool check_connection_and_handshake_with_peer(const epee::net_utils::network_address& na, uint64_t last_seen_stamp);
@@ -428,16 +419,9 @@ namespace nodetool
       m_rpc_port = rpc_port;
     }
 
-    void set_rpc_credits_per_hash(uint32_t rpc_credits_per_hash)
-    {
-      m_rpc_credits_per_hash = rpc_credits_per_hash;
-    }
-
   private:
     std::string m_config_folder;
 
-    bool m_have_address;
-    bool m_first_connection_maker_call;
     uint32_t m_listening_port;
     uint32_t m_listening_port_ipv6;
     uint32_t m_external_port;
@@ -451,8 +435,6 @@ namespace nodetool
     std::atomic<bool> is_closing;
     std::atomic<bool> m_stop_signal_sent_once{false};
     std::unique_ptr<boost::thread> mPeersLoggerThread;
-    //critical_section m_connections_lock;
-    //connections_indexed_container m_connections;
 
     t_payload_net_handler& m_payload_handler;
     peerlist_storage m_peerlist_storage;
@@ -468,7 +450,6 @@ namespace nodetool
     std::vector<epee::net_utils::network_address> m_exclusive_peers;
     std::atomic_flag m_fallback_seed_nodes_added = ATOMIC_FLAG_INIT;
     std::vector<nodetool::peerlist_entry> m_command_line_peers;
-    uint64_t m_peer_livetime;
     //keep connections to initiate some interactions
 
 
