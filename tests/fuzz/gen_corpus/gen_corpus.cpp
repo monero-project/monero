@@ -61,7 +61,7 @@ void seed_corpus_source_single::gen_corpus(seed_corpus_sink &sink)
         this->m_sink = nullptr;
     });
 
-    MINFO("Generating corpus " << this->get_fuzzer_name() << "/" << this->get_seed_curpus_name() << "...");
+    MINFO("Generating corpus " << this->get_fuzzer_name() << "/" << this->get_seed_corpus_name() << "...");
 
     this->m_sink = &sink;
     this->gen_corpus_single();
@@ -78,7 +78,7 @@ void seed_corpus_source_single::set_seed_corpus(const unsigned char * seed_corpu
         throw std::logic_error("seed_corpus_source_single::set_seed_corpus called more than once per generation");
 
     this->m_sink->send_seed_corpus(this->get_fuzzer_name(),
-        this->get_seed_curpus_name(),
+        this->get_seed_corpus_name(),
         seed_corpus_buf,
         seed_corpus_len);
     this->m_did_set_seed_corpus = true;

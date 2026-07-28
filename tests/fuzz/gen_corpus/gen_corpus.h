@@ -35,7 +35,7 @@
     { \
     protected: \
         const char * get_fuzzer_name() const override { return #fuzzer_name; }; \
-        const char * get_seed_curpus_name() const override { return #seed_corpus_name; }; \
+        const char * get_seed_corpus_name() const override { return #seed_corpus_name; }; \
         void gen_corpus_single() override; \
     private: \
         [[maybe_unused]] static ::fuzz::registry::registry_entry_t registry_entry; \
@@ -60,7 +60,7 @@ public:
         const unsigned char * seed_corpus_buf,
         std::size_t seed_corpus_len) = 0;
 
-    ~seed_corpus_sink() = default;
+    virtual ~seed_corpus_sink() = default;
 };
 
 /**
@@ -71,7 +71,7 @@ class seed_corpus_source
 public:
     virtual void gen_corpus(seed_corpus_sink &sink) = 0;
 
-    ~seed_corpus_source() = default;
+    virtual ~seed_corpus_source() = default;
 };
 
 /**
@@ -86,7 +86,7 @@ public:
 
 protected:
     virtual const char * get_fuzzer_name() const = 0;
-    virtual const char * get_seed_curpus_name() const = 0;
+    virtual const char * get_seed_corpus_name() const = 0;
     virtual void gen_corpus_single() = 0;
 
     void set_seed_corpus(const unsigned char * seed_corpus_buf, std::size_t seed_corpus_len);
