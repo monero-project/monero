@@ -6530,6 +6530,11 @@ bool simple_wallet::process_ring_members(const std::vector<tools::wallet2::pendi
         fail_msg_writer() << tr("failed to get output: ") << err;
         return false;
       }
+      if (res.outs.size() != req.outputs.size())
+      {
+        fail_msg_writer() << tr("daemon returned an invalid number of outputs");
+        return false;
+      }
       // make sure that returned block heights are less than blockchain height
       for (auto& res_out : res.outs)
       {
