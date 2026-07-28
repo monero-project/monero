@@ -73,12 +73,23 @@
 
 #define BLOCK_QUEUE_NSPANS_MINIMUM             10  // minimum number of spans
 #define BLOCK_QUEUE_SIZE_THRESHOLD (100*1024*1024) // MB
-#define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD_STANDBY (5 * 1000000) // microseconds
+#define BLOCK_QUEUE_FORCE_DOWNLOAD_NEAR_BLOCKS 1000
+#define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD_STANDBY (15 * 1000000) // microseconds
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD (30 * 1000000) // microseconds
 #define IDLE_PEER_KICK_TIME (240 * 1000000) // microseconds
 #define NON_RESPONSIVE_PEER_KICK_TIME (20 * 1000000) // microseconds
 #define DROP_ON_SYNC_WEDGE_THRESHOLD (30 * 1000000000ull) // nanoseconds
-#define LAST_ACTIVITY_STALL_THRESHOLD (2.0f) // seconds
+// Was 2.0f. Real, successful span completions measured 2-26 seconds each
+// under normal network conditions, so a 2-second silence window judged a
+// peer "stalled" long before a transfer could possibly finish. This caused
+// a self-defeating loop: the head-of-queue span (blocking all further
+// commits) got reassigned to a new peer every few seconds, indefinitely,
+// because every freshly-assigned peer also looked "stalled" within a
+// couple of seconds under ordinary network jitter -- never giving any
+// single peer a fair chance to actually deliver it, while spans behind
+// the head (not being competed over this way) downloaded and completed
+// normally. Widened to comfortably exceed observed real transfer times.
+#define LAST_ACTIVITY_STALL_THRESHOLD (20.0f) // seconds
 #define DROP_PEERS_ON_SCORE -2
 
 namespace cryptonote
