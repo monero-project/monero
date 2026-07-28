@@ -542,6 +542,9 @@ struct Wallet
      * \param upper_transaction_size_limit
      * \param daemon_username
      * \param daemon_password
+     * \param use_ssl - requires TLS, without certificate verification, for a .onion/.i2p
+     *                  daemon_address, as does addressing it https://; otherwise the
+     *                  handshake is skipped there. Clearnet autodetects either way.
      * \param lightWallet - deprecated
      * \param proxy_address - set proxy address, empty string to disable
      * \return  - true on success
@@ -1342,8 +1345,9 @@ struct WalletManager
     //! returns verbose error string regarding last error;
     virtual std::string errorString() const = 0;
 
-    //! set the daemon address (hostname and port)
-    virtual void setDaemonAddress(const std::string &address) = 0;
+    //! set the daemon address (hostname and port). The TLS handshake is skipped for
+    //! .onion/.i2p addresses unless use_ssl is set or the address is https:// (see Wallet::init's use_ssl).
+    virtual void setDaemonAddress(const std::string &address, bool use_ssl = false) = 0;
 
     //! returns whether the daemon can be reached, and its version number
     virtual bool connected(uint32_t *version = NULL) = 0;
