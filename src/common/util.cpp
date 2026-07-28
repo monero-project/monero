@@ -623,9 +623,10 @@ namespace tools
 
   bool is_privacy_preserving_network(const std::string &address)
   {
-    if (boost::ends_with(address, ".onion"))
+    // classic locale: the user's locale (e.g. Turkish casing) must not affect the match
+    if (boost::iends_with(address, ".onion", std::locale::classic()))
       return true;
-    if (boost::ends_with(address, ".i2p"))
+    if (boost::iends_with(address, ".i2p", std::locale::classic()))
       return true;
     return false;
   }
