@@ -57,6 +57,8 @@
 #include "storages/levin_abstract_invoke2.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "net/parse.h"
+#include "net/http_client.h"
+#include "net/http.h"
 #include "p2p/net_node.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -66,6 +68,15 @@
 
 namespace nodetool
 {
+  namespace
+  {
+    // Safety bound for a ban list fetched from a URL. 10 MiB is far above any
+    // realistic IP or subnet list and bounds memory use. The body is buffered by
+    // the HTTP client before this check, so it is a sanity bound, not a stream limit.
+    constexpr std::size_t BAN_LIST_DOWNLOAD_MAX_SIZE = 10 * 1024 * 1024;
+    constexpr std::chrono::seconds BAN_LIST_DOWNLOAD_TIMEOUT{30};
+  }
+
   template<class t_payload_net_handler>
   node_server<t_payload_net_handler>::~node_server()
   {
@@ -407,8 +418,104 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::is_ban_list_url(const std::string &spec)
+  {
+    // Treat the argument as remote when it carries an http or https scheme. Scheme
+    // names are case insensitive per RFC 3986 section 3.1.
+    return boost::istarts_with(spec, "http://") || boost::istarts_with(spec, "https://");
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  std::string node_server<t_payload_net_handler>::fetch_ban_list(const std::string &url, const std::string &proxy)
+  {
+    epee::net_utils::http::url_content u_c;
+    if (!epee::net_utils::parse_url(url, u_c))
+      throw std::runtime_error("Failed to parse ban list URL: " + url);
+    if (u_c.host.empty())
+      throw std::runtime_error("Ban list URL has no host: " + url);
+
+    const bool https = u_c.schema == "https";
+    // For https, ssl_options_t(e_ssl_support_enabled) sets verification to system_ca,
+    // so the server certificate is validated against the system trust store. That
+    // validation is the integrity guarantee for the fetched list.
+    epee::net_utils::ssl_options_t ssl_options = https
+      ? epee::net_utils::ssl_options_t{epee::net_utils::ssl_support_t::e_ssl_support_enabled}
+      : epee::net_utils::ssl_options_t{epee::net_utils::ssl_support_t::e_ssl_support_disabled};
+
+    const uint16_t port = u_c.port ? u_c.port : (https ? 443 : 80);
+
+    // When a proxy is configured, route the fetch through it. The socks connector
+    // sends the hostname to the proxy (remote DNS), so neither the connection nor
+    // the name resolution reveals the operator's address to the list host.
+    net::http::client client;
+    if (!proxy.empty())
+    {
+      if (!net::socks::endpoint::get(proxy))
+        throw std::runtime_error("Failed to parse proxy address for ban list URL: " + proxy);
+      client.set_proxy(proxy);
+    }
+    client.set_server(u_c.host, std::to_string(port), boost::none, std::move(ssl_options));
+
+    const epee::net_utils::http::http_response_info *info = nullptr;
+    const bool ok = client.invoke_get(u_c.uri, BAN_LIST_DOWNLOAD_TIMEOUT, "", std::addressof(info));
+    const auto disconnect = epee::misc_utils::create_scope_leave_handler([&client]{ client.disconnect(); });
+
+    if (!ok)
+      throw std::runtime_error("Failed to retrieve ban list from URL: " + url);
+    if (!info)
+      throw std::runtime_error("No HTTP response from ban list URL: " + url);
+    if (info->m_response_code != 200)
+      throw std::runtime_error("Unexpected HTTP status " + std::to_string(info->m_response_code) +
+        " from ban list URL: " + url);
+    if (info->m_body.empty())
+      throw std::runtime_error("Empty ban list received from URL: " + url);
+    if (info->m_body.size() > BAN_LIST_DOWNLOAD_MAX_SIZE)
+      throw std::runtime_error("Ban list from URL exceeds the maximum size of " +
+        std::to_string(BAN_LIST_DOWNLOAD_MAX_SIZE) + " bytes: " + url);
+
+    return info->m_body;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  size_t node_server<t_payload_net_handler>::load_ban_list(const std::string &ban_list)
+  {
+    size_t applied = 0;
+    std::istringstream iss(ban_list);
+    for (std::string line; std::getline(iss, line); )
+    {
+      // ignore comments after '#' character
+      const size_t pound_idx = line.find('#');
+      if (pound_idx != std::string::npos)
+        line.resize(pound_idx);
+
+      // trim whitespace and ignore empty lines
+      boost::trim(line);
+      if (line.empty())
+        continue;
+
+      auto subnet = net::get_ipv4_subnet_address(line);
+      if (subnet)
+      {
+        block_subnet(*subnet, std::numeric_limits<time_t>::max());
+        ++applied;
+        continue;
+      }
+      const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(line, 0);
+      if (parsed_addr)
+      {
+        block_host(*parsed_addr, std::numeric_limits<time_t>::max());
+        ++applied;
+        continue;
+      }
+      MERROR("Invalid IP address or IPv4 subnet: " << line);
+    }
+    return applied;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::handle_command_line(
       const boost::program_options::variables_map& vm
+    , const std::string& proxy
     )
   {
     bool testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
@@ -493,46 +600,27 @@ namespace nodetool
     {
       const std::string ban_list = command_line::get_arg(vm, arg_ban_list);
 
-      const boost::filesystem::path ban_list_path(ban_list);
-      boost::system::error_code ec;
-      if (!boost::filesystem::exists(ban_list_path, ec))
+      std::string ban_list_contents;
+      if (is_ban_list_url(ban_list))
       {
-        throw std::runtime_error("Can't find ban list file " + ban_list + " - " + ec.message());
+        ban_list_contents = fetch_ban_list(ban_list, proxy);
       }
-
-      std::string banned_ips;
-      if (!epee::file_io_utils::load_file_to_string(ban_list_path.string(), banned_ips))
+      else
       {
-        throw std::runtime_error("Failed to read ban list file " + ban_list);
-      }
-
-      std::istringstream iss(banned_ips);
-      for (std::string line; std::getline(iss, line); )
-      {
-        // ignore comments after '#' character
-        const size_t pound_idx = line.find('#');
-        if (pound_idx != std::string::npos)
-          line.resize(pound_idx);
-
-        // trim whitespace and ignore empty lines
-        boost::trim(line);
-        if (line.empty())
-          continue;
-
-        auto subnet = net::get_ipv4_subnet_address(line);
-        if (subnet)
+        const boost::filesystem::path ban_list_path(ban_list);
+        boost::system::error_code ec;
+        if (!boost::filesystem::exists(ban_list_path, ec))
         {
-          block_subnet(*subnet, std::numeric_limits<time_t>::max());
-          continue;
+          throw std::runtime_error("Can't find ban list file " + ban_list + " - " + ec.message());
         }
-        const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(line, 0);
-        if (parsed_addr)
+
+        if (!epee::file_io_utils::load_file_to_string(ban_list_path.string(), ban_list_contents))
         {
-          block_host(*parsed_addr, std::numeric_limits<time_t>::max());
-          continue;
+          throw std::runtime_error("Failed to read ban list file " + ban_list);
         }
-        MERROR("Invalid IP address or IPv4 subnet: " << line);
       }
+
+      load_ban_list(ban_list_contents);
     }
 
     if(command_line::has_arg(vm, arg_p2p_hide_my_port))
@@ -886,7 +974,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm, const std::string& proxy, bool proxy_dns_leaks_allowed)
   {
-    bool res = handle_command_line(vm);
+    bool res = handle_command_line(vm, proxy);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
     if (proxy.size())
     {
