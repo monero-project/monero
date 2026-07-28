@@ -2170,7 +2170,7 @@ skip:
           std::vector<crypto::hash> hashes;
           boost::uuids::uuid span_connection_id;
           boost::posix_time::ptime time;
-          span = m_block_queue.get_next_span_if_scheduled(hashes, span_connection_id, time);
+          span = m_block_queue.get_next_span_if_scheduled_and_reset_time(hashes, span_connection_id, time);
           if (span.second > 0)
           {
             is_next = true;
@@ -2180,7 +2180,6 @@ skip:
               req.blocks.push_back(hash);
               context.m_requested_objects.insert(hash);
             }
-            m_block_queue.reset_next_span_time();
           }
         }
       }

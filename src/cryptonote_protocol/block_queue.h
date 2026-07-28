@@ -83,6 +83,14 @@ namespace cryptonote
     uint64_t get_next_needed_height(uint64_t blockchain_height) const;
     std::pair<uint64_t, uint64_t> get_next_span_if_scheduled(std::vector<crypto::hash> &hashes, boost::uuids::uuid &connection_id, boost::posix_time::ptime &time) const;
     void reset_next_span_time(boost::posix_time::ptime t = boost::posix_time::microsec_clock::universal_time());
+    // Atomic combination of get_next_span_if_scheduled() + reset_next_span_time()
+    // under a single lock acquisition. The separate two-call sequence (as used
+    // previously in cryptonote_protocol_handler.inl) has a TOCTOU race: another
+    // connection's thread can fill the span's blocks in the gap between the two
+    // locked calls, causing reset_next_span_time()'s "Next span is not empty"
+    // assertion to fire and silently no-op, leaving that span's retry clock
+    // stuck and wedging the whole download queue.
+    std::pair<uint64_t, uint64_t> get_next_span_if_scheduled_and_reset_time(std::vector<crypto::hash> &hashes, boost::uuids::uuid &connection_id, boost::posix_time::ptime &time, boost::posix_time::ptime new_time = boost::posix_time::microsec_clock::universal_time());
     void set_span_hashes(uint64_t start_height, const boost::uuids::uuid &connection_id, std::vector<crypto::hash> hashes);
     bool get_next_span(uint64_t &height, std::vector<cryptonote::block_complete_entry> &bcel, boost::uuids::uuid &connection_id, epee::net_utils::network_address &addr, bool filled = true) const;
     bool has_next_span(const boost::uuids::uuid &connection_id, bool &filled, boost::posix_time::ptime &time) const;

@@ -346,6 +346,24 @@ void block_queue::reset_next_span_time(boost::posix_time::ptime t)
   (boost::posix_time::ptime&)i->time = t; // sod off, time doesn't influence sorting
 }
 
+std::pair<uint64_t, uint64_t> block_queue::get_next_span_if_scheduled_and_reset_time(std::vector<crypto::hash> &hashes, boost::uuids::uuid &connection_id, boost::posix_time::ptime &time, boost::posix_time::ptime new_time)
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  if (blocks.empty())
+    return std::make_pair(0, 0);
+  block_map::iterator i = blocks.begin();
+  if (i == blocks.end())
+    return std::make_pair(0, 0);
+  if (!i->blocks.empty())
+    return std::make_pair(0, 0);
+  hashes = i->hashes;
+  connection_id = i->connection_id;
+  time = i->time;
+  std::pair<uint64_t, uint64_t> ret = std::make_pair(i->start_block_height, i->nblocks);
+  (boost::posix_time::ptime&)i->time = new_time; // same "sod off" cast as reset_next_span_time, still under the same lock
+  return ret;
+}
+
 void block_queue::set_span_hashes(uint64_t start_height, const boost::uuids::uuid &connection_id, std::vector<crypto::hash> hashes)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
