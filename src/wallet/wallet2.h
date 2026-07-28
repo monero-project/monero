@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -99,7 +99,6 @@ namespace tools
       result_type operator()() { return crypto::rand<result_type>(); }
     } engine;
 
-private:
     std::gamma_distribution<double> gamma;
     const std::vector<uint64_t> &rct_offsets;
     const uint64_t *begin, *end;
@@ -845,6 +844,7 @@ private:
     void set_subaddress_label(const cryptonote::subaddress_index &index, const std::string &label);
     void set_subaddress_lookahead(size_t major, size_t minor);
     std::pair<size_t, size_t> get_subaddress_lookahead() const { return {m_subaddress_lookahead_major, m_subaddress_lookahead_minor}; }
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &get_subaddress_map_ref() const { return m_subaddresses; }
     /*!
      * \brief Tells if the wallet file is deprecated.
      */
@@ -905,9 +905,71 @@ private:
     bool parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsigned_tx_set &exported_txs) const;
     bool load_tx(const std::string &signed_filename, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set&)> accept_func = NULL);
     bool parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func);
-    std::vector<wallet2::pending_tx> create_transactions_2(std::vector<cryptonote::tx_destination_entry> dsts, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices, const unique_index_container& subtract_fee_from_outputs = {});     // pass subaddr_indices by value on purpose
+    /**
+     * @brief Create "transfer" style txs (or tx proposals in hot/cold & multisig wallets)
+     * @param dsts list of (address, amount) payments to fulfill
+     * @param fake_outs_count the number of decoys per input, AKA "mixin"
+     * @param priority fee priority level
+     * @param extra any non-ephemeral-tx-pubkey tx.extra fields, including PIDs
+     * @param subaddr_account the only account (AKA major) index for which input selection should pull inputs from
+     * @param subaddr_indices if non-empty, the only minor indices for which input selection should pull inputs from
+     * @param subtract_fee_from_outputs indices into `dsts` which are "fee-subtractable"
+     * @return list of "pending txs": structs which contain partially or fully formed txs and construction information
+     *
+     * Transfer-style means that transactions are added until all payment outlays are fulfilled.
+     */
+    std::vector<wallet2::pending_tx> create_transactions_2(
+      std::vector<cryptonote::tx_destination_entry> dsts,
+      const size_t fake_outs_count,
+      fee_priority priority,
+      const std::vector<uint8_t>& extra,
+      uint32_t subaddr_account,
+      std::set<uint32_t> subaddr_indices, // pass subaddr_indices by value on purpose
+      const unique_index_container& subtract_fee_from_outputs = {});
+    /**
+     * @brief Create "sweep-all" style txs (or tx proposals in hot/cold & multisig wallets)
+     * @param below the money amount below which input selection should pull inputs from; higher amounts are excluded
+     * @param address public address for all destinations in txs
+     * @param is_subaddress true iff `address` refers to a subaddress
+     * @param outputs the minimum num of outputs to make per tx (if `address` isn't ours, a change output is included)
+     * @param fake_outs_count the number of decoys per input, AKA "mixin"
+     * @param priority fee priority level
+     * @param extra any non-ephemeral-tx-pubkey tx.extra fields, including PIDs
+     * @param subaddr_account the only account (AKA major) index for which input selection should pull inputs from
+     * @param subaddr_indices if non-empty, the only minor indices for which input selection should pull inputs from
+     * @return list of "pending txs": structs which contain partially or fully formed txs and construction information
+     *
+     * Sweep-all-style means that transactions are added until all inputs <= amount `below` are spent.
+     */
     std::vector<wallet2::pending_tx> create_transactions_all(uint64_t below, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices);
+    /**
+     * @brief Create "sweep-single" style txs (or tx proposals in hot/cold & multisig wallets)
+     * @param ki the key image of the input that is to be spent
+     * @param address public address for all destinations in txs
+     * @param is_subaddress true iff `address` refers to a subaddress
+     * @param outputs the minimum num of outputs to make per tx (if `address` isn't ours, a change output is included)
+     * @param fake_outs_count the number of decoys per input, AKA "mixin"
+     * @param priority fee priority level
+     * @param extra any non-ephemeral-tx-pubkey tx.extra fields, including PIDs
+     * @return list of "pending txs": structs which contain partially or fully formed txs and construction information
+     *
+     * Sweep-single-style means that 1 transaction is returned which spends the given key image
+     */
     std::vector<wallet2::pending_tx> create_transactions_single(const crypto::key_image &ki, const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra);
+    /**
+     * @brief Create "sweep-multiple" style txs (or tx proposals in hot/cold & multisig wallets)
+     * @param address public address for all destinations in txs
+     * @param is_subaddress true iff `address` refers to a subaddress
+     * @param outputs the minimum num of outputs to make per tx (if `address` isn't ours, a change output is included)
+     * @param unused_transfers_indices indices into `m_transfers` of RingCT & validly-decomposed pre-RingCT inputs
+     * @param unused_dust_indices indices into `m_transfers` of non-validly-decomposed pre-RingCT inputs
+     * @param fake_outs_count the number of decoys per input, AKA "mixin"
+     * @param priority fee priority level
+     * @param extra any non-ephemeral-tx-pubkey tx.extra fields, including PIDs
+     * @return list of "pending txs": structs which contain partially or fully formed txs and construction information
+     *
+     * Sweep-multiple-style means that transactions are added until all inputs specified by index are spent.
+     */
     std::vector<wallet2::pending_tx> create_transactions_from(const cryptonote::account_public_address &address, bool is_subaddress, const size_t outputs, std::vector<size_t> unused_transfers_indices, std::vector<size_t> unused_dust_indices, const size_t fake_outs_count, fee_priority priority, const std::vector<uint8_t>& extra);
     bool sanity_check(const std::vector<wallet2::pending_tx> &ptx_vector, const std::vector<cryptonote::tx_destination_entry>& dsts, const unique_index_container& subtract_fee_from_outputs = {}) const;
     void cold_tx_aux_import(const std::vector<pending_tx>& ptx, const std::vector<std::string>& tx_device_aux);
@@ -1251,8 +1313,26 @@ private:
 
     uint8_t get_current_hard_fork();
     void get_hard_fork_info(uint8_t version, uint64_t &earliest_height);
+    /**
+     * @brief Determine if daemon's blockchain is past a certain fork version
+     * @param version fork version
+     * @param early_blocks threshold of blocks for which the the fork can be away from activation
+     * @return true iff daemon's blockchain is past the fork version, within said threshold
+     */
     bool use_fork_rules(uint8_t version, int64_t early_blocks = 0);
-    fee_algorithm get_fee_algorithm();
+    /**
+     * @brief Determine if wallet's cached blockchain is past a certain fork version, according to its own fork table
+     * @param version fork version
+     * @param early_blocks threshold of blocks for which the the fork can be away from activation
+     * @return true iff wallet's cached blockchain is past the fork version, within said threshold
+     */
+    bool use_fork_rules_offline(uint8_t version, int64_t early_blocks = 0) const;
+    /**
+     * @brief Determine fee algorithm to used based on active fork rules
+     * @param offline true iff should use `use_fork_rules_offline()`, else use `use_fork_rules()`
+     * @return fee algorithm
+     */
+    fee_algorithm get_fee_algorithm(bool offline = false);
 
     std::string get_wallet_file() const;
     std::string get_keys_file() const;
@@ -1486,7 +1566,9 @@ private:
 
     static std::string get_default_daemon_address() { CRITICAL_REGION_LOCAL(default_daemon_address_lock); return default_daemon_address; }
 
+  #ifndef IN_UNIT_TESTS
   private:
+  #endif
     /*!
      * \brief  Stores wallet information to wallet file.
      * \param  keys_file_name Name of wallet file
@@ -1612,7 +1694,11 @@ private:
     std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> create_output_tracker_cache() const;
 
     void init_type(hw::device::device_type device_type);
-    void setup_new_blockchain();
+    /**
+     * @brief Reset blockchain state to the genesis
+     * @param add_subaddr_account true to add a new subaddress account labeled "Primary account"
+     */
+    void setup_new_blockchain(const bool add_subaddr_account = true);
     void create_keys_file(const std::string &wallet_, bool watch_only, const epee::wipeable_string &password, bool create_address_file);
 
     wallet_device_callback * get_device_callback();
