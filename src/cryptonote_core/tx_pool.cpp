@@ -551,9 +551,12 @@ namespace cryptonote
     bool &do_not_relay,
     bool &double_spend_seen,
     bool &pruned,
-    const bool suppress_missing_msgs)
+    const bool suppress_missing_msgs,
+    uint8_t *nic_verified_hf_version)
   {
     valid_input_verification_id = crypto::null_hash;
+    if (nic_verified_hf_version)
+      *nic_verified_hf_version = 0;
 
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -593,6 +596,8 @@ namespace cryptonote
       double_spend_seen = meta.double_spend_seen;
       pruned = meta.pruned;
       valid_input_verification_id = meta.valid_input_verification_id;
+      if (nic_verified_hf_version)
+        *nic_verified_hf_version = meta.get_nic_verified_hf_version();
       sensitive = !meta.matches(relay_category::broadcasted);
 
       // remove first, in case this throws, so key images aren't removed
@@ -1488,6 +1493,24 @@ namespace cryptonote
 
     if (txd.last_failed_id == top_block_hash)
       return false; // we are already sure that this tx isn't passing for this exact chain
+
+    // The pool is no longer walked and re-validated in full when the fork version changes, so a tx
+    // sitting in it may have last satisfied the non-input consensus rules under an older version of
+    // them. Re-check lazily, here at the point where the tx would actually be mined, and record the
+    // version it passed at so the work happens at most once per tx per fork. `txd` is written back
+    // by the caller when it differs from what was read.
+    const uint8_t hf_version{m_blockchain.get_current_hard_fork_version()};
+    if (txd.get_nic_verified_hf_version() != hf_version)
+    {
+      tx_verification_context nic_tvc{};
+      if (!cryptonote::ver_non_input_consensus(lazy_tx(), nic_tvc, hf_version))
+      {
+        LOG_PRINT_L1("transaction " << txid << " no longer passes the non-input consensus rules at v"
+          << (unsigned)hf_version << ", not including it in a block");
+        return false;
+      }
+      txd.set_nic_verified_hf_version(hf_version);
+    }
 
     tx_verification_context tvc{};
     if (!check_tx_inputs([&lazy_tx]()->cryptonote::transaction&{ return lazy_tx(); },

@@ -691,11 +691,17 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
       // We assume that if they were in a block, the transactions are already known to the network
       // as a whole. However, if we had mined that block, that might not be always true. Unlikely
       // though, and always relaying these again might cause a spike of traffic as many nodes
-      // re-relay all the transactions in a popped block when a reorg happens. You might notice that
-      // we also set the "nic_verified_hf_version" parameter. Since we know we took this transaction
-      // from the mempool earlier in this function call, when the mempool has the same current fork
-      // version, we can return it without re-verifying the consensus rules on it.
-      const bool r = m_tx_pool.add_tx(tx, tvc, relay_method::block, true, version, version, valid_input_verification_id);
+      // re-relay all the transactions in a popped block when a reorg happens.
+      //
+      // Note the "nic_verified_hf_version" argument. These txs come out of the block we are
+      // popping, not out of the mempool, so the most we can honestly claim is that they satisfied
+      // the non-input consensus rules of the fork version the chain was on before this pop. That
+      // is `previous_hf_version`. When the pop does not cross a fork boundary it equals `version`
+      // and add_tx() skips re-verification, which is the common case and the fast path. When the
+      // pop does cross one the two differ, and add_tx() re-verifies against `version`, which is
+      // exactly what we want: this used to be repaired afterwards by a full pool re-validation,
+      // which no longer runs.
+      const bool r = m_tx_pool.add_tx(tx, tvc, relay_method::block, true, version, previous_hf_version, valid_input_verification_id);
       if (!r)
       {
         LOG_ERROR("Error returning transaction to tx_pool");
@@ -4162,9 +4168,11 @@ leave:
      * notification for this tx.
      */
     bool _unused1, _unused2, _unused3;
+    uint8_t pool_nic_hf_version = 0;
     const bool found_tx_in_pool{
         m_tx_pool.take_tx(tx_id, tx, txblob, tx_weight, fee, valid_input_verification_id,
-          _unused1, _unused2, _unused3, pruned, /*suppress_missing_msgs=*/true)
+          _unused1, _unused2, _unused3, pruned, /*suppress_missing_msgs=*/true,
+          &pool_nic_hf_version)
       };
     bool find_tx_failure{!found_tx_in_pool};
     if (!found_tx_in_pool) // if not in mempool:
@@ -4233,6 +4241,25 @@ leave:
     if (!fast_check)
 #endif
     {
+      // A tx taken from the pool has only ever been checked against the non-input consensus rules
+      // of whichever fork version was current when it entered the pool. The pool is no longer
+      // walked and re-validated when that version changes, so re-check the tx here, before it can
+      // become part of a block. Txs that came from the block supplement rather than the pool were
+      // already covered in bulk by the ver_non_input_consensus(extra_block_txs, ...) call earlier
+      // in this function, so they are skipped.
+      if (found_tx_in_pool && pool_nic_hf_version != hf_version)
+      {
+        tx_verification_context nic_tvc{};
+        if (!ver_non_input_consensus(tx, nic_tvc, hf_version))
+        {
+          MERROR_VER("Block with id: " << id << " has at least one transaction (id: " << tx_id
+            << ") which fails the non-input consensus rules at v" << (unsigned)hf_version);
+          bvc.m_verifivation_failed = true;
+          return_txs_to_pool();
+          return false;
+        }
+      }
+
       // validate that transaction inputs and the keys spending them are correct.
       tx_verification_context tvc;
       if(!check_tx_inputs(tx, tvc, valid_input_verification_id))

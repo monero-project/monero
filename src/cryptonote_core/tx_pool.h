@@ -158,6 +158,10 @@ namespace cryptonote
      * @param[out] double_spend_seen return-by-reference was a double spend seen for that transaction?
      * @param[out] pruned return-by-reference is the tx pruned
      * @param[out] suppress_missing_msgs suppress warning msgs when txid is missing (optional, defaults to `false`)
+     * @param[out] nic_verified_hf_version if non-null, receives the fork version this tx last passed
+     *   the non-input consensus rules at, or 0 if that is unknown. A caller that intends to put the
+     *   tx into a block MUST re-run ver_non_input_consensus() when this does not equal the fork
+     *   version it is building against, because the pool is no longer re-validated in full on a fork.
      *
      * @return true unless the transaction cannot be found in the pool
      */
@@ -171,7 +175,8 @@ namespace cryptonote
       bool &do_not_relay,
       bool &double_spend_seen,
       bool &pruned,
-      bool suppress_missing_msgs = false);
+      bool suppress_missing_msgs = false,
+      uint8_t *nic_verified_hf_version = nullptr);
 
     /**
      * @brief checks if the pool has a transaction with the given hash
