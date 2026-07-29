@@ -719,12 +719,10 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
   m_tx_pool.on_blockchain_dec(top_block_height, top_block_hash);
   invalidate_block_template_cache();
 
-  const uint8_t new_hf_version = get_current_hard_fork_version();
-  if (new_hf_version != previous_hf_version)
-  {
-    MINFO("Validating txpool for v" << (unsigned)new_hf_version);
-    m_tx_pool.validate(new_hf_version);
-  }
+  // The pool is deliberately NOT re-validated in full here when the fork version changes. Each tx
+  // returned to the pool above was re-verified by add_tx() if the pop crossed a fork boundary, and
+  // anything else already in the pool carries the fork version it was last verified at, so it gets
+  // re-checked lazily before it can be mined or accepted into a block. See issue #10142.
 
   return popped_block;
 }
@@ -4387,14 +4385,15 @@ leave:
   const uint8_t new_hf_version = get_current_hard_fork_version();
   if (new_hf_version != hf_version)
   {
-    // the genesis block is added before everything's setup, and the txpool is empty
-    // when we start from scratch, so we skip this
-    const bool is_genesis_block = new_height == 1;
-    if (!is_genesis_block)
-    {
-      MGINFO("Validating txpool for v" << (unsigned)new_hf_version);
-      m_tx_pool.validate(new_hf_version);
-    }
+    // The whole pool used to be taken apart and re-validated right here, which stalls the daemon
+    // for as long as that takes and does it on the block-add path, where it blocks everything else.
+    // Instead each pool tx now carries the fork version it last passed the non-input consensus
+    // rules at, and is re-checked lazily: before it can be put in a block template
+    // (is_transaction_ready_to_go) and before it can be accepted as part of an incoming block
+    // (handle_block_to_main_chain). Txs that never get used are never re-verified at all. See
+    // issue #10142.
+    MGINFO("Fork version changed to v" << (unsigned)new_hf_version
+      << ", txpool txs will be re-checked against the new rules as they are used");
   }
 
   const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(new_height));

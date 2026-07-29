@@ -408,19 +408,6 @@ namespace cryptonote
      */
     std::string print_pool(bool short_format) const;
 
-    /**
-     * @brief remove transactions from the pool which are no longer valid
-     *
-     * With new versions of the currency, what conditions render a transaction
-     * invalid may change.  This function clears those which were received
-     * before a version change and no longer conform to requirements.
-     *
-     * @param version the version the transactions must conform to
-     *
-     * @return the number of transactions removed
-     */
-    size_t validate(uint8_t version);
-
      /**
       * @brief return the cookie
       *

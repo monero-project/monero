@@ -678,13 +678,14 @@ namespace cryptonote
     MDEBUG("Start hardfork version: " << (int) hardfork_version_start);
     MDEBUG("Current hardfork version: " << (int) hardfork_version_current);
     
-    // now that we have a valid m_blockchain_storage, we can clean out any
-    // transactions in the pool that do not conform to the current fork
+    // Transactions in the pool that do not conform to the current fork are no longer cleaned out
+    // here. Doing so walked and re-verified the entire pool while the daemon was starting up. Each
+    // pool tx instead records the fork version it last passed the non-input consensus rules at, and
+    // is re-checked lazily at the points where it could actually matter: before entering a block
+    // template, and before being accepted as part of an incoming block. See issue #10142.
     if(hardfork_version_start != hardfork_version_current) {
-      m_mempool.validate(hardfork_version_current);
-    }
-    else {
-      MDEBUG("Not validating the txpool, no hardfork detected.");
+      MDEBUG("Fork version changed while offline (v" << (int) hardfork_version_start << " -> v"
+        << (int) hardfork_version_current << "), txpool txs will be re-checked as they are used.");
     }
 
     bool show_time_stats = command_line::get_arg(vm, arg_show_time_stats) != 0;
