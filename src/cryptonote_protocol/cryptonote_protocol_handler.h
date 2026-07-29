@@ -114,14 +114,9 @@ namespace cryptonote
     const block_queue &get_block_queue() const { return m_block_queue; }
     std::uint64_t max_average_of_blocksize_in_queue()
     {
-      std::vector<std::uint64_t> average_blocksize{0};
-      m_block_queue.foreach([&](const cryptonote::block_queue::span &span)
-      {
-        average_blocksize.push_back(span.size / span.nblocks);
-        return true; // we don't care about the return value
-      });
-      MINFO("Maximum average of blocksize for current batches : " << *std::max_element(average_blocksize.begin(), average_blocksize.end()));
-      return *std::max_element(average_blocksize.begin(), average_blocksize.end());
+      const uint64_t max_average = m_block_queue.get_max_block_size_average();
+      MINFO("Maximum average of blocksize for current batches : " << max_average);
+      return max_average;
     }
     void stop();
     void on_connection_close(cryptonote_connection_context &context);

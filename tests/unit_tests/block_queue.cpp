@@ -100,3 +100,19 @@ TEST(block_queue, count_filled_blocks)
   ASSERT_EQ(bq.get_num_filled_spans(), 2);
   ASSERT_EQ(bq.get_num_filled_blocks(), 7);
 }
+
+TEST(block_queue, pruned_weight_in_block_size_average)
+{
+  cryptonote::block_queue bq;
+  epee::net_utils::network_address na;
+  std::vector<cryptonote::block_complete_entry> blocks(2);
+  blocks[0].block.resize(100);
+  blocks[0].txs.emplace_back(cryptonote::blobdata(50, '\0'));
+  blocks[1].pruned = true;
+  blocks[1].block.resize(10);
+  blocks[1].block_weight = 1000;
+
+  bq.add_blocks(0, std::move(blocks), uuid1(), na, 0.0f, 160);
+
+  ASSERT_EQ(bq.get_max_block_size_average(), 575);
+}

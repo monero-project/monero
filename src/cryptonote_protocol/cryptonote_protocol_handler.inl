@@ -2174,7 +2174,8 @@ skip:
       NOTIFY_REQUEST_GET_OBJECTS::request req;
       bool is_next = false;
       size_t count = 0;
-      const size_t l_m_bss = m_core.get_block_sync_size(m_core.get_current_blockchain_height(), max_average_of_blocksize_in_queue());
+      const uint64_t max_average = m_core.is_block_sync_size_adaptive() ? max_average_of_blocksize_in_queue() : 0;
+      const size_t l_m_bss = m_core.get_block_sync_size(m_core.get_current_blockchain_height(), max_average);
       std::pair<uint64_t, uint64_t> span = std::make_pair(0, 0);
       if (force_next_span)
       {
