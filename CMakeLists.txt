@@ -459,7 +459,8 @@ elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
   set(BSDI TRUE)
 endif()
 
-include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external external/supercop/include)
+include_directories(SYSTEM external/rapidjson/include)
+include_directories(external/easylogging++ src contrib/epee/include external external/supercop/include)
 
 option(STATIC "Link libraries statically" OFF)
 
