@@ -42,6 +42,7 @@ const char* Message::STATUS_RETRY = "Retry";
 const char* Message::STATUS_FAILED = "Failed";
 const char* Message::STATUS_BAD_REQUEST = "Invalid request type";
 const char* Message::STATUS_BAD_JSON = "Malformed json";
+const char* Message::STATUS_REQUEST_TOO_LARGE = "Request too large";
 
 namespace
 {
@@ -242,6 +243,15 @@ epee::byte_slice BAD_JSON(const std::string& error_details)
   Message fail;
   fail.status = Message::STATUS_BAD_JSON;
   fail.error_details = error_details;
+  return FullMessage::getResponse(fail, invalid);
+}
+
+epee::byte_slice REQUEST_TOO_LARGE()
+{
+  rapidjson::Value invalid;
+  Message fail;
+  fail.status = Message::STATUS_REQUEST_TOO_LARGE;
+  fail.error_details = "Request exceeds maximum message size.";
   return FullMessage::getResponse(fail, invalid);
 }
 

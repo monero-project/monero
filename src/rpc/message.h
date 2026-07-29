@@ -53,6 +53,7 @@ namespace rpc
       static const char* STATUS_FAILED;
       static const char* STATUS_BAD_REQUEST;
       static const char* STATUS_BAD_JSON;
+      static const char* STATUS_REQUEST_TOO_LARGE;
 
       Message() : status(STATUS_OK), rpc_version(0) { }
 
@@ -105,6 +106,8 @@ namespace rpc
   epee::byte_slice BAD_REQUEST(const std::string& request, const rapidjson::Value& id);
 
   epee::byte_slice BAD_JSON(const std::string& error_details);
+
+  epee::byte_slice REQUEST_TOO_LARGE();
 
 
 }  // namespace rpc
