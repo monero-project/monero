@@ -164,3 +164,16 @@ TEST(block_queue, reserve_span_skips_requested_prefix)
   ASSERT_TRUE(bq.requested(hashes[2].first));
   ASSERT_TRUE(bq.requested(hashes[3].first));
 }
+
+TEST(block_queue, count_filled_blocks)
+{
+  cryptonote::block_queue bq;
+  epee::net_utils::network_address na;
+
+  bq.add_blocks(0, std::vector<cryptonote::block_complete_entry>(3), uuid1(), na, 0.0f, 0);
+  bq.add_blocks(3, 2, uuid2(), na);
+  bq.add_blocks(5, std::vector<cryptonote::block_complete_entry>(4), uuid2(), na, 0.0f, 0);
+
+  ASSERT_EQ(bq.get_num_filled_spans(), 2);
+  ASSERT_EQ(bq.get_num_filled_blocks(), 7);
+}
