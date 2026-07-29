@@ -751,9 +751,8 @@ include(CheckTrezor)
     # mingw doesn't support LTO (multiple definition errors at link time)
     set(USE_LTO_DEFAULT false)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,10485760")
-    if(NOT BUILD_64)
-      add_definitions(-DWINVER=0x0600 -D_WIN32_WINNT=0x0600)
-    endif()
+    # TryAcquireSRWLock* requires Windows 7 or later.
+    add_definitions(-DWINVER=0x0601 -D_WIN32_WINNT=0x0601)
   endif()
   set(C_WARNINGS "-Waggregate-return -Wnested-externs -Wold-style-definition -Wstrict-prototypes")
   set(CXX_WARNINGS "-Wno-reorder -Wno-missing-field-initializers")
@@ -836,6 +835,11 @@ include(CheckTrezor)
   add_cxx_flag_if_supported(-Werror=switch      CXX_SECURITY_FLAGS)
   add_c_flag_if_supported(  -Werror=return-type C_SECURITY_FLAGS)
   add_cxx_flag_if_supported(-Werror=return-type CXX_SECURITY_FLAGS)
+
+  # A missing WinAPI prototype (e.g. TryAcquireSRWLock*) must fail the build
+  if(MINGW)
+    add_c_flag_if_supported(-Werror=implicit-function-declaration C_SECURITY_FLAGS)
+  endif()
 
   message(STATUS "Using C security hardening flags: ${C_SECURITY_FLAGS}")
   message(STATUS "Using C++ security hardening flags: ${CXX_SECURITY_FLAGS}")
