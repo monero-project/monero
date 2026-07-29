@@ -7165,7 +7165,7 @@ uint64_t wallet2::unlocked_balance_all(bool strict, uint64_t *blocks_to_unlock, 
     *time_to_unlock = 0;
   for (uint32_t index_major = 0; index_major < get_num_subaddress_accounts(); ++index_major)
   {
-    uint64_t local_blocks_to_unlock, local_time_to_unlock;
+    uint64_t local_blocks_to_unlock = 0, local_time_to_unlock = 0;
     r += unlocked_balance(index_major, strict, blocks_to_unlock ? &local_blocks_to_unlock : NULL, time_to_unlock ? &local_time_to_unlock : NULL);
     if (blocks_to_unlock)
       *blocks_to_unlock = std::max(*blocks_to_unlock, local_blocks_to_unlock);
