@@ -170,10 +170,34 @@ TEST(block_queue, count_filled_blocks)
   cryptonote::block_queue bq;
   epee::net_utils::network_address na;
 
-  bq.add_blocks(0, std::vector<cryptonote::block_complete_entry>(3), uuid1(), na, 0.0f, 0);
+  bq.add_blocks(0, std::vector<cryptonote::block_complete_entry>(3), uuid1(), na, 0.0f, 0, 0);
   bq.add_blocks(3, 2, uuid2(), na);
-  bq.add_blocks(5, std::vector<cryptonote::block_complete_entry>(4), uuid2(), na, 0.0f, 0);
+  bq.add_blocks(5, std::vector<cryptonote::block_complete_entry>(4), uuid2(), na, 0.0f, 0, 0);
 
   ASSERT_EQ(bq.get_num_filled_spans(), 2);
   ASSERT_EQ(bq.get_num_filled_blocks(), 7);
+}
+
+TEST(block_queue, cached_sync_size_tracks_span_changes)
+{
+  cryptonote::block_queue bq;
+  epee::net_utils::network_address na;
+
+  bq.add_blocks(0, 2, uuid1(), na);
+  ASSERT_EQ(bq.get_max_block_size_average(), 0);
+  bq.add_blocks(0, std::vector<cryptonote::block_complete_entry>(2), uuid1(), na, 0.0f, 100, 1000);
+  bq.set_span_hashes(0, uuid1(), std::vector<crypto::hash>(2));
+  bq.add_blocks(2, std::vector<cryptonote::block_complete_entry>(1), uuid2(), na, 0.0f, 200, 900);
+  ASSERT_EQ(bq.get_max_block_size_average(), 900);
+  ASSERT_EQ(bq.get_data_size(), 300);
+
+  bq.add_blocks(2, std::vector<cryptonote::block_complete_entry>(1), uuid2(), na, 0.0f, 150, 300);
+  ASSERT_EQ(bq.get_max_block_size_average(), 500);
+  ASSERT_EQ(bq.get_data_size(), 250);
+
+  bq.flush_spans(uuid1(), true);
+  ASSERT_EQ(bq.get_max_block_size_average(), 300);
+  ASSERT_TRUE(bq.remove_span(2));
+  ASSERT_EQ(bq.get_max_block_size_average(), 0);
+  ASSERT_EQ(bq.get_data_size(), 0);
 }

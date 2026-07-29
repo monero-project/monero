@@ -1139,6 +1139,14 @@ namespace cryptonote
     bool has_block_weights(uint64_t height, uint64_t nblocks) const;
 
     /**
+     * @brief checks pruned block weights against prevalidated chain data under one lock
+     * @param height the height of the first block
+     * @param blocks consecutive blocks; full blocks are ignored
+     * @return false if a pruned block has a zero, unavailable, or mismatched weight
+     */
+    bool check_block_weights(uint64_t height, const std::vector<block_complete_entry> &blocks) const;
+
+    /**
      * @brief flush the invalid blocks set
      */
     void flush_invalid_blocks();
