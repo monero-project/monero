@@ -178,7 +178,7 @@ namespace cryptonote
     size_t skip_unneeded_hashes(cryptonote_connection_context& context, bool check_block_queue) const;
     bool request_txpool_complement(cryptonote_connection_context &context);
     void hit_score(cryptonote_connection_context &context, int32_t score);
-    void calculate_dynamic_span(const double blocks_per_seconds);
+    void calculate_block_queue_limit(double blocks_per_second);
 
     t_core& m_core;
 
@@ -203,9 +203,8 @@ namespace cryptonote
     uint64_t m_sync_download_chain_size, m_sync_download_objects_size;
     size_t m_block_download_max_size;
     bool m_sync_pruned_blocks;
-    size_t m_span_time;
-    std::atomic<size_t> m_span_limit;
-    std::atomic<size_t> m_bss;
+    size_t m_block_sync_queue_time;
+    std::atomic<uint64_t> m_block_queue_limit;
 
     // Values for sync time estimates
     boost::posix_time::ptime m_sync_start_time;
