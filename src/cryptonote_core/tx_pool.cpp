@@ -248,6 +248,11 @@ namespace cryptonote
         meta.pruned = tx.pruned;
         meta.bf_padding = 0;
         memset(meta.padding, 0, sizeof(meta.padding));
+        // Record the fork version this tx is known to satisfy the non-input consensus rules at.
+        // Control only reaches here if the check at the top of add_tx() either ran and passed at
+        // `version`, or was waived by a caller vouching for exactly that version. Set after the
+        // memset above so a future reordering of these two lines cannot silently clear it.
+        meta.set_nic_verified_hf_version(version);
         try
         {
           if (kept_by_block)
@@ -323,6 +328,8 @@ namespace cryptonote
           meta.pruned = tx.pruned;
           meta.bf_padding = 0;
           memset(meta.padding, 0, sizeof(meta.padding));
+          // See the matching comment on the other meta-population branch above.
+          meta.set_nic_verified_hf_version(version);
 
           if (!insert_key_images(tx, id, tx_relay))
             return false;

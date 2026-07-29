@@ -172,12 +172,37 @@ struct txpool_tx_meta_t
   uint8_t is_forwarding: 1;
   uint8_t bf_padding: 3;
 
-  uint8_t padding[44]; // til 160 bytes
+  //! Hard fork version at which this tx last passed cryptonote::ver_non_input_consensus().
+  //! Only meaningful when nic_verified_tag == TXPOOL_META_NIC_TAG; read it through
+  //! get_nic_verified_hf_version(), which returns 0 ("unknown, must re-verify") otherwise.
+  uint8_t nic_verified_hf_version;
+  //! Written together with nic_verified_hf_version. These two bytes were previously part of
+  //! padding[], so a database written by an older monerod may hold anything here. The tag makes
+  //! a stale byte that happens to equal the current fork version impossible to mistake for a
+  //! real verification record, which would otherwise let an unverified tx skip its NIC check.
+  uint8_t nic_verified_tag;
+
+  uint8_t padding[42]; // til 160 bytes
 
   // If non-null, this verification ID is set for this tx only when some mixring passed ver_input_proofs_rings()
   crypto::hash valid_input_verification_id;
 
   // 192 bytes total
+
+  //! Sentinel proving nic_verified_hf_version was written by NIC-aware code.
+  static constexpr uint8_t TXPOOL_META_NIC_TAG = 0xb7;
+
+  //! \return HF version this tx was last NIC-verified at, or 0 if unknown.
+  uint8_t get_nic_verified_hf_version() const noexcept
+  {
+    return nic_verified_tag == TXPOOL_META_NIC_TAG ? nic_verified_hf_version : 0;
+  }
+
+  void set_nic_verified_hf_version(uint8_t hf_version) noexcept
+  {
+    nic_verified_hf_version = hf_version;
+    nic_verified_tag = hf_version ? TXPOOL_META_NIC_TAG : 0;
+  }
 
   void set_relay_method(relay_method method) noexcept;
   relay_method get_relay_method() const noexcept;
@@ -193,6 +218,11 @@ struct txpool_tx_meta_t
 };
 static_assert(sizeof(txpool_tx_meta_t) == 192, "possible DB migration needed for changes to txpool_tx_meta_t");
 static_assert(offsetof(txpool_tx_meta_t, valid_input_verification_id) == 160, "verif ID wrong alignment");
+// nic_verified_hf_version and nic_verified_tag were carved out of the front of padding[], so they
+// must sit exactly where those two padding bytes were. If either of these fires, the field moved
+// and old databases would be reinterpreted, which the tag byte alone would not save us from.
+static_assert(offsetof(txpool_tx_meta_t, nic_verified_hf_version) == 116, "nic hf version wrong alignment");
+static_assert(offsetof(txpool_tx_meta_t, nic_verified_tag) == 117, "nic tag wrong alignment");
 
 #define DBF_SAFE       1
 #define DBF_FAST       2
