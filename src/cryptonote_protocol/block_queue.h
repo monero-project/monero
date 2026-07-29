@@ -89,6 +89,7 @@ namespace cryptonote
     bool has_next_span(uint64_t height, bool &filled, boost::posix_time::ptime &time, boost::uuids::uuid &connection_id) const;
     size_t get_data_size() const;
     size_t get_num_filled_spans() const;
+    uint64_t get_num_filled_blocks() const;
     float get_speed(const boost::uuids::uuid &connection_id) const;
     bool foreach(std::function<bool(const span&)> f) const;
     bool requested(const crypto::hash &hash) const;
