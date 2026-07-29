@@ -32,9 +32,13 @@
 
 #include <cstddef>
 #include <cstring>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <sodium/crypto_verify_32.h>
+#include <sodium/crypto_shorthash_siphash24.h>
+
+#include "random.h"
 
 #define CRYPTO_MAKE_COMPARABLE(type) \
 namespace crypto { \
@@ -57,22 +61,29 @@ namespace crypto { \
   } \
 }
 
+namespace crypto {
+  inline std::size_t siphash_to_size_t(const void *data, std::size_t length) {
+    static_assert(sizeof(crypto_siphash_key) == crypto_shorthash_siphash24_KEYBYTES,
+      "crypto_siphash_key size must match the SipHash-2-4 key length");
+    static_assert(sizeof(std::uint64_t) == crypto_shorthash_siphash24_BYTES,
+      "std::uint64_t size must match the SipHash-2-4 digest length");
+    std::uint64_t h;
+    crypto_shorthash_siphash24(reinterpret_cast<unsigned char*>(&h), static_cast<const unsigned char*>(data), length, crypto_siphash_key);
+    return h;
+  }
+}
+
 #define CRYPTO_DEFINE_HASH_FUNCTIONS(type) \
 namespace crypto { \
-  static_assert(sizeof(std::size_t) <= sizeof(type), "Size of " #type " must be at least that of size_t"); \
   inline std::size_t hash_value(const type &_v) { \
-    std::size_t h; \
-    memcpy(&h, std::addressof(_v), sizeof(h)); \
-    return h; \
+    return siphash_to_size_t(std::addressof(_v), sizeof(_v)); \
   } \
 } \
 namespace std { \
   template<> \
   struct hash<crypto::type> { \
     std::size_t operator()(const crypto::type &_v) const { \
-      std::size_t h; \
-      memcpy(&h, std::addressof(_v), sizeof(h)); \
-      return h; \
+      return ::crypto::siphash_to_size_t(std::addressof(_v), sizeof(_v)); \
     } \
   }; \
 }

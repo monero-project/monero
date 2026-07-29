@@ -96,6 +96,7 @@ static void generate_system_random_bytes(size_t n, void *result) {
 #endif
 
 static union hash_state state;
+unsigned char crypto_siphash_key[16];
 
 #if !defined(NDEBUG)
 static volatile int curstate; /* To catch thread safety problems. */
@@ -107,10 +108,12 @@ FINALIZER(deinit_random) {
   curstate = 0;
 #endif
   memset(&state, 0, sizeof(union hash_state));
+  memset(crypto_siphash_key, 0, sizeof(crypto_siphash_key));
 }
 
 INITIALIZER(init_random) {
   generate_system_random_bytes(32, &state);
+  generate_system_random_bytes(sizeof(crypto_siphash_key), crypto_siphash_key);
   REGISTER_FINALIZER(deinit_random);
 #if !defined(NDEBUG)
   assert(curstate == 0);
