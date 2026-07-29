@@ -1087,10 +1087,15 @@ namespace cryptonote
     // calculate size of request
     size_t size = 0;
     size_t blocks_size = 0;
+    uint64_t blocks_sync_size = 0;
     for (const auto &element : arg.blocks) {
-      blocks_size += element.block.size();
+      uint64_t block_size = element.block.size();
       for (const auto &tx : element.txs)
-        blocks_size += tx.blob.size();
+        block_size += tx.blob.size();
+      blocks_size += block_size;
+      if (element.pruned)
+        block_size = std::max(block_size, element.block_weight);
+      blocks_sync_size += std::min(block_size, std::numeric_limits<uint64_t>::max() - blocks_sync_size);
     }
     size += blocks_size;
 
@@ -1273,19 +1278,13 @@ namespace cryptonote
         }
       }
     }
-    else
+    else if (!m_core.check_block_weights(start_height, arg.blocks))
     {
-      // we accept pruned data, check that if we got some, then no weights are zero
-      for (block_complete_entry& block_entry: arg.blocks)
-      {
-        if (block_entry.block_weight == 0 && block_entry.pruned)
-        {
-          MERROR(context << "returned at least one pruned block with 0 weight, dropping connection");
-          drop_connection(context, false, false);
-          ++m_sync_bad_spans_downloaded;
-          return LEVIN_ERROR_CONNECTION;
-        }
-      }
+      // Weights used for adaptive sync sizing must match the prevalidated chain data.
+      MERROR(context << "returned an incorrect weight for a pruned block in span starting at height " << start_height << ", dropping connection");
+      drop_connection(context, false, false);
+      ++m_sync_bad_spans_downloaded;
+      return LEVIN_ERROR_CONNECTION;
     }
 
     {
@@ -1297,7 +1296,7 @@ namespace cryptonote
       const boost::posix_time::time_duration dt = now - request_time;
       const float rate = size * 1e6 / (dt.total_microseconds() + 1);
       MDEBUG(context << " adding span: " << arg.blocks.size() << " at height " << start_height << ", " << dt.total_microseconds()/1e6 << " seconds, " << (rate/1024) << " kB/s, size now " << (m_block_queue.get_data_size() + blocks_size) / 1048576.f << " MB");
-      m_block_queue.add_blocks(start_height, std::move(arg.blocks), context.m_connection_id, context.m_remote_address, rate, blocks_size);
+      m_block_queue.add_blocks(start_height, std::move(arg.blocks), context.m_connection_id, context.m_remote_address, rate, blocks_size, blocks_sync_size);
 
       const crypto::hash last_block_hash = cryptonote::get_block_hash(b);
       context.m_last_known_hash = last_block_hash;
@@ -2206,7 +2205,8 @@ skip:
       NOTIFY_REQUEST_GET_OBJECTS::request req;
       bool is_next = false;
       size_t count = 0;
-      const size_t l_m_bss = m_core.get_block_sync_size(m_core.get_current_blockchain_height(), max_average_of_blocksize_in_queue());
+      const uint64_t max_average = m_core.is_block_sync_size_adaptive() ? max_average_of_blocksize_in_queue() : 0;
+      const size_t l_m_bss = m_core.get_block_sync_size(m_core.get_current_blockchain_height(), max_average);
       std::pair<uint64_t, uint64_t> span = std::make_pair(0, 0);
       if (force_next_span)
       {
