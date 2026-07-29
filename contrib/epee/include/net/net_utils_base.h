@@ -168,6 +168,54 @@ namespace net_utils
 	inline bool operator>=(const ipv4_network_subnet& lhs, const ipv4_network_subnet& rhs) noexcept
 	{ return !lhs.less(rhs); }
 
+	class ipv6_network_address;
+
+	class ipv6_network_subnet
+	{
+		boost::asio::ip::address_v6 m_address;
+		uint8_t m_mask;
+
+	public:
+		ipv6_network_subnet()
+			: ipv6_network_subnet(boost::asio::ip::address_v6{}, 0)
+		{}
+
+		ipv6_network_subnet(const boost::asio::ip::address_v6& address, uint8_t mask)
+			: m_address(address), m_mask(mask)
+		{
+			CHECK_AND_ASSERT_THROW_MES(mask <= 128, "invalid IPv6 subnet mask");
+		}
+
+		bool equal(const ipv6_network_subnet& other) const noexcept;
+		bool less(const ipv6_network_subnet& other) const noexcept;
+		bool is_same_host(const ipv6_network_subnet& other) const noexcept
+		{ return subnet() == other.subnet(); }
+		bool matches(const ipv6_network_address &address) const;
+
+		uint8_t mask() const noexcept { return m_mask; }
+		boost::asio::ip::address_v6 subnet() const noexcept;
+		std::string str() const;
+		std::string host_str() const;
+		bool is_loopback() const;
+		bool is_local() const;
+		static constexpr address_type get_type_id() noexcept { return address_type::invalid; }
+		static constexpr zone get_zone() noexcept { return zone::public_; }
+		static constexpr bool is_blockable() noexcept { return true; }
+	};
+
+	inline bool operator==(const ipv6_network_subnet& lhs, const ipv6_network_subnet& rhs) noexcept
+	{ return lhs.equal(rhs); }
+	inline bool operator!=(const ipv6_network_subnet& lhs, const ipv6_network_subnet& rhs) noexcept
+	{ return !lhs.equal(rhs); }
+	inline bool operator<(const ipv6_network_subnet& lhs, const ipv6_network_subnet& rhs) noexcept
+	{ return lhs.less(rhs); }
+	inline bool operator<=(const ipv6_network_subnet& lhs, const ipv6_network_subnet& rhs) noexcept
+	{ return !rhs.less(lhs); }
+	inline bool operator>(const ipv6_network_subnet& lhs, const ipv6_network_subnet& rhs) noexcept
+	{ return rhs.less(lhs); }
+	inline bool operator>=(const ipv6_network_subnet& lhs, const ipv6_network_subnet& rhs) noexcept
+	{ return !lhs.less(rhs); }
+
 	class ipv6_network_address
 	{
 	protected:

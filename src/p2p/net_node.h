@@ -284,9 +284,12 @@ namespace nodetool
     virtual bool unblock_host(const epee::net_utils::network_address &address);
     virtual bool block_subnet(const epee::net_utils::ipv4_network_subnet &subnet, time_t seconds = P2P_IP_BLOCKTIME);
     virtual bool unblock_subnet(const epee::net_utils::ipv4_network_subnet &subnet);
+    virtual bool block_subnet(const epee::net_utils::ipv6_network_subnet &subnet, time_t seconds = P2P_IP_BLOCKTIME);
+    virtual bool unblock_subnet(const epee::net_utils::ipv6_network_subnet &subnet);
     virtual bool is_host_blocked(const epee::net_utils::network_address &address, time_t *seconds) { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return !is_remote_host_allowed(address, seconds); }
     virtual std::map<std::string, time_t> get_blocked_hosts() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_hosts; }
     virtual std::map<epee::net_utils::ipv4_network_subnet, time_t> get_blocked_subnets() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_subnets; }
+    virtual std::map<epee::net_utils::ipv6_network_subnet, time_t> get_blocked_ipv6_subnets() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_ipv6_subnets; }
 
     virtual void add_used_stripe_peer(const typename t_payload_net_handler::connection_context &context);
     virtual void remove_used_stripe_peer(const typename t_payload_net_handler::connection_context &context);
@@ -490,6 +493,7 @@ namespace nodetool
     epee::critical_section m_blocked_hosts_lock; // for both hosts and subnets
     std::map<std::string, time_t> m_blocked_hosts;
     std::map<epee::net_utils::ipv4_network_subnet, time_t> m_blocked_subnets;
+    std::map<epee::net_utils::ipv6_network_subnet, time_t> m_blocked_ipv6_subnets;
 
     epee::critical_section m_host_fails_score_lock;
     std::map<std::string, uint64_t> m_host_fails_score;
@@ -544,4 +548,3 @@ namespace nodetool
 }
 
 POP_WARNINGS
-
