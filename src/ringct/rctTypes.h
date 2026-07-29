@@ -765,7 +765,7 @@ inline std::ostream &operator <<(std::ostream &o, const rct::key &v) {
 
 namespace std
 {
-  template<> struct hash<rct::key> { std::size_t operator()(const rct::key &k) const { return reinterpret_cast<const std::size_t&>(k); } };
+  template<> struct hash<rct::key> { std::size_t operator()(const rct::key &k) const { return ::crypto::siphash_to_size_t(&k, sizeof(k)); } };
 }
 
 BLOB_SERIALIZER(rct::key);
