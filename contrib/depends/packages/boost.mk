@@ -100,7 +100,6 @@ define $(package)_postprocess_cmds
     ! -name regex \
     ! -name serialization \
     ! -name smart_ptr \
-    ! -name spirit \
     ! -name system \
     ! -name thread \
     ! -name tuple \

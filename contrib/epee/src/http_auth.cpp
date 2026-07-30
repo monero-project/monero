@@ -42,8 +42,6 @@
 #include <boost/range/algorithm/find_if.hpp>
 #include <boost/range/iterator_range_core.hpp>
 #include <boost/range/join.hpp>
-#include <boost/spirit/include/karma_generate.hpp>
-#include <boost/spirit/include/karma_uint.hpp>
 #include <boost/spirit/include/qi_alternative.hpp>
 #include <boost/spirit/include/qi_and_predicate.hpp>
 #include <boost/spirit/include/qi_char.hpp>
@@ -98,7 +96,6 @@ namespace
   constexpr const char comma = 44;
   constexpr const char equal_sign = 61;
   constexpr const char quote = 34;
-  constexpr const char zero = 48;
   constexpr const auto sess_algo = ceref(u8"-sess");
 
   constexpr const unsigned client_reserve_size = 512; //!< std::string::reserve size for clients
@@ -177,14 +174,38 @@ namespace
   };
   constexpr const ascii_iequal_ ascii_iequal{};
 
+  struct ascii_isspace_
+  {
+    template<typename Char>
+    constexpr bool operator()(Char value) const noexcept
+    {
+      static_assert(std::is_integral<Char>::value, "only integral types supported");
+      return value == 32 || (9 <= value && value <= 13);
+    }
+  };
+  constexpr const ascii_isspace_ ascii_isspace{};
+
+  struct ascii_hex_digit_
+  {
+    template<typename Char>
+    constexpr int operator()(Char value) const noexcept
+    {
+      static_assert(std::is_integral<Char>::value, "only integral types supported");
+      if (48 <= value && value <= 57) return value - 48;
+      if (65 <= value && value <= 70) return value - 65 + 10;
+      if (97 <= value && value <= 102) return value - 97 + 10;
+      return -1;
+    }
+  };
+  constexpr const ascii_hex_digit_ ascii_hex_digit{};
+
   struct http_list_separator_
   {
     template<typename Char>
-    bool operator()(Char value) const noexcept
+    constexpr bool operator()(Char value) const noexcept
     {
       static_assert(std::is_integral<Char>::value, "only integral types supported");
-      return boost::spirit::char_encoding::ascii::isascii_(value) &&
-        (value == comma || boost::spirit::char_encoding::ascii::isspace(value));
+      return (0 <= value && value <= 127) && (value == comma || ascii_isspace(value));
     }
   };
   constexpr const http_list_separator_ http_list_separator{};
@@ -275,7 +296,6 @@ namespace
     std::string operator()(const http::http_client_auth::session& user,
       const boost::string_ref method, const boost::string_ref uri) const
     {
-      namespace karma = boost::spirit::karma;
       using counter_type = decltype(user.counter);
       static_assert(
         std::numeric_limits<counter_type>::radix == 2, "unexpected radix for counter"
@@ -285,16 +305,12 @@ namespace
         "number of digits will cause underflow on padding below"
       );
 
-      std::string out{};
-      out.reserve(client_reserve_size);
-
-      karma::generate(std::back_inserter(out), karma::hex(user.counter));
-      out.insert(out.begin(), 8 - out.size(), zero); // zero left pad
-      if (out.size() != 8)
-        return {};
-
       std::array<char, 8> nc{{}};
-      boost::copy(out, nc.data());
+      {
+        static constexpr const char hex_digits[] = "0123456789abcdef";
+        std::uint32_t value = user.counter;
+        for (std::size_t i = nc.size(); i-- > 0; value >>= 4) nc[i] = hex_digits[value & 0xF];
+      }
 
       std::array<uint8_t, 16> rbuf{{}};
       if (RAND_bytes(rbuf.data(), rbuf.size()) != 1)
@@ -305,7 +321,8 @@ namespace
         generate_a1(digest, user), u8":", user.server.nonce, u8":", nc, u8":", cnonce, u8":auth:", digest(method, u8":", uri)
       );
 
-      out.clear();
+      std::string out{};
+      out.reserve(client_reserve_size);
       init_client_value(out, Digest::name, user, uri, response);
       add_field(out, u8"qop", ceref(u8"auth"));
       add_field(out, u8"nc", nc);
@@ -409,11 +426,15 @@ namespace
           {
             bool operator()(const parser&, iterator& current, const iterator end, auth_message& result) const
             {
-              return qi::parse(
-                current, end,
-                (qi::raw[qi::uint_parser<std::uint32_t, 16, 8, 8>{}]),
-                result.nc
-              );
+              static constexpr const std::ptrdiff_t nc_digits = 8;
+              if (end - current < nc_digits) return false;
+              for (std::ptrdiff_t i = 0; i < nc_digits; ++i)
+              {
+                if (ascii_hex_digit(current[i]) < 0) return false;
+              }
+              result.nc = boost::iterator_range<iterator>(current, current + nc_digits);
+              current += nc_digits;
+              return true;
             }
           };
           struct parse_token
@@ -568,11 +589,16 @@ namespace
 
     boost::optional<std::uint32_t> counter() const
     {
-      namespace qi = boost::spirit::qi;
-      using hex = qi::uint_parser<std::uint32_t, 16>;
+      if (nc.empty()) return boost::none;
+
       std::uint32_t value = 0;
-      const bool converted = qi::parse(nc.begin(), nc.end(), hex{}, value);
-      return boost::make_optional(converted, value);
+      for (const char digit : nc)
+      {
+        const int nibble = ascii_hex_digit(digit);
+        if (nibble < 0) return boost::none;
+        value = (value << 4) | static_cast<std::uint32_t>(nibble);
+      }
+      return value;
     }
 
     struct server_parameters
