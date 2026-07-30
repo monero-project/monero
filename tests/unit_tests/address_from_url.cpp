@@ -109,9 +109,7 @@ TEST(AddressFromURL, Failure)
 {
   bool dnssec_result = false;
 
-  tools::DNSResolver::instance().set_debug_level(4);
   std::vector<std::string> addresses = tools::dns_utils::addresses_from_url("example.veryinvalid", dnssec_result);
-  tools::DNSResolver::instance().set_debug_level(0);
 
   // for a non-existing domain such as "example.invalid", the non-existence is proved with NSEC records
   ASSERT_TRUE(dnssec_result);

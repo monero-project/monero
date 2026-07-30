@@ -144,8 +144,6 @@ public:
    */
   static DNSResolver create();
 
-  void set_debug_level(int level);
-
 private:
 
   /**
