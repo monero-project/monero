@@ -81,10 +81,9 @@ namespace hw {
       static const char *to_string(unsigned int code);
     };
 
-    // Must be sorted in ascending order by the code
     #define LEDGER_STATUS(status) {status, #status}
     constexpr Status status_codes[] = {
-      LEDGER_STATUS(SW_OK),
+      LEDGER_STATUS(SW_LOCKED_DEVICE),
       LEDGER_STATUS(SW_WRONG_LENGTH),
       LEDGER_STATUS(SW_SECURITY_PIN_LOCKED),
       LEDGER_STATUS(SW_SECURITY_LOAD_KEY),
@@ -98,7 +97,6 @@ namespace hw {
       LEDGER_STATUS(SW_SECURITY_INTERNAL),
       LEDGER_STATUS(SW_SECURITY_MAX_SIGNATURE_REACHED),
       LEDGER_STATUS(SW_SECURITY_PREFIX_HASH),
-      LEDGER_STATUS(SW_SECURITY_LOCKED),
       LEDGER_STATUS(SW_COMMAND_NOT_ALLOWED),
       LEDGER_STATUS(SW_SUBCOMMAND_NOT_ALLOWED),
       LEDGER_STATUS(SW_DENY),
@@ -106,12 +104,23 @@ namespace hw {
       LEDGER_STATUS(SW_WRONG_DATA),
       LEDGER_STATUS(SW_WRONG_DATA_RANGE),
       LEDGER_STATUS(SW_IO_FULL),
+      LEDGER_STATUS(SW_SECURITY_LOCKED),
       LEDGER_STATUS(SW_CLIENT_NOT_SUPPORTED),
       LEDGER_STATUS(SW_WRONG_P1P2),
       LEDGER_STATUS(SW_INS_NOT_SUPPORTED),
       LEDGER_STATUS(SW_PROTOCOL_NOT_SUPPORTED),
-      LEDGER_STATUS(SW_UNKNOWN)
+      LEDGER_STATUS(SW_UNKNOWN),
+      LEDGER_STATUS(SW_OK)
     };
+
+    constexpr bool status_codes_sorted()
+    {
+      for (size_t i = 1; i < sizeof(status_codes) / sizeof(status_codes[0]); ++i)
+        if (!(status_codes[i-1].code < status_codes[i].code))
+          return false;
+      return true;
+    }
+    static_assert(status_codes_sorted(), "status_codes must be sorted in ascending order by the code");
 
     const char *Status::to_string(unsigned int code)
     {
@@ -488,6 +497,7 @@ namespace hw {
       MDEBUG("Device "<< this->id << " exchange: sw: " << this->sw << " expected: " << ok);
       ASSERT_X(sw != SW_CLIENT_NOT_SUPPORTED, "Monero Ledger App doesn't support current monero version. Try to update the Monero Ledger App, at least " << MINIMAL_APP_VERSION_MAJOR<< "." << MINIMAL_APP_VERSION_MINOR << "." << MINIMAL_APP_VERSION_MICRO << " is required.");
       ASSERT_X(sw != SW_PROTOCOL_NOT_SUPPORTED, "Make sure no other program is communicating with the Ledger.");
+      ASSERT_X(sw != SW_LOCKED_DEVICE, "Ledger is locked.");
       ASSERT_SW(this->sw,ok,mask);
 
       return this->sw;
@@ -505,6 +515,7 @@ namespace hw {
         // cancel on device
         deny = 1;
       } else {
+        ASSERT_X(this->sw != SW_LOCKED_DEVICE, "Ledger is locked.");
         ASSERT_SW(this->sw,ok,mask);
       }
 

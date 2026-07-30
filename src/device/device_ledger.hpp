@@ -86,6 +86,9 @@ namespace hw {
     #define SW_PROTOCOL_NOT_SUPPORTED               0x6e00
     #define SW_UNKNOWN                              0x6f00
 
+    // Origin: https://github.com/LedgerHQ/ledger-live/blob/68b9451b5456ae6cd452d00aa5007a875bdf4c6f/libs/ledgerjs/packages/errors/src/index.ts#L337
+    #define SW_LOCKED_DEVICE                        0x5515
+
     void set_apdu_verbose(bool verbose);
 
     class ABPkeys {
