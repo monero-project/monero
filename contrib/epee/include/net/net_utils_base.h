@@ -32,6 +32,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address_v6.hpp>
+#include <stdexcept>
 #include <typeinfo>
 #include <type_traits>
 #include "byte_slice.h"
@@ -128,19 +129,23 @@ namespace net_utils
 
 	public:
 		constexpr ipv4_network_subnet() noexcept
-			: ipv4_network_subnet(0, 0)
+			: m_ip(0), m_mask(0)
 		{}
 
-		constexpr ipv4_network_subnet(uint32_t ip, uint8_t mask) noexcept
-			: m_ip(ip), m_mask(mask) {}
+		ipv4_network_subnet(uint32_t ip, uint8_t mask)
+			: m_ip(ip), m_mask(mask)
+		{
+			CHECK_AND_ASSERT_THROW_MES(mask <= 32, "invalid IPv4 subnet mask");
+		}
 
 		bool equal(const ipv4_network_subnet& other) const noexcept;
 		bool less(const ipv4_network_subnet& other) const noexcept;
-		constexpr bool is_same_host(const ipv4_network_subnet& other) const noexcept
+		bool is_same_host(const ipv4_network_subnet& other) const noexcept
 		{ return subnet() == other.subnet(); }
                 bool matches(const ipv4_network_address &address) const;
 
-		constexpr uint32_t subnet() const noexcept { return m_ip & ~(0xffffffffull << m_mask); }
+		uint8_t mask() const noexcept { return m_mask; }
+		uint32_t subnet() const noexcept;
 		std::string str() const;
 		std::string host_str() const;
 		bool is_loopback() const;

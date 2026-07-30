@@ -66,6 +66,66 @@
 
 namespace nodetool
 {
+  namespace
+  {
+    uint64_t ipv4_subnet_size(const uint8_t mask)
+    {
+      CHECK_AND_ASSERT_THROW_MES(mask <= 32, "invalid IPv4 subnet mask");
+      return mask == 0 ? (uint64_t{1} << 32) : (uint64_t{1} << (32 - mask));
+    }
+
+    uint64_t ipv4_subnet_first(const epee::net_utils::ipv4_network_subnet &subnet)
+    {
+      return SWAP32BE(subnet.subnet());
+    }
+
+    uint64_t ipv4_subnet_last(const epee::net_utils::ipv4_network_subnet &subnet)
+    {
+      return ipv4_subnet_first(subnet) + ipv4_subnet_size(subnet.mask()) - 1;
+    }
+
+    epee::net_utils::ipv4_network_subnet make_ipv4_subnet(const uint64_t first, const uint8_t mask)
+    {
+      return {SWAP32BE(static_cast<uint32_t>(first)), mask};
+    }
+
+    void subtract_ipv4_subnet(
+      const epee::net_utils::ipv4_network_subnet &blocked,
+      const epee::net_utils::ipv4_network_subnet &removed,
+      std::vector<epee::net_utils::ipv4_network_subnet> &result)
+    {
+      const uint64_t blocked_first = ipv4_subnet_first(blocked);
+      const uint64_t blocked_last = ipv4_subnet_last(blocked);
+      const uint64_t removed_first = ipv4_subnet_first(removed);
+      const uint64_t removed_last = ipv4_subnet_last(removed);
+
+      if (removed_last < blocked_first || blocked_last < removed_first)
+      {
+        result.push_back(blocked);
+        return;
+      }
+      if (removed_first <= blocked_first && blocked_last <= removed_last)
+        return;
+
+      const uint8_t child_mask = blocked.mask() + 1;
+      CHECK_AND_ASSERT_THROW_MES(child_mask <= 32, "invalid IPv4 subnet split");
+
+      const uint64_t child_size = ipv4_subnet_size(child_mask);
+      subtract_ipv4_subnet(make_ipv4_subnet(blocked_first, child_mask), removed, result);
+      subtract_ipv4_subnet(make_ipv4_subnet(blocked_first + child_size, child_mask), removed, result);
+    }
+
+    void emplace_blocked_subnet(
+      std::map<epee::net_utils::ipv4_network_subnet, time_t> &subnets,
+      const epee::net_utils::ipv4_network_subnet &subnet,
+      const time_t limit)
+    {
+      auto entry = subnets.find(subnet);
+      if (entry == subnets.end() || entry->second < limit)
+        subnets[subnet] = limit;
+    }
+  }
+
   template<class t_payload_net_handler>
   node_server<t_payload_net_handler>::~node_server()
   {
@@ -379,11 +439,38 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::unblock_subnet(const epee::net_utils::ipv4_network_subnet &subnet)
   {
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
-    auto i = m_blocked_subnets.find(subnet);
-    if (i == m_blocked_subnets.end())
+    bool unblocked = false;
+
+    for (auto i = m_blocked_hosts.begin(); i != m_blocked_hosts.end(); )
+    {
+      auto address = net::get_network_address(i->first, 0);
+      if (address && address->get_type_id() == epee::net_utils::ipv4_network_address::get_type_id()
+        && subnet.matches(address->template as<epee::net_utils::ipv4_network_address>()))
+      {
+        i = m_blocked_hosts.erase(i);
+        unblocked = true;
+      }
+      else
+        ++i;
+    }
+
+    std::map<epee::net_utils::ipv4_network_subnet, time_t> blocked_subnets;
+    std::vector<epee::net_utils::ipv4_network_subnet> remaining;
+    remaining.reserve(32);
+    for (const auto &blocked_subnet : m_blocked_subnets)
+    {
+      remaining.clear();
+      subtract_ipv4_subnet(blocked_subnet.first, subnet, remaining);
+      if (remaining.size() != 1 || remaining.front() != blocked_subnet.first)
+        unblocked = true;
+      for (const auto &entry : remaining)
+        emplace_blocked_subnet(blocked_subnets, entry, blocked_subnet.second);
+    }
+
+    if (!unblocked)
       return false;
-    m_blocked_subnets.erase(i);
-    MCLOG_CYAN(el::Level::Info, "global", "Subnet " << subnet.host_str() << " unblocked.");
+    m_blocked_subnets.swap(blocked_subnets);
+    MCLOG_CYAN(el::Level::Info, "global", "Subnet " << subnet.str() << " unblocked.");
     return true;
   }
   //-----------------------------------------------------------------------------------
