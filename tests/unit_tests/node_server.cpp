@@ -338,7 +338,7 @@ TEST(ban, subnet)
   Server server(cprotocol);
   const auto node_dir = create_temp_dir("ban-subnet-%%%%%%%%%%%%%%%%");
   ASSERT_TRUE(!node_dir.empty());
-  auto auto_remove_node_dir = epee::misc_utils::create_scope_leave_handler([&node_dir](){
+  const epee::scope_guard auto_remove_node_dir([&node_dir](){
       remove_tree(node_dir);
     });
 
@@ -379,7 +379,7 @@ TEST(ban, subnet_arithmetic)
   Server server(cprotocol);
   const auto node_dir = create_temp_dir("ban-subnet-arithmetic-%%%%%%%%%%%%%%%%");
   ASSERT_TRUE(!node_dir.empty());
-  auto auto_remove_node_dir = epee::misc_utils::create_scope_leave_handler([&node_dir](){
+  const epee::scope_guard auto_remove_node_dir([&node_dir](){
       remove_tree(node_dir);
     });
 
