@@ -672,7 +672,7 @@ TEST(boosted_tcp_server, strand_deadlock)
   using endpoint_t = boost::asio::ip::tcp::endpoint;
 
   endpoint_t endpoint(boost::asio::ip::make_address("127.0.0.1"), 5262);
-  server_t server(epee::net_utils::e_connection_type_P2P);
+  server_t server(epee::net_utils::e_connection_type_RPC);
   server.init_server(
     endpoint.port(),
     endpoint.address().to_string(),
@@ -811,3 +811,105 @@ TEST(boosted_tcp_server, shutdown)
   MINFO("Waiting for handshake to cancel");
   ev.wait();
 }
+
+TEST(boosted_tcp_server, write_failure)
+{
+  using context_t = epee::net_utils::connection_context_base;
+
+  struct config_t {};
+
+  struct handler_t {
+    using config_type = config_t;
+    using connection_context = context_t;
+    using socket_t = epee::net_utils::i_service_endpoint;
+
+    handler_t(socket_t *socket, config_t &config, context_t &):
+      config(config)
+    {}
+    void after_init_connection()
+    {}
+
+    void handle_qued_callback()
+    {}
+
+    bool handle_recv(const char *data, size_t bytes_transferred)
+    {
+      throw std::runtime_error{"UNEXPECTED!"};
+    }
+
+    void release_protocol()
+    {}
+
+    config_t &config;
+  };
+
+
+  using byte_slice_t = epee::byte_slice;
+  using connection_t = epee::net_utils::connection<handler_t>;
+  using shared_t = connection_t::shared_state;
+  using tcp_t = boost::asio::ip::tcp;
+  using endpoint_t = tcp_t::endpoint;
+  using socket_t = tcp_t::socket;
+  using acceptor_t = tcp_t::acceptor;
+
+  const endpoint_t endpoint{boost::asio::ip::make_address("127.0.0.1"), 5262};
+  boost::asio::io_context context{};
+  acceptor_t acceptor{context};
+  acceptor.open(endpoint.protocol());
+#if !defined(_WIN32)
+  acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+#endif
+  acceptor.bind(endpoint);
+  acceptor.listen();
+
+  socket_t in_socket{context};
+
+  boost::shared_ptr<connection_t> out_connection;
+  const auto shared = std::make_shared<shared_t>();
+  const auto make_connection = [&] {
+    in_socket = socket_t{context};
+    acceptor.async_accept(in_socket, [] (auto error) { EXPECT_TRUE(!error); });
+
+    socket_t out_socket{context};
+    out_socket.async_connect(endpoint, [] (auto error) { EXPECT_TRUE(!error); });
+
+    context.restart();
+    ASSERT_EQ(2u, context.run()); // connect and accept
+
+    out_connection = boost::make_shared<connection_t>(
+      context,
+      std::move(out_socket),
+      shared,
+      epee::net_utils::e_connection_type_P2P,
+      epee::net_utils::ssl_support_t::e_ssl_support_disabled
+    );
+    EXPECT_TRUE(out_connection->start(false, true));
+  };
+
+  make_connection();
+  {
+    const byte_slice_t payload{"."};
+    epee::net_utils::i_service_endpoint& out{*out_connection};
+    static_assert(ABSTRACT_SERVER_SEND_QUE_MAX_COUNT < std::numeric_limits<std::size_t>::max(), "");
+    for (std::size_t i = 0; i <= ABSTRACT_SERVER_SEND_QUE_MAX_COUNT; ++i)
+      EXPECT_TRUE(out.do_send(payload.clone()));
+    EXPECT_FALSE(out.do_send(payload.clone()));
+  }
+  context.restart();
+  EXPECT_LE(1u, context.run());
+  EXPECT_EQ(connection_t::WASTED, out_connection->get_status());
+
+  make_connection();
+  {
+    const byte_slice_t spayload{"."};
+    const byte_slice_t lpayload{std::string(std::size_t(3 * 128 * 1024), '.')};
+    epee::net_utils::i_service_endpoint& out{*out_connection};
+    for (std::size_t i = 0; i < ABSTRACT_SERVER_SEND_QUE_MAX_COUNT; ++i)
+      EXPECT_TRUE(out.do_send(spayload.clone()));
+    EXPECT_FALSE(out.do_send(lpayload.clone()));
+  }
+  context.restart();
+  EXPECT_LE(1u, context.run());
+  EXPECT_EQ(connection_t::WASTED, out_connection->get_status());
+}
+
