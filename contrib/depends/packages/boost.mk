@@ -90,11 +90,9 @@ define $(package)_postprocess_cmds
     ! -name multiprecision \
     ! -name numeric \
     ! -name optional \
-    ! -name phoenix \
     ! -name predef \
     ! -name preprocessor \
     ! -name program_options \
-    ! -name proto \
     ! -name range \
     ! -name ratio \
     ! -name regex \
