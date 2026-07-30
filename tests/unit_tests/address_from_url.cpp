@@ -109,9 +109,9 @@ TEST(AddressFromURL, Failure)
 {
   bool dnssec_result = false;
 
-  std::vector<std::string> addresses = tools::dns_utils::addresses_from_url("example.veryinvalid", dnssec_result);
+  std::vector<std::string> addresses = tools::dns_utils::addresses_from_url("nonexistent.getmonero.org", dnssec_result);
 
-  // for a non-existing domain such as "example.invalid", the non-existence is proved with NSEC records
+  // The absence of a TXT record is authenticated with DNSSEC denial records.
   ASSERT_TRUE(dnssec_result);
 
   ASSERT_EQ(0, addresses.size());
