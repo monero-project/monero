@@ -357,11 +357,6 @@ DNSResolver DNSResolver::create()
   return DNSResolver();
 }
 
-void DNSResolver::set_debug_level(int level)
-{
-  ub_ctx_debuglevel(m_data->m_ub_context, level);
-}
-
 namespace dns_utils
 {
 
