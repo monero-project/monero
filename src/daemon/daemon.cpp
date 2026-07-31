@@ -92,7 +92,7 @@ struct zmq_internals
 {
   explicit zmq_internals(t_core& core, t_p2p& p2p, const bool restricted)
     : rpc_handler{core.get(), p2p.get(), restricted}
-    , server{rpc_handler}
+    , server{rpc_handler, restricted}
   {}
 
   cryptonote::rpc::DaemonHandler rpc_handler;
