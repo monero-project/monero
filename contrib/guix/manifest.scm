@@ -11,6 +11,7 @@
              (gnu packages mingw)
              (gnu packages perl)
              (gnu packages pkg-config)
+             (gnu packages rust)
              ((gnu packages version-control) #:select (git-minimal))
              (guix build-system gnu)
              (guix build-system trivial)
@@ -259,6 +260,8 @@ chain for " target " development."))
         gnu-make
         pkg-config
         cmake-minimal
+        rust
+        (list rust "cargo")
 
         ;; Scripting
         perl ; required to build openssl in depends
