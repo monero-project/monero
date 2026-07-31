@@ -1,21 +1,11 @@
 
 #include "net/net_utils_base.h"
 
+#include <boost/asio/ip/address_v4.hpp>
 #include <boost/uuid/uuid_io.hpp>
 
 #include "string_tools.h"
 #include "net/local_ip.h"
-
-static inline uint32_t make_address_v4_from_v6(const boost::asio::ip::address_v6& a)
-{
-  const auto &bytes = a.to_bytes();
-  uint32_t v4 = 0;
-  v4 = (v4 << 8) | bytes[12];
-  v4 = (v4 << 8) | bytes[13];
-  v4 = (v4 << 8) | bytes[14];
-  v4 = (v4 << 8) | bytes[15];
-  return htonl(v4);
-}
 
 static inline uint32_t make_ipv4_cidr_mask(const uint8_t mask)
 {
@@ -51,6 +41,17 @@ namespace epee { namespace net_utils
 	std::string ipv6_network_address::host_str() const { return m_address.to_string(); }
 	bool ipv6_network_address::is_loopback() const { return m_address.is_loopback(); }
 	bool ipv6_network_address::is_local() const { return m_address.is_link_local(); }
+
+	boost::optional<ipv4_network_address> get_ipv4_mapped_address(const ipv6_network_address& address)
+	{
+		const boost::asio::ip::address_v6 ip = address.ip();
+		if (!ip.is_v4_mapped())
+			return boost::none;
+
+		const boost::asio::ip::address_v4 ipv4 =
+			boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, ip);
+		return ipv4_network_address{SWAP32BE(ipv4.to_uint()), address.port()};
+	}
 
 
 	bool ipv4_network_subnet::equal(const ipv4_network_subnet& other) const noexcept
@@ -109,23 +110,26 @@ namespace epee { namespace net_utils
 		const auto this_id = get_type_id();
 		if (this_id == ipv4_network_address::get_type_id() && other.get_type_id() == ipv6_network_address::get_type_id())
 		{
-			const boost::asio::ip::address_v6 &actual_ip = other.as<const epee::net_utils::ipv6_network_address>().ip();
-			if (actual_ip.is_v4_mapped())
-			{
-				const uint32_t v4ip = make_address_v4_from_v6(actual_ip);
-				return is_same_host(ipv4_network_address(v4ip, 0));
-			}
+			const boost::optional<ipv4_network_address> mapped =
+				get_ipv4_mapped_address(other.as<const ipv6_network_address>());
+			if (mapped)
+				return is_same_host(*mapped);
 		}
 		else if (this_id == ipv6_network_address::get_type_id() && other.get_type_id() == ipv4_network_address::get_type_id())
 		{
-			const boost::asio::ip::address_v6 &actual_ip = this->as<const epee::net_utils::ipv6_network_address>().ip();
-			if (actual_ip.is_v4_mapped())
-			{
-				const uint32_t v4ip = make_address_v4_from_v6(actual_ip);
-				return other.is_same_host(ipv4_network_address(v4ip, 0));
-			}
+			const boost::optional<ipv4_network_address> mapped =
+				get_ipv4_mapped_address(this->as<const ipv6_network_address>());
+			if (mapped)
+				return other.is_same_host(*mapped);
 		}
 		return false;
+	}
+
+	boost::optional<ipv4_network_address> get_ipv4_mapped_address(const network_address& address)
+	{
+		if (address.get_type_id() != ipv6_network_address::get_type_id())
+			return boost::none;
+		return get_ipv4_mapped_address(address.as<const ipv6_network_address>());
 	}
 
   std::string print_connection_context(const connection_context_base& ctx)
