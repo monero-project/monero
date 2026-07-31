@@ -93,8 +93,9 @@ namespace
 namespace rpc
 {
 
-ZmqServer::ZmqServer(RpcHandler& h) :
+ZmqServer::ZmqServer(RpcHandler& h, const bool restricted) :
     handler(h),
+    restricted(restricted),
     context(zmq_init(num_zmq_threads)),
     rep_socket(nullptr),
     pub_socket(nullptr),
@@ -183,7 +184,10 @@ void ZmqServer::serve()
         }
         else // no errors
         {
-          MDEBUG("Received RPC request: \"" << *message << "\"");
+          if (restricted)
+            MDEBUG("Received RPC request");
+          else
+            MDEBUG("Received RPC request: \"" << *message << "\"");
           epee::byte_slice response = handler.handle(std::move(*message));
 
           const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
