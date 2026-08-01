@@ -90,11 +90,17 @@ namespace hw {
         /*  LOCKER                                                                 */
         /* ======================================================================= */ 
     
-        void device_default::lock() { }
+        void device_default::lock() {
+            device_locker.lock();
+        }
 
-        bool device_default::try_lock() { return true; }
+        bool device_default::try_lock() {
+            return device_locker.try_lock();
+        }
 
-        void device_default::unlock() { }
+        void device_default::unlock() {
+            device_locker.unlock();
+        }
 
         /* ======================================================================= */
         /*                             WALLET & ADDRESS                            */
