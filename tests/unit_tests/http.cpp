@@ -369,6 +369,83 @@ TEST(HTTP_Server_Auth, NotRequired)
   EXPECT_FALSE(auth.get_response(http::http_request_info{}));
 }
 
+TEST(HTTP, RpcConnectionLimitKeyIPv6By64)
+{
+  const epee::net_utils::network_address ipv6_a{
+    epee::net_utils::ipv6_network_address{
+      boost::asio::ip::make_address_v6("2001:db8:abcd:1234:1111:2222:3333:4444"), 18081
+    }
+  };
+  const epee::net_utils::network_address ipv6_b{
+    epee::net_utils::ipv6_network_address{
+      boost::asio::ip::make_address_v6("2001:db8:abcd:1234:ffff:eeee:dddd:cccc"), 18081
+    }
+  };
+  const epee::net_utils::network_address ipv6_c{
+    epee::net_utils::ipv6_network_address{
+      boost::asio::ip::make_address_v6("2001:db8:abcd:1235::1"), 18081
+    }
+  };
+
+  EXPECT_EQ("2001:db8:abcd:1234::/64", http::get_rpc_connection_limit_key(ipv6_a));
+  EXPECT_EQ(http::get_rpc_connection_limit_key(ipv6_a), http::get_rpc_connection_limit_key(ipv6_b));
+  EXPECT_NE(http::get_rpc_connection_limit_key(ipv6_a), http::get_rpc_connection_limit_key(ipv6_c));
+
+  const epee::net_utils::network_address loopback{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6::loopback(), 18081}
+  };
+  EXPECT_EQ(loopback.host_str(), http::get_rpc_connection_limit_key(loopback));
+
+  const epee::net_utils::network_address link_local{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fe80::1"), 18081}
+  };
+  EXPECT_EQ(link_local.host_str(), http::get_rpc_connection_limit_key(link_local));
+
+  const epee::net_utils::network_address unique_local_fc{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fc00::1"), 18081}
+  };
+  EXPECT_EQ(unique_local_fc.host_str(), http::get_rpc_connection_limit_key(unique_local_fc));
+
+  const epee::net_utils::network_address unique_local_fd{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fd00::1"), 18081}
+  };
+  EXPECT_EQ(unique_local_fd.host_str(), http::get_rpc_connection_limit_key(unique_local_fd));
+
+  const epee::net_utils::network_address unspecified{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6::any(), 18081}
+  };
+  EXPECT_EQ(unspecified.host_str(), http::get_rpc_connection_limit_key(unspecified));
+
+  const epee::net_utils::network_address multicast{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("ff00::1"), 18081}
+  };
+  EXPECT_EQ(multicast.host_str(), http::get_rpc_connection_limit_key(multicast));
+
+  const epee::net_utils::network_address site_local{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fec0::1"), 18081}
+  };
+  EXPECT_EQ(site_local.host_str(), http::get_rpc_connection_limit_key(site_local));
+
+  uint32_t ip = 0;
+  ASSERT_TRUE(epee::string_tools::get_ip_int32_from_string(ip, "203.0.113.1"));
+  const epee::net_utils::network_address ipv4{
+    epee::net_utils::ipv4_network_address{ip, 18081}
+  };
+  EXPECT_EQ(ipv4.host_str(), http::get_rpc_connection_limit_key(ipv4));
+
+  boost::asio::ip::address_v6::bytes_type bytes = {};
+  bytes[10] = 0xff;
+  bytes[11] = 0xff;
+  bytes[12] = 203;
+  bytes[13] = 0;
+  bytes[14] = 113;
+  bytes[15] = 1;
+  const epee::net_utils::network_address mapped{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes}, 18081}
+  };
+  EXPECT_EQ(mapped.host_str(), http::get_rpc_connection_limit_key(mapped));
+}
+
 TEST(HTTP_Server_Auth, MissingAuth)
 {
   http::http_server_auth auth{{"foo", "bar"}, rng};
