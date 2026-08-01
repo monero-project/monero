@@ -598,7 +598,7 @@ namespace cryptonote
     if (!m_core.check_incoming_block_size(arg.b.block))
     {
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
 
     // Parse and quick hash incoming block, dropping the connection on failure
@@ -614,7 +614,7 @@ namespace cryptonote
       );
 
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
 
     // Log block info
@@ -642,7 +642,7 @@ namespace cryptonote
       MERROR("sent bad block entry: there are duplicate tx hashes in parsed block: "
         << epee::string_tools::buff_to_hex_nodelimer(arg.b.block));
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
 
     // Keeping a map of the full transactions provided in this payload allows us to pass them
@@ -659,7 +659,7 @@ namespace cryptonote
       );
 
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
 
     // try adding block to the blockchain
@@ -720,7 +720,7 @@ namespace cryptonote
         // drop connection and punish peer
         LOG_PRINT_CCONTEXT_L0("Block verification failed, dropping connection");
         drop_connection_with_score(context, bvc.m_bad_pow ? P2P_IP_FAILS_BEFORE_BLOCK : 1, false);
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
     }
     else if( bvc.m_added_to_main_chain )
@@ -759,7 +759,7 @@ namespace cryptonote
     {
       LOG_ERROR_CCONTEXT("Requested fluffy tx before handshake, dropping connection");
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
     
     std::vector<std::pair<cryptonote::blobdata, block>> local_blocks;
@@ -770,7 +770,7 @@ namespace cryptonote
     {
       LOG_ERROR_CCONTEXT("failed to find block: " << arg.block_hash << ", dropping connection");
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
 
     std::vector<crypto::hash> txids;
@@ -795,7 +795,7 @@ namespace cryptonote
             << ", dropping connection"
           );
           drop_connection(context, true, false);
-          return 1;
+          return LEVIN_ERROR_CONNECTION;
         }
         txids.push_back(b.tx_hashes[tx_idx]);
         seen[tx_idx] = true;
@@ -812,7 +812,7 @@ namespace cryptonote
         );
         
         drop_connection(context, false, false);
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
     }    
 
@@ -823,14 +823,14 @@ namespace cryptonote
       LOG_ERROR_CCONTEXT("Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, "
         << "failed to get requested transactions");
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
     if (!missed.empty() || txs.size() != txids.size())
     {
       LOG_ERROR_CCONTEXT("Failed to handle request NOTIFY_REQUEST_FLUFFY_MISSING_TX, "
         << missed.size() << " requested transactions not found" << ", dropping connection");
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
 
     for(auto& tx: txs)
@@ -898,7 +898,7 @@ namespace cryptonote
       {
         LOG_PRINT_CCONTEXT_L1("Duplicate transaction in notification, dropping connection");
         drop_connection(context, false, false);
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
     }
 
@@ -944,7 +944,7 @@ namespace cryptonote
       {
         LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
         drop_connection(context, false, false);
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
 
       switch (tvc.m_relay)
@@ -988,7 +988,7 @@ namespace cryptonote
     {
       LOG_ERROR_CCONTEXT("Requested objects before handshake, dropping connection");
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
     MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_GET_OBJECTS (" << arg.blocks.size() << " blocks)");
     if (arg.blocks.size() > CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT)
@@ -998,7 +998,7 @@ namespace cryptonote
             << arg.blocks.size() << ") expected not more then "
             << CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT);
         drop_connection(context, false, false);
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
 
     NOTIFY_RESPONSE_GET_OBJECTS::request rsp;
@@ -1006,7 +1006,7 @@ namespace cryptonote
     {
       LOG_ERROR_CCONTEXT("failed to handle request NOTIFY_REQUEST_GET_OBJECTS, dropping connection");
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
     context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
     MLOG_P2P_MESSAGE("-->>NOTIFY_RESPONSE_GET_OBJECTS: blocks.size()="
@@ -1046,7 +1046,7 @@ namespace cryptonote
     {
       LOG_ERROR_CCONTEXT("Got NOTIFY_RESPONSE_GET_OBJECTS out of the blue, dropping connection");
       drop_connection(context, true, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
     context.m_expect_response = 0;
 
@@ -1084,7 +1084,7 @@ namespace cryptonote
       LOG_ERROR_CCONTEXT("sent wrong NOTIFY_HAVE_OBJECTS: no blocks");
       drop_connection(context, true, false);
       ++m_sync_bad_spans_downloaded;
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
     if(context.m_last_response_height > arg.current_blockchain_height)
     {
@@ -1092,13 +1092,15 @@ namespace cryptonote
         << " < m_last_response_height=" << context.m_last_response_height << ", dropping connection");
       drop_connection(context, false, false);
       ++m_sync_bad_spans_downloaded;
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
 
     if (arg.current_blockchain_height < context.m_remote_blockchain_height)
     {
       MINFO(context << "Claims " << arg.current_blockchain_height << ", claimed " << context.m_remote_blockchain_height << " before");
       hit_score(context, 1);
+      if (context.m_score <= DROP_PEERS_ON_SCORE)
+        return LEVIN_ERROR_CONNECTION;
     }
     context.m_remote_blockchain_height = arg.current_blockchain_height;
     if (context.m_remote_blockchain_height > m_core.get_target_blockchain_height())
@@ -1124,7 +1126,7 @@ namespace cryptonote
           << epee::string_tools::buff_to_hex_nodelimer(arg.blocks[i].block) << ", dropping connection");
         drop_connection(context, false, false);
         ++m_sync_bad_spans_downloaded;
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
       if (b.miner_tx.vin.size() != 1 || b.miner_tx.vin.front().type() != typeid(txin_gen))
       {
@@ -1132,7 +1134,7 @@ namespace cryptonote
           << epee::string_tools::buff_to_hex_nodelimer(arg.blocks[i].block) << ", dropping connection");
         drop_connection(context, false, false);
         ++m_sync_bad_spans_downloaded;
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
 
       const auto this_height = boost::get<txin_gen>(b.miner_tx.vin[0]).height;
@@ -1141,7 +1143,7 @@ namespace cryptonote
         LOG_ERROR_CCONTEXT("Sent invalid chain");
         drop_connection(context, false, false);
         ++m_sync_bad_spans_downloaded;
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
 
       // if first block
@@ -1153,7 +1155,7 @@ namespace cryptonote
           LOG_ERROR_CCONTEXT("sent block ahead of expected height, dropping connection");
           drop_connection(context, false, false);
           ++m_sync_bad_spans_downloaded;
-          return 1;
+          return LEVIN_ERROR_CONNECTION;
         }
 
         if (this_height == 0 || context.get_expected_hash(this_height - 1) != b.prev_id)
@@ -1161,7 +1163,7 @@ namespace cryptonote
           LOG_ERROR_CCONTEXT("Sent invalid chain");
           drop_connection(context, false, false);
           ++m_sync_bad_spans_downloaded;
-          return 1;
+          return LEVIN_ERROR_CONNECTION;
         }
       }
       else if (b.prev_id != previous)
@@ -1169,7 +1171,7 @@ namespace cryptonote
         LOG_ERROR_CCONTEXT("Sent invalid chain");
         drop_connection(context, false, false);
         ++m_sync_bad_spans_downloaded;
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
       previous = block_hash;
 
@@ -1178,7 +1180,7 @@ namespace cryptonote
         LOG_ERROR_CCONTEXT("Sent invalid chain");
         drop_connection(context, false, false);
         ++m_sync_bad_spans_downloaded;
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
 
       auto req_it = context.m_requested_objects.find(block_hash);
@@ -1188,7 +1190,7 @@ namespace cryptonote
           << " wasn't requested, dropping connection");
         drop_connection(context, false, false);
         ++m_sync_bad_spans_downloaded;
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
       if(b.tx_hashes.size() != arg.blocks[i].txs.size())
       {
@@ -1196,7 +1198,7 @@ namespace cryptonote
           << ", tx_hashes.size()=" << b.tx_hashes.size() << " mismatch with block_complete_entry.m_txs.size()=" << arg.blocks[i].txs.size() << ", dropping connection");
         drop_connection(context, false, false);
         ++m_sync_bad_spans_downloaded;
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
 
       context.m_requested_objects.erase(req_it);
@@ -1209,7 +1211,7 @@ namespace cryptonote
         << context.m_requested_objects.size() << "), dropping connection");
       drop_connection(context, false, false);
       ++m_sync_bad_spans_downloaded;
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
 
     const bool pruned_ok = should_ask_for_pruned_data(context, start_height, arg.blocks.size(), true);
@@ -1223,14 +1225,14 @@ namespace cryptonote
           MERROR(context << "returned a pruned block, dropping connection");
           drop_connection(context, false, false);
           ++m_sync_bad_spans_downloaded;
-          return 1;
+          return LEVIN_ERROR_CONNECTION;
         }
         if (block_entry.block_weight)
         {
           MERROR(context << "returned a block weight for a non pruned block, dropping connection");
           drop_connection(context, false, false);
           ++m_sync_bad_spans_downloaded;
-          return 1;
+          return LEVIN_ERROR_CONNECTION;
         }
         for (const tx_blob_entry &tx_entry: block_entry.txs)
         {
@@ -1239,7 +1241,7 @@ namespace cryptonote
             MERROR(context << "returned at least one pruned object which we did not expect, dropping connection");
             drop_connection(context, false, false);
             ++m_sync_bad_spans_downloaded;
-            return 1;
+            return LEVIN_ERROR_CONNECTION;
           }
         }
       }
@@ -1254,7 +1256,7 @@ namespace cryptonote
           MERROR(context << "returned at least one pruned block with 0 weight, dropping connection");
           drop_connection(context, false, false);
           ++m_sync_bad_spans_downloaded;
-          return 1;
+          return LEVIN_ERROR_CONNECTION;
         }
       }
     }
@@ -1784,7 +1786,7 @@ skip:
     {
       LOG_ERROR_CCONTEXT("Requested chain before handshake, dropping connection");
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
     NOTIFY_RESPONSE_CHAIN_ENTRY::request r;
     if(!m_core.find_blockchain_supplement(arg.block_ids, !arg.prune, r))
@@ -2477,14 +2479,14 @@ skip:
     {
       LOG_ERROR_CCONTEXT("Got NOTIFY_RESPONSE_CHAIN_ENTRY out of the blue, dropping connection");
       drop_connection(context, true, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
     context.m_expect_response = 0;
     if (arg.start_height + 1 > context.m_expect_height) // we expect an overlapping block
     {
       LOG_ERROR_CCONTEXT("Got NOTIFY_RESPONSE_CHAIN_ENTRY past expected height, dropping connection");
       drop_connection(context, true, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
 
     context.m_last_request_time = boost::date_time::not_a_date_time;
@@ -2495,19 +2497,19 @@ skip:
     {
       LOG_ERROR_CCONTEXT("sent empty m_block_ids, dropping connection");
       drop_connection(context, true, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
     if (arg.total_height < arg.m_block_ids.size() || arg.start_height > arg.total_height - arg.m_block_ids.size())
     {
       LOG_ERROR_CCONTEXT("sent invalid start/nblocks/height, dropping connection");
       drop_connection(context, true, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
     if (!arg.m_block_weights.empty() && arg.m_block_weights.size() != arg.m_block_ids.size())
     {
       LOG_ERROR_CCONTEXT("sent invalid block weight array, dropping connection");
       drop_connection(context, true, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
     MDEBUG(context << "first block hash " << arg.m_block_ids.front() << ", last " << arg.m_block_ids.back());
 
@@ -2515,12 +2517,14 @@ skip:
     {
       LOG_ERROR_CCONTEXT("sent wrong NOTIFY_RESPONSE_CHAIN_ENTRY, with total_height=" << arg.total_height << " and block_ids=" << arg.m_block_ids.size());
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
     if (arg.total_height < context.m_remote_blockchain_height)
     {
       MINFO(context << "Claims " << arg.total_height << ", claimed " << context.m_remote_blockchain_height << " before");
       hit_score(context, 1);
+      if (context.m_score <= DROP_PEERS_ON_SCORE)
+        return LEVIN_ERROR_CONNECTION;
     }
     context.m_remote_blockchain_height = arg.total_height;
     context.m_last_response_height = arg.start_height + arg.m_block_ids.size()-1;
@@ -2530,7 +2534,7 @@ skip:
                                                                          << ", m_start_height=" << arg.start_height
                                                                          << ", m_block_ids.size()=" << arg.m_block_ids.size());
       drop_connection(context, false, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
 
     uint64_t n_use_blocks = m_core.prevalidate_block_hashes(arg.start_height, arg.m_block_ids, arg.m_block_weights);
@@ -2538,7 +2542,7 @@ skip:
     {
       LOG_ERROR_CCONTEXT("Most blocks are invalid, dropping connection");
       drop_connection(context, true, false);
-      return 1;
+      return LEVIN_ERROR_CONNECTION;
     }
 
     context.m_expected_heights_start = arg.start_height;
@@ -2556,7 +2560,7 @@ skip:
       {
         LOG_ERROR_CCONTEXT("Duplicate blocks in chain entry response, dropping connection");
         drop_connection_with_score(context, 5, false);
-        return 1;
+        return LEVIN_ERROR_CONNECTION;
       }
       int where;
       const bool have_block = m_core.have_block_unlocked(arg.m_block_ids[i], &where);
@@ -2567,7 +2571,7 @@ skip:
         {
           LOG_ERROR_CCONTEXT("First block hash is unknown, dropping connection");
           drop_connection_with_score(context, 5, false);
-          return 1;
+          return LEVIN_ERROR_CONNECTION;
         }
         if (!have_block)
           expect_unknown = true;
@@ -2584,19 +2588,19 @@ skip:
             case HAVE_BLOCK_INVALID:
               LOG_ERROR_CCONTEXT("Block is invalid or known without known type, dropping connection");
               drop_connection(context, true, false);
-              return 1;
+              return LEVIN_ERROR_CONNECTION;
             case HAVE_BLOCK_MAIN_CHAIN:
               if (expect_unknown)
               {
                 LOG_ERROR_CCONTEXT("Block is on the main chain, but we did not expect a known block, dropping connection");
                 drop_connection_with_score(context, 5, false);
-                return 1;
+                return LEVIN_ERROR_CONNECTION;
               }
               if (m_core.get_block_id_by_height(arg.start_height + i) != arg.m_block_ids[i])
               {
                 LOG_ERROR_CCONTEXT("Block is on the main chain, but not at the expected height, dropping connection");
                 drop_connection_with_score(context, 5, false);
-                return 1;
+                return LEVIN_ERROR_CONNECTION;
               }
               break;
             case HAVE_BLOCK_ALT_CHAIN:
@@ -2604,7 +2608,7 @@ skip:
               {
                 LOG_ERROR_CCONTEXT("Block is on the main chain, but we did not expect a known block, dropping connection");
                 drop_connection_with_score(context, 5, false);
-                return 1;
+                return LEVIN_ERROR_CONNECTION;
               }
               break;
           }
