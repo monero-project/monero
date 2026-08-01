@@ -282,11 +282,9 @@ namespace cryptonote
       if (!r)
       {
         MWARNING("key image helper: failed to generate_key_derivation(" << additional_tx_public_keys[i] << ", <viewkey>)");
+        memcpy(&additional_recv_derivation, rct::identity().bytes, sizeof(additional_recv_derivation));
       }
-      else
-      {
-        additional_recv_derivations.push_back(additional_recv_derivation);
-      }
+      additional_recv_derivations.push_back(additional_recv_derivation);
     }
 
     boost::optional<subaddress_receive_info> subaddr_recv_info = is_out_to_acc_precomp(subaddresses, out_key, recv_derivation, additional_recv_derivations, real_output_index,hwdev);
