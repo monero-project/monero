@@ -36,6 +36,7 @@
 #include "net_utils_base.h"
 #include "http_auth.h"
 #include "http_base.h"
+#include "syncobj.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.http"
@@ -64,6 +65,9 @@ namespace net_utils
 			std::size_t m_max_connections{100};
 			critical_section m_lock;
 		};
+
+		// RPC limits groupable IPv6 clients by /64 to avoid per-address limit bypasses.
+		std::string get_rpc_connection_limit_key(const net_utils::network_address& address);
 
 		/************************************************************************/
 		/*                                                                      */

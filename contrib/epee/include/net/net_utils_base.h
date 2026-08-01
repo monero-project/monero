@@ -33,6 +33,7 @@
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address_v6.hpp>
 #include <boost/optional/optional.hpp>
+#include <cstddef>
 #include <stdexcept>
 #include <typeinfo>
 #include <type_traits>
@@ -213,6 +214,9 @@ namespace net_utils
 			KV_SERIALIZE(m_port)
 		END_KV_SERIALIZE_MAP()
 	};
+
+	bool should_group_ipv6_by_prefix(const boost::asio::ip::address_v6& ip);
+	boost::asio::ip::address_v6 get_ipv6_subnet_address(const boost::asio::ip::address_v6& ip, const std::size_t prefix_bits);
 
 	inline bool operator==(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
 	{ return lhs.equal(rhs); }
