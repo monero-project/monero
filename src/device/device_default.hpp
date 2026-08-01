@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <boost/thread/recursive_mutex.hpp>
 #include "device.hpp"
 
 namespace hw {
@@ -60,6 +61,7 @@ namespace hw {
             bool disconnect() override;
  
             bool set_mode(device_mode mode) override;
+            device_mode get_mode() const override;
 
             device_type get_type() const override {return device_type::SOFTWARE;};
 
@@ -141,6 +143,10 @@ namespace hw {
             bool clsag_sign(const rct::key &c, const rct::key &a, const rct::key &p, const rct::key &z, const rct::key &mu_P, const rct::key &mu_C, rct::key &s) override;
 
             bool  close_tx(void) override;
+
+        private:
+            // Locker for concurrent access
+            mutable boost::recursive_mutex device_locker;
         };
 
     }
