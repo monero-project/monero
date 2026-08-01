@@ -6849,7 +6849,7 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
   {
     if (local_args[0] == "index=all")
     {
-      for (uint32_t i = 0; i < m_wallet->get_num_subaddresses(m_current_subaddress_account); ++i)
+      for (uint32_t i = 0; i < m_wallet->get_num_subaddresses(account); ++i)
         subaddr_indices.insert(i);
     }
     else if (!parse_subaddress_indices(local_args[0], subaddr_indices))
