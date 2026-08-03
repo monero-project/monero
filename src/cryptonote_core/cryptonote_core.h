@@ -236,7 +236,7 @@ namespace cryptonote
       * @note see Blockchain::create_block_template
       */
      bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash) final;
-     bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+     bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive = true);
 
      /**
       * @copydoc Blockchain::get_miner_data
