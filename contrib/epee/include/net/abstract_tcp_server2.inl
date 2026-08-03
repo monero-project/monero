@@ -547,8 +547,8 @@ namespace net_utils
           m_state.stat.out.throttle.handle_trafic_exact(bytes_transferred);
           const auto speed = m_state.stat.out.throttle.get_current_speed();
           get_context().m_current_speed_up = speed;
-          get_context().m_max_speed_down = std::max(
-            get_context().m_max_speed_down,
+          get_context().m_max_speed_up = std::max(
+            get_context().m_max_speed_up,
             speed
           );
           if (speed_limit_is_enabled()) {
