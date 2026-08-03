@@ -2445,7 +2445,7 @@ TEST_F(levin_notify, command_max_bytes)
         bytes = dest.finalize_notify(ping_command);
     }
 
-    EXPECT_EQ(1, get_connections().send(bytes.clone(), contexts_.front().get_id()));
+    EXPECT_TRUE(get_connections().send(bytes.clone(), contexts_.front().get_id()));
     EXPECT_EQ(1u, contexts_.front().process_send_queue(true));
     EXPECT_EQ(1u, receiver_.notified_size());
 
@@ -2461,7 +2461,7 @@ TEST_F(levin_notify, command_max_bytes)
         bytes = dest.finalize_notify(ping_command);
     }
 
-    EXPECT_EQ(1, get_connections().send(std::move(bytes), contexts_.front().get_id()));
+    EXPECT_TRUE(get_connections().send(std::move(bytes), contexts_.front().get_id()));
     EXPECT_EQ(1u, contexts_.front().process_send_queue(false));
     EXPECT_EQ(0u, receiver_.notified_size());
 }
