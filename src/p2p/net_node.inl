@@ -2533,8 +2533,8 @@ namespace nodetool
       return false;
 
     network_zone& zone = m_network_zones.at(context.m_remote_address.get_zone());
-    int res = zone.m_net_server.get_config_object().send(message.finalize_notify(command), context.m_connection_id);
-    return res > 0;
+    bool res = zone.m_net_server.get_config_object().send(message.finalize_notify(command), context.m_connection_id);
+    return res;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
