@@ -51,6 +51,7 @@ set(trezor_headers
         trezor/transport.hpp
         trezor/thp/thp_defs.h
         trezor/thp/thp_noise.h
+        trezor/thp/thp_control_byte.h
         device_trezor_base.hpp
         device_trezor.hpp
         trezor.hpp
