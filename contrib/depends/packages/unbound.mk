@@ -1,8 +1,8 @@
 package=unbound
-$(package)_version=1.25.2
+$(package)_version=1.26.0
 $(package)_download_path=https://www.nlnetlabs.nl/downloads/$(package)/
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=0d92275c703d5f5f8baba3dab22117dd8c29b495588a5c229768ed6581566600
+$(package)_sha256_hash=77458a7156e275c0b7b17fabcb357cb12445d95cfcb26fb9bb7d5ecba45e0b63
 $(package)_dependencies=openssl
 $(package)_patches=no-expat.patch
 
