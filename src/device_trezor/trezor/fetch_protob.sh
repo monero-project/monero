@@ -15,7 +15,7 @@ cd ..
 rm -rf protob
 mkdir protob
 
-proto_files="messages.proto messages-common.proto messages-monero.proto messages-management.proto messages-debug.proto options.proto"
+proto_files="messages.proto messages-common.proto messages-monero.proto messages-management.proto messages-debug.proto options.proto messages-thp.proto"
 
 for file in ${proto_files}
 do
