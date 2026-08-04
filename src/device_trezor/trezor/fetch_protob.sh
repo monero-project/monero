@@ -9,13 +9,13 @@ fi
 
 cd trezor-common
 git fetch
-git reset --hard bc28c316d05bf1e9ebfe3d7df1ab25831d98d168
+git reset --hard 06735a46718edf383e453febf8a870fb71ae1789
 cd ..
 
 rm -rf protob
 mkdir protob
 
-proto_files="messages.proto messages-common.proto messages-monero.proto messages-management.proto messages-debug.proto"
+proto_files="messages.proto messages-common.proto messages-monero.proto messages-management.proto messages-debug.proto options.proto"
 
 for file in ${proto_files}
 do
