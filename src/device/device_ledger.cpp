@@ -332,7 +332,7 @@ namespace hw {
       MDEBUG( "Device "<<this->name << " LOCKed");
     }
 
-    //lock the device for a long sequence
+    //try to lock the device for a long sequence
     bool device_ledger::try_lock(void) {
       MDEBUG( "Ask for LOCKING(try) for device "<<this->name << " in thread ");
       bool r = device_locker.try_lock();
@@ -344,7 +344,7 @@ namespace hw {
       return r;
     }
 
-    //lock the device for a long sequence
+    //unlock the device for a long sequence
     void device_ledger::unlock(void) {
       try {
         MDEBUG( "Ask for UNLOCKING for device "<<this->name << " in thread ");
@@ -632,7 +632,7 @@ namespace hw {
     bool  device_ledger::get_secret_keys(crypto::secret_key &vkey , crypto::secret_key &skey) {
         AUTO_LOCK_CMD();
 
-        //secret key are represented as fake key on the wallet side
+        //secret keys are represented as fake keys on the wallet side
         memset(vkey.data, 0x00, 32);
         memset(skey.data, 0xFF, 32);
 
