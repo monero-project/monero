@@ -134,18 +134,6 @@ namespace cryptonote
     bool init(BlockchainDB* db, const network_type nettype = MAINNET, bool offline = false, const cryptonote::test_options *test_options = NULL, difficulty_type fixed_difficulty = 0, const GetCheckpointsCallback& get_checkpoints = nullptr);
 
     /**
-     * @brief Initialize the Blockchain state
-     *
-     * @param db a pointer to the backing store to use for the blockchain
-     * @param hf a structure containing hardfork information
-     * @param nettype network type
-     * @param offline true if running offline, else false
-     *
-     * @return true on success, false if any initialization steps fail
-     */
-    bool init(BlockchainDB* db, HardFork*& hf, const network_type nettype = MAINNET, bool offline = false);
-
-    /**
      * @brief Uninitializes the blockchain state
      *
      * Saves to disk any state that needs to be maintained
@@ -1176,8 +1164,6 @@ namespace cryptonote
 
     // TODO: evaluate whether or not each of these typedefs are left over from blockchain_storage
     typedef std::unordered_set<crypto::key_image> key_images_container;
-
-    typedef std::vector<block_extended_info> blocks_container;
 
     typedef std::unordered_map<crypto::hash, block_extended_info> blocks_ext_by_hash;
 

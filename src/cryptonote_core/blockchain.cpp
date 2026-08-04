@@ -463,16 +463,6 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   return true;
 }
 //------------------------------------------------------------------
-bool Blockchain::init(BlockchainDB* db, HardFork*& hf, const network_type nettype, bool offline)
-{
-  if (hf != nullptr)
-    m_hardfork = hf;
-  bool res = init(db, nettype, offline, NULL);
-  if (hf == nullptr)
-    hf = m_hardfork;
-  return res;
-}
-//------------------------------------------------------------------
 bool Blockchain::store_blockchain()
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -2635,17 +2625,6 @@ bool Blockchain::get_transactions_blobs(const std::vector<crypto::hash>& txs_ids
     }
   }
   return true;
-}
-//------------------------------------------------------------------
-size_t get_transaction_version(const cryptonote::blobdata &bd)
-{
-  size_t version;
-  const char* begin = static_cast<const char*>(bd.data());
-  const char* end = begin + bd.size();
-  int read = tools::read_varint(begin, end, version);
-  if (read <= 0)
-    throw std::runtime_error("Internal error getting transaction version");
-  return version;
 }
 //------------------------------------------------------------------
 template<class t_ids_container, class t_tx_container, class t_missed_container>
