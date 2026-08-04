@@ -5543,6 +5543,18 @@ boost::optional<epee::wipeable_string> simple_wallet::on_device_pin_request()
   return pwd_container->password();
 }
 //----------------------------------------------------------------------------------------------------
+boost::optional<epee::wipeable_string> simple_wallet::on_device_pairing_code_request()
+{
+  // THP first-pairing over USB: the device displays a 6-digit code that the
+  // host must echo back. The code authenticates the CPace exchange, so it is
+  // read and handed on the same way as the device PIN.
+  PAUSE_READLINE();
+  std::string msg = tr("Enter the pairing code shown on your Trezor");
+  auto pwd_container = tools::password_container::prompt(false, msg.c_str());
+  THROW_WALLET_EXCEPTION_IF(!pwd_container, tools::error::password_entry_failed, tr("Failed to read device pairing code"));
+  return pwd_container->password();
+}
+//----------------------------------------------------------------------------------------------------
 boost::optional<epee::wipeable_string> simple_wallet::on_device_passphrase_request(bool & on_device)
 {
   if (on_device) {

@@ -172,7 +172,10 @@ namespace trezor {
         pubkey = info.address;
         return true;
 
-      } catch(exc::FirmwareNotSupportedException const&){
+      } catch(exc::TrezorException const&){
+        // A device failure carries its kind in the exception type, and
+        // the wallet layer classifies it to decide what the user can do
+        // about it; flattening it into a bare false loses all of that.
         throw;
       } catch(std::exception const& e){
         MERROR("Get public address exception: " << e.what());
@@ -208,8 +211,8 @@ namespace trezor {
         return true;
 
       } catch(const exc::proto::CancelledException &){
-        CHECK_AND_ASSERT_THROW_MES(false, "Key export rejected on device");
-      } catch(exc::FirmwareNotSupportedException const&){
+        throw exc::proto::CancelledException("Key export rejected on device");
+      } catch(exc::TrezorException const&){
         throw;
       } catch(std::exception const& e){
         MERROR("Get secret keys exception: " << e.what());

@@ -42,6 +42,7 @@
 
 #include "mnemonics/electrum-words.h"
 #include "mnemonics/english.h"
+#include "device_trezor/trezor/exceptions.hpp"
 #include <boost/format.hpp>
 #include <sstream>
 #include <unordered_map>
@@ -153,6 +154,22 @@ namespace {
     }
     void checkMultisigWalletNotReady(const std::unique_ptr<tools::wallet2> &wallet) {
         return checkMultisigWalletNotReady(wallet.get());
+    }
+
+    // The device layer classifies its own exceptions; this only carries
+    // the result across the API boundary, where the exception types are
+    // not available.
+    Wallet::TrezorError toTrezorError(hw::trezor::exc::error_kind kind)
+    {
+        using hw::trezor::exc::error_kind;
+        static_assert(static_cast<int>(error_kind::none) == Wallet::TrezorError_None, "");
+        static_assert(static_cast<int>(error_kind::unreachable) == Wallet::TrezorError_Unreachable, "");
+        static_assert(static_cast<int>(error_kind::cancelled) == Wallet::TrezorError_Cancelled, "");
+        static_assert(static_cast<int>(error_kind::protocol) == Wallet::TrezorError_Protocol, "");
+        static_assert(static_cast<int>(error_kind::other) == Wallet::TrezorError_Other, "");
+        static_assert(static_cast<int>(error_kind::firmware_unsupported) == Wallet::TrezorError_FirmwareUnsupported, "");
+        static_assert(static_cast<int>(error_kind::pairing_rejected) == Wallet::TrezorError_PairingRejected, "");
+        return static_cast<Wallet::TrezorError>(kind);
     }
 }
 
@@ -286,6 +303,17 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
         }
       } else {
         on_device = true;
+      }
+      return boost::none;
+    }
+
+    virtual boost::optional<epee::wipeable_string> on_device_pairing_code_request() override
+    {
+      if (m_listener) {
+        auto code = m_listener->onDevicePairingCodeRequest();
+        if (code) {
+          return boost::make_optional(epee::wipeable_string((*code).data(), (*code).size()));
+        }
       }
       return boost::none;
     }
@@ -430,6 +458,7 @@ void Wallet::error(const std::string &category, const std::string &str) {
 WalletImpl::WalletImpl(NetworkType nettype, uint64_t kdf_rounds)
     :m_wallet(nullptr)
     , m_status(Wallet::Status_Ok)
+    , m_trezorError(Wallet::TrezorError_None)
     , m_wallet2Callback(nullptr)
     , m_recoveringFromSeed(false)
     , m_recoveringFromDevice(false)
@@ -696,6 +725,7 @@ bool WalletImpl::recoverFromDevice(const std::string &path, const std::string &p
         LOG_PRINT_L1("Generated new wallet from device: " + device_name);
     }
     catch (const std::exception& e) {
+        setTrezorError(toTrezorError(::hw::trezor::exc::classify(e)));
         setStatusError(string(tr("failed to generate new wallet: ")) + e.what());
         return false;
     }
@@ -728,7 +758,17 @@ bool WalletImpl::open(const std::string &path, const std::string &password)
 
         m_password = password;
     } catch (const std::exception &e) {
-        LOG_ERROR("Error opening wallet: " << e.what());
+        // Demote LOG_ERROR to MWARNING for the Trezor failures a user
+        // resolves themselves (device off, cancelled, a mistyped pairing
+        // code) so the GUI log doesn't surface red errors for expected
+        // flows the Retry/Cancel splash will let them work through.
+        const auto kind = ::hw::trezor::exc::classify(e);
+        setTrezorError(toTrezorError(kind));
+        if (::hw::trezor::exc::is_expected_failure(kind)) {
+            MWARNING("Error opening wallet (user-recoverable): " << e.what());
+        } else {
+            LOG_ERROR("Error opening wallet: " << e.what());
+        }
         setStatusCritical(e.what());
     }
     return status() == Status_Ok;
@@ -842,6 +882,12 @@ void WalletImpl::statusWithErrorString(int& status, std::string& errorString) co
     boost::lock_guard<boost::mutex> l(m_statusMutex);
     status = m_status;
     errorString = m_errorString;
+}
+
+Wallet::TrezorError WalletImpl::trezorError() const
+{
+    boost::lock_guard<boost::mutex> l(m_statusMutex);
+    return m_trezorError;
 }
 
 bool WalletImpl::setPassword(const std::string &password)
@@ -2380,6 +2426,13 @@ void WalletImpl::clearStatus() const
     boost::lock_guard<boost::mutex> l(m_statusMutex);
     m_status = Status_Ok;
     m_errorString.clear();
+    m_trezorError = TrezorError_None;
+}
+
+void WalletImpl::setTrezorError(TrezorError trezorError) const
+{
+    boost::lock_guard<boost::mutex> l(m_statusMutex);
+    m_trezorError = trezorError;
 }
 
 void WalletImpl::setStatusError(const std::string& message) const

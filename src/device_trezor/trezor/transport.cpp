@@ -32,6 +32,7 @@
 #endif
 
 #include <algorithm>
+#include <cstdlib>
 #include <functional>
 #include <boost/endian/conversion.hpp>
 #include <boost/asio/ip/udp.hpp>
@@ -40,6 +41,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include "common/apply_permutation.h"
 #include "transport.hpp"
+#include "thp/auto_detect.hpp"
 #include "messages/messages-common.pb.h"
 
 // https://github.com/Tencent/rapidjson/issues/1448
@@ -120,6 +122,15 @@ namespace trezor{
     uint16_t id_product;
   } trezor_usb_desc_t;
 
+  // trezor_type values:
+  //   1 - Trezor One (legacy v1 protocol)
+  //   2 - Trezor Model T / Safe 3 / Safe 5 / Safe 7 (legacy v1 OR THP, see note)
+  //   3 - Trezor Model T bootloader
+  //
+  // Note: the Trezor Safe 7 ships with the same USB VID/PID as the Model T
+  // (0x1209:0x53C1) but exclusively speaks the Trezor Host Protocol v2 (THP).
+  // The wire-format protocol is therefore selected at runtime via probe (or
+  // by setting TREZOR_FORCE_THP=1 in the environment); see thp/auto_detect.hpp.
   static trezor_usb_desc_t TREZOR_DESC_T1 = {1, 0x534C, 0x0001};
   static trezor_usb_desc_t TREZOR_DESC_T2 = {2, 0x1209, 0x53C1};
   static trezor_usb_desc_t TREZOR_DESC_T2_BL = {3, 0x1209, 0x53C0};
@@ -129,6 +140,25 @@ namespace trezor{
       TREZOR_DESC_T2,
       TREZOR_DESC_T2_BL,
   };
+
+  // Returns true when the user has explicitly forced THP (TREZOR_FORCE_THP=1).
+  // This is rarely needed in practice, since ProtocolAutoDetect probes the
+  // device and selects the right protocol, but we keep the env var as an
+  // escape hatch for diagnostics.  Forcing THP only disables the silent V1
+  // fallback; the probe, pairing, and session bring-up still run through
+  // ProtocolAutoDetect so the channel stays fully authenticated.
+  static bool force_thp_protocol() {
+    const char *v = std::getenv("TREZOR_FORCE_THP");
+    return v && v[0] && v[0] != '0';
+  }
+  // Returns true when the user has explicitly forced ProtocolV1 only
+  // (skip the probe).  Useful when the THP probe causes problems on a
+  // particular USB stack: set TREZOR_FORCE_V1=1 to fall straight to
+  // legacy framing.
+  static bool force_v1_protocol() {
+    const char *v = std::getenv("TREZOR_FORCE_V1");
+    return v && v[0] && v[0] != '0';
+  }
 
   static size_t TREZOR_DESCS_LEN = sizeof(TREZOR_DESCS)/sizeof(TREZOR_DESCS[0]);
 
@@ -377,7 +407,18 @@ namespace trezor{
     json bridge_res;
     std::string req;
 
-    bool req_status = invoke_bridge_http("/enumerate", req, bridge_res, m_http_client);
+    // Probe-only timeout: 2 s.  If standalone trezord-go is not
+    // running, the user almost certainly does not have it (Trezor
+    // deprecated the standalone Bridge installer in favour of the
+    // integrated nodeBridge in Suite).  The default 180 s timeout
+    // would hang the entire wallet open for three minutes when
+    // something silently drops the SYN packets to localhost:21325
+    // (firewall, container network, etc.), which is unacceptable for a
+    // non-Bridge user.  Real Bridge operations (call, post-read,
+    // etc.) keep the long timeout downstream.
+    bool req_status = invoke_bridge_http(
+        "/enumerate", req, bridge_res, m_http_client,
+        "POST", std::chrono::seconds(2));
     if (!req_status){
       throw exc::CommunicationException("Bridge enumeration failed");
     }
@@ -423,7 +464,10 @@ namespace trezor{
     json bridge_res;
     bool req_status = invoke_bridge_http(uri, req, bridge_res, m_http_client);
     if (!req_status){
-      throw exc::CommunicationException("Failed to acquire device");
+      // Typed so that connect() can move on to the next carrier: a Bridge
+      // that will not hand the device over is exactly the case the
+      // direct-USB candidates exist for.
+      throw exc::DeviceAcquireException("Failed to acquire device");
     }
 
     m_session = boost::make_optional(json_get_string(bridge_res["session"]));
@@ -559,7 +603,13 @@ namespace trezor{
       throw std::invalid_argument("Local endpoint allowed only");
     }
 
-    m_proto = proto ? proto.get() : std::make_shared<ProtocolV1>();
+    if (proto) {
+      m_proto = proto.get();
+    } else if (force_v1_protocol()) {
+      m_proto = std::make_shared<ProtocolV1>();
+    } else {
+      m_proto = std::make_shared<thp::ProtocolAutoDetect>(force_thp_protocol());
+    }
   }
 
   std::string UdpTransport::get_path() const {
@@ -599,18 +649,30 @@ namespace trezor{
   }
 
   void UdpTransport::enumerate(t_transport_vect & res) {
-    std::shared_ptr<UdpTransport> t = std::make_shared<UdpTransport>();
+    // Liveness probe only.  PINGPING/PONGPONG is an emulator transport
+    // feature below any wire protocol, so probe with ProtocolV1 (whose
+    // session_begin is a no-op) instead of the default auto-detect:
+    // running the THP probe/handshake here would abandon a half-open
+    // channel on a THP emulator and, with no pairing prompt configured
+    // at enumeration time, could never complete anyway.  The transport
+    // handed to the caller is a fresh default-constructed one, so the
+    // chosen device still gets the full auto-detect treatment in
+    // connect().
+    std::shared_ptr<UdpTransport> probe = std::make_shared<UdpTransport>(
+        boost::none,
+        boost::optional<std::shared_ptr<Protocol>>(
+            std::make_shared<ProtocolV1>()));
     bool t_works = false;
 
     try{
-      t->open();
-      t_works = t->ping();
+      probe->open();
+      t_works = probe->ping();
     } catch(...) {
 
     }
-    t->close();
+    probe->close();
     if (t_works){
-      res.push_back(t);
+      res.push_back(std::make_shared<UdpTransport>());
     }
   }
 
@@ -628,8 +690,11 @@ namespace trezor{
     m_deadline.expires_after(boost::asio::steady_timer::duration::max());
     check_deadline();
 
-    m_proto->session_begin(*this);
+    // The counter has to be raised before session_begin so that a throw
+    // from it still lets close() run; pre_close() returns false on a zero
+    // counter and the socket would never be released.
     m_open_counter = 1;
+    m_proto->session_begin(*this);
   }
 
   void UdpTransport::close() {
@@ -674,18 +739,29 @@ namespace trezor{
   }
 
   size_t UdpTransport::read_chunk(void * buff, size_t size){
+    return read_chunk(buff, size, 0 /* 0 == no timeout, unbounded read */);
+  }
+
+  size_t UdpTransport::read_chunk(void * buff, size_t size, unsigned int timeout_ms){
     require_socket();
     if (size < 64){
       throw std::invalid_argument("Buffer too small");
     }
 
+    // timeout_ms == 0 means "no timeout": block until a chunk arrives, mirroring
+    // WebUsbTransport (libusb treats 0 as no timeout). The explicit-timeout probe
+    // path still throws exc::TimeoutException on deadline expiry.
+    const boost::asio::steady_timer::duration deadline = (timeout_ms == 0)
+        ? boost::asio::steady_timer::duration::max()
+        : boost::asio::steady_timer::duration(std::chrono::milliseconds(timeout_ms));
+
     ssize_t len;
     while(true) {
       try {
         boost::system::error_code ec;
-        len = receive(buff, size, &ec, true);
+        len = receive(buff, size, &ec, true, deadline);
         if (ec == boost::asio::error::operation_aborted) {
-          continue;
+          throw exc::TimeoutException("UdpTransport read_chunk timeout");
         } else if (ec) {
           throw exc::CommunicationException(std::string("Comm error: ") + ec.message());
         }
@@ -879,7 +955,13 @@ namespace trezor{
       this->m_usb_device_desc.reset(desc);
     }
 
-    m_proto = proto ? proto.get() : std::make_shared<ProtocolV1>();
+    if (proto) {
+      m_proto = proto.get();
+    } else if (force_v1_protocol()) {
+      m_proto = std::make_shared<ProtocolV1>();
+    } else {
+      m_proto = std::make_shared<thp::ProtocolAutoDetect>(force_thp_protocol());
+    }
 
 #ifdef WITH_TREZOR_DEBUGGING
     m_debug_mode = false;
@@ -1139,12 +1221,21 @@ namespace trezor{
   };
 
   size_t WebUsbTransport::read_chunk(void * buff, size_t size) {
+    return read_chunk(buff, size, 0 /* infinite */);
+  }
+
+  size_t WebUsbTransport::read_chunk(void * buff, size_t size, unsigned int timeout_ms) {
     require_connected();
     unsigned char endpoint = get_endpoint();
     endpoint = (endpoint & ~LIBUSB_ENDPOINT_DIR_MASK) | LIBUSB_ENDPOINT_IN;
 
     int transferred = 0;
-    int r = libusb_interrupt_transfer(m_usb_device_handle, endpoint, (unsigned char*)buff, (int)size, &transferred, 0);
+    int r = libusb_interrupt_transfer(m_usb_device_handle, endpoint, (unsigned char*)buff,
+                                      (int)size, &transferred,
+                                      timeout_ms /* 0 == no timeout */);
+    if (r == LIBUSB_ERROR_TIMEOUT) {
+      throw exc::TimeoutException("WebUsbTransport read_chunk timeout");
+    }
     CHECK_AND_ASSERT_THROW_MES(r == 0, "Unable to transfer, r: " << r);
     if (transferred != (int)size){
       throw exc::CommunicationException("Could not read the chunk");
@@ -1176,11 +1267,21 @@ namespace trezor{
 #endif  // WITH_DEVICE_TREZOR_WEBUSB
 
   void enumerate(t_transport_vect & res){
+    // Bridge stays ahead of the direct-USB carriers, as it has been since
+    // this module was written. Where a Bridge (trezord-go, or the copy
+    // built into Trezor Suite) is running it already holds the device,
+    // and libusb_claim_interface() on Windows and macOS would take it
+    // away from whatever else is using it. A device that speaks THP is
+    // reached over WebUSB instead, because Bridge's /call endpoint only
+    // understands codec_v1 framing.
+    //
+    // Not finding a Bridge is the normal case on a modern install, so the
+    // failure is logged at WARNING rather than ERROR.
     BridgeTransport bt;
     try{
       bt.enumerate(res);
     } catch (const std::exception & e){
-      MERROR("BridgeTransport enumeration failed:" << e.what());
+      MWARNING("BridgeTransport enumeration failed: " << e.what());
     }
 
 #ifdef WITH_DEVICE_TREZOR_WEBUSB

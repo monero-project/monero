@@ -405,6 +405,17 @@ struct WalletListener
     }
 
     /**
+     * @brief called by device when CodeEntry pairing requires the host
+     *        to prompt the user for the 6-digit code currently displayed
+     *        on the device.  Used during the THP first-pairing flow on
+     *        Trezor Safe 7.  Return the user-entered code as ASCII
+     *        digits, or an empty string to abort pairing.
+     */
+    virtual optional<std::string> onDevicePairingCodeRequest() {
+        return optional<std::string>();
+    }
+
+    /**
      * @brief Signalizes device operation progress
      */
     virtual void onDeviceProgress(const DeviceProgress & event) { (void)event; };
@@ -445,6 +456,20 @@ struct Wallet
         BackgroundSync_CustomPassword = 2
     };
 
+    //! Category of a Trezor failure met while opening or creating a
+    //! wallet, so a frontend can offer the recovery that fits without
+    //! matching the English text of an error.  Mirrors
+    //! hw::trezor::exc::error_kind, and both are append-only.
+    enum TrezorError {
+        TrezorError_None = 0,
+        TrezorError_Unreachable = 1,
+        TrezorError_Cancelled = 2,
+        TrezorError_Protocol = 3,
+        TrezorError_Other = 4,
+        TrezorError_FirmwareUnsupported = 5,
+        TrezorError_PairingRejected = 6
+    };
+
     virtual ~Wallet() = 0;
     virtual std::string seed(const std::string& seed_offset = "") const = 0;
     virtual std::string getSeedLanguage() const = 0;
@@ -455,6 +480,8 @@ struct Wallet
     virtual std::string errorString() const = 0; //deprecated: use safe alternative statusWithErrorString
     //! returns both error and error string atomically. suggested to use in instead of status() and errorString()
     virtual void statusWithErrorString(int& status, std::string& errorString) const = 0;
+    //! in case the last failure came from a Trezor, returns its category
+    virtual TrezorError trezorError() const { return TrezorError_None; }
     virtual bool setPassword(const std::string &password) = 0;
     virtual const std::string& getPassword() const = 0;
     virtual bool setDevicePin(const std::string &pin) { (void)pin; return false; };

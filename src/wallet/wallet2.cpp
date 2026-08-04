@@ -1202,6 +1202,13 @@ void wallet_device_callback::on_progress(const hw::device_progress& event)
     wallet->on_device_progress(event);
 }
 
+boost::optional<epee::wipeable_string> wallet_device_callback::on_pairing_code_request()
+{
+  if (wallet)
+    return wallet->on_device_pairing_code_request();
+  return boost::none;
+}
+
 wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std::unique_ptr<epee::net_utils::http::http_client_factory> http_client_factory):
   m_http_client(http_client_factory->create()),
   m_upper_transaction_weight_limit(0),
@@ -1528,7 +1535,17 @@ bool wallet2::reconnect_device()
     return false;
   }
 
-  r = hwdev.connect();
+  try
+  {
+    r = hwdev.connect();
+  }
+  catch (const std::exception &e)
+  {
+    // A Trezor reports the reason by throwing; this entry point answers
+    // its callers with a boolean either way.
+    MERROR("Could not connect to the device: " << e.what());
+    return false;
+  }
   if (!r){
     MERROR("Could not connect to the device");
     return false;
@@ -15202,6 +15219,13 @@ boost::optional<epee::wipeable_string> wallet2::on_device_passphrase_request(boo
     return m_callback->on_device_passphrase_request(on_device);
   else
     on_device = true;
+  return boost::none;
+}
+//----------------------------------------------------------------------------------------------------
+boost::optional<epee::wipeable_string> wallet2::on_device_pairing_code_request()
+{
+  if (nullptr != m_callback)
+    return m_callback->on_device_pairing_code_request();
   return boost::none;
 }
 //----------------------------------------------------------------------------------------------------

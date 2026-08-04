@@ -31,6 +31,7 @@ set(TREZOR_PROTOB_H
         trezor/messages/messages-common.pb.h
         trezor/messages/messages-management.pb.h
         trezor/messages/messages-monero.pb.h
+        trezor/messages/messages-thp.pb.h
 )
 
 set(TREZOR_PROTOB_CPP
@@ -38,6 +39,7 @@ set(TREZOR_PROTOB_CPP
         trezor/messages/messages-common.pb.cc
         trezor/messages/messages-management.pb.cc
         trezor/messages/messages-monero.pb.cc
+        trezor/messages/messages-thp.pb.cc
 )
 
 set(trezor_headers
@@ -45,6 +47,12 @@ set(trezor_headers
         trezor/messages_map.hpp
         trezor/protocol.hpp
         trezor/transport.hpp
+        trezor/thp/auto_detect.hpp
+        trezor/thp/framing.hpp
+        trezor/thp/noise.hpp
+        trezor/thp/pairing.hpp
+        trezor/thp/protocol_v2.hpp
+        trezor/thp/store.hpp
         device_trezor_base.hpp
         device_trezor.hpp
         trezor.hpp
@@ -55,6 +63,12 @@ set(trezor_sources
         trezor/messages_map.cpp
         trezor/protocol.cpp
         trezor/transport.cpp
+        trezor/thp/auto_detect.cpp
+        trezor/thp/framing.cpp
+        trezor/thp/noise.cpp
+        trezor/thp/pairing.cpp
+        trezor/thp/protocol_v2.cpp
+        trezor/thp/store.cpp
         device_trezor_base.cpp
         device_trezor.cpp
         ${TREZOR_PROTOB_CPP}
@@ -97,6 +111,7 @@ if(DEVICE_TREZOR_READY)
             ${Protobuf_LIBRARY}
             ${TREZOR_LIBUSB_LIBRARIES}
             PRIVATE
+            ${OPENSSL_LIBRARIES}
             ${EXTRA_LIBRARIES}
             ${TREZOR_EXTRA_LIBRARIES})
 

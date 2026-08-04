@@ -89,6 +89,7 @@ public:
     int status() const override;
     std::string errorString() const override;
     void statusWithErrorString(int& status, std::string& errorString) const override;
+    TrezorError trezorError() const override;
     bool setPassword(const std::string &password) override;
     const std::string& getPassword() const override;
     bool setDevicePin(const std::string &password) override;
@@ -238,6 +239,7 @@ private:
     void setStatusError(const std::string& message) const;
     void setStatusCritical(const std::string& message) const;
     void setStatus(int status, const std::string& message) const;
+    void setTrezorError(TrezorError trezorError) const;
     void refreshThreadFunc();
     void doRefresh();
     bool daemonSynced() const;
@@ -261,6 +263,7 @@ private:
     mutable boost::mutex m_statusMutex;
     mutable int m_status;
     mutable std::string m_errorString;
+    mutable TrezorError m_trezorError;
     // TODO: harden password handling in the wallet API, see relevant discussion
     // https://github.com/monero-project/monero-gui/issues/1537
     // https://github.com/feather-wallet/feather/issues/72#issuecomment-1405602142

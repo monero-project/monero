@@ -192,7 +192,80 @@ namespace proto {
     FirmwareErrorException(): FailureException("Trezor returned firmware error"){}
   };
 
+  class PairingFailedException : public FailureException {
+  public:
+    using FailureException::FailureException;
+    PairingFailedException(): FailureException("Trezor rejected the pairing code"){}
+  };
+
 }
+
+  // Broad categories of device failure.  The exception type says exactly
+  // what went wrong; this collapses the hierarchy into the few cases a
+  // caller has to treat differently, such as the log level to use or the
+  // recovery a wallet frontend offers.  Monero::Wallet::TrezorError
+  // mirrors these values across the wallet API boundary, so they are
+  // append-only.
+  enum class error_kind : int {
+    none                 = 0,  // not a device failure
+    unreachable          = 1,  // device off, unplugged, held elsewhere, or unresponsive
+    cancelled            = 2,  // cancelled on the device or in a host prompt
+    protocol             = 3,  // framing, Noise, or protocol assertion failure
+    other                = 4,  // device refused the operation for a reason of its own
+    firmware_unsupported = 5,  // firmware has no Monero support
+    pairing_rejected     = 6,  // device rejected the pairing code
+  };
+
+  // Categorizes a failure by exception type.  The hierarchy nests (a
+  // CancelledException is a FailureException is a ProtocolException), so
+  // the tests run most derived first and the first match wins.
+  inline error_kind classify(const std::exception &e) {
+    if (dynamic_cast<const proto::PairingFailedException *>(&e)) {
+      return error_kind::pairing_rejected;
+    }
+    if (dynamic_cast<const proto::CancelledException *>(&e)) {
+      return error_kind::cancelled;
+    }
+    if (dynamic_cast<const FirmwareNotSupportedException *>(&e)) {
+      return error_kind::firmware_unsupported;
+    }
+    // Thrown by the client when a response does not match the request,
+    // which is a protocol fault despite deriving from FailureException.
+    if (dynamic_cast<const proto::UnexpectedMessageException *>(&e)) {
+      return error_kind::protocol;
+    }
+    // Anything else the device itself reported: an invalid PIN, an
+    // uninitialized device, a firmware error.
+    if (dynamic_cast<const proto::FailureException *>(&e)) {
+      return error_kind::other;
+    }
+    // SecurityException sits outside TrezorException and covers the
+    // transport's authentication failures.
+    if (dynamic_cast<const ProtocolException *>(&e) ||
+        dynamic_cast<const EncodingException *>(&e) ||
+        dynamic_cast<const SecurityException *>(&e)) {
+      return error_kind::protocol;
+    }
+    if (dynamic_cast<const CommunicationException *>(&e)) {
+      return error_kind::unreachable;
+    }
+    if (dynamic_cast<const TrezorException *>(&e)) {
+      return error_kind::other;
+    }
+    return error_kind::none;
+  }
+
+  // True for the failures a user is expected to meet and can respond to:
+  // the device is off or busy, they cancelled, they mistyped the pairing
+  // code, or the firmware has no Monero support.  Everything else means
+  // a fault in the protocol or in the client.
+  inline bool is_expected_failure(error_kind kind) {
+    return kind == error_kind::unreachable
+        || kind == error_kind::cancelled
+        || kind == error_kind::pairing_rejected
+        || kind == error_kind::firmware_unsupported;
+  }
+
 }
 }
 }

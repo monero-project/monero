@@ -32,6 +32,7 @@
 #include "messages/messages-common.pb.h"
 #include "messages/messages-management.pb.h"
 #include "messages/messages-monero.pb.h"
+#include "messages/messages-thp.pb.h"
 
 #ifdef WITH_TREZOR_DEBUGGING
 #include "messages/messages-debug.pb.h"
@@ -44,6 +45,11 @@ namespace hw{
 namespace trezor
 {
 
+  // ThpCreateNewSession is `reserved 1000` in both MessageType and
+  // ThpMessageType, so it has no generated enum name. We map it by its
+  // wire number directly in two places below.
+  static constexpr int THP_CREATE_NEW_SESSION_WIRE = 1000;
+
   const char * TYPE_PREFIX = "MessageType_";
   const std::string PACKAGES[] = {
       "hw.trezor.messages.",
@@ -52,7 +58,8 @@ namespace trezor
 #ifdef WITH_TREZOR_DEBUGGING
       "hw.trezor.messages.debug.",
 #endif
-      "hw.trezor.messages.monero."
+      "hw.trezor.messages.monero.",
+      "hw.trezor.messages.thp."
   };
 
   google::protobuf::Message * MessageMapper::get_message(int wire_number) {
@@ -60,23 +67,42 @@ namespace trezor
   }
 
   google::protobuf::Message * MessageMapper::get_message(messages::MessageType wire_number) {
-    const string &messageTypeName = hw::trezor::messages::MessageType_Name(wire_number);
-    if (messageTypeName.empty()) {
-      throw exc::EncodingException(std::string("Message descriptor not found: ") + std::to_string(wire_number));
+    // ThpCreateNewSession is reserved (no enum name) in both MessageType
+    // and ThpMessageType. Construct it directly to avoid the descriptor
+    // lookup falling through to "Message descriptor not found".
+    if (static_cast<int>(wire_number) == THP_CREATE_NEW_SESSION_WIRE) {
+      return new hw::trezor::messages::thp::ThpCreateNewSession();
     }
-
-    string messageName = messageTypeName.substr(strlen(TYPE_PREFIX));
+    string messageTypeName = hw::trezor::messages::MessageType_Name(wire_number);
+    string messageName;
+    if (!messageTypeName.empty()) {
+      messageName = messageTypeName.substr(strlen(TYPE_PREFIX));
+    } else {
+      // THP messages live in a separate enum (ThpMessageType) with its own
+      // wire numbers in the 1008..1041 range. Fall back to it before
+      // declaring the wire number unknown.
+      const string &thpName = hw::trezor::messages::thp::ThpMessageType_Name(
+          static_cast<hw::trezor::messages::thp::ThpMessageType>(wire_number));
+      if (thpName.empty()) {
+        throw exc::EncodingException(std::string("Message descriptor not found: ") + std::to_string(wire_number));
+      }
+      messageName = thpName.substr(strlen("ThpMessageType_"));
+    }
     return MessageMapper::get_message(messageName);
   }
 
   google::protobuf::Message * MessageMapper::get_message(const std::string & msg_name) {
-    // Each package instantiation so lookup works
+    // Force one symbol from each package's generated .pb.cc to be linked
+    // in, so the protobuf DescriptorPool below can resolve message names
+    // by package.  default_instance() is [[nodiscard]] in newer protobuf;
+    // the (void) cast documents that we only want the side effect.
     (void)hw::trezor::messages::common::Success::default_instance();
     (void)hw::trezor::messages::management::Cancel::default_instance();
     (void)hw::trezor::messages::monero::MoneroGetAddress::default_instance();
+    (void)hw::trezor::messages::thp::ThpPairingRequest::default_instance();
 
 #ifdef WITH_TREZOR_DEBUGGING
-    hw::trezor::messages::debug::DebugLinkDecision::default_instance();
+    (void)hw::trezor::messages::debug::DebugLinkDecision::default_instance();
 #endif
 
     google::protobuf::Descriptor const * desc = nullptr;
@@ -125,11 +151,28 @@ namespace trezor
 
     messages::MessageType res;
     bool r = hw::trezor::messages::MessageType_Parse(enumMessageName, &res);
-    if (!r){
-      throw exc::EncodingException(std::string("Message ") + msg_name + " not found");
+    if (r){
+      return res;
     }
 
-    return res;
+    // THP-specific message types live in ThpMessageType (1008..1041). The
+    // wire numbers are unique across the two enums (THP reserves 0..999 and
+    // 1100..max for the main MessageType enum), so we can return them as
+    // messages::MessageType safely.
+    string thpEnumName = std::string("ThpMessageType_") + msg_name;
+    hw::trezor::messages::thp::ThpMessageType thp_res;
+    if (hw::trezor::messages::thp::ThpMessageType_Parse(thpEnumName, &thp_res)) {
+      return static_cast<messages::MessageType>(thp_res);
+    }
+
+    // ThpCreateNewSession is "reserved 1000" in both MessageType and
+    // ThpMessageType, so neither Parse call above resolves it. The message
+    // class is still generated and the firmware accepts wire type 1000.
+    if (msg_name == "ThpCreateNewSession") {
+      return static_cast<messages::MessageType>(THP_CREATE_NEW_SESSION_WIRE);
+    }
+
+    throw exc::EncodingException(std::string("Message ") + msg_name + " not found");
   }
 
 #ifdef PROTOBUF_HAS_ABSEIL

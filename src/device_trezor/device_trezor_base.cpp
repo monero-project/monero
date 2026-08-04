@@ -29,11 +29,19 @@
 
 #include "device_trezor_base.hpp"
 #include "memwipe.h"
+#include "common/util.h"
+#include "trezor/thp/auto_detect.hpp"
+#include "trezor/thp/store.hpp"
 #include <algorithm>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/filesystem/path.hpp>
 #include <boost/regex.hpp>
+
+#ifdef WIN32
+#include <shlobj.h>
+#endif
 
 namespace hw {
 namespace trezor {
@@ -49,7 +57,9 @@ namespace trezor {
     device_trezor_base::device_trezor_base(): m_callback(nullptr), m_last_msg_type(messages::MessageType_Success),
                                               m_reply_with_empty_passphrase(false),
                                               m_always_use_empty_passphrase(false),
-                                              m_seen_passphrase_entry_message(false) {
+                                              m_seen_passphrase_entry_message(false),
+                                              m_pairing_code_requested(false),
+                                              m_pairing_code_entered(false) {
 #ifdef WITH_TREZOR_DEBUGGING
       m_debug = false;
 #endif
@@ -76,6 +86,20 @@ namespace trezor {
       this->m_full_name = name;
       this->name = "";
 
+      // Carrier-prefixed paths (e.g. the UDP emulator
+      // "udp:127.0.0.1:21324"): keep the whole string.  connect()
+      // compares this->name as a prefix of transport->get_path(), and a
+      // transport's get_path() includes the carrier prefix, so stripping
+      // it here would leave the bare body, which would never match the
+      // prefixed path and silently fall through to the "match every
+      // transport" fallback.
+      if (boost::starts_with(name, UdpTransport::PATH_PREFIX)) {
+        this->name = name;
+        return true;
+      }
+
+      // Legacy "<scheme>:<rest>" form (e.g. "Trezor:/dev/hidraw0"):
+      // strip the scheme so the filter compares against the bare path.
       auto delim = name.find(':');
       if (delim != std::string::npos && delim + 1 < name.length()) {
         this->name = name.substr(delim + 1);
@@ -111,11 +135,52 @@ namespace trezor {
       }
     }
 
+    // Directory holding the THP credential store.  It has to be private to
+    // the current user and specific to the network: the file keeps the host
+    // static private key and every pairing credential in the clear, and one
+    // store per network stops a testnet wallet from spending a mainnet
+    // wallet's credential.
+    static std::string thp_store_data_dir(cryptonote::network_type nettype) {
+      boost::filesystem::path dir;
+#ifdef WIN32
+      // tools::get_default_data_dir() resolves to CSIDL_COMMON_APPDATA,
+      // which every local account on the machine shares.
+      dir = tools::get_special_folder_path(CSIDL_APPDATA, true) + "\\" + CRYPTONOTE_NAME;
+#else
+      dir = tools::get_default_data_dir();
+#endif
+      switch (nettype) {
+        case cryptonote::TESTNET:   dir /= "testnet";  break;
+        case cryptonote::STAGENET:  dir /= "stagenet"; break;
+        case cryptonote::FAKECHAIN: dir /= "fake";     break;
+        default: break;
+      }
+      return dir.string();
+    }
+
+    // A rejected pairing code surfaces either as a failure the device
+    // reported (its CPace tag check refused the code) or as a host-side
+    // security fault (the commitment check refused it).  An on-device
+    // cancel is a device failure too, but it is a cancellation rather
+    // than a wrong code.
+    static bool is_pairing_rejection(const std::exception &e) {
+      if (dynamic_cast<const exc::proto::CancelledException *>(&e)) {
+        return false;
+      }
+      return dynamic_cast<const exc::proto::FailureException *>(&e) != nullptr
+          || dynamic_cast<const exc::SecurityException *>(&e) != nullptr;
+    }
+
+    // Reports failure by throwing rather than by returning false: the
+    // wallet layer classifies the exception to decide what the user can
+    // do about it, and a bare false carries none of that.
     bool device_trezor_base::connect() {
       disconnect();
 
       // Enumerate all available devices
       TREZOR_AUTO_LOCK_DEVICE();
+      m_pairing_code_requested = false;
+      m_pairing_code_entered = false;
       try {
         hw::trezor::t_transport_vect trans;
 
@@ -128,30 +193,140 @@ namespace trezor {
           MDEBUG("  device: " << *(cur.get()));
         }
 
+        // Collect candidates: prefer those whose path begins with the
+        // pinned specifier (legacy carrier-prefixed wallets), but fall
+        // through to all enumerated transports if the specifier matches
+        // nothing.  Modern wallets persist just "Trezor" so this->name
+        // is empty and every transport matches.
+        std::vector<std::shared_ptr<Transport>> candidates;
+        candidates.reserve(trans.size());
         for (auto &cur : trans) {
-          std::string cur_path = cur->get_path();
-          if (boost::starts_with(cur_path, this->name)) {
-            MDEBUG("Device Match: " << cur_path);
-            m_transport = cur;
-            break;
+          if (boost::starts_with(cur->get_path(), this->name)) {
+            candidates.push_back(cur);
           }
         }
-
-        if (!m_transport) {
-          MERROR("No matching Trezor device found. Device specifier: \"" + this->name + "\"");
-          return false;
+        // Deliberately fail-open: a stale persisted specifier (device
+        // re-plugged on another USB port, emulator port change) should
+        // not brick the wallet.  Connecting to the wrong physical device
+        // is harmless: get_public_address() is checked against the
+        // wallet's stored address right after connect, which is the
+        // actual authority on device identity.
+        if (candidates.empty() && !this->name.empty()) {
+          MWARNING("Trezor specifier \"" << this->name
+                   << "\" did not match any enumerated transport; "
+                   << "falling back to all " << trans.size() << " device(s)");
+          candidates = trans;
         }
 
-        m_transport->open();
+        if (candidates.empty()) {
+          throw exc::NotConnectedException(
+              "No Trezor device found. Device specifier: \"" + this->name + "\"");
+        }
 
+        // Try the candidates in enumeration order until one opens.
+        // Modern wallets persist just "Trezor" so this->name is empty
+        // and every transport matches; legacy wallets may pin a fuller
+        // path.  Iterating matters: a Safe 7 needs the direct-USB
+        // carrier, which enumeration lists after Bridge, and on setups
+        // where libusb can enumerate but not open the device (Linux
+        // without udev rules, or trezord-go / Suite holding the USB
+        // interface) the working candidate is the Bridge one.
+        std::exception_ptr last_error;
+        for (size_t i = 0; i < candidates.size(); ++i) {
+          const std::shared_ptr<Transport> &chosen = candidates[i];
+          MDEBUG("Trezor device candidate " << (i + 1) << "/"
+                 << candidates.size() << ": " << chosen->get_path());
+
+          // Configure THP auto-detect so the CodeEntry pairing prompt
+          // and the credential store are wired up before open() drives
+          // session_begin().  No-op for transports that don't carry a
+          // ProtocolAutoDetect (e.g. BridgeTransport).
+          if (auto p = chosen->protocol()) {
+            if (auto autod = std::dynamic_pointer_cast<thp::ProtocolAutoDetect>(p)) {
+              thp::ProtocolConfig cfg;
+              cfg.host_name  = "Monero Wallet";
+              cfg.app_name   = "monero-wallet";
+              cfg.store_path = thp::ThpStore::default_path(
+                  thp_store_data_dir(m_network_type));
+              cfg.pairing_prompt = [this]() -> epee::wipeable_string {
+                return this->on_pairing_code_request();
+              };
+              autod->configure(cfg);
+            }
+          }
+
+          try {
+            m_transport = chosen;
+            m_transport->open();
 #ifdef WITH_TREZOR_DEBUGGING
-        setup_debug();
+            setup_debug();
 #endif
-        return true;
+            return true;
+          } catch (const std::exception &e) {
+            try { m_transport->close(); } catch (...) {}
+            m_transport = nullptr;
+
+            // Only a carrier we could not acquire justifies trying the
+            // next one.  Anything the device itself reported (a rejected
+            // PIN, an on-device cancel, any other Failure) has already
+            // reached the user, and moving to another carrier would ask
+            // them for it a second time on the same hardware.
+            const bool carrier_fault =
+                dynamic_cast<const exc::DeviceAcquireException *>(&e) != nullptr ||
+                dynamic_cast<const exc::NotConnectedException *>(&e) != nullptr;
+            if (!carrier_fault) {
+              throw;  // handled (classified + logged) by the catch below
+            }
+
+            last_error = std::current_exception();
+            MDEBUG("Trezor candidate " << chosen->get_path()
+                   << " failed to open: " << e.what()
+                   << (i + 1 < candidates.size()
+                       ? "; trying the next candidate" : ""));
+          }
+        }
+        // Every candidate failed; surface the last failure through the
+        // classifying catch below.
+        std::rethrow_exception(last_error);
 
       } catch(std::exception const& e){
-        MERROR("Open exception: " << e.what());
-        return false;
+        // Tear down the transport on open failure so the underlying
+        // USB state is released.  Previously the transport was leaked
+        // here, which could leave a half-open device handle around for
+        // subsequent connect() attempts.
+        if (m_transport) {
+          try { m_transport->close(); } catch (...) {}
+          m_transport = nullptr;
+        }
+
+        // The pairing prompt is the only place that knows a CodeEntry
+        // exchange was in flight, and neither of its user-visible
+        // outcomes is distinguishable by exception type on its own: a
+        // declined prompt aborts the handshake somewhere below, and a
+        // wrong code comes back as a plain device failure.  Restate both
+        // in the exception hierarchy so the wallet layer can tell them
+        // from a communication error.
+        if (m_pairing_code_requested && !m_pairing_code_entered) {
+          MWARNING("Open failed, pairing declined by the user: " << e.what());
+          throw exc::proto::CancelledException("Trezor pairing declined by the user");
+        }
+        if (m_pairing_code_entered && is_pairing_rejection(e)) {
+          MWARNING("Open failed, device rejected the pairing code: " << e.what());
+          throw exc::proto::PairingFailedException(
+              std::string("Trezor rejected the pairing code: ") + e.what());
+        }
+
+        // Don't shout ERROR for the failures a user meets and resolves
+        // themselves.  When the device is off, unreachable, or they
+        // cancelled on-device, painting the log red scares them into
+        // thinking there is a code bug; MERROR stays for protocol
+        // violations and unclassified faults.
+        if (exc::is_expected_failure(exc::classify(e))) {
+          MWARNING("Open failed (user-recoverable): " << e.what());
+        } else {
+          MERROR("Open exception: " << e.what());
+        }
+        throw;
       }
     }
 
@@ -518,6 +693,25 @@ namespace trezor {
       resp = call_raw(&m);
     }
 
+    epee::wipeable_string device_trezor_base::on_pairing_code_request()
+    {
+      MDEBUG("on_pairing_code_request");
+
+      // Records what the prompt did, so that a failure arriving later in
+      // the handshake can be attributed to the pairing step.
+      m_pairing_code_requested = true;
+      m_pairing_code_entered = false;
+
+      boost::optional<epee::wipeable_string> code;
+      TREZOR_CALLBACK_GET(code, on_pairing_code_request);
+      if (!code || code->empty()) {
+        return epee::wipeable_string();
+      }
+
+      m_pairing_code_entered = true;
+      return std::move(*code);
+    }
+
 #ifdef WITH_TREZOR_DEBUGGING
     void device_trezor_base::wipe_device()
     {
@@ -569,6 +763,10 @@ namespace trezor {
 
     boost::optional<epee::wipeable_string> trezor_debug_callback::on_passphrase_request(bool & on_device) {
       on_device = true;
+      return boost::none;
+    }
+
+    boost::optional<epee::wipeable_string> trezor_debug_callback::on_pairing_code_request() {
       return boost::none;
     }
 

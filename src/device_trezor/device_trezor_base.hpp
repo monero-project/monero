@@ -71,6 +71,7 @@ namespace trezor {
       void on_button_request(uint64_t code=0) override;
       boost::optional<epee::wipeable_string> on_pin_request() override;
       boost::optional<epee::wipeable_string> on_passphrase_request(bool & on_device) override;
+      boost::optional<epee::wipeable_string> on_pairing_code_request() override;
       void on_passphrase_state_request(const std::string &state);
       void on_disconnect();
     protected:
@@ -100,10 +101,15 @@ namespace trezor {
       boost::optional<epee::wipeable_string> m_passphrase;
       messages::MessageType m_last_msg_type;
 
-      cryptonote::network_type m_network_type;
+      cryptonote::network_type m_network_type = cryptonote::MAINNET;
       bool m_reply_with_empty_passphrase;
       bool m_always_use_empty_passphrase;
       bool m_seen_passphrase_entry_message;
+      // Outcome of the CodeEntry pairing prompt in the current connect()
+      // attempt: whether it ran at all, and whether the user supplied a
+      // code instead of declining.
+      bool m_pairing_code_requested;
+      bool m_pairing_code_entered;
 
 #ifdef WITH_TREZOR_DEBUGGING
       std::shared_ptr<trezor_debug_callback> m_debug_callback;
@@ -289,6 +295,9 @@ namespace trezor {
     const std::string get_name() const override;
     bool init() override;
     bool release() override;
+    // Returns true or throws: a failure carries a hw::trezor::exc
+    // exception the wallet layer classifies to pick the recovery it
+    // offers the user.
     bool connect() override;
     bool disconnect() override;
 
@@ -318,6 +327,7 @@ namespace trezor {
     void on_button_pressed();
     void on_pin_request(GenericMessage & resp, const messages::common::PinMatrixRequest * msg);
     void on_passphrase_request(GenericMessage & resp, const messages::common::PassphraseRequest * msg);
+    epee::wipeable_string on_pairing_code_request();
 
 #ifdef WITH_TREZOR_DEBUGGING
     void set_debug(bool debug){
