@@ -1459,6 +1459,7 @@ namespace tools
     }
 
     std::vector <wallet2::tx_construction_data> tx_constructions;
+    std::vector<uint64_t> tx_weights;
     if (!req.unsigned_txset.empty()) {
       try {
         tools::wallet2::unsigned_tx_set exported_txs;
@@ -1474,6 +1475,8 @@ namespace tools
           return false;
         }
         tx_constructions = exported_txs.txes;
+        // An unsigned txset does not contain a transaction with an exact weight yet.
+        tx_weights.resize(tx_constructions.size());
       }
       catch (const std::exception &e) {
         er.code = WALLET_RPC_ERROR_CODE_BAD_UNSIGNED_TX_DATA;
@@ -1497,6 +1500,7 @@ namespace tools
 
         for (size_t n = 0; n < exported_txs.m_ptx.size(); ++n) {
           tx_constructions.push_back(exported_txs.m_ptx[n].construction_data);
+          tx_weights.push_back(cryptonote::get_transaction_weight(exported_txs.m_ptx[n].tx));
         }
       }
       catch (const std::exception &e) {
@@ -1519,8 +1523,9 @@ namespace tools
       for (size_t n = 0; n < tx_constructions.size(); ++n)
       {
         const tools::wallet2::tx_construction_data &cd = tx_constructions[n];
-        res.desc.push_back({0, 0, std::numeric_limits<uint32_t>::max(), 0, {}, {}, "", 0, "", 0, 0, ""});
+        res.desc.push_back({0, 0, std::numeric_limits<uint32_t>::max(), 0, {}, {}, "", 0, "", 0, 0, 0, ""});
         wallet_rpc::COMMAND_RPC_DESCRIBE_TRANSFER::transfer_description &desc = res.desc.back();
+        desc.weight = tx_weights[n];
         // Clear the recipients collection ready for this loop iteration
         tx_dests.clear();
 
