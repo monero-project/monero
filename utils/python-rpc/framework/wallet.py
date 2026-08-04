@@ -774,10 +774,11 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(relay_tx)
 
-    def get_languages(self):
+    def get_languages(self, polyseed = True):
         get_languages = {
             'method': 'get_languages',
             'params': {
+                'polyseed': polyseed,
             },
             'jsonrpc': '2.0', 
             'id': '0'
