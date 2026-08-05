@@ -143,6 +143,8 @@ using namespace cryptonote;
 
 #define FIRST_REFRESH_GRANULARITY     1024
 
+#define MAX_HASH_PULLS_PER_REFRESH    3 // hash pulls per bounded refresh call, so single-threaded callers stay responsive
+
 #define GAMMA_SHAPE 19.28
 #define GAMMA_SCALE (1/1.61)
 
@@ -3935,9 +3937,10 @@ void wallet2::process_pool_state(const std::vector<std::tuple<cryptonote::transa
   MTRACE("process_pool_state end");
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, bool force)
+bool wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, bool force, uint64_t max_pulls)
 {
   std::vector<crypto::hash> hashes;
+  uint64_t num_pulls = 0;
 
   const uint64_t checkpoint_height = (stop_height < 1000) ? 0 : m_checkpoints.get_nearest_checkpoint_height(stop_height);
   if ((stop_height > checkpoint_height && m_blockchain.size()-1 < checkpoint_height) && !force)
@@ -3955,13 +3958,15 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
   size_t current_index = m_blockchain.size();
   while(m_run.load(std::memory_order_relaxed) && current_index < stop_height)
   {
+    if (max_pulls > 0 && num_pulls++ >= max_pulls)
+      return false; // pull budget reached, caller may resume on a later call
     pull_hashes(0, blocks_start_height, short_chain_history, hashes);
     if (hashes.size() <= 3)
-      return;
+      return true;
     if (blocks_start_height < m_blockchain.offset())
     {
       MERROR("Blocks start before blockchain offset: " << blocks_start_height << " " << m_blockchain.offset());
-      return;
+      return true;
     }
     current_index = blocks_start_height;
     if (hashes.size() + current_index < stop_height) {
@@ -3990,13 +3995,14 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
       else if(bl_id != m_blockchain[current_index])
       {
         //split detected here !!!
-        return;
+        return true;
       }
       ++current_index;
       if (current_index >= stop_height)
-        return;
+        return true;
     }
   }
+  return true;
 }
 
 
@@ -4099,7 +4105,14 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     if (!start_height)
       start_height = std::max(m_refresh_from_block_height, m_skip_to_height);;
     // we can shortcut by only pulling hashes up to the start_height
-    fast_refresh(start_height, blocks_start_height, short_chain_history);
+    const uint64_t pre_hashes_height = m_blockchain.size();
+    const uint64_t max_pulls = max_blocks == std::numeric_limits<uint64_t>::max() ? 0 : MAX_HASH_PULLS_PER_REFRESH;
+    if (!fast_refresh(start_height, blocks_start_height, short_chain_history, false, max_pulls))
+    {
+      // pull budget reached before start_height, report hashes added and resume on next call
+      blocks_fetched = m_blockchain.size() - pre_hashes_height;
+      return;
+    }
     // regenerate the history now that we've got a full set of hashes
     short_chain_history.clear();
     get_short_chain_history(short_chain_history, (m_first_refresh_done || trusted_daemon) ? 1 : FIRST_REFRESH_GRANULARITY);
