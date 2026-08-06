@@ -123,9 +123,11 @@ endif()
 if(Protobuf_FOUND AND USE_DEVICE_TREZOR)
     # .proto files to compile
     set(_proto_files "messages.proto"
+                     "options.proto"
                      "messages-common.proto"
                      "messages-management.proto"
-                     "messages-monero.proto")
+                     "messages-monero.proto"
+                     "messages-thp.proto")
     if (TREZOR_DEBUG)
         list(APPEND _proto_files "messages-debug.proto")
     endif ()

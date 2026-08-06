@@ -28,16 +28,20 @@
 
 set(TREZOR_PROTOB_H
         trezor/messages/messages.pb.h
+        trezor/messages/options.pb.h
         trezor/messages/messages-common.pb.h
         trezor/messages/messages-management.pb.h
         trezor/messages/messages-monero.pb.h
+        trezor/messages/messages-thp.pb.h
 )
 
 set(TREZOR_PROTOB_CPP
         trezor/messages/messages.pb.cc
+        trezor/messages/options.pb.cc
         trezor/messages/messages-common.pb.cc
         trezor/messages/messages-management.pb.cc
         trezor/messages/messages-monero.pb.cc
+        trezor/messages/messages-thp.pb.cc
 )
 
 set(trezor_headers
@@ -45,6 +49,9 @@ set(trezor_headers
         trezor/messages_map.hpp
         trezor/protocol.hpp
         trezor/transport.hpp
+        trezor/thp/thp_defs.h
+        trezor/thp/thp_noise.h
+        trezor/thp/thp_control_byte.h
         device_trezor_base.hpp
         device_trezor.hpp
         trezor.hpp
