@@ -70,6 +70,7 @@ namespace hw {
 
     class device_progress {
     public:
+      virtual ~device_progress() = default;
       virtual double progress() const { return 0; }
       virtual bool indeterminate() const { return false; }
     };
