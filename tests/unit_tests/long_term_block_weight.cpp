@@ -51,6 +51,7 @@ private:
 public:
   TestDB() { m_open = true; }
 
+  using cryptonote::BaseTestDB::add_block;
   virtual void add_block( const cryptonote::block& blk
                         , size_t block_weight
                         , uint64_t long_term_block_weight
