@@ -554,6 +554,8 @@ namespace hw {
       return true;
     }
     
+    #define LEDGER_VID 0x2c97
+
     static const std::vector<hw::io::hid_conn_params> known_devices {
         {0x2c97, 0x0001, 0, 0xffa0}, 
         {0x2c97, 0x0004, 0, 0xffa0},       
@@ -563,8 +565,41 @@ namespace hw {
         {0x2c97, 0x0008, 0, 0xffa0},
     };
 
+    // A Ledger reports a different product id depending on whether an app is running,
+    // so a device with no app open matches none of known_devices and is otherwise
+    // indistinguishable from an absent one.
+    static bool find_ledger_without_app(unsigned int &pid) {
+      for (const auto &device: known_devices) {
+        if (hid_device_info *info = hid_enumerate(device.vid, device.pid)) {
+          hid_free_enumeration(info);
+          return false;
+        }
+      }
+      if (hid_device_info *info = hid_enumerate(LEDGER_VID, 0x0000)) {
+        pid = info->product_id;
+        hid_free_enumeration(info);
+        return true;
+      }
+      return false;
+    }
+
     bool device_ledger::connect(void) {
       this->disconnect();
+
+      unsigned int pid = 0;
+      if (find_ledger_without_app(pid)) {
+        // Ask the Ledger OS for the running application: a locked device answers
+        // SW_LOCKED_DEVICE, an unlocked one answers from its dashboard.
+        unsigned char command[] = {0xb0, 0x01, 0x00, 0x00, 0x00};
+        unsigned char response[BUFFER_RECV_SIZE];
+        hw_device.connect(LEDGER_VID, pid, 0, 0xffa0);
+        const int recv = hw_device.exchange(command, sizeof(command), response, sizeof(response), false);
+        hw_device.disconnect();
+        ASSERT_X(recv >= 2, "Communication error, less than two bytes received");
+        ASSERT_X(((response[recv-2]<<8) | response[recv-1]) != SW_LOCKED_DEVICE, "Ledger is locked.");
+        ASSERT_X(false, "Open the Monero app on your Ledger.");
+      }
+
       hw_device.connect(known_devices);
       this->reset();
       #ifdef DEBUG_HWDEVICE
