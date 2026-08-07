@@ -4951,14 +4951,14 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
             return true;
           }
         }
-        if (have_block(block_hash))
+        if (!blocks_exist && have_block(block_hash))
           blocks_exist = true;
 
         std::advance(it, 1);
       }
     }
 
-    for (unsigned i = 0; i < extra && !blocks_exist; i++, blockidx++)
+    for (unsigned i = 0; i < extra; i++, blockidx++)
     {
       block &block = blocks[blockidx];
       crypto::hash block_hash;
@@ -4966,7 +4966,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       if (!parse_and_validate_block_from_blob(it->block, block, block_hash))
         return false;
 
-      if (have_block(block_hash))
+      if (!blocks_exist && have_block(block_hash))
         blocks_exist = true;
 
       std::advance(it, 1);

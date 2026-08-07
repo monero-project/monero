@@ -87,3 +87,23 @@ TEST(block_queue, flush_uuid)
   bq.add_blocks(0, 200, uuid1(), na);
   ASSERT_EQ(bq.get_max_block_height(), 399);
 }
+
+TEST(block_queue, reserve_does_not_overlap_later_span)
+{
+  cryptonote::block_queue bq;
+  epee::net_utils::network_address na;
+  std::vector<std::pair<crypto::hash, uint64_t>> hashes;
+  hashes.reserve(100);
+  for (size_t i = 0; i < 100; ++i)
+    hashes.emplace_back(crypto::rand<crypto::hash>(), 0);
+
+  ASSERT_EQ(bq.reserve_span(1, 100, 28, uuid1(), na, false, 0, 0, 101, hashes), std::make_pair(uint64_t{1}, uint64_t{28}));
+  ASSERT_EQ(bq.reserve_span(1, 100, 28, uuid1(), na, false, 0, 0, 101, hashes), std::make_pair(uint64_t{29}, uint64_t{28}));
+  ASSERT_EQ(bq.reserve_span(1, 100, 28, uuid1(), na, false, 0, 0, 101, hashes), std::make_pair(uint64_t{57}, uint64_t{28}));
+
+  ASSERT_TRUE(bq.remove_span(29));
+
+  // A recalculated, larger sync size must fill only the gap, without
+  // overlapping the span which is already reserved at height 57.
+  ASSERT_EQ(bq.reserve_span(1, 100, 36, uuid2(), na, false, 0, 0, 101, hashes), std::make_pair(uint64_t{29}, uint64_t{28}));
+}
