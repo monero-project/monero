@@ -58,14 +58,13 @@ namespace misc_utils
       return v[0];
 
     size_t n = (v.size()) / 2;
-    std::sort(v.begin(), v.end());
-    //nth_element(v.begin(), v.begin()+n-1, v.end());
+    std::nth_element(v.begin(), v.begin()+n, v.end());
     if(v.size()%2)
     {//1, 3, 5...
       return v[n];
     }else 
     {//2, 4, 6...
-      return get_mid<type_vec_type>(v[n-1],v[n]);
+      return get_mid<type_vec_type>(*std::max_element(v.begin(), v.begin()+n), v[n]);
     }
 
   }
