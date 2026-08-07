@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2024, The Monero Project
+# Copyright (c) 2016, The Monero Project
 #
 # All rights reserved.
 #
@@ -26,58 +26,27 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(device_sources
-  device.cpp
-  device_default.cpp
-  device_io_tcp.cpp
-  log.cpp
-  )
+set(ledger_tests_sources
+  basic_signing.cpp
+  ledger_tests_utils.cpp
+  main.cpp)
 
-if(HIDAPI_FOUND)
-  set(device_sources 
-    ${device_sources} 
-    device_ledger.cpp
-    device_io_hid.cpp
-    )
-endif()
+set(unit_tests_headers
+  ledger_tests_utils.h)
 
-set(device_headers
-  device.hpp
-  device_io.hpp
-  device_default.hpp
-  device_cold.hpp
-  log.hpp
- )
-
-if(HIDAPI_FOUND)
-  set(device_headers 
-    ${device_headers} 
-    device_ledger.hpp
-    device_io_hid.hpp
-    )
-endif()
-
-set(device_private_headers)
-
-
-monero_private_headers(device
-  ${device_private_headers})
-
-monero_add_library(device
-  ${device_sources}
-  ${device_headers}
-  ${device_private_headers})
-
-target_link_libraries(device
-  PUBLIC
-    ${HIDAPI_LIBRARIES}
-    cncrypto
-    cryptonote_format_utils_basic
-    epee
-    ringct_basic
-    wallet-crypto
-    ${OPENSSL_CRYPTO_LIBRARIES}
-    ${Boost_SERIALIZATION_LIBRARY}
+monero_add_minimal_executable(ledger_tests
+  ${ledger_tests_sources}
+  ${ledger_tests_headers})
+target_link_libraries(ledger_tests
   PRIVATE
-    version
-    ${EXTRA_LIBRARIES})
+    cryptonote_core
+    device
+    epee
+    ${GTEST_LIBRARIES})
+set_property(TARGET ledger_tests
+  PROPERTY
+    FOLDER "tests")
+
+add_test(
+  NAME    ledger_tests
+  COMMAND ledger_tests)
