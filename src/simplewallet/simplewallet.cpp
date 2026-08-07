@@ -6276,6 +6276,13 @@ void simple_wallet::check_for_inactivity_lock(bool user)
           break;
         }
       }
+      catch (const std::exception &e)
+      {
+        // Report why unlocking failed, rather than just looping back to the password prompt
+        fail_msg_writer() << tr("Failed to unlock wallet: ") << e.what();
+        if (m_wallet->key_on_device())
+          fail_msg_writer() << tr("Please ensure the HW wallet is connected and unlocked.");
+      }
       catch (...) { /* do nothing, just let the loop loop */ }
     }
     m_last_activity_time = time(NULL);
