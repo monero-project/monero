@@ -3152,7 +3152,7 @@ void wallet2::process_pool_info_extent(const cryptonote::COMMAND_RPC_GET_BLOCKS_
   for (const auto &pool_tx: res.added_pool_txs)
   {
     cryptonote::transaction tx;
-    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_base_from_blob(pool_tx.tx_blob, tx),
+    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_base_from_blob(pool_tx.tx_blob, tx, true),
         error::wallet_internal_error, "Failed to validate transaction base from daemon");
     added_pool_txs.emplace_back(std::move(tx), pool_tx.tx_hash, pool_tx.double_spend_seen);
   }
