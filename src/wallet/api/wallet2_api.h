@@ -170,6 +170,7 @@ struct TxDescriptionSingle
     std::uint64_t change_amount;
     std::string change_address;
     std::uint64_t fee;
+    std::uint64_t weight;
     std::uint32_t dummy_outputs;
     std::string extra;
 };
