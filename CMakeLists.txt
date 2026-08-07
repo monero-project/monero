@@ -755,6 +755,18 @@ include(CheckTrezor)
   set(C_WARNINGS "-Waggregate-return -Wnested-externs -Wold-style-definition -Wstrict-prototypes")
   set(CXX_WARNINGS "-Wno-reorder -Wno-missing-field-initializers")
 
+  add_c_flag_if_supported(-Wimplicit-fallthrough C_WARNINGS)
+  add_cxx_flag_if_supported(-Wimplicit-fallthrough CXX_WARNINGS)
+  add_c_flag_if_supported(-Wredundant-decls C_WARNINGS)
+  add_cxx_flag_if_supported(-Wredundant-decls CXX_WARNINGS)
+
+  add_c_flag_if_supported(-Wduplicated-branches C_WARNINGS)
+  add_cxx_flag_if_supported(-Wduplicated-branches CXX_WARNINGS)
+  add_c_flag_if_supported(-Wduplicated-cond C_WARNINGS)
+  add_cxx_flag_if_supported(-Wduplicated-cond CXX_WARNINGS)
+
+  add_cxx_flag_if_supported(-Woverloaded-virtual CXX_WARNINGS)
+
   monero_enable_coverage()
   # With GCC 6.1.1 the compiled binary malfunctions due to aliasing. Until that
   # is fixed in the code (Issue #847), force compiler to be conservative.
@@ -766,6 +778,8 @@ include(CheckTrezor)
     set(C_SECURITY_FLAGS "${C_SECURITY_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1")
     set(CXX_SECURITY_FLAGS "${CXX_SECURITY_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1")
   endif()
+
+  set(CXX_SECURITY_FLAGS "${CXX_SECURITY_FLAGS} -D_GLIBCXX_ASSERTIONS")
 
   # warnings
   add_c_flag_if_supported(-Wformat C_SECURITY_FLAGS)
@@ -780,6 +794,9 @@ include(CheckTrezor)
     add_c_flag_if_supported(-fstack-protector-strong C_SECURITY_FLAGS)
     add_cxx_flag_if_supported(-fstack-protector-strong CXX_SECURITY_FLAGS)
   endif()
+
+  add_c_flag_if_supported(-fstack-reuse=none C_SECURITY_FLAGS)
+  add_cxx_flag_if_supported(-fstack-reuse=none CXX_SECURITY_FLAGS)
 
   # New in GCC 8.2
   if (NOT OPENBSD AND NOT (WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1)))
