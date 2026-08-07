@@ -43,7 +43,7 @@ bool tx_sanity_check(const cryptonote::blobdata &tx_blob, uint64_t rct_outs_avai
 {
   cryptonote::transaction tx;
 
-  if (!cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx))
+  if (!cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx, true))
   {
     MERROR("Failed to parse transaction");
     return false;
