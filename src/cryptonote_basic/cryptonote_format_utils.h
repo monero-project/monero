@@ -57,8 +57,26 @@ namespace cryptonote
   bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, crypto::hash& tx_hash);
   bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx);
   bool parse_and_validate_tx_base_from_blob(const blobdata_ref& tx_blob, transaction& tx);
+  /**
+   * @brief extract transaction version from transaction blob
+   * @param tx_blob transction blob
+   * @return transaction version
+   * @throw std::runtime_error if the version could not be deserialized
+   */
+  size_t get_tx_version(const blobdata_ref tx_blob);
   bool is_v1_tx(const blobdata_ref& tx_blob);
   bool is_v1_tx(const blobdata& tx_blob);
+  struct unprunable_summary_t
+  {
+    std::size_t version;
+    std::size_t n_inputs;
+    std::size_t n_outputs;
+    std::size_t extra_len;
+    bool is_coinbase;
+    std::size_t prefix_size;
+    std::size_t unprunable_size;
+  };
+  bool get_transaction_unprunable_summary(const blobdata_ref tx_blob, unprunable_summary_t &summary_out);
 
   template<typename T>
   bool find_tx_extra_field_by_type(const std::vector<tx_extra_field>& tx_extra_fields, T& field, size_t index = 0)
@@ -115,6 +133,14 @@ namespace cryptonote
   bool get_transaction_hash(const transaction& t, crypto::hash& res);
   bool get_transaction_hash(const transaction& t, crypto::hash& res, size_t& blob_size);
   bool get_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size);
+  /**
+   * @brief calculate transaction prunable hash from the prunable blob and version
+   * @param tx_version transaction version
+   * @param prunable_tx_blob blob of prunable part of transaction
+   * @param[out] res transaction prunable hash
+   * @return true on success, false otherwise
+   */
+  bool calculate_transaction_prunable_hash(const std::size_t tx_version, const blobdata_ref prunable_tx_blob, crypto::hash &res);
   bool calculate_transaction_prunable_hash(const transaction& t, const cryptonote::blobdata_ref *blob, crypto::hash& res);
   crypto::hash get_transaction_prunable_hash(const transaction& t, const cryptonote::blobdata_ref *blob = NULL);
   bool calculate_transaction_hash(const transaction& t, crypto::hash& res, size_t* blob_size);
@@ -138,6 +164,13 @@ namespace cryptonote
   uint64_t get_transaction_weight(const transaction &tx, size_t blob_size);
   uint64_t get_pruned_transaction_weight(const transaction &tx);
   uint64_t get_transaction_blob_size(const transaction& tx);
+  /**
+   * @brief prune a transaction blob to just its unprunable part given a *maybe* known unprunable size
+   * @param[inout] tx_blob transaction blob
+   * @param known_unprunable_size non-zero if unprunable size is known, 0 if unknown
+   * @return true on success, false otherwise
+   */
+  bool prune_transaction_blob(cryptonote::blobdata &tx_blob, const std::size_t known_unprunable_size);
 
   bool check_money_overflow(const transaction& tx);
   bool check_outs_overflow(const transaction& tx);
