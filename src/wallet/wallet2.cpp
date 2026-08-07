@@ -14016,7 +14016,7 @@ std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_det
     while (offset < m_transfers.size() && (m_transfers[offset].m_key_image_known && !m_transfers[offset].m_key_image_request))
       ++offset;
   else
-    offset = start;
+    offset = std::min<size_t>(start, m_transfers.size());
 
   outs.reserve(m_transfers.size() - offset);
   for (size_t n = offset; n < m_transfers.size() && n - offset < count; ++n)
