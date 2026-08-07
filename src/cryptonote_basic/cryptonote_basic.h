@@ -270,19 +270,18 @@ namespace cryptonote
         if (!pruned) for (size_t i = 0; i < vin.size(); ++i)
         {
           size_t signature_size = get_signature_size(vin[i]);
-          if (signatures_not_expected)
-          {
-            if (0 == signature_size)
-              continue;
-            else
-              return false;
-          }
+          if (signatures_not_expected && signature_size)
+            return false;
+          else if (!signature_size || signatures_not_expected)
+            continue;
 
           PREPARE_CUSTOM_VECTOR_SERIALIZATION(signature_size, signatures[i]);
           if (signature_size != signatures[i].size())
             return false;
 
-          FIELDS(signatures[i]);
+          // serialize all `crypto::signature`s for this input in one big blob
+          static_assert(std::has_unique_object_representations_v<crypto::signature>);
+          ar.serialize_blob(signatures[i].data(), signature_size * sizeof(crypto::signature));
 
           if (vin.size() - i > 1)
             ar.delimit_array();
