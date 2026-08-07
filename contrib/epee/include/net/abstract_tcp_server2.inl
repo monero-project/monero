@@ -991,7 +991,8 @@ namespace net_utils
     }
     #endif
     connection_basic::socket_.next_layer().set_option(
-      boost::asio::ip::tcp::no_delay{false},
+      // Enable `TCP_NODELAY` for RPC connections to avoid added latency
+      boost::asio::ip::tcp::no_delay{m_connection_type == e_connection_type_RPC},
       ec
     );
     if (ec.value())
