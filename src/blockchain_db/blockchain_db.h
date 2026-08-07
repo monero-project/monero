@@ -172,9 +172,12 @@ struct txpool_tx_meta_t
   uint8_t is_forwarding: 1;
   uint8_t bf_padding: 3;
 
-  uint8_t padding[44]; // til 160 bytes
+  uint8_t padding[43]; // til 159 bytes
 
-  // If non-null, this verification ID is set for this tx only when some mixring passed ver_input_proofs_rings()
+  //! If non-zero, this is set to the HF major version for which this tx passes ver_non_input_consensus()
+  uint8_t nic_verified_hf_version;
+
+  //! If non-null, this verification ID is set for this tx only when some mixring passed ver_input_proofs_rings()
   crypto::hash valid_input_verification_id;
 
   // 192 bytes total
@@ -192,6 +195,7 @@ struct txpool_tx_meta_t
   }
 };
 static_assert(sizeof(txpool_tx_meta_t) == 192, "possible DB migration needed for changes to txpool_tx_meta_t");
+static_assert(offsetof(txpool_tx_meta_t, nic_verified_hf_version) == 159, "NIC verified HF version wrong offset");
 static_assert(offsetof(txpool_tx_meta_t, valid_input_verification_id) == 160, "verif ID wrong alignment");
 
 #define DBF_SAFE       1
