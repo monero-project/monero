@@ -668,6 +668,15 @@ namespace hw {
         return true;
     }
 
+    bool device_ledger::get_cached_view_key(crypto::secret_key &viewkey_out) {
+        AUTO_LOCK_CMD();
+
+        if (!this->soft_request_view_key()) return false;
+        viewkey_out = this->viewkey;
+
+        return true;
+    }
+
     bool  device_ledger::generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key, uint64_t kdf_rounds) {
         AUTO_LOCK_CMD();
 
