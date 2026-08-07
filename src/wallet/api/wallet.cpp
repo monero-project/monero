@@ -4638,7 +4638,7 @@ bool WalletImpl::statusOk() const
     return m_status == Status_Ok;
 }
 //-------------------------------------------------------------------------------------------------------------------
-std::unique_ptr<TransactionDescription> WalletImpl::getTxDescription(const std::vector<tools::wallet2::tx_construction_data> &cds, int &error_code_out, std::string &error_msg_out) const
+std::unique_ptr<TransactionDescription> WalletImpl::getTxDescription(const std::vector<tools::wallet2::tx_construction_data> &cds, const std::vector<std::uint64_t> &tx_weights, int &error_code_out, std::string &error_msg_out) const
 {
     error_code_out = Status_Ok;
     error_msg_out = "";
@@ -4655,6 +4655,12 @@ std::unique_ptr<TransactionDescription> WalletImpl::getTxDescription(const std::
         /* fee */ 0
     };
 
+    if (!tx_weights.empty() && tx_weights.size() != cds.size())
+    {
+        error_code_out = Status_Error;
+        error_msg_out = tr("Size of tx_weights does not match size of tx_construction_data");
+        return nullptr;
+    }
     try
     {
         std::unordered_map<cryptonote::account_public_address, std::pair<std::string, uint64_t>> tx_dests;
@@ -4677,6 +4683,7 @@ std::unique_ptr<TransactionDescription> WalletImpl::getTxDescription(const std::
                 /* change_amount */ 0,
                 /* change_address */ "",
                 /* fee */ 0,
+                /* weight */ 0,
                 /* dummy_outputs */ 0,
                 /* extra */ ""}
             );
@@ -4799,6 +4806,9 @@ std::unique_ptr<TransactionDescription> WalletImpl::getTxDescription(const std::
             }
 
             desc.fee = desc.amount_in - desc.amount_out;
+            // An unsigned txset does not contain a transaction with an exact weight yet.
+            if (!tx_weights.empty())
+                desc.weight = tx_weights[n];
             desc.unlock_time = cd.unlock_time;
             desc.extra = epee::to_hex::string({cd.extra.data(), cd.extra.size()});
 

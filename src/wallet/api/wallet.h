@@ -412,11 +412,12 @@ private:
     /**
     * brief: getTxDescription - helper for [Pending/Unsigned]Transaction::getTransactionDescription()
     * param: cds - all the tx construction data
+    * param: tx_weights - weight for each tx; cannot be obtained by cds, but needed to make TransactionDescription complete, so supply it as argument here; leave empty for UnsignedTransaction
     * param: error_code_out - [Pending/Unsigned]Transaction::m_status
     * param: error_msg_out - [Pending/Unsigned]Transaction::m_errorString
     * return: TransactionDescription on success, else nullptr
     */
-    std::unique_ptr<TransactionDescription> getTxDescription(const std::vector<tools::wallet2::tx_construction_data> &cds, int &error_code_out, std::string &error_msg_out) const;
+    std::unique_ptr<TransactionDescription> getTxDescription(const std::vector<tools::wallet2::tx_construction_data> &cds, const std::vector<std::uint64_t> &tx_weights, int &error_code_out, std::string &error_msg_out) const;
 
 private:
     friend class PendingTransactionImpl;

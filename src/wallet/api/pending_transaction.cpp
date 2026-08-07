@@ -546,7 +546,7 @@ std::unique_ptr<TransactionDescription> PendingTransactionImpl::getTransactionDe
     for (size_t i = 0; i < m_pending_tx.size(); ++i)
         tx_construction_data.push_back(m_pending_tx[i].construction_data);
 
-    return m_wallet.getTxDescription(tx_construction_data, m_status, m_errorString);
+    return m_wallet.getTxDescription(tx_construction_data, txWeights(), m_status, m_errorString);
 }
 
 std::string PendingTransactionImpl::multisigSignData() {

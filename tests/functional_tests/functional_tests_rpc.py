@@ -9,6 +9,8 @@ import string
 import os
 import time
 
+import util_resources
+
 USAGE = 'usage: functional_tests_rpc.py <python> <srcdir> <builddir> [<tests-to-run> | all]'
 DEFAULT_TESTS = [
   'address_book', 'bans', 'blockchain', 'cold_signing', 'daemon_info', 'get_output_distribution',
@@ -45,11 +47,28 @@ N_MONERODS = 5
 # 4 wallets connected to the main offline monerod
 # 1 wallet connected to the first local online monerod
 # 1 offline wallet
-N_WALLETS = 7
+# 1 generate-from-json wallet (no wallet-dir)
+# 1 restricted-rpc wallet
+N_WALLETS = 9
 
 WALLET_DIRECTORY = builddir + "/functional-tests-directory"
 FUNCTIONAL_TESTS_DIRECTORY = builddir + "/tests/functional_tests"
+TMP_WALLET_FILE = WALLET_DIRECTORY + "/tmp_wallet"
+JSON_WALLET_FILE = TMP_WALLET_FILE + ".json"
 DIFFICULTY = 10
+
+# Init: generate json file for --generate-from-json
+if not os.path.exists(WALLET_DIRECTORY):
+    os.mkdir(WALLET_DIRECTORY)
+with open(JSON_WALLET_FILE, "w") as f:
+  file_content = f'''{{
+    "version": 1,
+    "filename": "{TMP_WALLET_FILE}",
+    "password": "",
+    "seed": "velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted"
+}}
+'''
+  f.write(file_content)
 
 monerod_base = [builddir + "/bin/monerod", "--regtest", "--fixed-difficulty", str(DIFFICULTY), "--p2p-bind-port", "monerod_p2p_port", "--rpc-bind-port", "monerod_rpc_port", "--zmq-rpc-bind-port", "monerod_zmq_port", "--zmq-pub", "monerod_zmq_pub", "--non-interactive", "--disable-dns-checkpoints", "--check-updates", "disabled", "--rpc-ssl", "disabled", "--data-dir", "monerod_data_dir", "--log-level", "1", "--rpc-max-connections-per-private-ip", "100", "--rpc-max-connections", "100"]
 
@@ -60,15 +79,17 @@ monerod_extra = [
   ["--add-exclusive-node", "127.0.0.1:18282"],
   ["--rpc-login", "md5_lover:Z1ON0101", "--offline"],
 ]
-wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "wallet_port", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1", "--allow-mismatched-daemon-version"]
+wallet_base = [builddir + "/bin/monero-wallet-rpc", "--rpc-bind-port", "wallet_port", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1", "--allow-mismatched-daemon-version"]
 wallet_extra = [
-  ["--daemon-port", "18180", "--disable-rpc-login"],
-  ["--daemon-port", "18180", "--disable-rpc-login"],
-  ["--daemon-port", "18180", "--disable-rpc-login"],
-  ["--daemon-port", "18180", "--disable-rpc-login"],
-  ["--daemon-port", "18182", "--disable-rpc-login"],
-  ["--offline", "--disable-rpc-login"],
-  ["--daemon-port", "18184", "--daemon-login", "md5_lover:Z1ON0101", "--rpc-login", "kyle:reveille"],
+  ["--daemon-port", "18180", "--disable-rpc-login", "--wallet-dir", WALLET_DIRECTORY],
+  ["--daemon-port", "18180", "--disable-rpc-login", "--wallet-dir", WALLET_DIRECTORY],
+  ["--daemon-port", "18180", "--disable-rpc-login", "--wallet-dir", WALLET_DIRECTORY],
+  ["--daemon-port", "18180", "--disable-rpc-login", "--wallet-dir", WALLET_DIRECTORY],
+  ["--daemon-port", "18182", "--disable-rpc-login", "--wallet-dir", WALLET_DIRECTORY],
+  ["--offline", "--disable-rpc-login", "--wallet-dir", WALLET_DIRECTORY],
+  ["--daemon-port", "18184", "--daemon-login", "md5_lover:Z1ON0101", "--rpc-login", "kyle:reveille", "--wallet-dir", WALLET_DIRECTORY],
+  ["--daemon-port", "18180", "--disable-rpc-login", "--generate-from-json", JSON_WALLET_FILE],
+  ["--daemon-port", "18180", "--disable-rpc-login", "--wallet-dir", WALLET_DIRECTORY, "--restricted-rpc"],
 ]
 
 command_lines = []
@@ -108,6 +129,10 @@ try:
   if not 'MINING_SILENT' in os.environ:
     os.environ['MINING_SILENT'] = "1"
 
+  # Clean up tmp_wallet file from previous run
+  if os.path.exists(TMP_WALLET_FILE):
+    util_resources.remove_wallet_files(TMP_WALLET_FILE.split("/")[-1])
+
   for i in range(len(command_lines)):
     #print('Running: ' + str(command_lines[i]))
     processes.append(subprocess.Popen(command_lines[i], stdout = outputs[i]))
@@ -121,7 +146,7 @@ def kill():
     except: pass
 
 # wait for error/startup
-startup_timeout = 10
+startup_timeout = 15
 deadline = time.monotonic() + startup_timeout
 for port in ports:
   addr = ('127.0.0.1', port)

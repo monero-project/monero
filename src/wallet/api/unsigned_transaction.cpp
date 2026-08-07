@@ -381,7 +381,8 @@ std::unique_ptr<TransactionDescription> UnsignedTransactionImpl::getTransactionD
     for (size_t i = 0; i < m_unsigned_tx_set.txes.size(); ++i)
         tx_construction_data.push_back(m_unsigned_tx_set.txes[i]);
 
-    return m_wallet.getTxDescription(tx_construction_data, m_status, m_errorString);
+    // An unsigned txset does not contain a transaction with an exact weight yet.
+    return m_wallet.getTxDescription(tx_construction_data, /* tx_weights */ {}, m_status, m_errorString);
 }
 
 } // namespace
