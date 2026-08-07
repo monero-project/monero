@@ -1412,6 +1412,19 @@ namespace cryptonote
             ++m_sync_old_spans_downloaded;
             continue;
           }
+          if (start_height < previous_height)
+          {
+            const uint64_t skip = previous_height - start_height;
+            MDEBUG(context << " Trimming " << skip << " overlap block(s) from span (span starts at "
+                << start_height << ", chain is at " << previous_height << ")");
+            blocks.erase(blocks.begin(), blocks.begin() + skip);
+            start_height = previous_height;
+            if (blocks.empty())
+            {
+              m_block_queue.remove_spans(span_connection_id, start_height);
+              continue;
+            }
+          }
           if (!parse_and_validate_block_from_blob(blocks.front().block, new_block))
           {
             MERROR(context << "Failed to parse block, but it should already have been parsed");
