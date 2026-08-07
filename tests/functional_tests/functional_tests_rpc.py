@@ -9,6 +9,8 @@ import string
 import os
 import time
 
+import util_resources
+
 USAGE = 'usage: functional_tests_rpc.py <python> <srcdir> <builddir> [<tests-to-run> | all]'
 DEFAULT_TESTS = [
   'address_book', 'bans', 'blockchain', 'cold_signing', 'daemon_info', 'get_output_distribution',
@@ -46,7 +48,8 @@ N_MONERODS = 5
 # 1 wallet connected to the first local online monerod
 # 1 offline wallet
 # 1 offline wallet generated from a JSON file with a Polyseed
-N_WALLETS = 8
+# 1 restricted-rpc wallet
+N_WALLETS = 9
 
 WALLET_DIRECTORY = builddir + "/functional-tests-directory"
 FUNCTIONAL_TESTS_DIRECTORY = builddir + "/tests/functional_tests"
@@ -71,6 +74,7 @@ wallet_extra = [
   ["--offline", "--disable-rpc-login"],
   ["--daemon-port", "18184", "--daemon-login", "md5_lover:Z1ON0101", "--rpc-login", "kyle:reveille"],
   ["--offline", "--disable-rpc-login", "--generate-from-json", WALLET_DIRECTORY + "/polyseed.json"],
+  ["--daemon-port", "18180", "--disable-rpc-login", "--restricted-rpc"],
 ]
 
 os.makedirs(WALLET_DIRECTORY, exist_ok = True)
@@ -131,7 +135,7 @@ def kill():
     except: pass
 
 # wait for error/startup
-startup_timeout = 10
+startup_timeout = 15
 deadline = time.monotonic() + startup_timeout
 for port in ports:
   addr = ('127.0.0.1', port)
