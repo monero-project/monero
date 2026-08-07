@@ -96,7 +96,7 @@ namespace net_utils
 			blocked_mode_client() :
 				m_io_service(),
 				m_ctx(boost::asio::ssl::context::tlsv12),
-				m_ssl_socket(new boost::asio::ssl::stream<boost::asio::ip::tcp::socket>(m_io_service, m_ctx)),
+				m_ssl_socket(new boost::asio::ssl::stream<boost::asio::ip::tcp::socket>(m_io_service, *m_ctx)),
 				m_connector(direct_connect{}),
 				m_ssl_options(epee::net_utils::ssl_support_t::e_ssl_support_autodetect),
 				m_connected(false),
@@ -134,11 +134,17 @@ namespace net_utils
 
 		inline void set_ssl(ssl_options_t ssl_options)
 		{
-			if (ssl_options)
-				m_ctx = ssl_options.create_context();
+			m_ssl_options = std::move(ssl_options);
+			m_ctx_created = false;
+		}
+
+		inline void ensure_ssl_context()
+		{
+			if (m_ctx_created) return;
+			if (m_ssl_options) m_ctx = m_ssl_options.create_context();
 			else
 				m_ctx = boost::asio::ssl::context(boost::asio::ssl::context::tlsv12);
-			m_ssl_options = std::move(ssl_options);
+			m_ctx_created = true;
 		}
 
     inline
@@ -201,7 +207,8 @@ namespace net_utils
 
 				// Set SSL options
 				// disable sslv2
-				m_ssl_socket.reset(new boost::asio::ssl::stream<boost::asio::ip::tcp::socket>(m_io_service, m_ctx));
+				ensure_ssl_context();
+				m_ssl_socket.reset(new boost::asio::ssl::stream<boost::asio::ip::tcp::socket>(m_io_service, *m_ctx));
 
 				// Get a list of endpoints corresponding to the server name.
 
@@ -512,7 +519,8 @@ namespace net_utils
 		
 	protected:
 		boost::asio::io_context m_io_service;
-		boost::asio::ssl::context m_ctx;
+		std::optional<boost::asio::ssl::context> m_ctx;
+		bool m_ctx_created = true;
 		std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>> m_ssl_socket;
 		std::function<connect_func> m_connector;
 		ssl_options_t m_ssl_options;
