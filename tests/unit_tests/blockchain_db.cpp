@@ -38,6 +38,7 @@
 #include "string_tools.h"
 #include "blockchain_db/blockchain_db.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+#include "common/pruning.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 
 using namespace cryptonote;
@@ -147,6 +148,180 @@ std::string h2b(const std::string& s)
     upper = !upper;
   }
   return result;
+}
+
+void check_lmdb(int result, const char* message)
+{
+  if (result)
+    throw std::runtime_error(std::string(message) + ": " + mdb_strerror(result));
+}
+
+class test_lmdb_env
+{
+public:
+  explicit test_lmdb_env(const std::string& path)
+  {
+    check_lmdb(mdb_env_create(&m_env), "Failed to create LMDB environment");
+    try
+    {
+      check_lmdb(mdb_env_set_maxdbs(m_env, 32), "Failed to set LMDB max databases");
+      check_lmdb(mdb_env_open(m_env, path.c_str(), 0, 0644), "Failed to open LMDB environment");
+    }
+    catch (...)
+    {
+      mdb_env_close(m_env);
+      m_env = nullptr;
+      throw;
+    }
+  }
+
+  ~test_lmdb_env()
+  {
+    mdb_env_close(m_env);
+  }
+
+  MDB_env* get() const { return m_env; }
+
+private:
+  MDB_env* m_env = nullptr;
+};
+
+crypto::hash pruning_test_hash(uint32_t value)
+{
+  crypto::hash hash{};
+  memcpy(hash.data + sizeof(hash.data) - sizeof(value), &value, sizeof(value));
+  return hash;
+}
+
+MDB_dbi open_test_table(MDB_txn* txn, const char* name)
+{
+  MDB_dbi table;
+  check_lmdb(mdb_dbi_open(txn, name, 0, &table), "Failed to open LMDB table");
+  return table;
+}
+
+void create_interrupted_pruning_data(const std::string& path, size_t records, size_t missing_pruned_record)
+{
+  test_lmdb_env env(path);
+  mdb_txn_safe txn;
+  check_lmdb(mdb_txn_begin(env.get(), nullptr, 0, txn), "Failed to begin LMDB transaction");
+  const MDB_dbi blocks = open_test_table(txn, "blocks");
+  const MDB_dbi txs_pruned = open_test_table(txn, "txs_pruned");
+  const MDB_dbi txs_prunable = open_test_table(txn, "txs_prunable");
+  const MDB_dbi tx_indices = open_test_table(txn, "tx_indices");
+
+  check_lmdb(mdb_set_compare(txn, blocks, BlockchainLMDB::compare_uint64), "Failed to set blocks comparator");
+  check_lmdb(mdb_set_compare(txn, txs_pruned, BlockchainLMDB::compare_uint64),
+      "Failed to set txs_pruned comparator");
+  check_lmdb(mdb_set_compare(txn, txs_prunable, BlockchainLMDB::compare_uint64),
+      "Failed to set txs_prunable comparator");
+  check_lmdb(mdb_set_dupsort(txn, tx_indices, BlockchainLMDB::compare_hash32),
+      "Failed to set tx_indices comparator");
+
+  const char block_blob = 0;
+  MDB_val block_value{sizeof(block_blob), const_cast<char*>(&block_blob)};
+  for (uint64_t height = 0; height <= CRYPTONOTE_PRUNING_TIP_BLOCKS; ++height)
+  {
+    MDB_val block_key{sizeof(height), &height};
+    check_lmdb(mdb_put(txn, blocks, &block_key, &block_value, MDB_APPEND), "Failed to add test block");
+  }
+
+  const char pruned_blob = 2;
+  const char prunable_blob = 1;
+  const uint64_t zero = 0;
+  MDB_val tx_indices_key{sizeof(zero), const_cast<uint64_t*>(&zero)};
+  for (uint64_t tx_id = 0; tx_id < records; ++tx_id)
+  {
+    MDB_val tx_key{sizeof(tx_id), &tx_id};
+    MDB_val prunable_value{sizeof(prunable_blob), const_cast<char*>(&prunable_blob)};
+    check_lmdb(mdb_put(txn, txs_prunable, &tx_key, &prunable_value, MDB_APPEND),
+        "Failed to add prunable test transaction");
+
+    if (tx_id != missing_pruned_record)
+    {
+      MDB_val pruned_value{sizeof(pruned_blob), const_cast<char*>(&pruned_blob)};
+      check_lmdb(mdb_put(txn, txs_pruned, &tx_key, &pruned_value, MDB_APPEND),
+          "Failed to add pruned test transaction");
+    }
+
+    txindex tx_index{};
+    tx_index.key = pruning_test_hash(tx_id + 1);
+    tx_index.data.tx_id = tx_id;
+    tx_index.data.block_id = 0;
+    MDB_val tx_index_value{sizeof(tx_index), &tx_index};
+    check_lmdb(mdb_put(txn, tx_indices, &tx_indices_key, &tx_index_value, MDB_APPENDDUP),
+        "Failed to add test transaction index");
+  }
+
+  txn.commit();
+}
+
+void prepare_pruning_resume(const std::string& path, uint64_t missing_pruned_record,
+    uint64_t matured_tip_record, uint64_t skipped_record)
+{
+  test_lmdb_env env(path);
+  mdb_txn_safe txn;
+  check_lmdb(mdb_txn_begin(env.get(), nullptr, 0, txn), "Failed to begin LMDB transaction");
+  const MDB_dbi txs_pruned = open_test_table(txn, "txs_pruned");
+  const MDB_dbi txs_prunable = open_test_table(txn, "txs_prunable");
+  const MDB_dbi txs_prunable_tip = open_test_table(txn, "txs_prunable_tip");
+  check_lmdb(mdb_set_compare(txn, txs_pruned, BlockchainLMDB::compare_uint64),
+      "Failed to set txs_pruned comparator");
+  check_lmdb(mdb_set_compare(txn, txs_prunable, BlockchainLMDB::compare_uint64),
+      "Failed to set txs_prunable comparator");
+  check_lmdb(mdb_set_dupsort(txn, txs_prunable_tip, BlockchainLMDB::compare_uint64),
+      "Failed to set txs_prunable_tip comparator");
+
+  const char pruned_blob = 2;
+  MDB_val missing_key{sizeof(missing_pruned_record), &missing_pruned_record};
+  MDB_val pruned_value{sizeof(pruned_blob), const_cast<char*>(&pruned_blob)};
+  check_lmdb(mdb_put(txn, txs_pruned, &missing_key, &pruned_value, 0),
+      "Failed to repair pruned test transaction");
+
+  const char prunable_blob = 1;
+  MDB_val tip_key{sizeof(matured_tip_record), &matured_tip_record};
+  MDB_val prunable_value{sizeof(prunable_blob), const_cast<char*>(&prunable_blob)};
+  check_lmdb(mdb_put(txn, txs_prunable, &tip_key, &prunable_value, 0), "Failed to add matured tip transaction");
+
+  MDB_val skipped_key{sizeof(skipped_record), &skipped_record};
+  check_lmdb(mdb_put(txn, txs_prunable, &skipped_key, &prunable_value, 0), "Failed to add skipped transaction");
+
+  const uint64_t block_height = 0;
+  MDB_val tip_value{sizeof(block_height), const_cast<uint64_t*>(&block_height)};
+  check_lmdb(mdb_put(txn, txs_prunable_tip, &tip_key, &tip_value, 0), "Failed to add matured tip record");
+  txn.commit();
+}
+
+size_t test_table_entries(const std::string& path, const char* name)
+{
+  test_lmdb_env env(path);
+  mdb_txn_safe txn;
+  check_lmdb(mdb_txn_begin(env.get(), nullptr, MDB_RDONLY, txn), "Failed to begin LMDB transaction");
+  const MDB_dbi table = open_test_table(txn, name);
+  MDB_stat stat;
+  check_lmdb(mdb_stat(txn, table, &stat), "Failed to read LMDB table stats");
+  return stat.ms_entries;
+}
+
+bool get_pruning_progress(const std::string& path, crypto::hash& progress)
+{
+  test_lmdb_env env(path);
+  mdb_txn_safe txn;
+  check_lmdb(mdb_txn_begin(env.get(), nullptr, MDB_RDONLY, txn), "Failed to begin LMDB transaction");
+  const MDB_dbi properties = open_test_table(txn, "properties");
+  check_lmdb(mdb_set_compare(txn, properties, BlockchainLMDB::compare_string),
+      "Failed to set properties comparator");
+  const char key_data[] = "pruning_progress";
+  MDB_val key{sizeof(key_data), const_cast<char*>(key_data)};
+  MDB_val value;
+  const int result = mdb_get(txn, properties, &key, &value);
+  if (result == MDB_NOTFOUND)
+    return false;
+  check_lmdb(result, "Failed to read pruning progress");
+  if (value.mv_size != sizeof(progress))
+    throw std::runtime_error("Unexpected pruning progress size");
+  memcpy(&progress, value.mv_data, sizeof(progress));
+  return true;
 }
 
 template <typename T>
@@ -339,6 +514,56 @@ TYPED_TEST(BlockchainDBTest, RetrieveBlockData)
 
   ASSERT_HASH_EQ(get_block_hash(this->m_blocks[0].first), hashes[0]);
   ASSERT_HASH_EQ(get_block_hash(this->m_blocks[1].first), hashes[1]);
+}
+
+TYPED_TEST(BlockchainDBTest, ResumeInterruptedPruning)
+{
+  static constexpr size_t checkpoint_records = 4096;
+  static constexpr size_t records = checkpoint_records + 1;
+  static constexpr size_t missing_pruned_record = checkpoint_records;
+  static constexpr size_t matured_tip_record = 0;
+  static constexpr size_t skipped_record = 1;
+
+  const auto test_resume = [&](bool update)
+  {
+    SCOPED_TRACE(update ? "update" : "manual");
+    const boost::filesystem::path temp_path =
+        boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+    const std::string dir_path = temp_path.string();
+    this->set_prefix(dir_path);
+
+    ASSERT_NO_THROW(this->m_db->open(dir_path));
+    this->get_filenames();
+    ASSERT_NO_THROW(this->m_db->close());
+    ASSERT_NO_THROW(create_interrupted_pruning_data(dir_path, records, missing_pruned_record));
+
+    const uint32_t pruning_seed = tools::make_pruning_seed(2, CRYPTONOTE_PRUNING_LOG_STRIPES);
+    ASSERT_NO_THROW(this->m_db->open(dir_path));
+    ASSERT_THROW(this->m_db->prune_blockchain(pruning_seed), DB_ERROR);
+    ASSERT_NO_THROW(this->m_db->close());
+
+    crypto::hash progress{};
+    ASSERT_EQ(1, test_table_entries(dir_path, "txs_prunable"));
+    ASSERT_TRUE(get_pruning_progress(dir_path, progress));
+    ASSERT_HASH_EQ(pruning_test_hash(checkpoint_records), progress);
+
+    ASSERT_NO_THROW(prepare_pruning_resume(dir_path, missing_pruned_record, matured_tip_record, skipped_record));
+    ASSERT_EQ(3, test_table_entries(dir_path, "txs_prunable"));
+    ASSERT_EQ(1, test_table_entries(dir_path, "txs_prunable_tip"));
+    ASSERT_NO_THROW(this->m_db->open(dir_path));
+    ASSERT_TRUE(update ? this->m_db->update_pruning() : this->m_db->prune_blockchain(pruning_seed));
+    ASSERT_NO_THROW(this->m_db->close());
+
+    ASSERT_EQ(1, test_table_entries(dir_path, "txs_prunable"));
+    ASSERT_EQ(0, test_table_entries(dir_path, "txs_prunable_tip"));
+    ASSERT_FALSE(get_pruning_progress(dir_path, progress));
+
+    boost::filesystem::remove_all(dir_path);
+    this->m_filenames.clear();
+  };
+
+  ASSERT_NO_FATAL_FAILURE(test_resume(true));
+  ASSERT_NO_FATAL_FAILURE(test_resume(false));
 }
 
 }  // anonymous namespace
