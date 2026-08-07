@@ -27,6 +27,11 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <array>
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+#ifndef _WIN32
+#include <sys/stat.h>
+#endif
 #include <boost/predef/other/endian.h>
 #include <boost/endian/conversion.hpp>
 #include <boost/range/algorithm/equal.hpp>
@@ -50,6 +55,7 @@
 #include "byte_slice.h"
 #include "byte_stream.h"
 #include "crypto/crypto.h"
+#include "file_io_utils.h"
 #include "hex.h"
 #include "net/net_utils_base.h"
 #include "net/local_ip.h"
@@ -2048,3 +2054,129 @@ TEST(scope_guard, unique_scope_guard_move_assign)
   ASSERT_EQ(1, count1);
   ASSERT_EQ(1, count2);
 }
+
+TEST(FileIOUtils, SaveStringToFileWritesRegularFile)
+{
+  boost::system::error_code ec;
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path(ec) / boost::filesystem::unique_path("file-io-%%%%%%%%%%%%%%%%", ec);
+  ASSERT_FALSE(ec) << ec.message();
+  ASSERT_TRUE(boost::filesystem::create_directory(dir, ec));
+  ASSERT_FALSE(ec) << ec.message();
+  const epee::scope_guard cleanup([&dir](){ boost::filesystem::remove_all(dir); });
+
+  const boost::filesystem::path file = dir / "regular";
+  ASSERT_TRUE(epee::file_io_utils::save_string_to_file(file.string(), "old"));
+  ASSERT_TRUE(epee::file_io_utils::save_string_to_file(file.string(), "new"));
+
+  std::string contents;
+  ASSERT_TRUE(epee::file_io_utils::load_file_to_string(file.string(), contents));
+  ASSERT_EQ("new", contents);
+}
+
+TEST(FileIOUtils, SaveStreamToFileWritesInChunks)
+{
+  boost::system::error_code ec;
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path(ec) / boost::filesystem::unique_path("file-io-%%%%%%%%%%%%%%%%", ec);
+  ASSERT_FALSE(ec) << ec.message();
+  ASSERT_TRUE(boost::filesystem::create_directory(dir, ec));
+  ASSERT_FALSE(ec) << ec.message();
+  const epee::scope_guard cleanup([&dir](){ boost::filesystem::remove_all(dir); });
+
+  const boost::filesystem::path file = dir / "stream";
+  const std::array<char, 4096> chunk{};
+  constexpr size_t chunk_count = 4096;
+  ASSERT_TRUE(epee::file_io_utils::save_stream_to_file(file.string(), [&chunk](std::ostream& stream)
+  {
+    for (size_t i = 0; i < chunk_count; ++i)
+      stream.write(chunk.data(), chunk.size());
+    return stream.good();
+  }));
+
+  ASSERT_EQ(chunk.size() * chunk_count, boost::filesystem::file_size(file, ec));
+  ASSERT_FALSE(ec) << ec.message();
+}
+
+TEST(FileIOUtils, SaveStreamToFileTruncatesRegularFile)
+{
+  boost::system::error_code ec;
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path(ec) / boost::filesystem::unique_path("file-io-%%%%%%%%%%%%%%%%", ec);
+  ASSERT_FALSE(ec) << ec.message();
+  ASSERT_TRUE(boost::filesystem::create_directory(dir, ec));
+  ASSERT_FALSE(ec) << ec.message();
+  const epee::scope_guard cleanup([&dir](){ boost::filesystem::remove_all(dir); });
+
+  const boost::filesystem::path file = dir / "stream";
+  ASSERT_TRUE(epee::file_io_utils::save_string_to_file(file.string(), "longer contents"));
+  ASSERT_TRUE(epee::file_io_utils::save_stream_to_file(file.string(), [](std::ostream& stream)
+  {
+    stream << "short";
+    return stream.good();
+  }));
+
+  std::string contents;
+  ASSERT_TRUE(epee::file_io_utils::load_file_to_string(file.string(), contents));
+  ASSERT_EQ("short", contents);
+}
+
+TEST(FileIOUtils, SaveStringToFileRefusesDirectory)
+{
+  boost::system::error_code ec;
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path(ec) / boost::filesystem::unique_path("file-io-%%%%%%%%%%%%%%%%", ec);
+  ASSERT_FALSE(ec) << ec.message();
+  ASSERT_TRUE(boost::filesystem::create_directory(dir, ec));
+  ASSERT_FALSE(ec) << ec.message();
+  const epee::scope_guard cleanup([&dir](){ boost::filesystem::remove_all(dir); });
+
+  const boost::filesystem::path target = dir / "target";
+  ASSERT_TRUE(boost::filesystem::create_directory(target, ec));
+  ASSERT_FALSE(ec) << ec.message();
+
+  ASSERT_FALSE(epee::file_io_utils::save_string_to_file(target.string(), "replacement"));
+  ASSERT_TRUE(boost::filesystem::is_directory(target, ec));
+  ASSERT_FALSE(ec) << ec.message();
+}
+
+#ifndef _WIN32
+TEST(FileIOUtils, SaveStringToFileRefusesSymlink)
+{
+  boost::system::error_code ec;
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path(ec) / boost::filesystem::unique_path("file-io-%%%%%%%%%%%%%%%%", ec);
+  ASSERT_FALSE(ec) << ec.message();
+  ASSERT_TRUE(boost::filesystem::create_directory(dir, ec));
+  ASSERT_FALSE(ec) << ec.message();
+  const epee::scope_guard cleanup([&dir](){ boost::filesystem::remove_all(dir); });
+
+  const boost::filesystem::path victim = dir / "victim";
+  const boost::filesystem::path link = dir / "link";
+  ASSERT_TRUE(epee::file_io_utils::save_string_to_file(victim.string(), "victim"));
+  boost::filesystem::create_symlink(victim, link, ec);
+  ASSERT_FALSE(ec) << ec.message();
+
+  ASSERT_FALSE(epee::file_io_utils::save_string_to_file(link.string(), "replacement"));
+
+  std::string contents;
+  ASSERT_TRUE(epee::file_io_utils::load_file_to_string(victim.string(), contents));
+  ASSERT_EQ("victim", contents);
+}
+
+TEST(FileIOUtils, SaveStringToFileRefusesFifo)
+{
+  boost::system::error_code ec;
+  const boost::filesystem::path dir = boost::filesystem::temp_directory_path(ec) / boost::filesystem::unique_path("file-io-%%%%%%%%%%%%%%%%", ec);
+  ASSERT_FALSE(ec) << ec.message();
+  ASSERT_TRUE(boost::filesystem::create_directory(dir, ec));
+  ASSERT_FALSE(ec) << ec.message();
+  const epee::scope_guard cleanup([&dir](){ boost::filesystem::remove_all(dir); });
+
+  const boost::filesystem::path fifo = dir / "fifo";
+  ASSERT_EQ(0, mkfifo(fifo.string().c_str(), 0600));
+
+  ASSERT_FALSE(epee::file_io_utils::save_string_to_file(fifo.string(), "replacement"));
+  ASSERT_TRUE(boost::filesystem::exists(fifo, ec));
+  ASSERT_FALSE(ec) << ec.message();
+
+  struct stat st;
+  ASSERT_EQ(0, lstat(fifo.string().c_str(), &st));
+  ASSERT_TRUE(S_ISFIFO(st.st_mode));
+}
+#endif
