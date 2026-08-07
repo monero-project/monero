@@ -87,7 +87,8 @@ namespace net_utils
     static std::mutex hosts_mutex;
     std::lock_guard<std::mutex> guard(hosts_mutex);
     static std::map<std::string, unsigned int> hosts;
-    unsigned int &val = hosts[m_host];
+    auto it = hosts.emplace(m_host, 0).first;
+    unsigned int &val = it->second;
     if (delta > 0)
       MTRACE("New connection from host " << m_host << ": " << val);
     else if (delta < 0)
@@ -95,7 +96,9 @@ namespace net_utils
     CHECK_AND_ASSERT_THROW_MES(delta >= 0 || val >= (unsigned)-delta, "Count would go negative");
     CHECK_AND_ASSERT_THROW_MES(delta <= 0 || val <= std::numeric_limits<unsigned int>::max() - (unsigned)delta, "Count would wrap");
     val += delta;
-    return val;
+    const unsigned int ret = val;
+    if (ret == 0) hosts.erase(it);
+    return ret;
   }
 
   template<typename T>

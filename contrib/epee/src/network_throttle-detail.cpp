@@ -345,7 +345,7 @@ size_t network_throttle::get_recommended_size_of_planned_transport() const {
 
 double network_throttle::get_current_speed() const {
 	unsigned int bytes_transferred = 0;
-	if (m_history.size() == 0 || m_slot_size == 0)
+	if (m_history.size() <= 1 || m_slot_size == 0)
 		return 0;
 		
 	auto it = m_history.begin();
