@@ -38,8 +38,10 @@
 
 #include <typeinfo>
 #include <type_traits>
-#include "net/http_client.h"
 #include "scope_guard.h"
+#include "net/abstract_http_client.h"
+#include "misc_language.h"
+#include "misc_log_ex.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
@@ -192,7 +194,7 @@ namespace trezor {
     std::ostream& dump(std::ostream& o) const override;
 
   private:
-    epee::net_utils::http::http_simple_client m_http_client;
+    const std::unique_ptr<epee::net_utils::http::abstract_http_client> m_http_client;
     std::string m_bridge_host;
     boost::optional<std::string> m_device_path;
     boost::optional<std::string> m_session;
