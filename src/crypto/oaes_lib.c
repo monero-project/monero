@@ -55,6 +55,7 @@
 #endif
 
 #include "oaes_lib.h"
+#include <memwipe.h>
 
 #define OAES_RKEY_LEN 4
 #define OAES_COL_LEN 4
@@ -120,12 +121,14 @@ static OAES_RET oaes_key_destroy( oaes_key ** key )
 	
 	if( (*key)->data )
 	{
+		memwipe( (*key)->data, (*key)->data_len );
 		free( (*key)->data );
 		(*key)->data = NULL;
 	}
 	
 	if( (*key)->exp_data )
 	{
+		memwipe( (*key)->exp_data, (*key)->exp_data_len );
 		free( (*key)->exp_data );
 		(*key)->exp_data = NULL;
 	}
