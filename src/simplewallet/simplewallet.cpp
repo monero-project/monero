@@ -279,6 +279,7 @@ namespace
   const char* USAGE_WELCOME("welcome");
   const char* USAGE_SHOW_QR_CODE("show_qr_code [<subaddress_index>]");
   const char* USAGE_VERSION("version");
+  const char* USAGE_CLEAR("clear");
   const char* USAGE_HELP("help [<command> | all]");
   const char* USAGE_APROPOS("apropos <keyword> [<keyword> ...]");
   const char* USAGE_SCAN_TX("scan_tx <txid> [<txid> ...]");
@@ -2151,6 +2152,13 @@ bool simple_wallet::version(const std::vector<std::string> &args)
   return true;
 }
 
+bool simple_wallet::clear(const std::vector<std::string> &args)
+{
+  PAUSE_READLINE();
+  tools::clear_screen();
+  return true;
+}
+
 bool simple_wallet::on_unknown_command(const std::vector<std::string> &args)
 {
   if (args[0] == "exit" || args[0] == "q") // backward compat
@@ -3519,6 +3527,10 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::version, _1),
                            tr(USAGE_VERSION),
                            tr("Returns version information"));
+  m_cmd_binder.set_handler("clear",
+                           boost::bind(&simple_wallet::on_command, this, &simple_wallet::clear, _1),
+                           tr(USAGE_CLEAR),
+                           tr("Clear the console screen"));
   m_cmd_binder.set_handler("show_qr_code",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::show_qr_code, _1),
                            tr(USAGE_SHOW_QR_CODE),
