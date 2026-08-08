@@ -98,12 +98,6 @@ namespace cryptonote
 
     for (const cryptonote::tx_blob_entry& tx_entry: tx_entries)
     {
-      if (tx_entry.blob.size() > get_max_tx_size())
-      {
-        MERROR("Transaction blob of length " << tx_entry.blob.size() << " is too large to unpack!");
-        return false;
-      }
-
       const bool is_pruned = tx_entry.prunable_hash != crypto::null_hash;
       if (is_pruned && !allow_pruned)
       {
@@ -114,14 +108,15 @@ namespace cryptonote
       cryptonote::transaction tx;
       crypto::hash tx_hash;
       bool parse_success = false;
+      const bool max_size_check = true;
       if (is_pruned)
       {
-        if ((parse_success = cryptonote::parse_and_validate_tx_base_from_blob(tx_entry.blob, tx)))
+        if ((parse_success = cryptonote::parse_and_validate_tx_base_from_blob(tx_entry.blob, tx, max_size_check)))
           parse_success = cryptonote::get_pruned_transaction_hash(tx, tx_entry.prunable_hash, tx_hash);
       }
       else
       {
-        parse_success = cryptonote::parse_and_validate_tx_from_blob(tx_entry.blob, tx, tx_hash);
+        parse_success = cryptonote::parse_and_validate_tx_from_blob(tx_entry.blob, tx, tx_hash, max_size_check);
       }
 
       if (!parse_success)
@@ -919,7 +914,7 @@ namespace cryptonote
 
     for (const auto &blob: arg.txs)
     {
-      MLOGIF_P2P_MESSAGE(cryptonote::transaction tx; crypto::hash hash; bool ret = cryptonote::parse_and_validate_tx_from_blob(blob, tx, hash);, ret, "Including transaction " << hash);
+      MLOGIF_P2P_MESSAGE(cryptonote::transaction tx; crypto::hash hash; bool ret = cryptonote::parse_and_validate_tx_from_blob(blob, tx, hash, true);, ret, "Including transaction " << hash);
 
       crypto::hash digest{};
       if (!blob.empty())
