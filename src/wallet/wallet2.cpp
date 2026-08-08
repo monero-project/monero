@@ -2286,18 +2286,31 @@ void wallet2::cache_tx_data(const cryptonote::transaction& tx, const crypto::has
     const size_t rec_size = (is_miner && m_refresh_type == RefreshType::RefreshOptimizeCoinbase && tx.version < 2) ? 1 : tx.vout.size();
     if (!tx.vout.empty())
     {
-      // if tx.vout is not empty, we loop through all tx pubkeys
       const std::vector<boost::optional<cryptonote::subaddress_receive_info>> rec(rec_size, boost::none);
 
       tx_extra_pub_key pub_key_field;
       size_t pk_index = 0;
-      while (find_tx_extra_field_by_type(tx_cache_data.tx_extra_fields, pub_key_field, pk_index++))
+      // Cache primary tx pubkeys up to the number of outputs
+      while (pk_index < tx.vout.size() && find_tx_extra_field_by_type(tx_cache_data.tx_extra_fields, pub_key_field, pk_index))
+      {
+        ++pk_index;
         tx_cache_data.primary.push_back({pub_key_field.pub_key, {}, rec});
+      }
+      if (pk_index == tx.vout.size() && find_tx_extra_field_by_type(tx_cache_data.tx_extra_fields, pub_key_field, pk_index))
+      {
+        MWARNING("tx " << txid << " has more primary tx pubkeys than outputs; ignoring excess primary tx pubkeys");
+      }
 
       // additional tx pubkeys and derivations for multi-destination transfers involving one or more subaddresses
       tx_extra_additional_pub_keys additional_tx_pub_keys;
       if (find_tx_extra_field_by_type(tx_cache_data.tx_extra_fields, additional_tx_pub_keys))
       {
+        if (additional_tx_pub_keys.data.size() > tx.vout.size())
+        {
+          MWARNING("tx " << txid << " has " << additional_tx_pub_keys.data.size() << " additional tx pubkeys but only "
+              << tx.vout.size() << " outputs; ignoring excess additional tx pubkeys");
+          additional_tx_pub_keys.data.resize(tx.vout.size());
+        }
         for (size_t i = 0; i < additional_tx_pub_keys.data.size(); ++i)
           tx_cache_data.additional.push_back({additional_tx_pub_keys.data[i], {}, {}});
       }
@@ -2353,7 +2366,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
   while (!tx.vout.empty())
   {
     std::vector<size_t> outs;
-    // if tx.vout is not empty, we loop through all tx pubkeys
+    // Scan primary tx pubkeys up to the number of outputs
+    if (pk_index >= tx.vout.size())
+    {
+      MWARNING("tx " << txid << " has more primary tx pubkeys than outputs; ignoring excess primary tx pubkeys");
+      break;
+    }
 
     tx_extra_pub_key pub_key_field;
     if(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index++))
@@ -2398,6 +2416,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         // additional tx pubkeys and derivations for multi-destination transfers involving one or more subaddresses
         if (find_tx_extra_field_by_type(tx_extra_fields, additional_tx_pub_keys))
         {
+          if (additional_tx_pub_keys.data.size() > tx.vout.size())
+          {
+            MWARNING("tx " << txid << " has " << additional_tx_pub_keys.data.size() << " additional tx pubkeys but only "
+                << tx.vout.size() << " outputs; ignoring excess additional tx pubkeys");
+            additional_tx_pub_keys.data.resize(tx.vout.size());
+          }
           for (size_t i = 0; i < additional_tx_pub_keys.data.size(); ++i)
           {
             additional_derivations.push_back({});
@@ -2426,6 +2450,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       }
     }
 
+    const size_t outputs_found_before = std::count(output_found.begin(), output_found.end(), true);
     if (miner_tx && m_refresh_type == RefreshNoCoinbase)
     {
       // assume coinbase isn't for us
@@ -2676,6 +2701,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
         }
       }
     }
+    const size_t outputs_found_after = std::count(output_found.begin(), output_found.end(), true);
+    if (outputs_found_after == tx.vout.size())
+      break;
+    // Ignore later primary tx pubkeys once a scan finds no new outputs
+    if (outputs_found_after == outputs_found_before)
+      break;
   }
 
   THROW_WALLET_EXCEPTION_IF(tx_money_got_in_outs.size() != tx_amounts_individual_outs.size(), error::wallet_internal_error, "Inconsistent size of output arrays");
