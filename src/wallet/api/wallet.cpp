@@ -39,9 +39,12 @@
 #include "common_defines.h"
 #include "common/util.h"
 #include "multisig/multisig_account.h"
+#include "net/net_parse_helpers.h"
+#include "net/net_ssl.h"
 
 #include "mnemonics/electrum-words.h"
 #include "mnemonics/english.h"
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/format.hpp>
 #include <sstream>
 #include <unordered_map>
@@ -2520,9 +2523,28 @@ void WalletImpl::pendingTxPostProcess(PendingTransactionImpl * pending)
   pending->m_pending_tx = exported_txs.ptx;
 }
 
+static epee::net_utils::ssl_options_t ssl_options_for_daemon(const std::string &daemon_address, bool use_ssl)
+{
+    epee::net_utils::http::url_content parsed{};
+    if (!epee::net_utils::parse_url(daemon_address, parsed))
+        return epee::net_utils::ssl_support_t::e_ssl_support_autodetect;
+
+    // parse_url() reports the scheme as written, hence the case insensitive compare
+    const bool wants_ssl = use_ssl || boost::iequals(parsed.schema, "https");
+
+    // clearnet is deliberately left alone: acting on use_ssl there would cut off the
+    // https daemons reached today by callers that leave it at its default
+    if (!wants_ssl && tools::is_privacy_preserving_network(parsed.host))
+        return epee::net_utils::ssl_support_t::e_ssl_support_disabled;
+
+    return epee::net_utils::ssl_support_t::e_ssl_support_autodetect;
+}
+
 bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_address, uint64_t upper_transaction_size_limit, bool ssl)
 {
-    if (!m_wallet->init(daemon_address, m_daemon_login, proxy_address, upper_transaction_size_limit))
+    const bool trusted_daemon = Utils::isAddressLocal(daemon_address);
+
+    if (!m_wallet->init(daemon_address, m_daemon_login, proxy_address, upper_transaction_size_limit, trusted_daemon, ssl_options_for_daemon(daemon_address, ssl)))
        return false;
 
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)
@@ -2535,7 +2557,7 @@ bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_a
     if (m_rebuildWalletCache)
       LOG_PRINT_L2(__FUNCTION__ << ": Rebuilding wallet cache, fast refresh until block " << m_wallet->get_refresh_from_block_height());
 
-    if (Utils::isAddressLocal(daemon_address)) {
+    if (trusted_daemon) {
         this->setTrustedDaemon(true);
         m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
     } else {
