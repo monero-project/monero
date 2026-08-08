@@ -31,6 +31,7 @@
 #include <functional>
 
 #include "wallet/wallet2.h"
+#include "net/http_client.h"
 
 class wallet_pool_test
 {
@@ -285,7 +286,7 @@ namespace
     using transaction_reply = std::function<bool(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request &,
         cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response &)>;
 
-    class pool_http_client : public net::http::client
+    class pool_http_client : public epee::net_utils::http::http_simple_client
     {
         epee::net_utils::http::http_response_info response;
         pool_reply reply;
@@ -294,6 +295,8 @@ namespace
     public:
         pool_http_client(const pool_reply &reply, const transaction_reply &tx_reply)
             : reply(reply), tx_reply(tx_reply) {}
+
+        bool set_proxy(const std::string &address) override { return address.empty(); }
 
         bool invoke(const boost::string_ref uri, const boost::string_ref method, const boost::string_ref body,
             std::chrono::milliseconds timeout, const epee::net_utils::http::http_response_info **result,
