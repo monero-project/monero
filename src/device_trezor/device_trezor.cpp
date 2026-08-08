@@ -668,7 +668,7 @@ namespace trezor {
         auto offloaded_bp = signer->step_rsig(cur_dst);
         if (offloaded_bp){
           auto bp_ack = this->client_exchange<messages::monero::MoneroTransactionSetOutputAck>(offloaded_bp);
-          signer->step_set_rsig_ack(ack);
+          signer->step_set_rsig_ack(bp_ack);
         }
 
         EVENT_PROGRESS(6, cur_dst, num_outputs);
