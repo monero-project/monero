@@ -110,6 +110,7 @@ class network_throttle_manager {
 */
 class i_network_throttle {
 	public:
+		virtual ~i_network_throttle() = default;
 		virtual void set_name(const std::string &name)=0;
 		virtual void set_target_speed( network_speed_kbps target )=0;
 		virtual network_speed_kbps get_target_speed()=0;
