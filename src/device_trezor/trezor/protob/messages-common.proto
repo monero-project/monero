@@ -1,20 +1,21 @@
 syntax = "proto2";
 package hw.trezor.messages.common;
 
+import "options.proto";
+
 // Sugar for easier handling in Java
-option java_package = "com.satoshilabs.trezor.lib.protobuf";
 option java_outer_classname = "TrezorMessageCommon";
+option java_package = "com.satoshilabs.trezor.lib.protobuf";
 
+// Include in BTC-only firmware
 option (include_in_bitcoin_only) = true;
-
-import "messages.proto";
 
 /**
  * Response: Success of the previous request
  * @end
  */
 message Success {
-    optional string message = 1 [default=""]; // human readable description of action or request-specific payload
+    optional string message = 1 [default = ""];  // human readable description of action or request-specific payload
 }
 
 /**
@@ -39,6 +40,11 @@ message Failure {
         Failure_PinMismatch = 12;
         Failure_WipeCodeMismatch = 13;
         Failure_InvalidSession = 14;
+        Failure_Busy = 15;
+        Failure_ThpUnallocatedSession = 16;
+        Failure_InvalidProtocol = 17;
+        reserved 18;
+        Failure_InProgress = 19;
         Failure_FirmwareError = 99;
     }
 }
@@ -49,11 +55,18 @@ message Failure {
  * @next ButtonAck
  */
 message ButtonRequest {
-    optional ButtonRequestType code = 1;  // enum identifier of the screen
+    optional ButtonRequestType code = 1;  // enum identifier of the screen (deprecated)
     optional uint32 pages = 2;            // if the screen is paginated, number of pages
+
+    // this existed briefly:
+    // https://github.com/trezor/trezor-firmware/commit/1012ee8497b241e8ca559e386d936fa549bc0357
+    reserved 3;
+
+    optional string name = 4;  // name of the screen
+
     /**
-    * Type of button request
-    */
+     * Type of button request
+     */
     enum ButtonRequestType {
         ButtonRequest_Other = 1;
         ButtonRequest_FeeOverThreshold = 2;
@@ -68,7 +81,7 @@ message ButtonRequest {
         ButtonRequest_PublicKey = 11;
         ButtonRequest_MnemonicWordCount = 12;
         ButtonRequest_MnemonicInput = 13;
-        _Deprecated_ButtonRequest_PassphraseType = 14 [deprecated=true];
+        _Deprecated_ButtonRequest_PassphraseType = 14 [deprecated = true];
         ButtonRequest_UnknownDerivationPath = 15;
         ButtonRequest_RecoveryHomepage = 16;
         ButtonRequest_Success = 17;
@@ -82,8 +95,7 @@ message ButtonRequest {
  * Request: Computer agrees to wait for HW button press
  * @auxend
  */
-message ButtonAck {
-}
+message ButtonAck {}
 
 /**
  * Response: Device is asking computer to show PIN matrix and awaits PIN encoded using this matrix scheme
@@ -93,8 +105,8 @@ message ButtonAck {
 message PinMatrixRequest {
     optional PinMatrixRequestType type = 1;
     /**
-    * Type of PIN request
-    */
+     * Type of PIN request
+     */
     enum PinMatrixRequestType {
         PinMatrixRequestType_Current = 1;
         PinMatrixRequestType_NewFirst = 2;
@@ -109,7 +121,7 @@ message PinMatrixRequest {
  * @auxend
  */
 message PinMatrixAck {
-    required string pin = 1;    // matrix encoded PIN entered by user
+    required string pin = 1;  // matrix encoded PIN entered by user
 }
 
 /**
@@ -118,7 +130,7 @@ message PinMatrixAck {
  * @next PassphraseAck
  */
 message PassphraseRequest {
-    optional bool _on_device = 1 [deprecated=true];  // <2.3.0
+    reserved 1;  // bool on_device, deprecated in 2.3.0
 }
 
 /**
@@ -127,27 +139,8 @@ message PassphraseRequest {
  */
 message PassphraseAck {
     optional string passphrase = 1;
-    optional bytes _state = 2 [deprecated=true];  // <2.3.0
-    optional bool on_device = 3;    // user wants to enter passphrase on the device
-}
-
-/**
- * Response: Device awaits passphrase state
- * Deprecated in 2.3.0
- * @next Deprecated_PassphraseStateAck
- */
-message Deprecated_PassphraseStateRequest {
-    option deprecated = true;
-    optional bytes state = 1;       // actual device state
-}
-
-/**
- * Request: Send passphrase state back
- * Deprecated in 2.3.0
- * @auxend
- */
-message Deprecated_PassphraseStateAck {
-    option deprecated = true;
+    reserved 2;                   // bytes state, deprecated in 2.3.0
+    optional bool on_device = 3;  // user wants to enter passphrase on the device
 }
 
 /**
@@ -162,4 +155,51 @@ message HDNodeType {
     required bytes chain_code = 4;
     optional bytes private_key = 5;
     required bytes public_key = 6;
+}
+
+/**
+ * Structure representing a SLIP-0024 payment request.
+ * @embed
+ */
+message PaymentRequest {
+    optional bytes nonce = 1;               // the nonce used in the signature computation
+    required string recipient_name = 2;     // merchant's name
+    repeated PaymentRequestMemo memos = 3;  // any memos that were signed as part of the request
+    reserved 4;                             // this existed briefly. obsoleted by this change:
+                 // https://github.com/satoshilabs/slips/commit/08d36aa61722275a21617ac6a713e31ec23fdec4
+    optional bytes amount = 6;  // the sum of the external output amounts requested, encoded in little endian on either
+                                // 8 or 32 bytes required for non-CoinJoin transactions; do not set this for fiat
+                                // amounts (BUY crypto with fiat)
+    required bytes signature = 5;  // the trusted party's signature of the paymentRequestDigest
+
+    message PaymentRequestMemo {
+        optional TextMemo text_memo = 1;
+        optional RefundMemo refund_memo = 2;
+        optional CoinPurchaseMemo coin_purchase_memo = 3;
+        optional TextDetailsMemo text_details_memo = 4;
+    }
+
+    message TextMemo {
+        required string text = 1;  // plain-text note explaining the purpose of the payment request
+    }
+
+    message TextDetailsMemo {
+        required string title = 1;  // plain-text heading
+        required string text = 2;   // plain-text note containing additional details about the payment
+    }
+
+    message RefundMemo {
+        required string address = 1;    // the address where the payment should be refunded if necessary
+        repeated uint32 address_n = 2;  // BIP-32 path to derive the key from the master node
+        required bytes mac = 3;         // the MAC returned by GetAddress
+    }
+
+    message CoinPurchaseMemo {
+        required uint32 coin_type = 1;  // the SLIP-0044 coin type of the address
+        required string amount = 2;     // the amount the address will receive as a human-readable
+                                        // string including units, e.g. "0.025 BTC"
+        required string address = 3;    // the address where the coin purchase will be delivered
+        repeated uint32 address_n = 4;  // BIP-32 path to derive the key from the master node
+        required bytes mac = 5;         // the MAC returned by GetAddress
+    }
 }

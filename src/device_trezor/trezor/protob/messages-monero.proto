@@ -2,8 +2,8 @@ syntax = "proto2";
 package hw.trezor.messages.monero;
 
 // Sugar for easier handling in Java
-option java_package = "com.satoshilabs.trezor.lib.protobuf";
 option java_outer_classname = "TrezorMessageMonero";
+option java_package = "com.satoshilabs.trezor.lib.protobuf";
 
 enum MoneroNetworkType {
     MAINNET = 0;
@@ -18,12 +18,13 @@ enum MoneroNetworkType {
  */
 message MoneroTransactionSourceEntry {
     repeated MoneroOutputEntry outputs = 1;  // all outputs including decoys (forms the ring)
-    optional uint64 real_output = 2;  // index denoting which item in `outputs` is our real output (not a decoy)
-    optional bytes real_out_tx_key = 3;  // tx key located in the real output's tx
+    optional uint64 real_output = 2;         // index denoting which item in `outputs` is our real output (not a decoy)
+    optional bytes real_out_tx_key = 3;      // tx key located in the real output's tx
     repeated bytes real_out_additional_tx_keys = 4;  // additional tx keys if applicable
-    optional uint64 real_output_in_tx_index = 5;  // index of our real output in the tx (aka which output was it in the transaction)
+    optional uint64 real_output_in_tx_index = 5;     // index of our real output in the tx
+                                                     // (aka which output was it in the transaction)
     optional uint64 amount = 6;
-    optional bool rct = 7;  // is RingCT used (true for newer UTXOs)
+    optional bool rct = 7;                           // is RingCT used (true for newer UTXOs)
     optional bytes mask = 8;
     optional MoneroMultisigKLRki multisig_kLRki = 9;
     optional uint32 subaddr_minor = 10;  // minor subaddr index UTXO was sent to
@@ -67,12 +68,12 @@ message MoneroTransactionDestinationEntry {
  * @embed
  */
 message MoneroTransactionRsigData {
-    optional uint32 rsig_type = 1;  // range signature (aka proof) type
+    optional uint32 rsig_type = 1;   // range signature (aka proof) type
     optional uint32 offload_type = 2;
-    repeated uint64 grouping = 3;  // aggregation scheme for BP
+    repeated uint64 grouping = 3;    // aggregation scheme for BP
 
-    optional bytes mask = 4;       // mask vector
-    optional bytes rsig = 5;       // range sig data, all of it or partial (based on rsig_parts)
+    optional bytes mask = 4;         // mask vector
+    optional bytes rsig = 5;         // range sig data, all of it or partial (based on rsig_parts)
     repeated bytes rsig_parts = 6;
     optional uint32 bp_version = 7;  // Bulletproof version
 }
@@ -84,12 +85,13 @@ message MoneroTransactionRsigData {
  * @next Failure
  */
 message MoneroGetAddress {
-    repeated uint32 address_n = 1;          // BIP-32 path to derive the key from master node
-    optional bool show_display = 2;         // Optionally show on display before sending the result
-    optional MoneroNetworkType network_type = 3 [default=MAINNET]; // Network type
-    optional uint32 account = 4;            // Major subaddr index
-    optional uint32 minor = 5;              // Minor subaddr index
-    optional bytes payment_id = 6;          // Payment ID for integrated address
+    repeated uint32 address_n = 1;   // BIP-32 path to derive the key from master node
+    optional bool show_display = 2;  // Optionally show on display before sending the result
+    optional MoneroNetworkType network_type = 3 [default = MAINNET];  // Network type
+    optional uint32 account = 4;                                      // Major subaddr index
+    optional uint32 minor = 5;                                        // Minor subaddr index
+    optional bytes payment_id = 6;                                    // Payment ID for integrated address
+    optional bool chunkify = 7;                                       // display the address in chunks of 4 characters
 }
 
 /**
@@ -97,7 +99,7 @@ message MoneroGetAddress {
  * @end
  */
 message MoneroAddress {
-    optional bytes address = 1;
+    required bytes address = 1;
 }
 
 /**
@@ -107,8 +109,8 @@ message MoneroAddress {
  * @next Failure
  */
 message MoneroGetWatchKey {
-    repeated uint32 address_n = 1;          // BIP-32 path to derive the key from master node
-    optional MoneroNetworkType network_type = 2 [default=MAINNET]; // Network type
+    repeated uint32 address_n = 1;                                    // BIP-32 path to derive the key from master node
+    optional MoneroNetworkType network_type = 2 [default = MAINNET];  // Network type
 }
 
 /**
@@ -116,8 +118,8 @@ message MoneroGetWatchKey {
  * @end
  */
 message MoneroWatchKey {
-    optional bytes watch_key = 1;
-    optional bytes address = 2;
+    required bytes watch_key = 1;
+    required bytes address = 2;
 }
 
 /**
@@ -128,7 +130,7 @@ message MoneroWatchKey {
 message MoneroTransactionInitRequest {
     optional uint32 version = 1;
     repeated uint32 address_n = 2;
-    optional MoneroNetworkType network_type = 3 [default=MAINNET]; // Network type
+    optional MoneroNetworkType network_type = 3 [default = MAINNET];  // Network type
     optional MoneroTransactionData tsx_data = 4;
     /**
      * Structure representing Monero initial transaction information
@@ -149,6 +151,7 @@ message MoneroTransactionInitRequest {
         optional uint32 client_version = 13;  // connected client version
         optional uint32 hard_fork = 14;       // transaction hard fork number
         optional bytes monero_version = 15;   // monero software version
+        optional bool chunkify = 16;          // display the address in chunks of 4 characters
     }
 }
 
@@ -175,7 +178,7 @@ message MoneroTransactionSetInputRequest {
  * @next MoneroTransactionInputViniRequest
  */
 message MoneroTransactionSetInputAck {
-    optional bytes vini = 1;      // xmrtypes.TxinToKey
+    optional bytes vini = 1;  // xmrtypes.TxinToKey
     optional bytes vini_hmac = 2;
     optional bytes pseudo_out = 3;
     optional bytes pseudo_out_hmac = 4;
@@ -189,7 +192,7 @@ message MoneroTransactionSetInputAck {
  */
 message MoneroTransactionInputViniRequest {
     optional MoneroTransactionSourceEntry src_entr = 1;
-    optional bytes vini = 2;      // xmrtypes.TxinToKey
+    optional bytes vini = 2;  // xmrtypes.TxinToKey
     optional bytes vini_hmac = 3;
     optional bytes pseudo_out = 4;
     optional bytes pseudo_out_hmac = 5;
@@ -201,15 +204,13 @@ message MoneroTransactionInputViniRequest {
  * @next MoneroTransactionInputViniRequest
  * @next MoneroTransactionAllInputsSetRequest
  */
-message MoneroTransactionInputViniAck {
-}
+message MoneroTransactionInputViniAck {}
 
 /**
- * Request: Sub request of MoneroTransactionSign. Sent after all inputs have been sent. Useful for rangeisg offloading.
+ * Request: Sub request of MoneroTransactionSign. Sent after all inputs have been sent. Useful for rangesig offloading.
  * @next MoneroTransactionAllInputsSetAck
  */
-message MoneroTransactionAllInputsSetRequest {
-}
+message MoneroTransactionAllInputsSetRequest {}
 
 /**
  * Response: Response to after all inputs have been set.
@@ -277,7 +278,7 @@ message MoneroTransactionAllOutSetAck {
  */
 message MoneroTransactionSignInputRequest {
     optional MoneroTransactionSourceEntry src_entr = 1;
-    optional bytes vini = 2;     // xmrtypes.TxinToKey
+    optional bytes vini = 2;  // xmrtypes.TxinToKey
     optional bytes vini_hmac = 3;
     optional bytes pseudo_out = 4;
     optional bytes pseudo_out_hmac = 5;
@@ -297,14 +298,14 @@ message MoneroTransactionSignInputAck {
 }
 
 /**
- * Request: Sub request of MoneroTransactionSign. Final message of the procol after all UTXOs are signed
+ * Request: Sub request of MoneroTransactionSign. Final message of the protocol after all UTXOs are signed
  * @next MoneroTransactionFinalAck
  */
-message MoneroTransactionFinalRequest {
-}
+message MoneroTransactionFinalRequest {}
 
 /**
- * Response: Contains transaction metadata and encryption keys needed for further transaction operations (e.g. multisig, send proof).
+ * Response: Contains transaction metadata and encryption keys needed for further transaction operations (e.g. multisig,
+ * send proof).
  * @end
  */
 message MoneroTransactionFinalAck {
@@ -323,8 +324,8 @@ message MoneroTransactionFinalAck {
 message MoneroKeyImageExportInitRequest {
     required uint64 num = 1;
     required bytes hash = 2;
-    repeated uint32 address_n = 3;               // BIP-32 path to derive the key from master node
-    optional MoneroNetworkType network_type = 4 [default=MAINNET]; // network type
+    repeated uint32 address_n = 3;                                    // BIP-32 path to derive the key from master node
+    optional MoneroNetworkType network_type = 4 [default = MAINNET];  // network type
     repeated MoneroSubAddressIndicesList subs = 5;
     /**
      * Structure representing Monero list of sub-addresses
@@ -339,8 +340,7 @@ message MoneroKeyImageExportInitRequest {
  * Response: Response to key image sync initialization.
  * @next MoneroKeyImageSyncStepRequest
  */
-message MoneroKeyImageExportInitAck {
-}
+message MoneroKeyImageExportInitAck {}
 
 /**
  * Request: Sub request of MoneroKeyImageSync. Contains batch of the UTXO to export key image for.
@@ -381,8 +381,7 @@ message MoneroKeyImageSyncStepAck {
  * Request: Sub request of MoneroKeyImageSync. Final message of the sync protocol.
  * @next MoneroKeyImageSyncFinalAck
  */
-message MoneroKeyImageSyncFinalRequest {
-}
+message MoneroKeyImageSyncFinalRequest {}
 
 /**
  * Response: Response to key image sync step. Contains encryption keys for exported key images.
@@ -397,15 +396,15 @@ message MoneroKeyImageSyncFinalAck {
  * @next MoneroGetTxKeyAck
  */
 message MoneroGetTxKeyRequest {
-    repeated uint32 address_n = 1;          // BIP-32 path to derive the key from master node
-    optional MoneroNetworkType network_type = 2 [default=MAINNET]; // network type
+    repeated uint32 address_n = 1;                                    // BIP-32 path to derive the key from master node
+    optional MoneroNetworkType network_type = 2 [default = MAINNET];  // network type
 
     required bytes salt1 = 3;
     required bytes salt2 = 4;
     required bytes tx_enc_keys = 5;
     required bytes tx_prefix_hash = 6;
-    optional uint32 reason = 7;  // reason to display for user. e.g., tx_proof
-    optional bytes view_public_key = 8;   // addr for derivation
+    optional uint32 reason = 7;          // reason to display for user. e.g., tx_proof
+    optional bytes view_public_key = 8;  // addr for derivation
 }
 
 /**
@@ -423,8 +422,8 @@ message MoneroGetTxKeyAck {
  * @next MoneroLiveRefreshStartAck
  */
 message MoneroLiveRefreshStartRequest {
-    repeated uint32 address_n = 1;          // BIP-32 path to derive the key from master node
-    optional MoneroNetworkType network_type = 2 [default=MAINNET]; // network type
+    repeated uint32 address_n = 1;                                    // BIP-32 path to derive the key from master node
+    optional MoneroNetworkType network_type = 2 [default = MAINNET];  // network type
 }
 
 /**
@@ -432,9 +431,7 @@ message MoneroLiveRefreshStartRequest {
  * @next MoneroLiveRefreshStepRequest
  * @next MoneroLiveRefreshFinalRequest
  */
-message MoneroLiveRefreshStartAck {
-
-}
+message MoneroLiveRefreshStartAck {}
 
 /**
  * Request: Request to compute a single key image during live sync
@@ -462,17 +459,13 @@ message MoneroLiveRefreshStepAck {
  * Request: Request terminating live refresh mode.
  * @next MoneroLiveRefreshFinishedAck
  */
-message MoneroLiveRefreshFinalRequest {
-
-}
+message MoneroLiveRefreshFinalRequest {}
 
 /**
  * Response: Response on termination of live refresh mode.
  * @end
  */
-message MoneroLiveRefreshFinalAck {
-
-}
+message MoneroLiveRefreshFinalAck {}
 
 /**
  * Request: Universal Monero protocol implementation diagnosis request.
