@@ -32,6 +32,9 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address_v6.hpp>
+#include <boost/optional/optional.hpp>
+#include <cstddef>
+#include <memory>
 #include <stdexcept>
 #include <typeinfo>
 #include <type_traits>
@@ -213,6 +216,9 @@ namespace net_utils
 		END_KV_SERIALIZE_MAP()
 	};
 
+	bool should_group_ipv6_by_prefix(const boost::asio::ip::address_v6& ip);
+	boost::asio::ip::address_v6 get_ipv6_subnet_address(const boost::asio::ip::address_v6& ip, const std::size_t prefix_bits);
+
 	inline bool operator==(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
 	{ return lhs.equal(rhs); }
 	inline bool operator!=(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
@@ -225,6 +231,8 @@ namespace net_utils
 	{ return rhs.less(lhs); }
 	inline bool operator>=(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
 	{ return !lhs.less(rhs); }
+
+	boost::optional<ipv4_network_address> get_ipv4_mapped_address(const ipv6_network_address& address);
 
 	class network_address
 	{
@@ -352,6 +360,8 @@ namespace net_utils
 		END_KV_SERIALIZE_MAP()
 	};
 
+	boost::optional<ipv4_network_address> get_ipv4_mapped_address(const network_address& address);
+
 	inline bool operator==(const network_address& lhs, const network_address& rhs)
 	{ return lhs.equal(rhs); }
 	inline bool operator!=(const network_address& lhs, const network_address& rhs)
@@ -451,11 +461,28 @@ namespace net_utils
     virtual bool call_run_once_service_io()=0;
     virtual bool request_callback()=0;
     virtual boost::asio::io_context& get_io_context()=0;
-    //protect from deletion connection object(with protocol instance) during external call "invoke"
-    virtual bool add_ref()=0;
-    virtual bool release()=0;
   protected:
     virtual ~i_service_endpoint() noexcept(false) {}
+	};
+
+	template<typename t_protocol_handler>
+	struct service_endpoint : i_service_endpoint
+	{
+		typedef typename t_protocol_handler::connection_context t_connection_context;
+
+		service_endpoint(typename t_protocol_handler::config_type& config)
+		  : i_service_endpoint(), context(), m_protocol_handler(this, config, context)
+		{}
+
+		t_connection_context context;
+
+		// TODO what do they mean about wait on destructor?? --rfree :
+		//this should be the last one, because it could be wait on destructor, while other activities possible on other threads
+		t_protocol_handler m_protocol_handler;
+
+	protected:
+		virtual ~service_endpoint() noexcept(false)
+		{}
 	};
 
 

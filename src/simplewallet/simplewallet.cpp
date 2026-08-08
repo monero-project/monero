@@ -4288,8 +4288,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
       password = *r;
       welcome = true;
-      // if no block_height is specified, assume its a new account and start it "now"
-      if (command_line::is_arg_defaulted(vm, arg_restore_height)) {
+      // if no block_height or date is specified, assume it's a new account and start it "now"
+      if (command_line::is_arg_defaulted(vm, arg_restore_height) && command_line::is_arg_defaulted(vm, arg_restore_date)) {
         {
           tools::scoped_message_writer wrt = tools::msg_writer();
           wrt << tr("No restore height is specified.") << " ";
@@ -4297,12 +4297,35 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
           wrt << tr("Use --restore-height or --restore-date if you want to restore an already setup account from a specific height.");
         }
         std::string confirm = input_line(tr("Is this okay?"), true);
-        if (std::cin.eof() || !command_line::is_yes(confirm))
-          CHECK_AND_ASSERT_MES(false, false, tr("account creation aborted"));
+        if (std::cin.eof()) CHECK_AND_ASSERT_MES(false, false, tr("account creation aborted"));
 
-        m_wallet->set_refresh_from_block_height(m_wallet->estimate_blockchain_height() > 0 ? m_wallet->estimate_blockchain_height() - 1 : 0);
+        if (command_line::is_yes(confirm))
+        {
+          m_wallet->set_refresh_from_block_height(m_wallet->estimate_blockchain_height() > 0 ? m_wallet->estimate_blockchain_height() - 1 : 0);
+          m_wallet->explicit_refresh_from_block_height(true);
+          m_restore_height = m_wallet->get_refresh_from_block_height();
+        }
+        else
+        {
+          m_wallet->explicit_refresh_from_block_height(false);
+        }
+      }
+      else if (command_line::is_arg_defaulted(vm, arg_restore_height) && !command_line::is_arg_defaulted(vm, arg_restore_date))
+      {
+        uint16_t year;
+        uint8_t month, day;
+        if (!datestr_to_int(m_restore_date, year, month, day)) return false;
+        try
+        {
+          m_restore_height = m_wallet->get_blockchain_height_by_date(year, month, day);
+          success_msg_writer() << tr("Restore height is: ") << m_restore_height;
+        }
+        catch (const std::runtime_error& e)
+        {
+          fail_msg_writer() << e.what();
+          return false;
+        }
         m_wallet->explicit_refresh_from_block_height(true);
-        m_restore_height = m_wallet->get_refresh_from_block_height();
       }
     }
     else
@@ -5508,7 +5531,7 @@ boost::optional<epee::wipeable_string> simple_wallet::on_get_password(const char
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_device_button_request(uint64_t code)
 {
-  message_writer(console_color_white, false) << tr("Device requires attention");
+  message_writer(console_color_white, false) << tr("Device requests confirmation");
 }
 //----------------------------------------------------------------------------------------------------
 boost::optional<epee::wipeable_string> simple_wallet::on_device_pin_request()
