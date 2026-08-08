@@ -193,6 +193,7 @@ public:
   struct invoke_response_handler_base
   {
     virtual ~invoke_response_handler_base() {}
+    virtual int command() const noexcept=0;
     virtual bool handle(int res, const epee::span<const uint8_t> buff, connection_context& context)=0;
     virtual void cancel()=0;
     virtual bool cancel_timer()=0;
@@ -241,6 +242,11 @@ public:
     {
       failure(LEVIN_ERROR_CONNECTION_DESTROYED);
     }
+
+    virtual int command() const noexcept override final
+    {
+      return m_command;
+    }
    
     virtual bool handle(int res, const epee::span<const uint8_t> buff, typename async_protocol_handler::connection_context& context) override final
     {
@@ -287,6 +293,29 @@ public:
   };
   critical_section m_invoke_response_handlers_lock;
   std::list<std::weak_ptr<invoke_response_handler_base>> m_invoke_response_handlers;
+
+  bool validate_response_command()
+  {
+    if (m_oponent_protocol_ver != LEVIN_PROTOCOL_VER_1 || !(m_current_head.m_flags & LEVIN_PACKET_RESPONSE))
+      return true;
+
+    CRITICAL_REGION_LOCAL(m_invoke_response_handlers_lock);
+    if (m_invoke_response_handlers.empty())
+    {
+      MERROR(m_connection_context << "Received levin response but have no invoke handlers");
+      return false;
+    }
+
+    const std::shared_ptr<invoke_response_handler_base> response_handler = m_invoke_response_handlers.front().lock();
+    if (!response_handler || m_current_head.m_command != static_cast<uint32_t>(response_handler->command()))
+    {
+      MERROR(m_connection_context << "Received levin response command " << m_current_head.m_command
+        << " while waiting for " << (response_handler ? response_handler->command() : -1));
+      return false;
+    }
+
+    return true;
+  }
   
   template<class callback_t>
   bool add_invoke_response_handler(const callback_t &cb, const std::chrono::milliseconds timeout,  std::shared_ptr<net_utils::service_endpoint<derived_handler>> con, int command)
@@ -468,6 +497,9 @@ public:
 
             buff_to_invoke = {buff_to_invoke.data(), std::size_t(inner_size)};
 
+            if (!validate_response_command())
+              return false;
+
             const size_t max_bytes = m_connection_context.get_max_bytes(m_current_head.m_command);
             if(buff_to_invoke.size() > std::min<size_t>(max_packet_size, max_bytes))
             {
@@ -573,9 +605,12 @@ public:
             return false;
           }
 
+          m_oponent_protocol_ver = m_current_head.m_protocol_version;
+          if (!validate_response_command())
+            return false;
+
           m_cache_in_buffer.erase(sizeof(bucket_head2));
           m_state = stream_state_body;
-          m_oponent_protocol_ver = m_current_head.m_protocol_version;
           const size_t max_bytes = m_connection_context.get_max_bytes(m_current_head.m_command);
           if(m_current_head.m_cb > std::min<size_t>(max_packet_size, max_bytes))
           {
