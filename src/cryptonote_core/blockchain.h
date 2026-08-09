@@ -1242,9 +1242,6 @@ namespace cryptonote
     uint64_t m_btc_seed_height;
     bool m_btc_valid;
 
-
-    bool m_batch_success;
-
     TxpoolNotifyCallback m_txpool_notifier;
     mutable std::mutex m_txpool_notifier_mutex;
 
