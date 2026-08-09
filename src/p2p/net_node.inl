@@ -1415,44 +1415,31 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::is_peer_used(const peerlist_entry& peer)
   {
-    const auto zone = peer.adr.get_zone();
-    const auto server = m_network_zones.find(zone);
-    if (server == m_network_zones.end())
-      return false;
-
-    const bool is_public = (zone == epee::net_utils::zone::public_);
-    if(is_public && server->second.m_config.m_peer_id == peer.id)
-      return true;//don't make connections to ourself
-
-    bool used = false;
-    server->second.m_net_server.get_config_object().foreach_connection([&, is_public](const p2p_connection_context& cntxt)
-    {
-      if((is_public && cntxt.peer_id == peer.id && peer.adr.is_same_host(cntxt.m_remote_address)) || (!cntxt.m_is_income && peer.adr == cntxt.m_remote_address))
-      {
-        used = true;
-        return false;//stop enumerating
-      }
-      return true;
-    });
-    return used;
+    return is_peer_used(peer.adr, peer.id);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::is_peer_used(const anchor_peerlist_entry& peer)
   {
-    const auto zone = peer.adr.get_zone();
+    return is_peer_used(peer.adr, peer.id);
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::is_peer_used(const epee::net_utils::network_address& adr, peerid_type id)
+  {
+    const auto zone = adr.get_zone();
     const auto server = m_network_zones.find(zone);
     if (server == m_network_zones.end())
       return false;
 
     const bool is_public = (zone == epee::net_utils::zone::public_);
-    if(is_public && server->second.m_config.m_peer_id == peer.id)
+    if(is_public && server->second.m_config.m_peer_id == id)
       return true;//don't make connections to ourself
 
     bool used = false;
     server->second.m_net_server.get_config_object().foreach_connection([&, is_public](const p2p_connection_context& cntxt)
     {
-      if((is_public && cntxt.peer_id == peer.id && peer.adr.is_same_host(cntxt.m_remote_address)) || (!cntxt.m_is_income && peer.adr == cntxt.m_remote_address))
+      if((is_public && cntxt.peer_id == id && adr.is_same_host(cntxt.m_remote_address)) || (!cntxt.m_is_income && adr == cntxt.m_remote_address))
       {
         used = true;
         return false;//stop enumerating
@@ -1493,6 +1480,40 @@ namespace nodetool
   } while(0)
 
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::connect_and_handshake_with_peer(network_zone& zone, const epee::net_utils::network_address& na, uint64_t last_seen_stamp, PeerType peer_type, bool just_take_peerlist, peerid_type& pi, boost::optional<p2p_connection_context>& con)
+  {
+    MDEBUG("Connecting to " << na.str() << " (peer_type=" << peer_type << ", last_seen: "
+        << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
+        << ")...");
+
+    con = zone.m_connect(zone, na, m_ssl_support);
+    if(!con)
+    {
+      bool is_priority = is_priority_node(na);
+      LOG_PRINT_CC_PRIORITY_NODE(is_priority, p2p_connection_context{}, "Connect failed to " << na.str()
+        /*<< ", try " << try_count*/);
+      record_addr_failed(na);
+      return false;
+    }
+
+    con->m_anchor = peer_type == anchor;
+    pi = 0;
+    bool res = do_handshake_with_peer(pi, *con, just_take_peerlist);
+
+    if(!res)
+    {
+      bool is_priority = is_priority_node(na);
+      LOG_PRINT_CC_PRIORITY_NODE(is_priority, *con, "Failed to HANDSHAKE with peer "
+        << na.str()
+        /*<< ", try " << try_count*/);
+      record_addr_failed(na);
+      return false;
+    }
+
+    return true;
+  }
+
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::try_to_connect_and_handshake_with_new_peer(const epee::net_utils::network_address& na, bool just_take_peerlist, uint64_t last_seen_stamp, PeerType peer_type, uint64_t first_seen_stamp)
   {
     network_zone& zone = m_network_zones.at(na.get_zone());
@@ -1516,34 +1537,10 @@ namespace nodetool
       return false;
     }
 
-
-    MDEBUG("Connecting to " << na.str() << " (peer_type=" << peer_type << ", last_seen: "
-        << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
-        << ")...");
-
-    auto con = zone.m_connect(zone, na, m_ssl_support);
-    if(!con)
-    {
-      bool is_priority = is_priority_node(na);
-      LOG_PRINT_CC_PRIORITY_NODE(is_priority, bool(con), "Connect failed to " << na.str()
-        /*<< ", try " << try_count*/);
-      record_addr_failed(na);
+    peerid_type pi;
+    boost::optional<p2p_connection_context> con;
+    if (!connect_and_handshake_with_peer(zone, na, last_seen_stamp, peer_type, just_take_peerlist, pi, con))
       return false;
-    }
-
-    con->m_anchor = peer_type == anchor;
-    peerid_type pi = AUTO_VAL_INIT(pi);
-    bool res = do_handshake_with_peer(pi, *con, just_take_peerlist);
-
-    if(!res)
-    {
-      bool is_priority = is_priority_node(na);
-      LOG_PRINT_CC_PRIORITY_NODE(is_priority, *con, "Failed to HANDSHAKE with peer "
-        << na.str()
-        /*<< ", try " << try_count*/);
-      record_addr_failed(na);
-      return false;
-    }
 
     if(just_take_peerlist)
     {
@@ -1584,30 +1581,10 @@ namespace nodetool
     if (zone.m_connect == nullptr)
       return false;
 
-    LOG_PRINT_L1("Connecting to " << na.str() << "(last_seen: "
-                                  << (last_seen_stamp ? epee::misc_utils::get_time_interval_string(time(NULL) - last_seen_stamp):"never")
-                                  << ")...");
-
-    auto con = zone.m_connect(zone, na, m_ssl_support);
-    if (!con) {
-      bool is_priority = is_priority_node(na);
-
-      LOG_PRINT_CC_PRIORITY_NODE(is_priority, p2p_connection_context{}, "Connect failed to " << na.str());
-      record_addr_failed(na);
-
+    peerid_type pi;
+    boost::optional<p2p_connection_context> con;
+    if (!connect_and_handshake_with_peer(zone, na, last_seen_stamp, white, true, pi, con))
       return false;
-    }
-
-    con->m_anchor = false;
-    peerid_type pi = AUTO_VAL_INIT(pi);
-    const bool res = do_handshake_with_peer(pi, *con, true);
-    if (!res) {
-      bool is_priority = is_priority_node(na);
-
-      LOG_PRINT_CC_PRIORITY_NODE(is_priority, *con, "Failed to HANDSHAKE with peer " << na.str());
-      record_addr_failed(na);
-      return false;
-    }
 
     zone.m_net_server.get_config_object().close(con->m_connection_id, false);
 
