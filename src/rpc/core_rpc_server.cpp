@@ -787,11 +787,14 @@ namespace cryptonote
       {
         // sort to match original request
         std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>> sorted_txs;
-        std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>::const_iterator i;
+        const std::unordered_set<crypto::hash> missed_set(missed_txs.begin(), missed_txs.end());
+        const std::unordered_map<crypto::hash, tx_memory_pool::tx_details> pool_tx_map(pool_txs.begin(), pool_txs.end());
+        std::unordered_map<crypto::hash, tx_memory_pool::tx_details>::const_iterator i;
         unsigned txs_processed = 0;
+        missed_txs.clear();
         for (const crypto::hash &h: vh)
         {
-          if (std::find(missed_txs.begin(), missed_txs.end(), h) == missed_txs.end())
+          if (missed_set.find(h) == missed_set.end())
           {
             if (txs.size() == txs_processed)
             {
@@ -807,7 +810,7 @@ namespace cryptonote
             sorted_txs.push_back(std::move(txs[txs_processed]));
             ++txs_processed;
           }
-          else if ((i = std::find_if(pool_txs.begin(), pool_txs.end(), [h](const std::pair<crypto::hash, tx_memory_pool::tx_details> &pt) { return h == pt.first; })) != pool_txs.end())
+          else if ((i = pool_tx_map.find(h)) != pool_tx_map.end())
           {
             const tx_memory_pool::tx_details &td = i->second;
             std::stringstream ss;
@@ -821,10 +824,13 @@ namespace cryptonote
             const cryptonote::blobdata pruned = ss.str();
             const crypto::hash prunable_hash = td.tx.version == 1 ? crypto::null_hash : get_transaction_prunable_hash(td.tx);
             sorted_txs.push_back(std::make_tuple(h, pruned, prunable_hash, std::string(td.tx_blob, pruned.size())));
-            missed_txs.erase(std::find(missed_txs.begin(), missed_txs.end(), h));
             pool_tx_hashes.insert(h);
             per_tx_pool_tx_details.insert(std::make_pair(h, td));
             ++found_in_pool;
+          }
+          else
+          {
+            missed_txs.push_back(h);
           }
         }
         txs = sorted_txs;
