@@ -491,7 +491,8 @@ bool zmq_pub::relay_to_pub(void* const relay, void* const pub)
   const expect<bool> relayed = relay_block_pub(relay, pub);
   if (!relayed)
   {
-    MERROR("Error relaying ZMQ/Pub: " << relayed.error().message());
+    if (relayed != net::zmq::make_error_code(EAGAIN))
+      MERROR("Error relaying ZMQ/Pub: " << relayed.error().message());
     return false;
   }
 
