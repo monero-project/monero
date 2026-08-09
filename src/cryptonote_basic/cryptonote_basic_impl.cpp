@@ -237,8 +237,21 @@ namespace cryptonote {
     , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm
     )
   {
+    return get_account_address_from_str_or_url(info, nettype, str_or_url, true, dns_confirm);
+  }
+  //--------------------------------------------------------------------------------
+  bool get_account_address_from_str_or_url(
+      address_parse_info& info
+    , network_type nettype
+    , const std::string& str_or_url
+    , bool allow_dns
+    , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm
+    )
+  {
     if (get_account_address_from_str(info, nettype, str_or_url))
       return true;
+    if (!allow_dns)
+      return false;
     bool dnssec_valid;
     std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(str_or_url, dnssec_valid, dns_confirm);
     return !address_str.empty() &&
