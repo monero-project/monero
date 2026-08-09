@@ -41,7 +41,7 @@ namespace hw {
 
     namespace ledger {
 
-    /* Minimal supported version */
+    /* Minimum supported version */
     #define MINIMAL_APP_VERSION_MAJOR    1
     #define MINIMAL_APP_VERSION_MINOR    8
     #define MINIMAL_APP_VERSION_MICRO    0
@@ -180,7 +180,7 @@ namespace hw {
         //hmac for some encrypted value
         HMACmap hmac_map;
 
-        // To speed up blockchain parsing the view key maybe handle here.
+        // To speed up blockchain parsing the view key may be handled here.
         crypto::secret_key viewkey = crypto::null_skey;
         bool has_view_key = false;
         bool requested_view_key = false;
