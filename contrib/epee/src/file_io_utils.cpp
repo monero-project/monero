@@ -63,8 +63,15 @@ namespace file_io_utils
  
 	bool is_file_exist(const std::string& path)
 	{
-		boost::filesystem::path p(path);
-		return boost::filesystem::exists(p);
+		try
+		{
+			boost::filesystem::path p(path);
+			return boost::filesystem::exists(p);
+		}
+		catch (...)
+		{
+			return false;
+		}
 	}
 
 
