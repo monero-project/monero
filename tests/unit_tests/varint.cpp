@@ -62,6 +62,26 @@ TEST(varint, equal)
   }
 }
 
+TEST(varint, truncated)
+{
+  const std::vector<std::string> truncated_varints{
+    std::string{"\x80", 1},
+    std::string{"\x81", 1},
+    std::string{"\xff\xff", 2},
+    std::string(9, '\xff'),
+  };
+
+  for (const std::string &varint : truncated_varints)
+  {
+    std::uint64_t value;
+    ASSERT_EQ(tools::EVARINT_EOF, tools::read_varint(varint.begin(), varint.end(), value));
+  }
+
+  const std::string empty;
+  std::uint64_t value;
+  ASSERT_EQ(0, tools::read_varint(empty.begin(), empty.end(), value));
+}
+
 TEST(varint, max_uint64_t_bytes)
 {
   unsigned char bytes[100]{};
