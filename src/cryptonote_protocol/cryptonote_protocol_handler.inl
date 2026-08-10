@@ -636,8 +636,10 @@ namespace cryptonote
     }
 
     // Log block info
+    const uint64_t new_block_height = get_block_height(new_block);
+    const uint64_t peer_height = arg.current_blockchain_height;
     MLOG_P2P_MESSAGE(context << "Received NOTIFY_NEW_FLUFFY_BLOCK " << new_block_hash << " (height "
-      << arg.current_blockchain_height << ", " << arg.b.txs.size() << " txes)");
+      << new_block_height << ", " << arg.b.txs.size() << " txes, peer's height: " << peer_height << ")");
 
     // Pause mining and resume after block verification to prevent wasted mining cycles while
     // validating the next block. Needs more research into if this is a DoS vector or not. Invalid
@@ -726,7 +728,7 @@ namespace cryptonote
           MDEBUG("  tx " << new_block.tx_hashes[txidx]);
         NOTIFY_REQUEST_FLUFFY_MISSING_TX::request missing_tx_req;
         missing_tx_req.block_hash = new_block_hash;
-        missing_tx_req.current_blockchain_height = arg.current_blockchain_height;
+        missing_tx_req.current_blockchain_height = new_block_height + 1;
         missing_tx_req.missing_tx_indices = std::move(need_tx_indices);
 
         // Post NOTIFY_REQUEST_FLUFFY_MISSING_TX request to peer
@@ -743,6 +745,7 @@ namespace cryptonote
     }
     else if( bvc.m_added_to_main_chain )
     {
+      arg.current_blockchain_height = new_block_height + 1;
       // Relay an empty block
       arg.b.txs.clear();
       relay_block(arg, context);
@@ -760,6 +763,15 @@ namespace cryptonote
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
       MLOG_PEER_STATE("requesting chain");
+    }
+
+    if (bvc.m_added_to_main_chain || bvc.m_already_exists)
+    {
+      // Update peer's sync height using this block we just validated
+      // Note: peer_height is not guaranteed to be the height of the block we just validated + 1.
+      // See https://github.com/monero-project/monero/pull/11048#discussion_r3720736824
+      if (peer_height == (new_block_height + 1))
+        context.m_remote_blockchain_height = peer_height;
     }
 
     // load json & DNS checkpoints every 10min/hour respectively,
