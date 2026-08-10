@@ -107,6 +107,15 @@ namespace cryptonote
     END_SERIALIZE()
   };
 
+  inline bool operator==(const tx_destination_entry &a, const tx_destination_entry &b)
+  {
+    return a.original == b.original
+      && a.amount == b.amount
+      && a.addr == b.addr
+      && a.is_subaddress == b.is_subaddress
+      && a.is_integrated == b.is_integrated;
+  }
+
   //---------------------------------------------------------------
 
   struct tx_block_template_backlog_entry

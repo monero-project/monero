@@ -39,6 +39,7 @@
 #include "common_defines.h"
 #include "common/util.h"
 #include "multisig/multisig_account.h"
+#include "tx_builder.h"
 
 #include "mnemonics/electrum-words.h"
 #include "mnemonics/english.h"
@@ -2511,6 +2512,8 @@ void WalletImpl::pendingTxPostProcess(PendingTransactionImpl * pending)
   if (!m_wallet->get_account().get_device().has_tx_cold_sign()){
     return;
   }
+
+  tools::wallet::sanity_check_pending_tx(pending->m_pending_tx, m_wallet->m_transfers, m_wallet->m_nettype);
 
   tools::wallet2::signed_tx_set exported_txs;
   std::vector<cryptonote::address_parse_info> dsts_info;
