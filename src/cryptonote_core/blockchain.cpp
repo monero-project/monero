@@ -4499,10 +4499,13 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
   CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
   db_rtxn_guard rtxn_guard(m_db);
-  if(have_block(id))
+  int where = 0;
+  if(have_block(id, &where))
   {
     LOG_PRINT_L3("block with id = " << id << " already exists");
     bvc.m_already_exists = true;
+    if (where == HAVE_BLOCK_INVALID)
+      bvc.m_verifivation_failed = true;
     return false;
   }
 
