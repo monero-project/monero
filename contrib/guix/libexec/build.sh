@@ -85,6 +85,10 @@ unset OBJCPLUS_INCLUDE_PATH
 
 NATIVE_GCC="$(store_path gcc-toolchain)"
 
+NATIVE_GCC_VERSION="${NATIVE_GCC##*-gcc-toolchain-}"
+NATIVE_GCC_VERSION="${NATIVE_GCC_VERSION%%-*}"
+NATIVE_GCC_LIB="$(find /gnu/store -maxdepth 1 -name "*-gcc-${NATIVE_GCC_VERSION}-lib" | sort | head -n 1)"
+
 export C_INCLUDE_PATH="${NATIVE_GCC}/include"
 export CPLUS_INCLUDE_PATH="${NATIVE_GCC}/include/c++:${NATIVE_GCC}/include"
 export OBJC_INCLUDE_PATH="${NATIVE_GCC}/include"
@@ -132,7 +136,7 @@ case "$HOST" in
         # See depends/hosts/darwin.mk for more details.
         ;;
     *android*)
-        export LD_LIBRARY_PATH="$(find /gnu/store -maxdepth 1 -name "*zlib*" | sort | head -n 1)/lib:$(find /gnu/store -maxdepth 1 -name "*gcc-14*-lib" | sort | head -n 1)/lib"
+        export LD_LIBRARY_PATH="$(find /gnu/store -maxdepth 1 -name "*zlib*" | sort | head -n 1)/lib:${NATIVE_GCC_LIB}/lib"
         ;;
     *linux-gnu*)
         CROSS_GLIBC="$(store_path "glibc-cross-${HOST}")"
@@ -301,6 +305,31 @@ case "$HOST" in
     *mingw*)  HOST_LDFLAGS="-Wl,--no-insert-timestamp" ;;
 esac
 
+LD_LIBRARY_PATH="${LD_LIBRARY_PATH:+${LD_LIBRARY_PATH}:}${NATIVE_GCC_LIB}/lib"
+
+RUST_STD="$(store_path rust-std)"
+
+# error: "/gnu/store/<...>-rust-1.82.0/lib/rustlib/src/rust/library/Cargo.lock" does not exist,
+# unable to build with the standard library
+#
+# The standard library does not exist at the location Cargo expects.
+#
+# We can override the path to the Rust source by setting the __CARGO_TESTS_ONLY_SRC_ROOT environment variable.
+# See: https://github.com/rust-lang/cargo/blob/rust-1.82.0/src/cargo/core/compiler/standard_lib.rs#L183
+export __CARGO_TESTS_ONLY_SRC_ROOT="${RUST_STD}/library"
+
+# error: the `-Z` flag is only accepted on the nightly channel of Cargo, but this is the `stable` channel
+#
+# Since we don't have access to the nightly channel, we need to bypass the check with RUSTC_BOOTSTRAP.
+#
+# We could avoid using `-Z build-std` by cross-compiling the full standard library for each target. This approach
+# adds hours to our build time and greatly increases the amount of foreign source code that is compiled as part of
+# our build process.
+export RUSTC_BOOTSTRAP=1
+
+# See: https://rust-lang.github.io/rust-project-goals/2025h1/build-std.html
+CARGO_OPTIONS="-Zbuild-std=std,panic_abort;"
+
 export GIT_DISCOVERY_ACROSS_FILESYSTEM=1
 # Force Trezor support for release binaries
 export USE_DEVICE_TREZOR_MANDATORY=1
@@ -338,6 +367,23 @@ mkdir -p "$DISTSRC"
     # Turn off unused default options
     CMAKEFLAGS+=" -DCOMPILER_CACHE=none -DBUILD_DOCUMENTATION=OFF"
 
+    # Make sure cargo knows where to find the vendored sources.
+    mkdir -p "${HOME}/.cargo"
+    cp contrib/guix/rust/config.toml "${HOME}/.cargo/"
+
+    # Unpack rust dependencies
+    mkdir -p /rust/vendor
+    #UNCOMMENT_IN_10359# tar xf /rust-deps -C /rust
+
+    # "vendor" rust std
+    for dir in "${RUST_STD}"/vendor/*/; do
+      [ -d "$dir" ] || continue
+      BN=$(basename "$dir")
+      if [ ! -d "/rust/vendor/$BN" ]; then
+        ln -s "$dir" "/rust/vendor/$BN"
+      fi
+    done
+
     # Configure this DISTSRC for $HOST
     # shellcheck disable=SC2086
     env CFLAGS="${HOST_CFLAGS}" CXXFLAGS="${HOST_CXXFLAGS}" \
@@ -345,9 +391,10 @@ mkdir -p "$DISTSRC"
       -DCMAKE_INSTALL_PREFIX="${INSTALLPATH}" \
       -DCMAKE_EXE_LINKER_FLAGS="${HOST_LDFLAGS}" \
       -DCMAKE_SHARED_LINKER_FLAGS="${HOST_LDFLAGS}" \
+      -DCARGO_OPTIONS="${CARGO_OPTIONS}" \
       ${CMAKEFLAGS}
 
-    make -C build --jobs="$JOBS"
+    LD_LIBRARY_PATH="${LD_LIBRARY_PATH}" make -C build --jobs="$JOBS"
 
     # Copy docs
     cp README.md LICENSE docs/ANONYMITY_NETWORKS.md "${INSTALLPATH}"

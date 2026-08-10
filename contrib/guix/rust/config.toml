@@ -1,0 +1,15 @@
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/kayabaNerve/crypto-bigint?branch=c-repr"]
+git = "https://github.com/kayabaNerve/crypto-bigint"
+branch = "c-repr"
+replace-with = "vendored-sources"
+
+[source."git+https://github.com/monero-oxide/monero-oxide?rev=71da8f03a87f596db674258cda74553068a57bcd"]
+git = "https://github.com/monero-oxide/monero-oxide"
+rev = "71da8f03a87f596db674258cda74553068a57bcd"
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "/rust/vendor"
