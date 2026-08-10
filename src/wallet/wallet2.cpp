@@ -93,6 +93,7 @@ using namespace epee;
 #include "device/device_cold.hpp"
 #include "device_trezor/device_trezor.hpp"
 #include "net/socks_connect.h"
+#include "pending_tx_validation.h"
 #include "wallet2_basic/wallet2_boost_serialization.h"
 #include "wallet2_basic/wallet2_serialization.h"
 
@@ -7240,6 +7241,41 @@ void wallet2::get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2:
   }
 }
 //----------------------------------------------------------------------------------------------------
+// `expect_imported_key_images = false` overlaps with `transfer_ki_resolver = std::nullopt` but
+// we include both to reduce callsite complexity. (lack of useful enums in C++)
+void wallet2::sanity_check_pending_tx(const wallet2::pending_tx &ptx,
+  const bool redacted,
+  const bool expect_imported_key_images,
+  std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver) const
+{
+  if (expect_imported_key_images)
+  {
+    // NOTE: Update this code if there is a usecase for checking both m_transfers and using a custom resolver.
+    CHECK_AND_ASSERT_THROW_MES(!transfer_ki_resolver,
+      "sanity_check_pending_tx (wallet2): expected imported key images but a ki resolver was provided");
+
+    const std::function<const crypto::key_image(const size_t)> temp =
+      [this](const size_t i)
+      {
+        CHECK_AND_ASSERT_THROW_MES(i < m_transfers.size(),
+          "sanity_check_pending_tx (wallet2): transfer - selected transfer idx out of known transfers");
+        const auto &transfer = m_transfers.at(i);
+        CHECK_AND_ASSERT_THROW_MES(transfer.m_key_image_known,
+          "sanity_check_pending_tx (wallet2): transfer - KI is expected but unknown");
+        return transfer.m_key_image;
+      };
+    transfer_ki_resolver = temp;
+  }
+
+  wallet::sanity_check_pending_tx(ptx,
+    this->nettype(),
+    m_account.get_keys(),
+    m_subaddresses,
+    m_transfers,
+    redacted,
+    transfer_ki_resolver);
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::rescan_spent()
 {
   // This is RPC call that can take a long time if there are many outputs,
@@ -7921,6 +7957,10 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     signed_txes.key_images[i] = m_transfers[i].m_key_image;
   }
 
+  // check the local tx copies
+  for (const auto &ptx : txs)
+    this->sanity_check_pending_tx(ptx, false, true, std::nullopt);
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -8002,7 +8042,7 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
     return false;
   }
 
-  return parse_tx_from_str(s, ptx, accept_func);
+  return this->parse_tx_from_str(s, ptx, accept_func);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func)
@@ -8053,6 +8093,23 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
     LOG_PRINT_L0("Unsupported version in signed transaction");
     return false;
   }
+
+  // validate before mutating state or displaying to user
+  // - Verify with the assumption signed txs are redacted.
+  for (const auto &ptx : signed_txs.ptx)
+  {
+    // Manually check `signed_txs.key_images` so local state is not mutated before we validate.
+    // We inject the key image checker because `ptx` internal sorting ambiguity makes it cumbersome to
+    // directly validate key images here.
+    const auto &kis = signed_txs.key_images;
+    this->sanity_check_pending_tx(ptx, true, false, { [&kis](const size_t i) {
+      CHECK_AND_ASSERT_THROW_MES(i < kis.size(), "failed loading signed tx: ptx selected transfer \
+        is outside the bounds of imported key images");
+      return kis.at(i);
+    } });
+  }
+
+  // print result for user
   LOG_PRINT_L0("Loaded signed tx data from binary: " << signed_txs.ptx.size() << " transactions");
   for (auto &c_ptx: signed_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(c_ptx.tx));
 
@@ -8063,12 +8120,16 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
   }
 
   // import key images
-  bool r = import_key_images(signed_txs.key_images);
+  bool r = this->import_key_images(signed_txs.key_images);
   if (!r) return false;
 
   // remember key images for this tx, for when we get those txes from the blockchain
   for (const auto &e: signed_txs.tx_key_images)
     m_cold_key_images.insert(e);
+
+  // extra validation making sure key images line up
+  for (const auto &ptx : signed_txs.ptx)
+    this->sanity_check_pending_tx(ptx, true, true, std::nullopt);
 
   ptx = signed_txs.ptx;
 
@@ -8124,6 +8185,9 @@ bool wallet2::save_multisig_tx(const multisig_tx_set &txs, const std::string &fi
 //----------------------------------------------------------------------------------------------------
 wallet2::multisig_tx_set wallet2::make_multisig_tx_set(const std::vector<pending_tx>& ptx_vector) const
 {
+  for (const auto &ptx : ptx_vector)
+    this->sanity_check_pending_tx(ptx, false, true, std::nullopt);
+
   multisig_tx_set txs;
   txs.m_ptx = ptx_vector;
 
@@ -8186,15 +8250,9 @@ bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx
   // sanity checks
   for (const auto &ptx: exported_txs.m_ptx)
   {
-    CHECK_AND_ASSERT_MES(ptx.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched selected_transfers/vin sizes");
-    for (size_t idx: ptx.selected_transfers)
-      CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
-    CHECK_AND_ASSERT_MES(ptx.construction_data.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched cd selected_transfers/vin sizes");
-    for (size_t idx: ptx.construction_data.selected_transfers)
-      CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
-    CHECK_AND_ASSERT_MES(ptx.construction_data.sources.size() == ptx.tx.vin.size(), false, "Mismatched sources/vin sizes");
-    CHECK_AND_ASSERT_MES(!ptx.tx.vin.empty(), false, "Multisig tx has no inputs");
-    CHECK_AND_ASSERT_MES(!ptx.construction_data.sources.empty(), false, "Multisig tx has no sources");
+    // If key images have not been imported then this could fail if we check key images. We'd rather fail elsewhere
+    // with a better error message.
+    this->sanity_check_pending_tx(ptx, false, false, std::nullopt);
   }
 
   return true;
@@ -8284,6 +8342,8 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<
   {
     tools::wallet2::pending_tx &ptx = exported_txs.m_ptx[n];
     THROW_WALLET_EXCEPTION_IF(ptx.multisig_sigs.empty(), error::wallet_internal_error, "No signatures found in multisig tx");
+    this->sanity_check_pending_tx(ptx, false, false, std::nullopt);
+
     const tools::wallet2::tx_construction_data &sd = ptx.construction_data;
     LOG_PRINT_L1(" " << (n+1) << ": " << sd.sources.size() << " inputs, ring size " << (sd.sources[0].outputs.size()) <<
         ", signed by " << exported_txs.m_signers.size() << "/" << m_multisig_threshold);
@@ -8314,6 +8374,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<
 
     // go through each signing attempt for this transaction (each signing attempt corresponds to some subgroup of signers
     //   of size 'threshold')
+    bool expect_imported_key_images = false;
     for (auto &sig: ptx.multisig_sigs)
     {
       // skip this partial tx if it's intended for a subgroup of signers that doesn't include the local signer
@@ -8325,6 +8386,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<
       //       local signer calls this function on both of them
       if (sig.ignore.find(local_signer) == sig.ignore.end())
       {
+        expect_imported_key_images = true;
         rct::keyM local_nonces_k(sd.selected_transfers.size(), rct::keyV(multisig::signing::kAlphaComponents));
         rct::key skey = rct::zero();
         const epee::scope_guard wiper([&]{
@@ -8362,6 +8424,10 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<
         );
       }
     }
+
+    // Now that get_multisig_k has run for all sigs and not thrown 'need to export multisig', we can validate
+    // the pending tx with expected imported key images known.
+    this->sanity_check_pending_tx(ptx, false, expect_imported_key_images, std::nullopt);
 
     const bool is_last = exported_txs.m_signers.size() + 1 >= m_multisig_threshold;
     if (is_last)
@@ -11370,6 +11436,14 @@ void wallet2::cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_
   tx_device_aux = aux_data.tx_device_aux;
 
   MDEBUG("Signed tx data from hw: " << exported_txs.ptx.size() << " transactions");
+
+  // Double-check final values.
+  // Cold wallets are not expected to have a complete store of key images.
+  // Cold devices (e.g. trezor) may or may not redact outputs, so we set `redact = true`.
+  for (const auto &ptx : exported_txs.ptx)
+    this->sanity_check_pending_tx(ptx, true, false, std::nullopt);
+
+  // Print
   for (auto &c_ptx: exported_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(c_ptx.tx));
 }
 //----------------------------------------------------------------------------------------------------
@@ -14868,7 +14942,27 @@ std::string wallet2::make_uri(const std::string &address, const std::string &pay
   return uri;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error)
+bool wallet2::parse_uri(const std::string &uri,
+  std::string &address,
+  std::string &payment_id,
+  uint64_t &amount,
+  std::string &tx_description,
+  std::string &recipient_name,
+  std::vector<std::string> &unknown_parameters,
+  std::string &error)
+{
+  return wallet2::parse_uri_impl(uri,
+    this->nettype(),
+    address,
+    payment_id,
+    amount,
+    tx_description,
+    recipient_name,
+    unknown_parameters,
+    error);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::parse_uri_impl(const std::string &uri, const cryptonote::network_type nettype, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error)
 {
   if (uri.substr(0, 7) != "monero:")
   {
@@ -14881,7 +14975,7 @@ bool wallet2::parse_uri(const std::string &uri, std::string &address, std::strin
   address = ptr ? remainder.substr(0, ptr-remainder.c_str()) : remainder;
 
   cryptonote::address_parse_info info;
-  if(!get_account_address_from_str(info, nettype(), address))
+  if(!get_account_address_from_str(info, nettype, address))
   {
     error = std::string("URI has wrong address: ") + address;
     return false;

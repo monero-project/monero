@@ -38,6 +38,7 @@ import random
 SEED = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
 STANDARD_ADDRESS = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
 SUBADDRESS = '84QRUYawRNrU3NN1VpFRndSukeyEb3Xpv8qZjjsoJZnTYpDYceuUTpog13D7qPxpviS7J29bSgSkR11hFFoXWk2yNdsR9WF'
+SUBADDRESS2 = '85M4M1RVRcoEeC8sdSxN1ef6GhQYChSfKPWkB4FLKYJiSWuMXXT4Ewv8BHCRzSJB4ZYvXUcFxN4DPcVu6uwoPNRvQ1QwaXB'
 
 class ColdSigningTest():
     def run_test(self):
@@ -49,6 +50,8 @@ class ColdSigningTest():
         for piecemeal_output_export in [False, True]:
             self.self_transfer_to_subaddress(piecemeal_output_export)
         self.transfer_after_empty_export_import()
+        self.transfer_to_multi_subaddresses()
+        self.sweep()
 
     def reset(self):
         print('Resetting blockchain')
@@ -87,12 +90,12 @@ class ColdSigningTest():
         assert self.cold_wallet.get_address().address == self.hot_wallet.get_address().address
         assert self.cold_wallet.get_address().address == STANDARD_ADDRESS
 
-    def mine(self):
+    def mine(self, n_blocks = 80):
         print("Mining some blocks")
         daemon = Daemon()
         wallet = Wallet()
 
-        daemon.generateblocks(STANDARD_ADDRESS, 80)
+        daemon.generateblocks(STANDARD_ADDRESS, n_blocks)
         wallet.refresh()
 
     def export_import(self, piecemeal_output_export):
@@ -264,6 +267,48 @@ class ColdSigningTest():
         assert start_len == len(self.hot_wallet.get_transfers()['in'])
         self.create_tx(STANDARD_ADDRESS, False)
         assert start_len == len(self.hot_wallet.get_transfers()['in']) - 1
+
+    def sign_and_submit(self, unsigned_txset):
+        print("Signing transaction with cold wallet")
+        res = self.cold_wallet.sign_transfer(unsigned_txset)
+
+        print("Submitting transaction with hot wallet")
+        res = self.hot_wallet.submit_transfer(res.signed_txset)
+        assert len(res.tx_hash_list) > 0
+        tx_hash_list = res.tx_hash_list
+
+        # Make sure it ends up in the chain
+        daemon = Daemon()
+        daemon.generateblocks(STANDARD_ADDRESS, 1)
+        self.hot_wallet.refresh()
+
+        res = self.hot_wallet.get_transfers()
+        def in_hash_list(txid, tx_hash_list):
+            return len([x for x in tx_hash_list if x == txid]) > 0
+        assert len([x for x in (res['pending'] if 'pending' in res else []) if in_hash_list(x.txid, tx_hash_list)]) == 0
+        assert len([x for x in (res['out'] if 'out' in res else []) if in_hash_list(x.txid, tx_hash_list)]) > 0
+
+    def transfer_to_multi_subaddresses(self):
+        # This test triggers the non-standard additional keys case
+        # const bool need_additional_txkeys = num_subaddresses > 0 && (num_stdaddresses > 0 || num_subaddresses > 1);
+        print("Transfer to 2 subaddresses in 1 tx")
+        dst1 = {'address': SUBADDRESS, 'amount': 1000000000000}
+        dst2 = {'address': SUBADDRESS2, 'amount': 1000000000000}
+
+        self.export_import(False)
+        res = self.hot_wallet.transfer([dst1, dst2])
+
+        self.sign_and_submit(res.unsigned_txset)
+
+    def sweep(self):
+        print("Mine 10 blocks so all non-coinbase outs from prior txs unlock")
+        self.mine(10)
+
+        print("Sweeping the wallet")
+        self.export_import(False)
+        res = self.hot_wallet.sweep_all(STANDARD_ADDRESS)
+
+        self.sign_and_submit(res.unsigned_txset)
 
 class Guard:
     def __enter__(self):
