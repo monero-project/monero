@@ -2513,7 +2513,7 @@ void WalletImpl::pendingTxPostProcess(PendingTransactionImpl * pending)
     return;
   }
 
-  for (const auto &pts : pending->m_pending_tx)
+  for (const auto &ptx : pending->m_pending_tx)
     tools::wallet::sanity_check_pending_tx(ptx, *m_wallet);
 
   tools::wallet2::signed_tx_set exported_txs;
