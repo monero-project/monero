@@ -157,20 +157,10 @@ namespace cryptonote
       return false;
     }
 
-    if (version != nic_verified_hf_version && !cryptonote::ver_non_input_consensus(tx, tvc, version))
-    {
-      LOG_PRINT_L1("transaction " << id << " failed non-input consensus rule checks");
-      tvc.m_verifivation_failed = true; // should already be set, but just in case
-      return false;
-    }
-
-    uint64_t fee;
+    const uint64_t fee = get_tx_fee(tx);
     bool fee_good = false;
     try
     {
-      // get_tx_fee() can throw. It shouldn't throw because we check preconditions in
-      // ver_non_input_consensus(), but let's put it in a try block just in case.
-      fee = get_tx_fee(tx);
       fee_good = kept_by_block || m_blockchain.check_fee(tx_weight, fee);
     }
     catch(...) {}
@@ -215,6 +205,14 @@ namespace cryptonote
         tvc.m_no_drop_offense = true;
         return false;
       }
+    }
+
+    // Do more expensive verification after plausible no-drop offenses
+    if (version != nic_verified_hf_version && !cryptonote::ver_non_input_consensus(tx, tvc, version))
+    {
+      LOG_PRINT_L1("transaction " << id << " failed non-input consensus rule checks");
+      tvc.m_verifivation_failed = true; // should already be set, but just in case
+      return false;
     }
 
     // assume failure during verification steps until success is certain
@@ -1415,7 +1413,9 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
     for(const auto& in: tx.vin)
     {
-      CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, true);//should never fail
+      if (in.type() != typeid(txin_to_key))
+        continue;
+      const auto &tokey_in = boost::get<txin_to_key>(in);
       if(have_tx_keyimg_as_spent(tokey_in.k_image, txid))
          return true;
     }
