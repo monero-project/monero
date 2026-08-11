@@ -32,9 +32,11 @@
 //local headers
 #include "misc_log_ex.h"
 #include "crypto/crypto.h"
+#include "crypto/generators.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "cryptonote_config.h"
+#include "device/device_default.hpp"
 #include "ringct/rctOps.h"
 #include "ringct/rctTypes.h"
 #include "wallet2.h"
@@ -58,6 +60,99 @@ namespace tools
 namespace wallet
 {
 //-------------------------------------------------------------------------------------------------------------------
+static void recontruct_tx_pubkeys(
+    const cryptonote::tx_destination_entry &change,
+    const std::vector<cryptonote::tx_destination_entry> &dests,
+    const crypto::secret_key &tx_key,
+    const std::vector<crypto::secret_key> &additional_tx_keys,
+    crypto::public_key &tx_pubkey_out,
+    std::vector<crypto::public_key> &tx_additional_pubkeys_out)
+{
+    tx_pubkey_out = crypto::public_key{};
+    tx_additional_pubkeys_out.clear();
+
+    // Check if multiple keys are expected
+    // Note: this is the same method used in `construct_tx_and_get_tx_key()`, so we should expect the same results.
+    size_t num_stdaddresses = 0;
+    size_t num_subaddresses = 0;
+    cryptonote::account_public_address shared_key_base = cryptonote::account_public_address{
+        .m_view_public_key = crypto::get_G(),
+        .m_spend_public_key = crypto::get_G(),
+    };
+    cryptonote::classify_addresses(dests, change.addr, num_stdaddresses, num_subaddresses, shared_key_base);
+    const bool need_additional_txkeys = num_subaddresses > 0 && (num_stdaddresses > 0 || num_subaddresses > 1);
+
+    if (!need_additional_txkeys)
+    {
+        CHECK_AND_ASSERT_THROW_MES(additional_tx_keys.size() == 0,
+            "recontruct_tx_pubkeys: unexpected additional tx keys for 2-out");
+
+        tx_pubkey_out = rct::rct2pk(rct::scalarmultKey(
+            rct::pk2rct(shared_key_base.m_spend_public_key),
+            rct::sk2rct(tx_key)
+        ));
+    }
+    else
+    {
+        CHECK_AND_ASSERT_THROW_MES(dests.size() == additional_tx_keys.size(),
+            "recontruct_tx_pubkeys: tx key alignment failure");
+
+        for (size_t i = 0; i < dests.size(); ++i)
+        {
+            if (dests.at(i).is_subaddress)
+            {
+                tx_additional_pubkeys_out.push_back(rct::rct2pk(rct::scalarmultKey(
+                    rct::pk2rct(dests.at(i).addr.m_spend_public_key),
+                    rct::sk2rct(additional_tx_keys.at(i))
+                )));
+            }
+            else
+            {
+                tx_additional_pubkeys_out.push_back(
+                    rct::rct2pk(rct::scalarmultBase(rct::sk2rct(additional_tx_keys.at(i))))
+                );
+            }
+        }
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+static void reconstruct_payment_id(const std::string &extracted_payment_id,
+    const cryptonote::account_public_address &change_addr,
+    const std::vector<cryptonote::tx_destination_entry> &dests,
+    const crypto::secret_key &tx_key,
+    const std::vector<cryptonote::tx_extra_field> &tx_extra_fields)
+{
+    // Get the destination that will be able to read the payment id in the final tx.
+    // Returns non-null if there is exactly one destination (may or may not be the change addr).
+    const crypto::public_key view_key_pub = cryptonote::get_destination_view_key_pub(dests, change_addr);
+    CHECK_AND_ASSERT_THROW_MES(view_key_pub != crypto::null_pkey,
+        "reconstruct_payment_id: encrypted payment IDs must only be in txs with one destination");
+
+    // Extract the expected encrypted payment id.
+    cryptonote::tx_extra_nonce extra_nonce;
+    crypto::hash8 encrypted_payment_id8 = crypto::null_hash8;
+    CHECK_AND_ASSERT_THROW_MES(cryptonote::find_tx_extra_field_by_type(tx_extra_fields, extra_nonce),
+        "reconstruct_payment_id: expected payment id is missing");
+    CHECK_AND_ASSERT_THROW_MES(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(
+            extra_nonce.nonce,
+            encrypted_payment_id8
+        ),
+        "reconstruct_payment_id: expected payment id is missing");
+ 
+    // Parse the payment ID string extracted from the address.
+    crypto::hash8 to_encrypt_payment_id;
+    CHECK_AND_ASSERT_THROW_MES(tools::wallet2::parse_short_payment_id(extracted_payment_id, to_encrypt_payment_id),
+        "reconstruct_payment_id: failed parsing short payment id from integrated address");
+
+    // Encrypt the address's payment ID.
+    CHECK_AND_ASSERT_THROW_MES(hw::core::device_default().encrypt_payment_id(to_encrypt_payment_id, view_key_pub, tx_key),
+        "reconstruct_payment_id: failed encrypting payment id");
+
+    // Check equivalence.
+    CHECK_AND_ASSERT_THROW_MES(to_encrypt_payment_id == encrypted_payment_id8,
+        "reconstruct_payment_id: failed encrypting payment id");
+}
+//-------------------------------------------------------------------------------------------------------------------
 void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     const std::vector<wallet2_basic::transfer_details> &transfers,
     const cryptonote::network_type nettype)
@@ -65,28 +160,42 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     const auto &construct = ptx.construction_data;
 
     // Extra
+    crypto::public_key reconstruct_pubkey;
+    std::vector<crypto::public_key> reconstruct_additional_pubkeys;
+    recontruct_tx_pubkeys(
+        construct.change_dts,
+        construct.splitted_dsts,
+        ptx.tx_key,
+        ptx.additional_tx_keys,
+        reconstruct_pubkey,
+        reconstruct_additional_pubkeys
+    );
+
     CHECK_AND_ASSERT_THROW_MES(construct.extra == ptx.tx.extra,
         "sanity_check_pending_tx: tx_extra mismatch");
     std::vector<cryptonote::tx_extra_field> tx_extra_fields;
-    CHECK_AND_ASSERT_THROW_MES(parse_tx_extra(construct.extra, tx_extra_fields),
+    CHECK_AND_ASSERT_THROW_MES(cryptonote::parse_tx_extra(construct.extra, tx_extra_fields),
         "sanity_check_pending_tx: tx_extra extraction failure");
     cryptonote::tx_extra_pub_key tx_extra_pub_key;
-    CHECK_AND_ASSERT_THROW_MES(find_tx_extra_field_by_type(tx_extra_fields, tx_extra_pub_key),
+    CHECK_AND_ASSERT_THROW_MES(cryptonote::find_tx_extra_field_by_type(tx_extra_fields, tx_extra_pub_key),
         "sanity_check_pending_tx: tx_extra missing tx pub key");
-    CHECK_AND_ASSERT_THROW_MES(tx_extra_pub_key.pub_key == rct::rct2pk(rct::scalarmultBase(rct::sk2rct(ptx.tx_key))),
-        "sanity_check_pending_tx: tx_extra unable to reproduce tx pubkey");
-    if (ptx.additional_tx_keys.size() > 0)
+    if (construct.dests.size() == 2 || reconstruct_additional_pubkeys.size() == 0)
+    {
+        CHECK_AND_ASSERT_THROW_MES(tx_extra_pub_key.pub_key == reconstruct_pubkey,
+            "sanity_check_pending_tx: tx_extra unable to reproduce tx pubkey");
+    }
+    else
     {
         cryptonote::tx_extra_additional_pub_keys tx_extra_additional_pub_keys;
-        CHECK_AND_ASSERT_THROW_MES(find_tx_extra_field_by_type(tx_extra_fields, tx_extra_additional_pub_keys),
+        CHECK_AND_ASSERT_THROW_MES(cryptonote::find_tx_extra_field_by_type(tx_extra_fields, tx_extra_additional_pub_keys),
             "sanity_check_pending_tx: tx_extra missing extra tx pub keys");
-        CHECK_AND_ASSERT_THROW_MES(tx_extra_additional_pub_keys.data.size() == ptx.additional_tx_keys.size(),
+        CHECK_AND_ASSERT_THROW_MES(tx_extra_additional_pub_keys.data.size() == reconstruct_additional_pubkeys.size(),
             "sanity_check_pending_tx: tx_extra extra tx pub keys size mismatch");
-        for (size_t p = 0; p < ptx.additional_tx_keys.size(); ++p)
+        for (size_t p = 0; p < reconstruct_additional_pubkeys.size(); ++p)
         {
             const auto &extra_pk = tx_extra_additional_pub_keys.data.at(p);
-            const auto &ptx_sk = ptx.additional_tx_keys.at(p);
-            CHECK_AND_ASSERT_THROW_MES(extra_pk == rct::rct2pk(rct::scalarmultBase(rct::sk2rct(ptx_sk))),
+            const auto &re_pk = reconstruct_additional_pubkeys.at(p);
+            CHECK_AND_ASSERT_THROW_MES(extra_pk == re_pk,
                 "sanity_check_pending_tx: tx_extra unable to reproduce extra tx pubkey");
         }
     }
@@ -94,13 +203,15 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     // Extract tx inputs
     std::vector<crypto::key_image> ext_key_images;
     std::vector<rct::xmr_amount> ext_input_amounts;
-    const bool all_are_txin_to_key = std::all_of(ptx.tx.vin.begin(), ptx.tx.vin.end(), [&](const cryptonote::txin_v& s_e) -> bool
-    {
-        CHECKED_GET_SPECIFIC_VARIANT(s_e, const cryptonote::txin_to_key, in, false);
-        ext_key_images.push_back(in.k_image);
-        ext_input_amounts.push_back(in.amount);
-        return true;
-    });
+    const bool all_are_txin_to_key = std::all_of(ptx.tx.vin.begin(), ptx.tx.vin.end(),
+        [&](const cryptonote::txin_v& s_e) -> bool
+        {
+            CHECKED_GET_SPECIFIC_VARIANT(s_e, const cryptonote::txin_to_key, in, false);
+            ext_key_images.push_back(in.k_image);
+            ext_input_amounts.push_back(in.amount);
+            return true;
+        }
+    );
     std::string ext_key_images_str;
     for (const auto &ki : ext_key_images)
     {
@@ -131,8 +242,16 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
         const auto &src = construct.sources.at(i);
         const auto &transfer = transfers.at(selected_transfer);
 
-        CHECK_AND_ASSERT_THROW_MES(src.amount == ext_input_amounts.at(i),
-            "sanity_check_pending_tx: input amount mismatch");
+        if (src.rct)
+        {
+            CHECK_AND_ASSERT_THROW_MES(ext_input_amounts.at(i) == 0,
+                "sanity_check_pending_tx: rct amount extracted from inputs should be zero");
+        }
+        else
+        {
+            CHECK_AND_ASSERT_THROW_MES(src.amount == ext_input_amounts.at(i),
+                "sanity_check_pending_tx: non-rct input amount mismatch");
+        }
         CHECK_AND_ASSERT_THROW_MES(src.amount == transfer.m_amount,
             "sanity_check_pending_tx: transfer amount mismatch");
         CHECK_AND_ASSERT_THROW_MES(src.real_output < src.outputs.size(),
@@ -168,7 +287,8 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
         "sanity_check_pending_tx: input amount > 2^64 - 1");
 
     // Destination consistency
-    // - We assume there is no payment ID (pending_tx has no field for payment ID at this time).
+    CHECK_AND_ASSERT_THROW_MES(construct.change_dts == ptx.change_dts,
+        "sanity_check_pending_tx: change_dts inconsistent");
     CHECK_AND_ASSERT_THROW_MES(construct.dests == ptx.dests,
         "sanity_check_pending_tx: destination vecs are inconsistent");
     std::vector<cryptonote::tx_destination_entry> splitted_dsts_repro = ptx.dests;
@@ -180,17 +300,46 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
         "sanity_check_pending_tx: failed checking splitted_dsts size");
 
     boost::multiprecision::uint128_t output_amnt = 0;
+    size_t integrated_count = 0;
 
     for (const auto &dst : construct.splitted_dsts)
     {
         // Check original dst string
         if (dst.original.size() > 0)
         {
-            auto reconstructed_dst = cryptonote::tx_destination_entry(dst.amount, dst.addr, dst.is_subaddress);
-            reconstructed_dst.is_integrated = dst.is_integrated;
-            const auto original_str = reconstructed_dst.address(nettype, crypto::hash{});  // no payment id
-            CHECK_AND_ASSERT_THROW_MES(original_str == dst.original,
+            const auto rebuilt_addr_str = cryptonote::get_account_address_as_str(nettype, dst.is_subaddress, dst.addr);
+
+            std::string address;
+            std::string extracted_payment_id;
+            uint64_t _amount;
+            std::string _tx_description;
+            std::string _recipient_name;
+            std::vector<std::string> _unknown_parameters;
+            std::string _error;
+            wallet2::parse_uri_impl(dst.original,
+                nettype,
+                address,
+                extracted_payment_id,
+                _amount,
+                _tx_description,
+                _recipient_name,
+                _unknown_parameters,
+                _error);
+            CHECK_AND_ASSERT_THROW_MES(address == rebuilt_addr_str,
                 "sanity_check_pending_tx: failed reconstructing original destination address string");
+
+            if (dst.is_integrated)
+            {
+                ++integrated_count;
+                CHECK_AND_ASSERT_THROW_MES(integrated_count == 1,
+                    "sanity_check_pending_tx: more than one integrated address detected");
+
+                reconstruct_payment_id(extracted_payment_id,
+                    ptx.change_dts.addr,
+                    construct.splitted_dsts,
+                    ptx.tx_key,
+                    tx_extra_fields);
+            }
         }
 
         // Check reproduced dests

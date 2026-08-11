@@ -8005,11 +8005,7 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
     return false;
   }
 
-  const bool r = parse_tx_from_str(s, ptx, accept_func);
-  for (const auto &ptx: ptx)
-    wallet::sanity_check_pending_tx(ptx, m_transfers, m_nettype);
-
-  return r;
+  return this->parse_tx_from_str(s, ptx, accept_func);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func)
@@ -8069,8 +8065,35 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
     return false;
   }
 
+  // validate before mutating state
+  CHECK_AND_ASSERT_THROW_MES(signed_txs.key_images.size() == signed_txs.tx_key_images.size(),
+      "parse_tx_from_str: key images size mismatch");
+  for (const auto &ptx : signed_txs.ptx)
+  {
+    wallet::sanity_check_pending_tx(ptx, m_transfers, m_nettype);
+
+    // Key image consistency
+    const bool _r = std::all_of(ptx.tx.vin.begin(), ptx.tx.vin.end(), [&](const cryptonote::txin_v& s_e) -> bool
+    {
+      CHECKED_GET_SPECIFIC_VARIANT(s_e, const cryptonote::txin_to_key, in, false);
+      const auto map_it = std::find_if(signed_txs.tx_key_images.cbegin(), signed_txs.tx_key_images.cend(),
+        [in](const auto &pair) {
+          return pair.second == in.k_image;
+        });
+      CHECK_AND_ASSERT_THROW_MES(map_it != signed_txs.tx_key_images.cend(),
+        "parse_tx_from_str: key images map mismatch");
+      const auto vec_it = std::find_if(signed_txs.key_images.cbegin(), signed_txs.key_images.cend(),
+        [in](const auto &ki) {
+          return ki == in.k_image;
+        });
+      CHECK_AND_ASSERT_THROW_MES(vec_it != signed_txs.key_images.cend(),
+        "parse_tx_from_str: key images vec mismatch");
+      return true;
+    });
+  }
+
   // import key images
-  bool r = import_key_images(signed_txs.key_images);
+  bool r = this->import_key_images(signed_txs.key_images);
   if (!r) return false;
 
   // remember key images for this tx, for when we get those txes from the blockchain
@@ -14882,7 +14905,27 @@ std::string wallet2::make_uri(const std::string &address, const std::string &pay
   return uri;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error)
+bool wallet2::parse_uri(const std::string &uri,
+  std::string &address,
+  std::string &payment_id,
+  uint64_t &amount,
+  std::string &tx_description,
+  std::string &recipient_name,
+  std::vector<std::string> &unknown_parameters,
+  std::string &error)
+{
+  return wallet2::parse_uri_impl(uri,
+    this->nettype(),
+    address,
+    payment_id,
+    amount,
+    tx_description,
+    recipient_name,
+    unknown_parameters,
+    error);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::parse_uri_impl(const std::string &uri, const cryptonote::network_type nettype, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error)
 {
   if (uri.substr(0, 7) != "monero:")
   {
@@ -14895,7 +14938,7 @@ bool wallet2::parse_uri(const std::string &uri, std::string &address, std::strin
   address = ptr ? remainder.substr(0, ptr-remainder.c_str()) : remainder;
 
   cryptonote::address_parse_info info;
-  if(!get_account_address_from_str(info, nettype(), address))
+  if(!get_account_address_from_str(info, nettype, address))
   {
     error = std::string("URI has wrong address: ") + address;
     return false;
