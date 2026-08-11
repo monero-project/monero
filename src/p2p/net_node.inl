@@ -520,6 +520,18 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::clear_bans()
+  {
+    CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
+    const bool had_bans = !m_blocked_hosts.empty() || !m_blocked_subnets.empty();
+    m_blocked_hosts.clear();
+    m_blocked_subnets.clear();
+    if (had_bans)
+      MCLOG_CYAN(el::Level::Info, "global", "All bans cleared.");
+    return had_bans;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::add_host_fail(const epee::net_utils::network_address &address, unsigned int score)
   {
     if(!address.is_blockable())

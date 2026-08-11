@@ -240,8 +240,8 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "unban"
     , std::bind(&t_command_parser_executor::unban, &m_parser, p::_1)
-    , "unban <address>"
-    , "Unban a given <IP>."
+    , "unban <address>|all"
+    , "Unban a given <address>, or all banned addresses."
     );
     m_command_lookup.set_handler(
       "banned"
