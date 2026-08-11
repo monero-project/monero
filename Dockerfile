@@ -5,6 +5,7 @@ COPY --from=stagex/core-ca-certificates:sx2026.06.0@sha256:ea7076d1bb83693fa4766
 COPY --from=stagex/user-patch:sx2026.06.0@sha256:1d4428893f0ea9abfabc1fb5e365c5593fe10c6ed8ffc592d6528157a4299942 . /
 COPY --from=stagex/core-cmake:sx2026.06.0@sha256:626a3fdf157efacd00c3ceb0529ae80dde1072d64fa1925aafe9819bebc92047 . /
 COPY --from=stagex/core-ncurses:sx2026.06.0@sha256:90cc5d029c5073405f9db39c88b9509b8959bbd8f19d8cd02c20e9350cc40254 . /
+COPY --from=stagex/pallet-rust:sx2026.06.0@sha256:59d4d0c9e232a05ecb99348f7216b521af1b914a430059dbdb9130018f2afde1 . /
 
 ENV TARGET="x86_64-pc-linux-musl"
 WORKDIR /monero
