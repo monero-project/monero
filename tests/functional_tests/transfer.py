@@ -204,6 +204,13 @@ class TransferTest():
         assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
         assert e.double_spend_seen == False
         assert not 'confirmations' in e or e.confirmations == 0
+        assert e.change_amount > 0
+
+        res = self.wallet[0].get_transfer_by_txid(txid)
+        assert len(res.transfers) == 1
+        assert res.transfers[0] == res.transfer
+        assert res.transfer.type == 'pending'
+        assert res.transfer.change_amount == e.change_amount
 
         running_balances[0] -= fee
 
@@ -235,6 +242,7 @@ class TransferTest():
         assert e.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
         assert e.double_spend_seen == False
         assert e.confirmations == 1
+        assert e.change_amount > 0
 
         res = self.wallet[0].get_height()
         wallet_height = res.height
@@ -256,6 +264,7 @@ class TransferTest():
         assert t.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
         assert t.double_spend_seen == False
         assert t.confirmations == 1
+        assert t.change_amount == e.change_amount
 
         res = self.wallet[0].get_balance()
         assert res.balance == running_balances[0]
