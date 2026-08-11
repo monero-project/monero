@@ -153,11 +153,10 @@ static void reconstruct_payment_id(const std::string &extracted_payment_id,
         "reconstruct_payment_id: failed encrypting payment id");
 }
 //-------------------------------------------------------------------------------------------------------------------
-void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
-    const std::vector<wallet2_basic::transfer_details> &transfers,
-    const cryptonote::network_type nettype)
+void sanity_check_pending_tx(const wallet2::pending_tx &ptx, const wallet2 &wallet)
 {
     const auto &construct = ptx.construction_data;
+    const cryptonote::network_type nettype = wallet.nettype();
 
     // Extra
     crypto::public_key reconstruct_pubkey;
@@ -236,11 +235,8 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     for (size_t i = 0; i < ptx.tx.vin.size(); ++i)
     {
         const auto &selected_transfer = ptx.selected_transfers.at(i);
-        CHECK_AND_ASSERT_THROW_MES(selected_transfer < transfers.size(),
-            "sanity_check_pending_tx: invalid transfers index");
-
         const auto &src = construct.sources.at(i);
-        const auto &transfer = transfers.at(selected_transfer);
+        const auto &transfer = wallet.get_transfer_details(selected_transfer);
 
         if (src.rct)
         {

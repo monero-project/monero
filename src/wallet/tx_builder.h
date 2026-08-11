@@ -46,13 +46,8 @@ namespace wallet
 /**
  * brief: sanity_check_pending_tx - validate `pending_tx` consistency with itself and with with `transfer_details`
  * param: ptx - the pending_tx to validate
- * param: transfers - all enotes owned by the wallet that produced `ptx`; `ptx.selected_transfers` is expected to
- *        map into this vector
- * param: nettype - the network that the tx might be sent to (e.g. mainnet, stagenet, testnet); used to validated
- *        destination addresses
+ * param: wallet - the wallet against which to check the tx
  */
-void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
-    const std::vector<wallet2_basic::transfer_details> &transfers,
-    const cryptonote::network_type nettype);
+void sanity_check_pending_tx(const wallet2::pending_tx &ptx, const wallet2 &wallet);
 } //namespace wallet
 } //namespace tools
