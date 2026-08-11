@@ -562,7 +562,9 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
   if (increase_size > 0)
     new_mapsize = mei.me_mapsize + increase_size;
 
-  new_mapsize += (new_mapsize % mst.ms_psize);
+  const uint64_t remainder = new_mapsize % mst.ms_psize;
+  if (remainder)
+    new_mapsize += mst.ms_psize - remainder;
 
   mdb_txn_safe::prevent_new_txns();
 
