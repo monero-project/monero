@@ -111,7 +111,7 @@ public:
   template<class callback_t>
   int invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, const callback_t &cb, std::chrono::milliseconds timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
 
-  int send(epee::byte_slice message, const boost::uuids::uuid& connection_id);
+  bool send(epee::byte_slice message, const boost::uuids::uuid& connection_id);
   bool close(boost::uuids::uuid connection_id, const bool wait_for_shutdown);
   bool request_callback(boost::uuids::uuid connection_id);
   template<class callback_t>
@@ -640,15 +640,15 @@ public:
       `message_writer::finalize_notify`. See additional instructions for
       `make_fragmented_notify`.
 
-      \return 1 on success */
-  int send(byte_slice message)
+      \return true on success */
+  bool send(byte_slice message)
   {
     if (!send_message(std::move(message)))
     {
       LOG_ERROR_CC(m_connection_context, "Failed to send message, dropping it");
-      return -1;
+      return false;
     }
-    return 1;
+    return true;
   }
   //------------------------------------------------------------------------------------------
   boost::uuids::uuid get_connection_id() {return m_connection_context.m_connection_id;}
@@ -799,10 +799,10 @@ void async_protocol_handler_config<t_connection_context>::set_handler(levin_comm
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
-int async_protocol_handler_config<t_connection_context>::send(byte_slice message, const boost::uuids::uuid& connection_id)
+bool async_protocol_handler_config<t_connection_context>::send(byte_slice message, const boost::uuids::uuid& connection_id)
 {
   const std::shared_ptr<levin_endpoint> aph = find_and_lock_connection(connection_id);
-  return aph ? aph->m_protocol_handler.send(std::move(message)) : 0;
+  return aph ? aph->m_protocol_handler.send(std::move(message)) : false;
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
