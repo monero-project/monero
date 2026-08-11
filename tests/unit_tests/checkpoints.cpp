@@ -164,3 +164,21 @@ TEST(checkpoints_is_alternative_block_allowed, handles_two_and_more_checkpoints)
   ASSERT_TRUE (cp.is_alternative_block_allowed(11, 10));
   ASSERT_TRUE (cp.is_alternative_block_allowed(11, 11));
 }
+
+TEST(checkpoints_get_nearest_checkpoint_height, returns_nearest_checkpoint_below_height)
+{
+  checkpoints cp;
+
+  ASSERT_EQ(0, cp.get_nearest_checkpoint_height(7));
+
+  ASSERT_TRUE(cp.add_checkpoint(5, "0000000000000000000000000000000000000000000000000000000000000000"));
+  ASSERT_TRUE(cp.add_checkpoint(9, "0000000000000000000000000000000000000000000000000000000000000000"));
+
+  ASSERT_EQ(0, cp.get_nearest_checkpoint_height(0));
+  ASSERT_EQ(0, cp.get_nearest_checkpoint_height(4));
+  ASSERT_EQ(0, cp.get_nearest_checkpoint_height(5));
+  ASSERT_EQ(5, cp.get_nearest_checkpoint_height(6));
+  ASSERT_EQ(5, cp.get_nearest_checkpoint_height(9));
+  ASSERT_EQ(9, cp.get_nearest_checkpoint_height(10));
+  ASSERT_EQ(9, cp.get_nearest_checkpoint_height(11));
+}
