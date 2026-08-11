@@ -263,6 +263,8 @@ public:
     }
     virtual void reset_timer()
     {
+      if (m_command == connection_context::handshake_command())
+        return;
       boost::system::error_code ignored_ec;
       if (!m_cancel_timer_called && m_timer.cancel(ignored_ec) > 0)
       {
