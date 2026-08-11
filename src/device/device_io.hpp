@@ -41,7 +41,7 @@ namespace hw {
     public:
 
       device_io()   {};
-      ~device_io() {};
+      virtual ~device_io() = default;
 
       virtual void init()  = 0;
       virtual void release() = 0;
