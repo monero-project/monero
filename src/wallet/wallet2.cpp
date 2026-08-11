@@ -8073,7 +8073,7 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
     wallet::sanity_check_pending_tx(ptx, *this);
 
     // Key image consistency
-    std::all_of(ptx.tx.vin.begin(), ptx.tx.vin.end(), [&](const cryptonote::txin_v& s_e) -> bool
+    const bool _unused = std::all_of(ptx.tx.vin.begin(), ptx.tx.vin.end(), [&](const cryptonote::txin_v& s_e) -> bool
     {
       CHECKED_GET_SPECIFIC_VARIANT(s_e, const cryptonote::txin_to_key, in, false);
       const auto map_it = std::find_if(signed_txs.tx_key_images.cbegin(), signed_txs.tx_key_images.cend(),
@@ -8089,7 +8089,7 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
       CHECK_AND_ASSERT_THROW_MES(vec_it != signed_txs.key_images.cend(),
         "parse_tx_from_str: key images vec mismatch");
       return true;
-    });
+    }); _unused;
   }
 
   // import key images

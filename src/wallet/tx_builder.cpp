@@ -76,8 +76,8 @@ static void recontruct_tx_pubkeys(
     size_t num_stdaddresses = 0;
     size_t num_subaddresses = 0;
     cryptonote::account_public_address shared_key_base = cryptonote::account_public_address{
-        .m_view_public_key = crypto::get_G(),
         .m_spend_public_key = crypto::get_G(),
+        .m_view_public_key = crypto::get_G(),
     };
     cryptonote::classify_addresses(dests, change.addr, num_stdaddresses, num_subaddresses, shared_key_base);
     const bool need_additional_txkeys = num_subaddresses > 0 && (num_stdaddresses > 0 || num_subaddresses > 1);
