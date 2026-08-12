@@ -145,7 +145,7 @@ $(host_prefix)/.stamp_$(final_build_id): $(native_packages) $(packages)
 
 $(host_prefix)/share/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_$(final_build_id)
 	$(AT)@mkdir -p $(@D)
-	$(AT)sed -e 's|@HOST@|$(host)|' \
+	$(AT)sed -e 's|@host@|$(host)|' \
             -e 's|@CC@|$(host_CC)|' \
             -e 's|@CXX@|$(host_CXX)|' \
             -e 's|@AR@|$(toolchain_path)$(host_AR)|' \
