@@ -6871,19 +6871,22 @@ bool simple_wallet::sweep_main(uint32_t account, uint64_t below, const std::vect
   std::vector<std::string> local_args = args_;
 
   std::set<uint32_t> subaddr_indices;
-  if (local_args.size() > 0 && local_args[0].substr(0, 6) == "index=")
+  for (auto it = local_args.begin(); it != local_args.end(); ++it)
   {
-    if (local_args[0] == "index=all")
+    if (it->substr(0, 6) != "index=")
+      continue;
+    if (*it == "index=all")
     {
       for (uint32_t i = 0; i < m_wallet->get_num_subaddresses(account); ++i)
         subaddr_indices.insert(i);
     }
-    else if (!parse_subaddress_indices(local_args[0], subaddr_indices))
+    else if (!parse_subaddress_indices(*it, subaddr_indices))
     {
       print_usage();
       return true;
     }
-    local_args.erase(local_args.begin());
+    local_args.erase(it);
+    break;
   }
 
   fee_priority priority = fee_priority::Default;
