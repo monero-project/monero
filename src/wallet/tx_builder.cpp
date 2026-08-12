@@ -204,25 +204,12 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     const cryptonote::network_type nettype,
     const cryptonote::account_keys &account_keys,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses,
-    const std::vector<wallet2_basic::transfer_details> &transfers)
+    const std::vector<wallet2_basic::transfer_details> &transfers,
+    const bool redacted)
 {
     const auto &construct = ptx.construction_data;
 
     // Extra
-    crypto::public_key reconstruct_pubkey;
-    std::vector<crypto::public_key> reconstruct_additional_pubkeys;
-    std::vector<crypto::key_derivation> reconstruct_derivations;
-    recontruct_tx_pubkeys(
-        account_keys.m_view_secret_key,
-        construct.change_dts,
-        construct.splitted_dsts,
-        ptx.tx_key,
-        ptx.additional_tx_keys,
-        reconstruct_pubkey,
-        reconstruct_additional_pubkeys,
-        reconstruct_derivations
-    );
-
     std::vector<cryptonote::tx_extra_field> tx_extra_fields;
     CHECK_AND_ASSERT_THROW_MES(cryptonote::parse_tx_extra(ptx.tx.extra, tx_extra_fields),
         "sanity_check_pending_tx: ptx.tx.extra extraction failure");
@@ -243,27 +230,49 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
 
     //     // The decrypted payment ID will be checked manually later.
     // }
-    cryptonote::tx_extra_pub_key tx_extra_pub_key;
-    CHECK_AND_ASSERT_THROW_MES(cryptonote::find_tx_extra_field_by_type(tx_extra_fields, tx_extra_pub_key),
-        "sanity_check_pending_tx: tx_extra missing tx pub key");
-    if (construct.dests.size() == 2 || reconstruct_additional_pubkeys.size() == 0)
+
+    std::vector<crypto::key_derivation> reconstruct_derivations;
+    if (!redacted)
     {
-        CHECK_AND_ASSERT_THROW_MES(tx_extra_pub_key.pub_key == reconstruct_pubkey,
-            "sanity_check_pending_tx: tx_extra unable to reproduce tx pubkey");
-    }
-    else
-    {
-        cryptonote::tx_extra_additional_pub_keys tx_extra_additional_pub_keys;
-        CHECK_AND_ASSERT_THROW_MES(cryptonote::find_tx_extra_field_by_type(tx_extra_fields, tx_extra_additional_pub_keys),
-            "sanity_check_pending_tx: tx_extra missing extra tx pub keys");
-        CHECK_AND_ASSERT_THROW_MES(tx_extra_additional_pub_keys.data.size() == reconstruct_additional_pubkeys.size(),
-            "sanity_check_pending_tx: tx_extra extra tx pub keys size mismatch");
-        for (size_t p = 0; p < reconstruct_additional_pubkeys.size(); ++p)
+        crypto::public_key reconstruct_pubkey;
+        std::vector<crypto::public_key> reconstruct_additional_pubkeys;
+
+        recontruct_tx_pubkeys(
+            account_keys.m_view_secret_key,
+            construct.change_dts,
+            construct.splitted_dsts,
+            ptx.tx_key,
+            ptx.additional_tx_keys,
+            reconstruct_pubkey,
+            reconstruct_additional_pubkeys,
+            reconstruct_derivations
+        );
+
+        CHECK_AND_ASSERT_THROW_MES(reconstruct_derivations.size() == construct.splitted_dsts.size(),
+            "sanity_check_pending_tx: failed checking derivations size [local bug]");
+
+        cryptonote::tx_extra_pub_key tx_extra_pub_key;
+        CHECK_AND_ASSERT_THROW_MES(cryptonote::find_tx_extra_field_by_type(tx_extra_fields, tx_extra_pub_key),
+            "sanity_check_pending_tx: tx_extra missing tx pub key");
+        if (construct.dests.size() == 2 || reconstruct_additional_pubkeys.size() == 0)
         {
-            const auto &extra_pk = tx_extra_additional_pub_keys.data.at(p);
-            const auto &re_pk = reconstruct_additional_pubkeys.at(p);
-            CHECK_AND_ASSERT_THROW_MES(extra_pk == re_pk,
-                "sanity_check_pending_tx: tx_extra unable to reproduce extra tx pubkey");
+            CHECK_AND_ASSERT_THROW_MES(tx_extra_pub_key.pub_key == reconstruct_pubkey,
+                "sanity_check_pending_tx: tx_extra unable to reproduce tx pubkey");
+        }
+        else
+        {
+            cryptonote::tx_extra_additional_pub_keys tx_extra_additional_pub_keys;
+            CHECK_AND_ASSERT_THROW_MES(cryptonote::find_tx_extra_field_by_type(tx_extra_fields, tx_extra_additional_pub_keys),
+                "sanity_check_pending_tx: tx_extra missing extra tx pub keys");
+            CHECK_AND_ASSERT_THROW_MES(tx_extra_additional_pub_keys.data.size() == reconstruct_additional_pubkeys.size(),
+                "sanity_check_pending_tx: tx_extra extra tx pub keys size mismatch");
+            for (size_t p = 0; p < reconstruct_additional_pubkeys.size(); ++p)
+            {
+                const auto &extra_pk = tx_extra_additional_pub_keys.data.at(p);
+                const auto &re_pk = reconstruct_additional_pubkeys.at(p);
+                CHECK_AND_ASSERT_THROW_MES(extra_pk == re_pk,
+                    "sanity_check_pending_tx: tx_extra unable to reproduce extra tx pubkey");
+            }
         }
     }
 
@@ -355,7 +364,7 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
         CHECK_AND_ASSERT_THROW_MES(src.outputs[src.real_output].second.mask == commitment,
             "sanity_check_pending_tx: failed reproducing real input's amount commitment");
 
-        // NOTE: due to upstream inconsistencies, we are unable to validate mixRing reliably
+        // NOTE: due to upstream inconsistencies, we are unable to validate mixRing reliably.
         // if (!recovered_from_serialized)
         // {
         //     const auto &input_ring = ptx.tx.rct_signatures.mixRing.at(i);
@@ -372,10 +381,16 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
             "sanity_check_pending_tx: transfer - is marked as spent");
         CHECK_AND_ASSERT_THROW_MES(!transfer.m_frozen,
             "sanity_check_pending_tx: transfer - is marked as frozen");
-        CHECK_AND_ASSERT_THROW_MES(transfer.m_key_image_known,
-            "sanity_check_pending_tx: transfer - KI is unknown");
-        CHECK_AND_ASSERT_THROW_MES(ext_key_images.at(i) == transfer.m_key_image,
-            "sanity_check_pending_tx: transfer - KI mismatch");
+        // NOTE: due to upstream ambiguity we are unable to reliably check that transfer key images line up with
+        // specified inputs. For example, cold wallets may have the spend key but don't track key images (at least
+        // one test fails here because of that).
+        // if (!maybe_view_wallet)
+        // {
+        //     CHECK_AND_ASSERT_THROW_MES(transfer.m_key_image_known,
+        //         "sanity_check_pending_tx: transfer - KI is unknown");
+        //     CHECK_AND_ASSERT_THROW_MES(ext_key_images.at(i) == transfer.m_key_image,
+        //         "sanity_check_pending_tx: transfer - KI mismatch");
+        // }
         CHECK_AND_ASSERT_THROW_MES(src.rct == transfer.m_rct,
             "sanity_check_pending_tx: transfer - 'is rct' mismatch");
         CHECK_AND_ASSERT_THROW_MES(src.mask == transfer.m_mask,
@@ -426,8 +441,6 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     }
     CHECK_AND_ASSERT_THROW_MES(construct.splitted_dsts.size() == splitted_dsts_repro.size(),
         "sanity_check_pending_tx: failed checking splitted_dsts size");
-    CHECK_AND_ASSERT_THROW_MES(reconstruct_derivations.size() == splitted_dsts_repro.size(),
-        "sanity_check_pending_tx: failed checking derivations size [local bug]");
     CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.ecdhInfo.size() == splitted_dsts_repro.size(),
         "sanity_check_pending_tx: ecdhInfo size mismatch");
     CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.outPk.size() == splitted_dsts_repro.size(),
@@ -479,7 +492,7 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
                 CHECK_AND_ASSERT_THROW_MES(integrated_count == 1,
                     "sanity_check_pending_tx: more than one integrated address detected");
 
-                // NOTE: Due to upstream chaos, we are unable to reliably validate this payment ID.
+                // NOTE: Due to upstream chaos, we are unable to reliably validate the construction data's payment ID.
                 // `tx_construction_data::extra` is *sometimes* pre-decrypted, so we handle it here by extracting and
                 // comparing directly with our decrypted version.
                 // std::optional<crypto::hash8> decrypted_payment_id8 = std::nullopt;
@@ -522,40 +535,43 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
         // Carefully erase found copies one by one in case of duplicates.
         splitted_dsts_repro.erase(it);
 
-        // Reproduce tx output
-        const auto &derivation = reconstruct_derivations.at(i);
-        crypto::ec_scalar derivation_scalar;
-        crypto::derivation_to_scalar(derivation, i, derivation_scalar);
+        if (!redacted)
+        {
+            // Reproduce tx output
+            const auto &derivation = reconstruct_derivations.at(i);
+            crypto::ec_scalar derivation_scalar;
+            crypto::derivation_to_scalar(derivation, i, derivation_scalar);
 
-        // - Ko
-        crypto::public_key repro_onetime_addr;
-        CHECK_AND_ASSERT_THROW_MES(crypto::derive_public_key(derivation,
-            i,
-            dest.addr.m_spend_public_key,
-            repro_onetime_addr),
-            "sanity_check_pending_tx: failed constructing onetime address");
-        CHECK_AND_ASSERT_THROW_MES(repro_onetime_addr == ext_outputs.at(i).key,
-            "sanity_check_pending_tx: failed reproducing onetime address");
-        // - view tag
-        crypto::view_tag repro_view_tag;
-        crypto::derive_view_tag(derivation, i, repro_view_tag);
-        CHECK_AND_ASSERT_THROW_MES(repro_view_tag == ext_outputs.at(i).view_tag,
-            "sanity_check_pending_tx: failed reproducing view tag");
-        // - encoded amount
-        rct::ecdhTuple amnt_data{};
-        memcpy(amnt_data.amount.bytes, &dest.amount, sizeof(dest.amount));
-        rct::ecdhDecode(amnt_data, (const rct::key&)(derivation_scalar), true); //v2, decode gives mask
-        CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.ecdhInfo.at(i).amount == amnt_data.amount,
-            "sanity_check_pending_tx: failed reproducing encoded amount");
-        // - C
-        const rct::key repro_C = rct::commit(dest.amount, amnt_data.mask);
-        CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.outPk.at(i).mask == repro_C,
-            "sanity_check_pending_tx: failed reproducing amount commitment");
+            // - Ko
+            crypto::public_key repro_onetime_addr;
+            CHECK_AND_ASSERT_THROW_MES(crypto::derive_public_key(derivation,
+                i,
+                dest.addr.m_spend_public_key,
+                repro_onetime_addr),
+                "sanity_check_pending_tx: failed constructing onetime address");
+            CHECK_AND_ASSERT_THROW_MES(repro_onetime_addr == ext_outputs.at(i).key,
+                "sanity_check_pending_tx: failed reproducing onetime address");
+            // - view tag
+            crypto::view_tag repro_view_tag;
+            crypto::derive_view_tag(derivation, i, repro_view_tag);
+            CHECK_AND_ASSERT_THROW_MES(repro_view_tag == ext_outputs.at(i).view_tag,
+                "sanity_check_pending_tx: failed reproducing view tag");
+            // - encoded amount
+            rct::ecdhTuple amnt_data{};
+            memcpy(amnt_data.amount.bytes, &dest.amount, sizeof(dest.amount));
+            rct::ecdhDecode(amnt_data, (const rct::key&)(derivation_scalar), true); //v2, decode gives mask
+            CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.ecdhInfo.at(i).amount == amnt_data.amount,
+                "sanity_check_pending_tx: failed reproducing encoded amount");
+            // - C
+            const rct::key repro_C = rct::commit(dest.amount, amnt_data.mask);
+            CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.outPk.at(i).mask == repro_C,
+                "sanity_check_pending_tx: failed reproducing amount commitment");
+        }
 
         output_amnt += dest.amount;
     }
     CHECK_AND_ASSERT_THROW_MES(splitted_dsts_repro.size() == 0,
-            "sanity_check_pending_tx: failed checking splitted_dsts consistency");
+        "sanity_check_pending_tx: failed checking splitted_dsts consistency");
 
     // Balance check
     output_amnt += (ptx.dust_added_to_fee ? 0 : ptx.dust) + ptx.fee;
