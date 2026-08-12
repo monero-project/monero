@@ -80,7 +80,10 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "(SunOS|Solaris)")
   endif()
 else()
   set(RUST_PLATFORM "unknown-linux")
-  if(RUST_ARCH MATCHES "armv7")
+
+  if(CMAKE_CXX_COMPILER_TARGET MATCHES "musl")
+    set(RUST_TOOLCHAIN "-musl")
+  elseif(RUST_ARCH MATCHES "armv7")
     # Rust does support non-HF, yet Monero assumes HF for armv7
     set(RUST_TOOLCHAIN "-gnueabihf")
   else()
