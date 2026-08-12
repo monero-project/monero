@@ -50,20 +50,20 @@ namespace wallet
  * brief: sanity_check_pending_tx - validate `pending_tx` consistency with itself and with with `transfer_details`
  *        Assumes `ptx` version is >= v16.
  *        WARNING: Unable to verify destination addresses that are URLs and not explicit addresses.
+ *        WARNING: Due to upstream chaos, we are unable to reliably validate that `tx_construction_data::extra` matches
+ *        with `ptx.tx.tx_extra`.
+ *        NOTE: Due to upstream inconsistencies, we are unable to validate mixRing reliably (it is not serialized in
+ *        final txs).
  * param: ptx - the pending_tx to validate
  * param: nettype - the network that will receive the tx (e.g. mainnet/stressnet/testnet)
  * param: account_keys - the keys of the tx author (only the private view key and base address are needed)
  * param: subaddresses - the tx author's subaddress map
  * param: transfers - transfer_details from inside `wallet2` (required because `ptx` includes transfer references)
- * param: recovered_from_serialized - if `true` then:
- *        - ptx.construction_data.extra will contain decrypted payment ids
- *        - ptx.tx.rct_signatures.mixRing.size() == 0
  */
 void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     const cryptonote::network_type nettype,
     const cryptonote::account_keys &account_keys,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses,
-    const std::vector<wallet2_basic::transfer_details> &transfers,
-    const bool recovered_from_serialized);
+    const std::vector<wallet2_basic::transfer_details> &transfers);
 } //namespace wallet
 } //namespace tools

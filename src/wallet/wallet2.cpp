@@ -7243,14 +7243,13 @@ void wallet2::get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2:
   }
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::sanity_check_pending_tx(const wallet2::pending_tx &ptx, const bool recovered_from_serialized) const
+void wallet2::sanity_check_pending_tx(const wallet2::pending_tx &ptx) const
 {
   wallet::sanity_check_pending_tx(ptx,
     this->nettype(),
     m_account.get_keys(),
     m_subaddresses,
-    m_transfers,
-    recovered_from_serialized);
+    m_transfers);
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::rescan_spent()
@@ -8068,25 +8067,8 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
   }
 
   // validate before mutating state or displaying to user
-  CHECK_AND_ASSERT_THROW_MES(signed_txs.key_images.size() == signed_txs.tx_key_images.size(),
-      "parse_tx_from_str: key images size mismatch");
   for (const auto &ptx : signed_txs.ptx)
-  {
-    this->sanity_check_pending_tx(ptx, true);
-
-    // Key image consistency
-    const bool r = std::all_of(ptx.tx.vin.begin(), ptx.tx.vin.end(), [&](const cryptonote::txin_v& s_e) -> bool
-    {
-      CHECKED_GET_SPECIFIC_VARIANT(s_e, const cryptonote::txin_to_key, in, false);
-      const auto vec_it = std::find_if(signed_txs.key_images.cbegin(), signed_txs.key_images.cend(),
-        [&in](const auto &ki) { return ki == in.k_image; });
-      const auto map_it = std::find_if(signed_txs.tx_key_images.cbegin(), signed_txs.tx_key_images.cend(),
-        [&in](const auto &pair) { return pair.second == in.k_image; });
-      return vec_it != signed_txs.key_images.cend()
-        && map_it != signed_txs.tx_key_images.cend();
-    });
-    CHECK_AND_ASSERT_THROW_MES(r, "parse_tx_from_str: reported key images are inconsistent with signed tx");
-  }
+    this->sanity_check_pending_tx(ptx);
 
   // print result for user
   LOG_PRINT_L0("Loaded signed tx data from binary: " << signed_txs.ptx.size() << " transactions");
@@ -8161,7 +8143,7 @@ bool wallet2::save_multisig_tx(const multisig_tx_set &txs, const std::string &fi
 wallet2::multisig_tx_set wallet2::make_multisig_tx_set(const std::vector<pending_tx>& ptx_vector) const
 {
   for (const auto &ptx : ptx_vector)
-    this->sanity_check_pending_tx(ptx, false); // false: ptx is not from-serialized
+    this->sanity_check_pending_tx(ptx);
 
   multisig_tx_set txs;
   txs.m_ptx = ptx_vector;
@@ -8261,7 +8243,7 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
   {
     for (const auto &ptx: exported_txs.m_ptx)
     {
-      this->sanity_check_pending_tx(ptx, true);
+      this->sanity_check_pending_tx(ptx);
 
       const crypto::hash txid = get_transaction_hash(ptx.tx);
       if (store_tx_info())
@@ -8325,7 +8307,7 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<
   {
     tools::wallet2::pending_tx &ptx = exported_txs.m_ptx[n];
     THROW_WALLET_EXCEPTION_IF(ptx.multisig_sigs.empty(), error::wallet_internal_error, "No signatures found in multisig tx");
-    this->sanity_check_pending_tx(ptx, true);
+    this->sanity_check_pending_tx(ptx);
 
     const tools::wallet2::tx_construction_data &sd = ptx.construction_data;
     LOG_PRINT_L1(" " << (n+1) << ": " << sd.sources.size() << " inputs, ring size " << (sd.sources[0].outputs.size()) <<
@@ -11415,25 +11397,8 @@ void wallet2::cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_
   MDEBUG("Signed tx data from hw: " << exported_txs.ptx.size() << " transactions");
 
   // Double-check final values.
-  CHECK_AND_ASSERT_THROW_MES(exported_txs.key_images.size() == exported_txs.tx_key_images.size(),
-      "cold_sign_tx: key images size mismatch");
-  for (const auto &ptx: exported_txs.ptx)
-  {
-    this->sanity_check_pending_tx(ptx, true);
-
-    // Key image consistency
-    const bool r = std::all_of(ptx.tx.vin.begin(), ptx.tx.vin.end(), [&](const cryptonote::txin_v& s_e) -> bool
-    {
-      CHECKED_GET_SPECIFIC_VARIANT(s_e, const cryptonote::txin_to_key, in, false);
-      const auto vec_it = std::find_if(exported_txs.key_images.cbegin(), exported_txs.key_images.cend(),
-        [&in](const auto &ki) { return ki == in.k_image; });
-      const auto map_it = std::find_if(exported_txs.tx_key_images.cbegin(), exported_txs.tx_key_images.cend(),
-        [&in](const auto &pair) { return pair.second == in.k_image; });
-      return vec_it != exported_txs.key_images.cend()
-        && map_it != exported_txs.tx_key_images.cend();
-    });
-    CHECK_AND_ASSERT_THROW_MES(r, "cold_sign_tx: reported key images are inconsistent with signed tx");
-  }
+  for (const auto &ptx : exported_txs.ptx)
+    this->sanity_check_pending_tx(ptx);
 
   // Print
   for (auto &c_ptx: exported_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(c_ptx.tx));

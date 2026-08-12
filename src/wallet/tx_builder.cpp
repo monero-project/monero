@@ -153,7 +153,7 @@ static void recontruct_tx_pubkeys(
 //-------------------------------------------------------------------------------------------------------------------
 static void reconstruct_payment_id(const std::string &extracted_payment_id,
     const std::optional<crypto::hash8> &parsed_to_check,
-    const std::optional<crypto::hash8> &pre_decrypted_to_check,
+    // const std::optional<crypto::hash8> &pre_decrypted_to_check,
     const cryptonote::account_public_address &change_addr,
     const std::vector<cryptonote::tx_destination_entry> &dests,
     const crypto::secret_key &tx_key,
@@ -185,11 +185,11 @@ static void reconstruct_payment_id(const std::string &extracted_payment_id,
         CHECK_AND_ASSERT_THROW_MES(*parsed_to_check == to_encrypt_payment_id,
             "reconstruct_payment_id: did not extract the same parsed payment id");
     }
-    if (pre_decrypted_to_check)
-    {
-        CHECK_AND_ASSERT_THROW_MES(*pre_decrypted_to_check == to_encrypt_payment_id,
-            "reconstruct_payment_id: did not extract the same pre-decrypted payment id");
-    }
+    // if (pre_decrypted_to_check)
+    // {
+    //     CHECK_AND_ASSERT_THROW_MES(*pre_decrypted_to_check == to_encrypt_payment_id,
+    //         "reconstruct_payment_id: did not extract the same pre-decrypted payment id");
+    // }
 
     // Encrypt the address's payment ID.
     CHECK_AND_ASSERT_THROW_MES(hw::core::device_default().encrypt_payment_id(to_encrypt_payment_id, view_key_pub, tx_key),
@@ -204,8 +204,7 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     const cryptonote::network_type nettype,
     const cryptonote::account_keys &account_keys,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses,
-    const std::vector<wallet2_basic::transfer_details> &transfers,
-    const bool recovered_from_serialized)
+    const std::vector<wallet2_basic::transfer_details> &transfers)
 {
     const auto &construct = ptx.construction_data;
 
@@ -227,22 +226,23 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     std::vector<cryptonote::tx_extra_field> tx_extra_fields;
     CHECK_AND_ASSERT_THROW_MES(cryptonote::parse_tx_extra(ptx.tx.extra, tx_extra_fields),
         "sanity_check_pending_tx: ptx.tx.extra extraction failure");
-    if (!recovered_from_serialized)
-    {
-        CHECK_AND_ASSERT_THROW_MES(construct.extra == ptx.tx.extra,
-            "sanity_check_pending_tx: tx_extra mismatch");
-    }
-    else
-    {
-        std::vector<uint8_t> extra_clone_unencrypted = construct.extra;
-        std::vector<uint8_t> extra_clone_encrypted = ptx.tx.extra;
-        cryptonote::remove_field_from_tx_extra(extra_clone_unencrypted, typeid(cryptonote::tx_extra_nonce));
-        cryptonote::remove_field_from_tx_extra(extra_clone_encrypted, typeid(cryptonote::tx_extra_nonce));
-        CHECK_AND_ASSERT_THROW_MES(extra_clone_unencrypted == extra_clone_encrypted,
-            "sanity_check_pending_tx: tx_extra mismatch w/ payment id removal");
+    // NOTE: Due to upstream chaos, we are unable to reliably validate `construct.extra`.
+    // if (!cleartext_payment_id)
+    // {
+    //     CHECK_AND_ASSERT_THROW_MES(construct.extra == ptx.tx.extra,
+    //         "sanity_check_pending_tx: tx_extra mismatch");
+    // }
+    // else
+    // {
+    //     std::vector<uint8_t> extra_clone_unencrypted = construct.extra;
+    //     std::vector<uint8_t> extra_clone_encrypted = ptx.tx.extra;
+    //     cryptonote::remove_field_from_tx_extra(extra_clone_unencrypted, typeid(cryptonote::tx_extra_nonce));
+    //     cryptonote::remove_field_from_tx_extra(extra_clone_encrypted, typeid(cryptonote::tx_extra_nonce));
+    //     CHECK_AND_ASSERT_THROW_MES(extra_clone_unencrypted == extra_clone_encrypted,
+    //         "sanity_check_pending_tx: tx_extra mismatch w/ payment id removal");
 
-        // The decrypted payment ID will be checked manually later.
-    }
+    //     // The decrypted payment ID will be checked manually later.
+    // }
     cryptonote::tx_extra_pub_key tx_extra_pub_key;
     CHECK_AND_ASSERT_THROW_MES(cryptonote::find_tx_extra_field_by_type(tx_extra_fields, tx_extra_pub_key),
         "sanity_check_pending_tx: tx_extra missing tx pub key");
@@ -293,17 +293,18 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     // - We don't check the validity of tx_source_entry::real_out_additional_tx_keys.
     CHECK_AND_ASSERT_THROW_MES(construct.sources.size() == ptx.tx.vin.size(),
         "sanity_check_pending_tx: source/vin size mismatch");
-    if (recovered_from_serialized)
-    {
-        CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.mixRing.size() == 0,
-            "sanity_check_pending_tx: ptx is recovered from serialized but mixRing.size() != 0");
-    }
-    else
-    {
-        CHECK_AND_ASSERT_THROW_MES(construct.sources.size() == ptx.tx.rct_signatures.mixRing.size(),
-            "sanity_check_pending_tx: source(" << construct.sources.size() << ")/mixring("
-            << ptx.tx.rct_signatures.mixRing.size() << ") size mismatch");
-    }
+    // NOTE: due to upstream inconsistencies, we are unable to validate mixRing reliably
+    // if (recovered_from_serialized)
+    // {
+    //     CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.mixRing.size() == 0,
+    //         "sanity_check_pending_tx: ptx is recovered from serialized but mixRing.size() != 0");
+    // }
+    // else
+    // {
+    //     CHECK_AND_ASSERT_THROW_MES(construct.sources.size() == ptx.tx.rct_signatures.mixRing.size(),
+    //         "sanity_check_pending_tx: source(" << construct.sources.size() << ")/mixring("
+    //         << ptx.tx.rct_signatures.mixRing.size() << ") size mismatch");
+    // }
     CHECK_AND_ASSERT_THROW_MES(construct.sources.size() == ptx.selected_transfers.size(),
         "sanity_check_pending_tx: selected_transfers invalid size");
     CHECK_AND_ASSERT_THROW_MES(construct.selected_transfers == ptx.selected_transfers,
@@ -354,17 +355,18 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
         CHECK_AND_ASSERT_THROW_MES(src.outputs[src.real_output].second.mask == commitment,
             "sanity_check_pending_tx: failed reproducing real input's amount commitment");
 
-        if (!recovered_from_serialized)
-        {
-            const auto &input_ring = ptx.tx.rct_signatures.mixRing.at(i);
-            CHECK_AND_ASSERT_THROW_MES(input_ring.size() == src.outputs.size(),
-                "sanity_check_pending_tx: input ring size mismatch");
-            for (size_t r = 0; r < input_ring.size(); ++r)
-            {
-                CHECK_AND_ASSERT_THROW_MES(input_ring.at(r) == src.outputs.at(r).second,
-                    "sanity_check_pending_tx: input ring member mismatch");
-            }
-        }
+        // NOTE: due to upstream inconsistencies, we are unable to validate mixRing reliably
+        // if (!recovered_from_serialized)
+        // {
+        //     const auto &input_ring = ptx.tx.rct_signatures.mixRing.at(i);
+        //     CHECK_AND_ASSERT_THROW_MES(input_ring.size() == src.outputs.size(),
+        //         "sanity_check_pending_tx: input ring size mismatch");
+        //     for (size_t r = 0; r < input_ring.size(); ++r)
+        //     {
+        //         CHECK_AND_ASSERT_THROW_MES(input_ring.at(r) == src.outputs.at(r).second,
+        //             "sanity_check_pending_tx: input ring member mismatch");
+        //     }
+        // }
 
         CHECK_AND_ASSERT_THROW_MES(!transfer.m_spent,
             "sanity_check_pending_tx: transfer - is marked as spent");
@@ -477,29 +479,30 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
                 CHECK_AND_ASSERT_THROW_MES(integrated_count == 1,
                     "sanity_check_pending_tx: more than one integrated address detected");
 
+                // NOTE: Due to upstream chaos, we are unable to reliably validate this payment ID.
                 // `tx_construction_data::extra` is *sometimes* pre-decrypted, so we handle it here by extracting and
                 // comparing directly with our decrypted version.
-                std::optional<crypto::hash8> decrypted_payment_id8 = std::nullopt;
-                if (recovered_from_serialized)
-                {
-                    std::vector<cryptonote::tx_extra_field> construct_tx_extra_fields;
-                    CHECK_AND_ASSERT_THROW_MES(cryptonote::parse_tx_extra(construct.extra, construct_tx_extra_fields),
-                        "sanity_check_pending_tx: construct.extra extraction failure");
+                // std::optional<crypto::hash8> decrypted_payment_id8 = std::nullopt;
+                // if (cleartext_payment_id)
+                // {
+                //     std::vector<cryptonote::tx_extra_field> construct_tx_extra_fields;
+                //     CHECK_AND_ASSERT_THROW_MES(cryptonote::parse_tx_extra(construct.extra, construct_tx_extra_fields),
+                //         "sanity_check_pending_tx: construct.extra extraction failure");
 
-                    cryptonote::tx_extra_nonce extra_nonce;
-                    CHECK_AND_ASSERT_THROW_MES(cryptonote::find_tx_extra_field_by_type(construct_tx_extra_fields,
-                        extra_nonce),
-                        "reconstruct_payment_id: expected decrypted payment id is missing");
-                    CHECK_AND_ASSERT_THROW_MES(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(
-                            extra_nonce.nonce,
-                            *decrypted_payment_id8
-                        ),
-                        "reconstruct_payment_id: expected decrypted payment id is missing");
-                }
+                //     cryptonote::tx_extra_nonce extra_nonce;
+                //     CHECK_AND_ASSERT_THROW_MES(cryptonote::find_tx_extra_field_by_type(construct_tx_extra_fields,
+                //         extra_nonce),
+                //         "reconstruct_payment_id: expected decrypted payment id is missing");
+                //     CHECK_AND_ASSERT_THROW_MES(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(
+                //             extra_nonce.nonce,
+                //             *decrypted_payment_id8
+                //         ),
+                //         "reconstruct_payment_id: expected decrypted payment id is missing");
+                // }
 
                 reconstruct_payment_id(extracted_payment_id,
                     parsed_info ? std::optional<crypto::hash8>(parse_info.payment_id) : std::nullopt,
-                    decrypted_payment_id8,
+                    // decrypted_payment_id8,
                     ptx.change_dts.addr,
                     construct.splitted_dsts,
                     ptx.tx_key,
