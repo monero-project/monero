@@ -475,6 +475,24 @@ namespace net_utils
 		{
 			if (!m_connected || !m_ssl_socket->next_layer().is_open())
 				return false;
+
+			// peek for EOF on the idle socket, so a connection the peer already closed reconnects instead of failing its next request
+			boost::system::error_code ec;
+			m_ssl_socket->next_layer().non_blocking(true, ec);
+			if (!ec)
+			{
+				char buf;
+				const size_t bytes = m_ssl_socket->next_layer().receive(boost::asio::buffer(&buf, 1), boost::asio::ip::tcp::socket::message_peek, ec);
+				boost::system::error_code ec_restore;
+				m_ssl_socket->next_layer().non_blocking(false, ec_restore);
+				if (bytes == 0 && ec != boost::asio::error::would_block)
+				{
+					MDEBUG("Peer closed idle connection, marking disconnected");
+					m_connected = false;
+					return false;
+				}
+			}
+
 			if (ssl)
 				*ssl = m_ssl_options.support != ssl_support_t::e_ssl_support_disabled;
 			return true;
