@@ -914,6 +914,7 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::r
   INSERT_INTO_JSON_OBJECT(dest, max_used_block_hash, tx.max_used_block_hash);
   INSERT_INTO_JSON_OBJECT(dest, max_used_block_height, tx.max_used_block_height);
   INSERT_INTO_JSON_OBJECT(dest, kept_by_block, tx.kept_by_block);
+  INSERT_INTO_JSON_OBJECT(dest, received_via_rpc, tx.received_via_rpc);
   INSERT_INTO_JSON_OBJECT(dest, last_failed_block_hash, tx.last_failed_block_hash);
   INSERT_INTO_JSON_OBJECT(dest, last_failed_block_height, tx.last_failed_block_height);
   INSERT_INTO_JSON_OBJECT(dest, receive_time, tx.receive_time);
@@ -940,6 +941,7 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::rpc::tx_in_pool& tx)
   GET_FROM_JSON_OBJECT(val, tx.max_used_block_hash, max_used_block_hash);
   GET_FROM_JSON_OBJECT(val, tx.max_used_block_height, max_used_block_height);
   GET_FROM_JSON_OBJECT(val, tx.kept_by_block, kept_by_block);
+  GET_FROM_JSON_OBJECT(val, tx.received_via_rpc, received_via_rpc);
   GET_FROM_JSON_OBJECT(val, tx.last_failed_block_hash, last_failed_block_hash);
   GET_FROM_JSON_OBJECT(val, tx.last_failed_block_height, last_failed_block_height);
   GET_FROM_JSON_OBJECT(val, tx.receive_time, receive_time);

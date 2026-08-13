@@ -95,6 +95,7 @@ namespace rpc
     crypto::hash max_used_block_hash;
     uint64_t max_used_block_height;
     bool kept_by_block;
+    bool received_via_rpc;
     crypto::hash last_failed_block_hash;
     uint64_t last_failed_block_height;
     uint64_t receive_time;

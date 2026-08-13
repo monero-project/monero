@@ -138,7 +138,7 @@ namespace cryptonote
     const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight,
     tx_verification_context& tvc, relay_method tx_relay, bool relayed,
     uint8_t version, uint8_t nic_verified_hf_version,
-    const crypto::hash &valid_input_verification_id)
+    const crypto::hash &valid_input_verification_id, bool received_via_rpc)
   {
     const bool kept_by_block = (tx_relay == relay_method::block);
 
@@ -171,7 +171,7 @@ namespace cryptonote
       // get_tx_fee() can throw. It shouldn't throw because we check preconditions in
       // ver_non_input_consensus(), but let's put it in a try block just in case.
       fee = get_tx_fee(tx);
-      fee_good = kept_by_block || m_blockchain.check_fee(tx_weight, fee);
+      fee_good = kept_by_block || (received_via_rpc && tx_relay == relay_method::none) || m_blockchain.check_fee(tx_weight, fee);
     }
     catch(...) {}
     if (!fee_good) // if fee calculation failed or fee in relayed tx is too low...
@@ -244,6 +244,7 @@ namespace cryptonote
         meta.last_relayed_time = time(NULL);
         meta.relayed = relayed;
         meta.set_relay_method(tx_relay);
+        meta.received_via_rpc = received_via_rpc;
         meta.double_spend_seen = have_tx_keyimges_as_spent(tx, id);
         meta.pruned = tx.pruned;
         meta.bf_padding = 0;
@@ -320,6 +321,7 @@ namespace cryptonote
           meta.last_failed_height = 0;
           meta.last_failed_id = null_hash;
           meta.relayed = relayed;
+          meta.received_via_rpc = received_via_rpc;
           meta.double_spend_seen = false;
           meta.pruned = tx.pruned;
           meta.bf_padding = 0;
@@ -361,7 +363,7 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay,
     bool relayed, uint8_t version, uint8_t nic_verified_hf_version,
-    const crypto::hash &valid_input_verification_id)
+    const crypto::hash &valid_input_verification_id, bool received_via_rpc)
   {
     crypto::hash h = null_hash;
     cryptonote::blobdata bl;
@@ -369,7 +371,7 @@ namespace cryptonote
     if (bl.size() == 0 || !get_transaction_hash(tx, h))
       return false;
     return add_tx(tx, h, bl, get_transaction_weight(tx, bl.size()), tvc, tx_relay, relayed, version,
-      nic_verified_hf_version, valid_input_verification_id);
+      nic_verified_hf_version, valid_input_verification_id, received_via_rpc);
   }
   //---------------------------------------------------------------------------------
   void tx_memory_pool::reduce_txpool_weight(size_t weight)
@@ -1308,6 +1310,7 @@ namespace cryptonote
       txi.weight = meta.weight;
       txi.fee = meta.fee;
       txi.kept_by_block = meta.kept_by_block;
+      txi.received_via_rpc = meta.received_via_rpc;
       txi.max_used_block_height = meta.max_used_block_height;
       txi.max_used_block_hash = meta.max_used_block_id;
       txi.last_failed_block_height = meta.last_failed_height;
@@ -1801,7 +1804,7 @@ namespace cryptonote
         cryptonote::tx_verification_context tvc{};
         relay_method tx_relay = e.meta.get_relay_method();
         if (!add_tx(tx, e.txid, blob, e.meta.weight, tvc, tx_relay, relayed, version,
-          /*nic_verified_hf_version=*/0, valid_input_verification_id))
+          /*nic_verified_hf_version=*/0, valid_input_verification_id, e.meta.received_via_rpc))
         {
           MINFO("Failed to re-validate tx " << e.txid << " for v" << (unsigned)version << ", dropped");
           continue;

@@ -170,7 +170,8 @@ struct txpool_tx_meta_t
   uint8_t is_local: 1;
   uint8_t dandelionpp_stem : 1;
   uint8_t is_forwarding: 1;
-  uint8_t bf_padding: 3;
+  uint8_t received_via_rpc: 1;
+  uint8_t bf_padding: 2;
 
   uint8_t padding[44]; // til 160 bytes
 

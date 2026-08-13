@@ -71,6 +71,33 @@ struct txpool_spend_key_all : txpool_base
   bool generate(std::vector<test_event_entry>& events);
 };
 
+struct txpool_zero_fee : txpool_base
+{
+  txpool_zero_fee();
+
+  bool generate(std::vector<test_event_entry>& events) const;
+  bool mark_invalid_tx(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
+  bool check_tx(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
+  bool check_tx_verification_context(const cryptonote::tx_verification_context& tvc, bool tx_added,
+    size_t event_idx, const cryptonote::transaction& tx);
+
+private:
+  size_t m_invalid_tx_index;
+};
+
+template<>
+struct get_test_options<txpool_zero_fee>
+{
+  const std::pair<uint8_t, uint64_t> hard_forks[5] = {
+    {1, 0},
+    {2, 1},
+    {HF_VERSION_DYNAMIC_FEE, CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW + 2},
+    {HF_VERSION_DYNAMIC_FEE + 1, CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW + 4},
+    {0, 0}
+  };
+  const cryptonote::test_options test_options = {hard_forks, 0};
+};
+
 class txpool_double_spend_base : public txpool_base
 {
   std::unordered_set<crypto::hash> m_broadcasted_hashes;
