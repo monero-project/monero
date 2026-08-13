@@ -281,6 +281,7 @@ class TransferTest():
         running_balances[0] -= 1000000000000 + fee
 
         res = daemon.send_raw_transaction(tx_blob)
+        assert res.tx_hash == txid
         assert res.not_relayed == False
         assert res.low_mixin == False
         assert res.double_spend == False
