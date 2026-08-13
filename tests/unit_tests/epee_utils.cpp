@@ -1221,6 +1221,9 @@ TEST(HexLocale, String)
     hex.assign("00:ff 0f:f0");
     EXPECT_EQ(source, epee::from_hex_locale::to_vector(hex));
 
+    hex.assign("0:0 f f 0:f f:0");
+    EXPECT_EQ(source, epee::from_hex_locale::to_vector(hex));
+
     hex.append("f0");
     EXPECT_EQ(source, epee::from_hex_locale::to_vector(boost::string_ref{hex.data(), hex.size() - 2}));
 }
