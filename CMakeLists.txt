@@ -369,7 +369,7 @@ set(LOONGARCH64 1)
 endif()
 
 if(WIN32 OR ARM OR PPC64LE OR PPC64 OR PPC)
-  set(OPT_FLAGS_RELEASE "-O2")
+  set(OPT_FLAGS_RELEASE "-O3")
 else()
   set(OPT_FLAGS_RELEASE "-O3 -ffast-math -fno-semantic-interposition") # not present: -fallow-store-data-races
 endif()
