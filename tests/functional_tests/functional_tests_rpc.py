@@ -27,7 +27,7 @@ try:
   sys.argv[4]
 except:
   print(USAGE)
-  print('Available tests: ' + string.join(DEFAULT_TESTS, ', '))
+  print('Available tests: ' + ', '.join(DEFAULT_TESTS))
   print('Or run all with "all"')
   sys.exit(0)
 
