@@ -1132,7 +1132,12 @@ namespace trezor{
 
     int transferred = 0;
     int r = libusb_interrupt_transfer(m_usb_device_handle, endpoint, (unsigned char*)buff, (int)size, &transferred, 0);
-    CHECK_AND_ASSERT_THROW_MES(r == 0, "Unable to transfer, r: " << r);
+    if (r != 0){
+      if (r == LIBUSB_ERROR_NO_DEVICE){
+        throw exc::NotConnectedException("Trezor was disconnected");
+      }
+      throw exc::CommunicationException(std::string("Unable to write to Trezor: ") + libusb_error_name(r));
+    }
     if (transferred != (int)size){
       throw exc::CommunicationException("Could not transfer chunk");
     }
@@ -1145,7 +1150,12 @@ namespace trezor{
 
     int transferred = 0;
     int r = libusb_interrupt_transfer(m_usb_device_handle, endpoint, (unsigned char*)buff, (int)size, &transferred, 0);
-    CHECK_AND_ASSERT_THROW_MES(r == 0, "Unable to transfer, r: " << r);
+    if (r != 0){
+      if (r == LIBUSB_ERROR_NO_DEVICE){
+        throw exc::NotConnectedException("Trezor was disconnected");
+      }
+      throw exc::CommunicationException(std::string("Unable to read from Trezor: ") + libusb_error_name(r));
+    }
     if (transferred != (int)size){
       throw exc::CommunicationException("Could not read the chunk");
     }
