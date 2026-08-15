@@ -1161,6 +1161,7 @@ bool simple_wallet::make_multisig_main(const std::vector<std::string> &args, boo
     fail_msg_writer() << tr("wallet is watch-only and cannot be made multisig");
     return false;
   }
+  CHECK_IF_BACKGROUND_SYNCING("cannot be made multisig");
 
   if(m_wallet->get_num_transfer_details())
   {
@@ -1262,6 +1263,7 @@ bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &
       fail_msg_writer() << tr("This wallet is already finalized");
       return false;
     }
+    CHECK_IF_BACKGROUND_SYNCING("cannot exchange multisig keys");
 
     const auto orig_pwd_container = get_and_verify_password();
     if(orig_pwd_container == boost::none)
@@ -1269,6 +1271,8 @@ bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &
       fail_msg_writer() << tr("Your original password was incorrect.");
       return false;
     }
+
+    LOCK_IDLE_SCOPE();
 
     try
     {
@@ -1324,6 +1328,7 @@ bool simple_wallet::export_multisig_main(const std::vector<std::string> &args, b
     fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return false;
   }
+  CHECK_IF_BACKGROUND_SYNCING("cannot export multisig info");
   if (args.size() != 1)
   {
     PRINT_USAGE(USAGE_EXPORT_MULTISIG_INFO);
@@ -1392,6 +1397,7 @@ bool simple_wallet::import_multisig_main(const std::vector<std::string> &args, b
     fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return false;
   }
+  CHECK_IF_BACKGROUND_SYNCING("cannot import multisig info");
   if (args.size() + 1 < ms_status.threshold)
   {
     PRINT_USAGE(USAGE_IMPORT_MULTISIG_INFO);
@@ -1489,6 +1495,7 @@ bool simple_wallet::sign_multisig_main(const std::vector<std::string> &args, boo
     fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return false;
   }
+  CHECK_IF_BACKGROUND_SYNCING("cannot sign multisig transaction");
   if (args.size() != 1)
   {
     PRINT_USAGE(USAGE_SIGN_MULTISIG);
@@ -1605,6 +1612,7 @@ bool simple_wallet::submit_multisig_main(const std::vector<std::string> &args, b
     fail_msg_writer() << tr("This multisig wallet is not yet finalized");
     return false;
   }
+  CHECK_IF_BACKGROUND_SYNCING("cannot submit multisig transaction");
   if (args.size() != 1)
   {
     PRINT_USAGE(USAGE_SUBMIT_MULTISIG);
