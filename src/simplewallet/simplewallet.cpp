@@ -4323,13 +4323,13 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         {
           m_restore_height = m_wallet->get_blockchain_height_by_date(year, month, day);
           success_msg_writer() << tr("Restore height is: ") << m_restore_height;
+          m_wallet->explicit_refresh_from_block_height(true);
         }
         catch (const std::runtime_error& e)
         {
-          fail_msg_writer() << e.what();
-          return false;
+          message_writer(console_color_yellow, true) << tr("Could not connect to daemon to convert --restore-date into a restore height: ") << e.what();
+          message_writer(console_color_yellow, true) << tr("Restore height is: ") << m_restore_height;
         }
-        m_wallet->explicit_refresh_from_block_height(true);
       }
     }
     else
