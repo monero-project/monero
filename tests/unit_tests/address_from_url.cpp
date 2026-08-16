@@ -116,3 +116,19 @@ TEST(AddressFromURL, Failure)
 
   ASSERT_EQ(0, addresses.size());
 }
+
+TEST(AddressFromURL, Disabled)
+{
+  cryptonote::address_parse_info info;
+  tools::wallet2 wallet;
+  wallet.enable_dns(false);
+
+  EXPECT_TRUE(cryptonote::get_account_address_from_str_or_url(
+      info, cryptonote::MAINNET, MONERO_DONATION_ADDR, wallet.is_dns_enabled()));
+  EXPECT_FALSE(cryptonote::get_account_address_from_str_or_url(
+      info, cryptonote::MAINNET, "donate.getmonero.org", wallet.is_dns_enabled()));
+
+  wallet.enable_dns(true);
+  wallet.set_offline();
+  EXPECT_FALSE(wallet.is_dns_enabled());
+}
