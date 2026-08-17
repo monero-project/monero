@@ -65,9 +65,6 @@ using namespace epee;
 
 #define OUTPUT_HISTOGRAM_RECENT_CUTOFF_RESTRICTION (3 * 86400) // 3 days max, the wallet requests 1.8 days
 
-#define DEFAULT_PAYMENT_DIFFICULTY 1000
-#define DEFAULT_PAYMENT_CREDITS_PER_HASH 100
-
 #define RESTRICTED_BLOCK_HEADER_RANGE 1000
 #define RESTRICTED_TRANSACTIONS_COUNT 100
 #define RESTRICTED_SPENT_KEY_IMAGES_COUNT 5000
@@ -75,51 +72,10 @@ using namespace epee;
 
 static constexpr size_t GET_BLOCKS_BIN_MAX_ADDED_POOL_TX_BODIES = 20000;
 
-#define RPC_TRACKER(rpc) \
-  PERF_TIMER(rpc); \
-  RPCTracker tracker(#rpc, PERF_TIMER_NAME(rpc))
+#define RPC_TRACKER(rpc) PERF_TIMER(rpc)
 
 namespace
 {
-  class RPCTracker
-  {
-  public:
-    struct entry_t
-    {
-      uint64_t count;
-      uint64_t time;
-      uint64_t credits;
-    };
-
-    RPCTracker(const char *rpc, tools::LoggingPerformanceTimer &timer): rpc(rpc), timer(timer) {
-    }
-    ~RPCTracker() {
-      try
-      {
-        boost::unique_lock<boost::mutex> lock(mutex);
-        auto &e = tracker[rpc];
-        ++e.count;
-        e.time += timer.value();
-      }
-      catch (...) { /* ignore */ }
-    }
-    void pay(uint64_t amount) {
-      boost::unique_lock<boost::mutex> lock(mutex);
-      auto &e = tracker[rpc];
-      e.credits += amount;
-    }
-    const std::string &rpc_name() const { return rpc; }
-    static void clear() { boost::unique_lock<boost::mutex> lock(mutex); tracker.clear(); }
-    static std::unordered_map<std::string, entry_t> data() { boost::unique_lock<boost::mutex> lock(mutex); return tracker; }
-  private:
-    std::string rpc;
-    tools::LoggingPerformanceTimer &timer;
-    static boost::mutex mutex;
-    static std::unordered_map<std::string, entry_t> tracker;
-  };
-  boost::mutex RPCTracker::mutex;
-  std::unordered_map<std::string, RPCTracker::entry_t> RPCTracker::tracker;
-
   void add_reason(std::string &reasons, const char *reason)
   {
     if (!reasons.empty())

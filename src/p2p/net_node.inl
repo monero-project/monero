@@ -2389,7 +2389,7 @@ namespace nodetool
     else
       node_data.my_port = 0;
     node_data.rpc_port = zone.m_can_pingback ? m_rpc_port : 0;
-    node_data.rpc_credits_per_hash = zone.m_can_pingback ? m_rpc_credits_per_hash : 0;
+    node_data.rpc_credits_per_hash = 0;
     node_data.network_id = m_network_id;
     node_data.support_flags = zone.m_config.m_support_flags;
     return true;
