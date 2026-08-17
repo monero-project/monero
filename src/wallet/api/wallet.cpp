@@ -2514,7 +2514,7 @@ void WalletImpl::pendingTxPostProcess(PendingTransactionImpl * pending)
   }
 
   for (const auto &ptx : pending->m_pending_tx)
-    m_wallet->sanity_check_pending_tx(ptx, false);
+    m_wallet->sanity_check_pending_tx(ptx, false, false);
 
   tools::wallet2::signed_tx_set exported_txs;
   std::vector<cryptonote::address_parse_info> dsts_info;

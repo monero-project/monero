@@ -54,8 +54,6 @@ namespace wallet
  *        with `ptx.tx.tx_extra`.
  *        NOTE: Due to upstream inconsistencies, we are unable to validate mixRing reliably (it is not serialized in
  *        final txs).
- *        NOTE: Due to upstream ambiguity, we are unable to reliably check if input key images are the same as key
- *        images in `transfers`.
  * param: ptx - the pending_tx to validate
  * param: nettype - the network that will receive the tx (e.g. mainnet/stressnet/testnet)
  * param: account_keys - the keys of the tx author (only the private view key and base address are needed)
@@ -63,12 +61,14 @@ namespace wallet
  * param: transfers - transfer_details from inside `wallet2` (required because `ptx` includes transfer references)
  * param: redacted - if `true` then:
  *        - We assume `ptx.tx_key` and `ptx.additional_tx_keys` are nullified.
+ * param: expect_imported_key_images - if `true` then we can verify key images line up to wallets' imported key images
  */
 void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     const cryptonote::network_type nettype,
     const cryptonote::account_keys &account_keys,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses,
     const std::vector<wallet2_basic::transfer_details> &transfers,
-    const bool redacted);
+    const bool redacted,
+    const bool expect_imported_key_images);
 } //namespace wallet
 } //namespace tools
