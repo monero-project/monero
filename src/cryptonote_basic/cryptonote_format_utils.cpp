@@ -463,7 +463,7 @@ namespace cryptonote
   {
     CHECK_AND_ASSERT_MES(tx.pruned, std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support non pruned txes");
     CHECK_AND_ASSERT_MES(tx.version >= 2, std::numeric_limits<uint64_t>::max(), "get_pruned_transaction_weight does not support v1 txes");
-    CHECK_AND_ASSERT_MES(tx.rct_signatures.type == rct::RCTTypeBulletproof2 || tx.rct_signatures.type == rct::RCTTypeCLSAG || tx.rct_signatures.type == rct::RCTTypeBulletproofPlus,
+    CHECK_AND_ASSERT_MES(tx.rct_signatures.type >= rct::RCTTypeFull && tx.rct_signatures.type <= rct::RCTTypeBulletproofPlus,
         std::numeric_limits<uint64_t>::max(), "Unsupported rct_signatures type in get_pruned_transaction_weight");
     CHECK_AND_ASSERT_MES(!tx.vin.empty(), std::numeric_limits<uint64_t>::max(), "empty vin");
     CHECK_AND_ASSERT_MES(tx.vin[0].type() == typeid(cryptonote::txin_to_key), std::numeric_limits<uint64_t>::max(), "empty vin");
@@ -474,33 +474,48 @@ namespace cryptonote
     ::serialization::serialize(a, const_cast<transaction&>(tx));
     uint64_t weight = s.str().size(), extra;
 
-    // nbps (technically varint)
-    weight += 1;
+    size_t n_padded_outputs = 0;
+    if (rct::is_rct_borromean(tx.rct_signatures.type))
+    {
+      // calculate deterministic Borromean range proof size
+      extra = sizeof(rct::rangeSig) * tx.vout.size();
+      weight += extra;
+    }
+    else
+    {
+      // nbps (fixed width for the first BP type, varint afterwards)
+      weight += tx.rct_signatures.type == rct::RCTTypeBulletproof ? sizeof(uint32_t) : 1;
 
-    // calculate deterministic bulletproofs size (assumes canonical BP format)
-    size_t nrl = 0, n_padded_outputs;
-    while ((n_padded_outputs = (1u << nrl)) < tx.vout.size())
-      ++nrl;
-    nrl += 6;
-    extra = 32 * ((rct::is_rct_bulletproof_plus(tx.rct_signatures.type) ? 6 : 9) + 2 * nrl) + 2;
-    weight += extra;
+      // calculate deterministic bulletproofs size (assumes canonical BP format)
+      size_t nrl = 0;
+      while ((n_padded_outputs = (1u << nrl)) < tx.vout.size())
+        ++nrl;
+      nrl += 6;
+      extra = 32 * ((rct::is_rct_bulletproof_plus(tx.rct_signatures.type) ? 6 : 9) + 2 * nrl) + 2;
+      weight += extra;
+    }
 
     // calculate deterministic CLSAG/MLSAG data size
     const size_t ring_size = boost::get<cryptonote::txin_to_key>(tx.vin[0]).key_offsets.size();
-    if (rct::is_rct_clsag(tx.rct_signatures.type))
+    if (tx.rct_signatures.type == rct::RCTTypeFull)
+      extra = ring_size * (tx.vin.size() + 1) * 32 + 32 /* cc */;
+    else if (rct::is_rct_clsag(tx.rct_signatures.type))
       extra = tx.vin.size() * (ring_size + 2) * 32;
     else
       extra = tx.vin.size() * (ring_size * (1 + 1) * 32 + 32 /* cc */);
     weight += extra;
 
-    // calculate deterministic pseudoOuts size
-    extra =  32 * (tx.vin.size());
-    weight += extra;
+    if (!rct::is_rct_borromean(tx.rct_signatures.type))
+    {
+      // calculate deterministic pseudoOuts size
+      extra = 32 * tx.vin.size();
+      weight += extra;
 
-    // clawback
-    uint64_t bp_clawback = get_transaction_weight_clawback(tx, n_padded_outputs);
-    CHECK_AND_ASSERT_THROW_MES_L1(bp_clawback <= std::numeric_limits<uint64_t>::max() - weight, "Weight overflow");
-    weight += bp_clawback;
+      // clawback
+      uint64_t bp_clawback = get_transaction_weight_clawback(tx, n_padded_outputs);
+      CHECK_AND_ASSERT_THROW_MES_L1(bp_clawback <= std::numeric_limits<uint64_t>::max() - weight, "Weight overflow");
+      weight += bp_clawback;
+    }
 
     return weight;
   }
