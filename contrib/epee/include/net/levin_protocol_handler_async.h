@@ -269,6 +269,8 @@ public:
     }
     virtual bool reset_timer(bool first) override final
     {
+      if (m_command == connection_context::handshake_command() && !first)
+        return true;
       std::shared_ptr<anvoke_handler> self;
       if (!m_cancel_timer_called && (self = this->weak_from_this().lock()) && (first || m_timer.cancel() > 0))
       {
