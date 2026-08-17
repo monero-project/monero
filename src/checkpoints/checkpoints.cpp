@@ -163,7 +163,7 @@ namespace cryptonote
     if (m_points.empty())
       return 0;
 
-    auto it = m_points.upper_bound(block_height);
+    auto it = m_points.lower_bound(block_height);
     if (it == m_points.begin())
       return 0;
 
