@@ -168,6 +168,7 @@ class ColdSigningTest():
         assert desc.change_amount == desc.amount_in - 1000000000000 - fee
         assert desc.change_address == STANDARD_ADDRESS
         assert desc.fee == fee
+        assert 'weight' not in desc
         assert len(desc.recipients) == 1
         rec = desc.recipients[0]
         assert rec.address == destination_addr

@@ -365,6 +365,7 @@ class MultisigTest():
         amount = res.amount
         assert res.fee > 0
         fee = res.fee
+        weight = res.weight
         assert len(res.tx_blob) == 0
         assert len(res.tx_metadata) == 0
         assert len(res.multisig_txset) > 0
@@ -388,6 +389,7 @@ class MultisigTest():
           assert desc.change_amount == desc.amount_in - 1000000000000 - fee
           assert desc.change_address == self.wallet_address
           assert desc.fee == fee
+          assert desc.weight == weight
           assert len(desc.recipients) == 1
           rec = desc.recipients[0]
           assert rec.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
@@ -403,6 +405,10 @@ class MultisigTest():
             try: self.wallet[signers[-1]].submit_multisig(multisig_txset)
             except: ok = True
             assert ok
+
+        res = self.wallet[signers[-1]].describe_transfer(multisig_txset = multisig_txset)
+        assert len(res.desc) == 1
+        assert res.desc[0].weight == weight
 
         print('Submitting multisig transaction with wallet ' + str(signers[-1]))
         res = self.wallet[signers[-1]].submit_multisig(multisig_txset)
@@ -461,6 +467,7 @@ class MultisigTest():
         amount = res.amount
         assert res.fee > 0
         fee = res.fee
+        weight = res.weight
         assert len(res.tx_blob) == 0
         assert len(res.tx_metadata) == 0
         assert len(res.multisig_txset) > 0
@@ -513,6 +520,7 @@ class MultisigTest():
           assert desc.change_amount == desc.amount_in - 1000000000000 - fee
           assert desc.change_address == self.wallet_address
           assert desc.fee == fee
+          assert desc.weight == weight
           assert len(desc.recipients) == 1
           rec = desc.recipients[0]
           assert rec.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
