@@ -2375,6 +2375,12 @@ namespace cryptonote
     {
       epee::net_utils::network_address na;
 
+      if (!i->ban && i->host == "all")
+      {
+        m_p2p.clear_bans();
+        continue;
+      }
+
       // try subnet first
       if (!i->host.empty())
       {

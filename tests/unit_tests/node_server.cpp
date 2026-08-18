@@ -491,6 +491,22 @@ TEST(ban, limit)
   ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
 }
 
+TEST(ban, clear)
+{
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  ASSERT_FALSE(server.clear_bans());
+  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(5,6,7,0,24)));
+  ASSERT_TRUE(server.clear_bans());
+  ASSERT_TRUE(server.get_blocked_hosts().empty());
+  ASSERT_TRUE(server.get_blocked_subnets().empty());
+  ASSERT_FALSE(server.clear_bans());
+}
+
 TEST(ban, subnet)
 {
   time_t seconds;
