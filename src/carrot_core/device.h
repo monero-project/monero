@@ -1,4 +1,4 @@
-// Copyright (c) 2024, The Monero Project
+// Copyright (c) 2024-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -158,7 +158,7 @@ struct view_balance_secret_device
 {
     /**
      * @brief Derive an internal view tag, given non-secret data
-     *   vt = H_3(s_vb || input_context || Ko)
+     *   vt = H_3[s_vb](input_context || Ko)
      * @param input_context input_context
      * @param onetime_address Ko
      * @param[out] view_tag_out vt
@@ -169,7 +169,7 @@ struct view_balance_secret_device
 
     /**
      * @brief Derive internal sender-receiver secret, given non-secret data
-     *   s^ctx_sr = H_32(s_sr, D_e, input_context)
+     *   s^ctx_sr = H_32[s_sr](D_e, input_context)
      * @param enote_ephemeral_pubkey D_e
      * @param input_context input_context
      * @param[out] s_sender_receiver_ctx_out s^ctx_sr
