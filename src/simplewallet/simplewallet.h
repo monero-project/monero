@@ -94,7 +94,7 @@ namespace cryptonote
     void wallet_idle_thread();
 
     //! \return Prompts user for password and verifies against local file. Logs on error and returns `none`
-    boost::optional<tools::password_container> get_and_verify_password() const;
+    boost::optional<tools::password_container> get_and_verify_password(bool *read_failed = nullptr) const;
 
     boost::optional<epee::wipeable_string> new_wallet(const boost::program_options::variables_map& vm, const crypto::secret_key& recovery_key,
         bool recover, bool two_random, const std::string &old_language);
