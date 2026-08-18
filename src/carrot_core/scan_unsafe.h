@@ -126,6 +126,7 @@ bool try_scan_carrot_enote_internal_burnt(const CarrotEnoteV1 &enote,
  * @brief Verify that scanned normal enote is not attempting a Janus attack, and check pid
  * @param input_context input_context
  * @param nominal_address_spend_pubkey K^j_s'
+ * @param nominal_address_view_pubkey K^j_v'
  * @param is_subaddress true iff K^j_s' corresponds to a subaddress
  * @param enote_ephemeral_pubkey D_e
  * @param nominal_janus_anchor anchor'
@@ -134,6 +135,7 @@ bool try_scan_carrot_enote_internal_burnt(const CarrotEnoteV1 &enote,
  */
 bool verify_carrot_normal_janus_protection(const input_context_t &input_context,
     const crypto::public_key &nominal_address_spend_pubkey,
+    const crypto::public_key &nominal_address_view_pubkey,
     const bool is_subaddress,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const janus_anchor_t &nominal_janus_anchor,

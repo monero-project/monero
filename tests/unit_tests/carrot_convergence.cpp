@@ -112,24 +112,24 @@ static const hex_value_t<crypto::public_key> subaddress_spend_pubkey("97d227d0ff
 static const hex_value_t<crypto::public_key> subaddress_view_pubkey("99a684cd429d88815cb1f90b794522b32812388a9f35120cfc08c7435f7bd51f");
 
 static const hex_value_t<carrot::janus_anchor_t> anchor_norm("caee1381775487a0982557f0d2680b55");
-static const hex_value_t<carrot::janus_anchor_t> anchor_special("dea14ab8268ba491238f1c554ab60d83");
+static const hex_value_t<carrot::janus_anchor_t> anchor_special("ed214f5093ad9c5da37765459ac45837");
 static const hex_value_t<carrot::input_context_t> input_context("9423f74f3e869dc8427d8b35bb24c917480409c3f4750bff3c742f8e4d5af7bef7");
 static const hex_value_t<carrot::payment_id_t> payment_id("4321734f56621440");
-static const hex_value_t<crypto::secret_key> enote_ephemeral_privkey("6bd72042c79d9532a3b90b3689ee53c22725a11169ac2d251337bc4a69b2340d");
-static const hex_value_t<crypto::x25519_pubkey> enote_ephemeral_pubkey_cryptonote("65b42ef1ed3bd2ab3e6e86d17a52d832bcb6c820a8987306bedd9f6453693869");
-static const hex_value_t<crypto::x25519_pubkey> enote_ephemeral_pubkey_subaddress("d8e787047bb21d7dd348524741c78f311f549554b6dffd71c86ecc4a98a15720");
-static const hex_value_t<crypto::x25519_pubkey> s_sender_receiver("513ee79c0c8d76fdd95665a36d607b618e2f76a4806cfdba340fafe64b7f805f");
-static const hex_value_t<crypto::hash> s_sender_receiver_ctx("6d4288869ce44ed5c38d4016b33083a1a0200daa2d8afc16625702d2108b62ae");
+static const hex_value_t<crypto::secret_key> enote_ephemeral_privkey("ae5802c6757d77bd7032e071f72fc99c31a01b9f1bc3af2671c482c8e458140e");
+static const hex_value_t<crypto::x25519_pubkey> enote_ephemeral_pubkey_cryptonote("f2296f8bd12d705b63d4d827011dd2b2834f2c3396e3546969110173fd14c11a");
+static const hex_value_t<crypto::x25519_pubkey> enote_ephemeral_pubkey_subaddress("09b26146c8e458ea0822958af12d5f99de17600849388d9f85eabda24934c346");
+static const hex_value_t<crypto::x25519_pubkey> s_sender_receiver("1ab57d1f23d12d3f67bb52587dd0c74123cbba6e1c4fd10d0a93067caff19647");
+static const hex_value_t<crypto::hash> s_sender_receiver_ctx("911a15979c3d448aca2b81cd91d16ba2bf2ca4fa4f6dd16ad596c6304eb52227");
 static const rct::xmr_amount amount = 67000000000000;
-static const hex_value_t<crypto::secret_key> amount_blinding_factor_payment("2943f1f7cdabfcfef4803fe6a36df414065e912089ebcee5dbdad32a9685060a");
-static const hex_value_t<crypto::secret_key> amount_blinding_factor_change("b9787d10298d13e34cf21513bce84dd1b13ae8aad6ab79794ac06a4c936e2b09");
-static const hex_value_t<carrot::amount_commitment_t> amount_commitment("95f818f40a41665950d90db8f790cd8a135403624bac284d1059aeb29652fafe");
-static const hex_value_t<crypto::public_key> onetime_address_coinbase("eb6d42a2cabe4e71a0d61172ed8b528b62c0ab398cde9373dab35cc774ba7c05");
-static const hex_value_t<crypto::public_key> onetime_address("5e8f18d1dd3aba72d6ea2c7cfb217573ff4baa878300bbf97b4e32c5c566050d");
-static const hex_value_t<carrot::view_tag_t> view_tag("98ad1e");
-static const hex_value_t<carrot::encrypted_janus_anchor_t> anchor_encryption_mask("8d769d8417759007792f824e83115408");
-static const hex_value_t<carrot::encrypted_amount_t> amount_encryption_mask("ee875c495435d1c3");
-static const hex_value_t<carrot::encrypted_payment_id_t> payment_id_encryption_mask("736350182e1e0840");
+static const hex_value_t<crypto::secret_key> amount_blinding_factor_payment("dd8f4252476020ddab59df4ec0ca506e6d25618bfe465e13302276398b23550f");
+static const hex_value_t<crypto::secret_key> amount_blinding_factor_change("dba0496c81efa9e25c55a65682024e6e42f1893d3ba57026d9a96468ea5d680b");
+static const hex_value_t<carrot::amount_commitment_t> amount_commitment("a44cacd33bdacb1c86262987518885a6c22b569ffc89be13e730d5d175f2dede");
+static const hex_value_t<crypto::public_key> onetime_address_coinbase("4f01c472b41a0d85f3c9bc88ad38b7fd47a24029508f84aea84f55d221a48d29");
+static const hex_value_t<crypto::public_key> onetime_address("cd9610e64abdae97e2f8d8580550dbdd0ed543c99740c9c90f9f2cc854841bfa");
+static const hex_value_t<carrot::view_tag_t> view_tag("13191c");
+static const hex_value_t<carrot::encrypted_janus_anchor_t> anchor_encryption_mask("ed6dac7330268e639619551f662b19b5");
+static const hex_value_t<carrot::encrypted_amount_t> amount_encryption_mask("f5ff32293fa31ed6");
+static const hex_value_t<carrot::encrypted_payment_id_t> payment_id_encryption_mask("59220b6582addd7d");
 } //anonymous namespace
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -242,6 +242,7 @@ TEST(carrot_convergence, make_carrot_enote_ephemeral_privkey)
     make_carrot_enote_ephemeral_privkey(anchor_norm.value,
         input_context.value,
         subaddress_spend_pubkey.value,
+        subaddress_view_pubkey.value,
         payment_id.value,
         enote_ephemeral_privkey_rc);
     EXPECT_TRUE(enote_ephemeral_privkey.matches(enote_ephemeral_privkey_rc));

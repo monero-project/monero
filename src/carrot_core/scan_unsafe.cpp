@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -226,6 +226,7 @@ bool try_scan_carrot_enote_internal_burnt(const CarrotEnoteV1 &enote,
 //-------------------------------------------------------------------------------------------------------------------
 bool verify_carrot_normal_janus_protection(const input_context_t &input_context,
     const crypto::public_key &nominal_address_spend_pubkey,
+    const crypto::public_key &nominal_address_view_pubkey,
     const bool is_subaddress,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const janus_anchor_t &nominal_janus_anchor,
@@ -235,6 +236,7 @@ bool verify_carrot_normal_janus_protection(const input_context_t &input_context,
     if (verify_carrot_normal_janus_protection(nominal_janus_anchor,
             input_context,
             nominal_address_spend_pubkey,
+            nominal_address_view_pubkey,
             is_subaddress,
             nominal_payment_id_inout,
             enote_ephemeral_pubkey))
@@ -245,6 +247,7 @@ bool verify_carrot_normal_janus_protection(const input_context_t &input_context,
     return verify_carrot_normal_janus_protection(nominal_janus_anchor,
         input_context,
         nominal_address_spend_pubkey,
+        nominal_address_view_pubkey,
         is_subaddress,
         nominal_payment_id_inout,
         enote_ephemeral_pubkey);

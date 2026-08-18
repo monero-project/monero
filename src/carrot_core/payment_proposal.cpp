@@ -54,7 +54,7 @@ static void get_normal_proposal_ecdh_parts(const CarrotPaymentProposalV1 &propos
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out,
     crypto::x25519_pubkey &s_sender_receiver_out)
 {
-    // 1. d_e = H_n(anchor_norm, input_context, K^j_s, pid)
+    // 1. d_e = H_n(anchor_norm, input_context, K^j_s, K^j_v, pid)
     const crypto::secret_key enote_ephemeral_privkey = get_enote_ephemeral_privkey(proposal, input_context);
 
     // 2. make D_e
@@ -183,11 +183,12 @@ bool operator==(const CarrotPaymentProposalSelfSendV1 &a, const CarrotPaymentPro
 crypto::secret_key get_enote_ephemeral_privkey(const CarrotPaymentProposalV1 &proposal,
     const input_context_t &input_context)
 {
-    // d_e = H_n(anchor_norm, input_context, K^j_s, pid)
+    // d_e = H_n(anchor_norm, input_context, K^j_s, K^j_v, pid)
     crypto::secret_key enote_ephemeral_privkey;
     make_carrot_enote_ephemeral_privkey(proposal.randomness,
         input_context,
         proposal.destination.address_spend_pubkey,
+        proposal.destination.address_view_pubkey,
         proposal.destination.payment_id,
         enote_ephemeral_privkey);
 
@@ -230,7 +231,7 @@ crypto::secret_key get_enote_ephemeral_privkey(const CarrotPaymentProposalSelfSe
 crypto::x25519_pubkey get_enote_ephemeral_pubkey(const CarrotPaymentProposalV1 &proposal,
     const input_context_t &input_context)
 {
-    // d_e = H_n(anchor_norm, input_context, K^j_s, pid)
+    // d_e = H_n(anchor_norm, input_context, K^j_s, K^j_v, pid)
     const crypto::secret_key enote_ephemeral_privkey{get_enote_ephemeral_privkey(proposal, input_context)};
 
     // D_e = d_e * ...

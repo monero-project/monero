@@ -71,6 +71,7 @@ bool try_make_carrot_shared_key_receiver(
  * @param enote_ephemeral_privkey d_e
  * @param s_sender_receiver s_sr
  * @param main_address_spend_pubkeys {K^0_s, ...}
+ * @param main_address_view_pubkey K^0_v
  * @param[out] sender_extension_g_out k^g_o
  * @param[out] sender_extension_t_out k^t_o
  * @param[out] main_address_spend_pubkey_out K^0_s, which will be one of main_address_spend_pubkeys
@@ -92,6 +93,7 @@ bool try_scan_carrot_coinbase_enote_receiver(
     const CarrotCoinbaseEnoteV1 &enote,
     const crypto::x25519_pubkey &s_sender_receiver,
     const epee::span<const crypto::public_key> main_address_spend_pubkeys,
+    const crypto::public_key &main_address_view_pubkey,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out,
     crypto::public_key &main_address_spend_pubkey_out);
@@ -99,6 +101,7 @@ bool try_scan_carrot_coinbase_enote_receiver(
     const CarrotCoinbaseEnoteV1 &enote,
     const crypto::x25519_pubkey &s_sender_receiver,
     const crypto::public_key &main_address_spend_pubkey,
+    const crypto::public_key &main_address_view_pubkey,
     crypto::secret_key &sender_extension_g_out,
     crypto::secret_key &sender_extension_t_out);
 /**

@@ -496,6 +496,7 @@ void mock_scan_coinbase_enote_set(const std::vector<CarrotCoinbaseEnoteV1> &coin
         if (try_scan_carrot_coinbase_enote_receiver(enote,
             s_sender_receiver,
             {main_address_spend_pubkeys, 2},
+            keys.cryptonote_address().address_view_pubkey,
             scan_result.sender_extension_g,
             scan_result.sender_extension_t,
             scan_result.address_spend_pubkey))

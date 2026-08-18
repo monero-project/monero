@@ -46,16 +46,18 @@ namespace carrot
 
 /**
  * @brief Derive enote ephemeral privkey d_e for Carrot enotes
- *   d_e = H_n(anchor_norm, input_context, K^j_s, pid)
+ *   d_e = H_n(anchor_norm, input_context, K^j_s, K^j_v, pid)
  * @param anchor_norm normal Janus anchor
  * @param input_context input_context
  * @param address_spend_pubkey K^j_s
+ * @param address_view_pubkey K^j_v
  * @param payment_id pid
  * @param[out] enote_ephemeral_privkey_out k_e
  */
 void make_carrot_enote_ephemeral_privkey(const janus_anchor_t &anchor_norm,
     const input_context_t &input_context,
     const crypto::public_key &address_spend_pubkey,
+    const crypto::public_key &address_view_pubkey,
     const payment_id_t payment_id,
     crypto::secret_key &enote_ephemeral_privkey_out);
 /**
@@ -422,6 +424,7 @@ bool try_get_carrot_amount(const crypto::hash &s_sender_receiver_ctx,
  * @param nominal_anchor anchor'
  * @param input_context -
  * @param nominal_address_spend_pubkey K^j_s'
+ * @param nominal_address_view_pubkey K^j_v'
  * @param is_subaddress -
  * @param nominal_payment_id pid'
  * @param enote_ephemeral_pubkey D_e
@@ -430,6 +433,7 @@ bool try_get_carrot_amount(const crypto::hash &s_sender_receiver_ctx,
 bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
     const input_context_t &input_context,
     const crypto::public_key &nominal_address_spend_pubkey,
+    const crypto::public_key &nominal_address_view_pubkey,
     const bool is_subaddress,
     const payment_id_t nominal_payment_id,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey);

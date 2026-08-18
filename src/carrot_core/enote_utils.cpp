@@ -185,12 +185,13 @@ static void make_carrot_sender_extension_pubkey(const crypto::hash &s_sender_rec
 void make_carrot_enote_ephemeral_privkey(const janus_anchor_t &anchor_norm,
     const input_context_t &input_context,
     const crypto::public_key &address_spend_pubkey,
+    const crypto::public_key &address_view_pubkey,
     const payment_id_t payment_id,
     crypto::secret_key &enote_ephemeral_privkey_out)
 {
-    // d_e = (H_64(anchor_norm, input_context, K^j_s, pid)) mod l
+    // d_e = (H_64(anchor_norm, input_context, K^j_s, K^j_v, pid)) mod l
     const auto transcript = make_fixed_transcript<CARROT_DOMAIN_SEP_EPHEMERAL_PRIVKEY>(
-        anchor_norm, input_context, address_spend_pubkey, payment_id);
+        anchor_norm, input_context, address_spend_pubkey, address_view_pubkey, payment_id);
     derive_scalar(transcript.data(), transcript.size(), nullptr, &enote_ephemeral_privkey_out);
 }
 //-------------------------------------------------------------------------------------------------------------------
@@ -663,15 +664,17 @@ bool try_get_carrot_amount(const crypto::hash &s_sender_receiver_ctx,
 bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
     const input_context_t &input_context,
     const crypto::public_key &nominal_address_spend_pubkey,
+    const crypto::public_key &nominal_address_view_pubkey,
     const bool is_subaddress,
     const payment_id_t nominal_payment_id,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey)
 {
-    // d_e' = H_n(anchor_norm, input_context, K^j_s, pid)
+    // d_e' = H_n(anchor_norm, input_context, K^j_s, K^j_v, pid)
     crypto::secret_key nominal_enote_ephemeral_privkey;
     make_carrot_enote_ephemeral_privkey(nominal_anchor,
         input_context,
         nominal_address_spend_pubkey,
+        nominal_address_view_pubkey,
         nominal_payment_id,
         nominal_enote_ephemeral_privkey);
 
