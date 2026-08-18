@@ -35,6 +35,7 @@
 #include <cstdint>
 #include <chrono>
 #include <cstring>
+#include <thread>
 
 #include "version.h"
 #include "wallet_rpc_server.h"
@@ -194,19 +195,24 @@ namespace tools
   }
 
   //------------------------------------------------------------------------------------------------------------------------------
-  wallet_rpc_server::wallet_rpc_server():m_wallet(NULL), rpc_login_file(), m_stop(false), m_restricted(false), m_vm(NULL)
+  wallet_rpc_server::wallet_rpc_server():m_wallet(NULL), rpc_login_file(), m_stop(false), m_teardown(false), m_stop_refresh_active(0), m_wallet_swap_active(false), m_restricted(false), m_vm(NULL)
   {
   }
   //------------------------------------------------------------------------------------------------------------------------------
   wallet_rpc_server::~wallet_rpc_server()
   {
-    if (m_wallet)
-      delete m_wallet;
+    set_wallet(NULL);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::set_wallet(wallet2 *cr)
   {
+    // pause stop_refresh() and wait out in-flight calls so they cannot stop a deleted wallet
+    m_wallet_swap_active = true;
+    while (m_stop_refresh_active > 0)
+      std::this_thread::yield();
+    delete m_wallet;
     m_wallet = cr;
+    m_wallet_swap_active = false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::run()
@@ -293,8 +299,21 @@ namespace tools
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::run(1, true);
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  void wallet_rpc_server::stop_refresh()
+  {
+    // may run on a signal/service thread: skip while the wallet is replaced or torn down
+    ++m_stop_refresh_active;
+    if (!m_teardown && !m_wallet_swap_active && m_wallet)
+      m_wallet->shutdown();
+    --m_stop_refresh_active;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::stop()
   {
+    // disarm stop_refresh() and wait out in-flight calls before deleting the wallet under them
+    m_teardown = true;
+    while (m_stop_refresh_active > 0)
+      std::this_thread::yield();
     if (m_wallet)
     {
       m_wallet->store();
@@ -3665,9 +3684,8 @@ namespace tools
         handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
         return false;
       }
-      delete m_wallet;
     }
-    m_wallet = wal.release();
+    set_wallet(wal.release());
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -3742,9 +3760,7 @@ namespace tools
       return false;
     }
 
-    if (m_wallet)
-      delete m_wallet;
-    m_wallet = wal.release();
+    set_wallet(wal.release());
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -3770,8 +3786,7 @@ namespace tools
         return false;
       }
     }
-    delete m_wallet;
-    m_wallet = NULL;
+    set_wallet(NULL);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -4077,9 +4092,7 @@ namespace tools
       return false;
     }
 
-    if (m_wallet)
-      delete m_wallet;
-    m_wallet = wal.release();
+    set_wallet(wal.release());
     res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
     return true;
   }
@@ -4293,9 +4306,7 @@ namespace tools
       return false;
     }
 
-    if (m_wallet)
-      delete m_wallet;
-    m_wallet = wal.release();
+    set_wallet(wal.release());
     res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
     res.info = "Wallet has been restored successfully.";
     return true;
@@ -5045,7 +5056,7 @@ public:
       tools::signal_handler::install([&wal, &quit](int) {
         assert(wal);
         quit = true;
-        wal->stop();
+        wal->shutdown();
       });
 
       try
@@ -5057,6 +5068,8 @@ public:
       {
         LOG_ERROR(tools::wallet_rpc_server::tr("Initial refresh failed: ") << e.what());
       }
+      // swap handlers before the quit check so a late signal cannot permanently stop the wallet the server serves
+      tools::signal_handler::install([&quit](int) { quit = true; });
       // if we ^C during potentially length load/refresh, there's no server loop yet
       if (quit)
       {
@@ -5077,6 +5090,7 @@ public:
     bool r = wrpc->init(&vm);
     CHECK_AND_ASSERT_MES(r, false, tools::wallet_rpc_server::tr("Failed to initialize wallet RPC server"));
     tools::signal_handler::install([this](int) {
+      wrpc->stop_refresh(); // a running refresh blocks server exit
       wrpc->send_stop_signal();
     });
     LOG_PRINT_L0(tools::wallet_rpc_server::tr("Starting wallet RPC server"));
@@ -5106,6 +5120,7 @@ public:
 
   void stop()
   {
+    wrpc->stop_refresh(); // a running refresh blocks server exit
     wrpc->send_stop_signal();
   }
 };
