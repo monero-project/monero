@@ -1660,7 +1660,7 @@ private:
 
     std::atomic<bool> m_run;
 
-    boost::recursive_mutex m_daemon_rpc_mutex;
+    mutable boost::recursive_mutex m_daemon_rpc_mutex;
 
     bool m_trusted_daemon;
     i_wallet2_callback* m_callback;
