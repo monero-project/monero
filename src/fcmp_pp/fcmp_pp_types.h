@@ -99,6 +99,25 @@ const crypto::ec_point &commitment_cref(const OutputPair &output_pair);
 
 bool output_checked_for_torsion(const OutputPair &output_pair);
 bool use_biased_hash_to_point(const OutputPair &output_pair);
+
+// Wrapper for outputs with context to insert the output into the FCMP++ curve tree
+struct UnifiedOutput final
+{
+    // Output's unique id in the chain.
+    // When a batch of outputs is added to the tree, the batch
+    // is internally sorted by unique ids, which correspond with
+    // the order the outputs entered the chain. Batch-added outputs
+    // may not be globally ordered because e.g. timelocked
+    // outputs were added to 'late batches'. Batch refers to
+    // outputs that become unlocked/spendable at the same time.
+    uint64_t unified_id{0};
+    OutputPair output_pair;
+
+    bool operator==(const UnifiedOutput &other) const
+    {
+        return unified_id == other.unified_id && output_pair == other.output_pair;
+    }
+};
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp
