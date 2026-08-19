@@ -110,10 +110,10 @@ namespace epee
       levin::message_writer to_send;
       stg.store_to_binary(to_send.buffer);
 
-      int res = transport.send(to_send.finalize_notify(command), conn_id);
-      if(res <=0 )
+      bool res = transport.send(to_send.finalize_notify(command), conn_id);
+      if(!res)
       {
-        MERROR("Failed to notify command " << command << " return code " << res);
+        MERROR("Failed to notify command " << command);
         return false;
       }
       return true;
@@ -212,7 +212,7 @@ namespace epee
 #define END_INVOKE_MAP2() \
   LOG_ERROR("Unknown command:" << command); \
   on_levin_traffic(context, false, false, true, in_buff.size(), "invalid-command"); \
-  return LEVIN_ERROR_CONNECTION_HANDLER_NOT_DEFINED; \
+  return is_notify ? LEVIN_OK : LEVIN_ERROR_CONNECTION_HANDLER_NOT_DEFINED; \
   } \
   catch (const std::exception &e) { \
     MERROR("Error in handle_invoke_map: " << e.what()); \

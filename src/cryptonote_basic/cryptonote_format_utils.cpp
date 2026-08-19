@@ -99,6 +99,34 @@ namespace cryptonote
     const uint64_t bp_clawback = (bp_base * n_padded_outputs - bp_size) * 4 / 5;
     return bp_clawback;
   }
+
+  std::size_t max_total_key_offsets()
+  {
+    // This is a 100% guaranteed ceiling for the entire chain
+    return get_max_tx_size() / sizeof(crypto::public_key);
+  }
+
+  bool n_key_offsets_exceeds_max(const transaction_prefix& tx)
+  {
+    const std::size_t max_allowed = max_total_key_offsets();
+    std::size_t total_key_offsets = 0;
+    for (const auto &vin : tx.vin)
+    {
+      if (vin.type() != typeid(cryptonote::txin_to_key))
+        continue;
+      const std::size_t n_key_offsets = boost::get<cryptonote::txin_to_key>(vin).key_offsets.size();
+      CHECK_AND_ASSERT_MES((n_key_offsets + total_key_offsets) >= total_key_offsets, true, "key offsets overflow");
+      total_key_offsets += n_key_offsets;
+    }
+    return total_key_offsets >= max_allowed;
+  }
+
+  bool passes_max_size_check(const bool max_size_check, const blobdata_ref &tx_blob)
+  {
+    if (!max_size_check)
+      return true;
+    return tx_blob.size() <= get_max_tx_size();
+  }
   //---------------------------------------------------------------
 }
 
@@ -198,40 +226,48 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
-  bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx)
+  bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, const bool max_size_check)
   {
+    CHECK_AND_ASSERT_MES(passes_max_size_check(max_size_check, tx_blob), false, "Tx blob too big");
     binary_archive<false> ba{epee::strspan<std::uint8_t>(tx_blob)};
     bool r = ::serialization::serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
+    CHECK_AND_ASSERT_MES(!n_key_offsets_exceeds_max(tx), false, "Transaction contains too many ring members");
     CHECK_AND_ASSERT_MES(expand_transaction_1(tx, false), false, "Failed to expand transaction data");
     tx.invalidate_hashes();
     tx.set_blob_size(tx_blob.size());
     return true;
   }
   //---------------------------------------------------------------
-  bool parse_and_validate_tx_base_from_blob(const blobdata_ref& tx_blob, transaction& tx)
+  bool parse_and_validate_tx_base_from_blob(const blobdata_ref& tx_blob, transaction& tx, const bool max_size_check)
   {
+    CHECK_AND_ASSERT_MES(passes_max_size_check(max_size_check, tx_blob), false, "Tx blob too big");
     binary_archive<false> ba{epee::strspan<std::uint8_t>(tx_blob)};
     bool r = tx.serialize_base(ba);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
+    CHECK_AND_ASSERT_MES(!n_key_offsets_exceeds_max(tx), false, "Transaction contains too many ring members");
     CHECK_AND_ASSERT_MES(expand_transaction_1(tx, true), false, "Failed to expand transaction data");
     tx.invalidate_hashes();
     return true;
   }
   //---------------------------------------------------------------
-  bool parse_and_validate_tx_prefix_from_blob(const blobdata_ref& tx_blob, transaction_prefix& tx)
+  bool parse_and_validate_tx_prefix_from_blob(const blobdata_ref& tx_blob, transaction_prefix& tx, const bool max_size_check)
   {
+    CHECK_AND_ASSERT_MES(passes_max_size_check(max_size_check, tx_blob), false, "Tx blob too big");
     binary_archive<false> ba{epee::strspan<std::uint8_t>(tx_blob)};
     bool r = ::serialization::serialize_noeof(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction prefix from blob");
+    CHECK_AND_ASSERT_MES(!n_key_offsets_exceeds_max(tx), false, "Transaction contains too many ring members");
     return true;
   }
   //---------------------------------------------------------------
-  bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, crypto::hash& tx_hash)
+  bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, crypto::hash& tx_hash, const bool max_size_check)
   {
+    CHECK_AND_ASSERT_MES(passes_max_size_check(max_size_check, tx_blob), false, "Tx blob too big");
     binary_archive<false> ba{epee::strspan<std::uint8_t>(tx_blob)};
     bool r = ::serialization::serialize(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction from blob");
+    CHECK_AND_ASSERT_MES(!n_key_offsets_exceeds_max(tx), false, "Transaction contains too many ring members");
     CHECK_AND_ASSERT_MES(expand_transaction_1(tx, false), false, "Failed to expand transaction data");
     tx.invalidate_hashes();
     tx.set_blob_size(tx_blob.size());
@@ -240,9 +276,9 @@ namespace cryptonote
     return get_transaction_hash(tx, tx_hash);
   }
   //---------------------------------------------------------------
-  bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash)
+  bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash, const bool max_size_check)
   {
-    if (!parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash))
+    if (!parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash, max_size_check))
       return false;
     get_transaction_prefix_hash(tx, tx_prefix_hash);
     return true;

@@ -302,9 +302,10 @@ namespace cryptonote
         {
           using clock = std::chrono::system_clock;
           auto last_relayed_time = std::numeric_limits<decltype(meta.last_relayed_time)>::max();
-          if (tx_relay == relay_method::forward)
+          if (tx_relay == relay_method::forward || tx_relay == relay_method::stem)
           {
-            last_relayed_time = clock::to_time_t(clock::now() + crypto::random_poisson_seconds{forward_delay_average}());
+            const auto delay = tx_relay == relay_method::forward ? forward_delay_average : dandelionpp_embargo_average;
+            last_relayed_time = clock::to_time_t(clock::now() + crypto::random_poisson_seconds{delay}());
             set_if_less(m_next_check, time_t(last_relayed_time));
           }
           // else the `set_relayed` function will adjust the time accordingly later
@@ -810,7 +811,6 @@ namespace cryptonote
 
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
-    LockedTXN lock(m_blockchain.get_db());
     txs.reserve(m_blockchain.get_txpool_tx_count());
     m_blockchain.for_all_txpool_txes([this, now, &txs, &change_timestamps, &next_check](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *){
       // 0 fee transactions are never relayed
@@ -834,6 +834,8 @@ namespace cryptonote
           case relay_method::local:
           case relay_method::fluff:
           case relay_method::block:
+            if (!meta.relayed)
+              break; // if it hasn't been relayed yet, relay it
             if (now - meta.last_relayed_time <= get_relay_delay(meta.last_relayed_time, meta.receive_time))
               return true; // continue to next tx
             break;
@@ -859,16 +861,32 @@ namespace cryptonote
       return true;
     }, false, relay_category::relayable);
 
-    for (auto& elem : change_timestamps)
+    if (!change_timestamps.empty())
     {
-      /* These transactions are still in forward or stem state, so the field
-         represents the next time a relay should be attempted. Will be
-         overwritten when the state is upgraded to stem, fluff or block. This
-         function is only called every ~2 minutes, so this resetting should be
-         unnecessary, but is primarily a precaution against potential changes
-	 to the callback routines. */
-      elem.second.last_relayed_time = now + get_relay_delay(elem.second.last_relayed_time, elem.second.receive_time);
-      m_blockchain.update_txpool_tx(elem.first, elem.second);
+      LockedTXN db_lock(m_blockchain.get_db());
+      bool made_an_update = false;
+      for (auto& elem : change_timestamps)
+      {
+        /* These transactions are still in forward or stem state, so the field
+          represents the next time a relay should be attempted. Will be
+          overwritten when the state is upgraded to stem, fluff or block. This
+          function is only called every ~2 minutes, so this resetting should be
+          unnecessary, but is primarily a precaution against potential changes
+          to the callback routines. */
+        elem.second.last_relayed_time = now + get_relay_delay(elem.second.last_relayed_time, elem.second.receive_time);
+        try
+        {
+          m_blockchain.update_txpool_tx(elem.first, elem.second);
+          made_an_update = true;
+        }
+        catch (...)
+        {
+          MDEBUG("Got an exception while updating txpool meta for relayable tx " << elem.first << ", ignoring...");
+          continue;
+        }
+      }
+      if (made_an_update)
+        db_lock.commit();
     }
 
     m_next_check = time_t(next_check);

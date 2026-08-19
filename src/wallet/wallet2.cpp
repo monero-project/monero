@@ -143,6 +143,8 @@ using namespace cryptonote;
 
 #define FIRST_REFRESH_GRANULARITY     1024
 
+#define MAX_HASH_PULLS_PER_REFRESH    3 // hash pulls per bounded refresh call, so single-threaded callers stay responsive
+
 #define GAMMA_SHAPE 19.28
 #define GAMMA_SCALE (1/1.61)
 
@@ -3150,7 +3152,7 @@ void wallet2::process_pool_info_extent(const cryptonote::COMMAND_RPC_GET_BLOCKS_
   for (const auto &pool_tx: res.added_pool_txs)
   {
     cryptonote::transaction tx;
-    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_base_from_blob(pool_tx.tx_blob, tx),
+    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_tx_base_from_blob(pool_tx.tx_blob, tx, true),
         error::wallet_internal_error, "Failed to validate transaction base from daemon");
     added_pool_txs.emplace_back(std::move(tx), pool_tx.tx_hash, pool_tx.double_spend_seen);
   }
@@ -3935,9 +3937,10 @@ void wallet2::process_pool_state(const std::vector<std::tuple<cryptonote::transa
   MTRACE("process_pool_state end");
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, bool force)
+bool wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, std::list<crypto::hash> &short_chain_history, bool force, uint64_t max_pulls)
 {
   std::vector<crypto::hash> hashes;
+  uint64_t num_pulls = 0;
 
   const uint64_t checkpoint_height = (stop_height < 1000) ? 0 : m_checkpoints.get_nearest_checkpoint_height(stop_height);
   if ((stop_height > checkpoint_height && m_blockchain.size()-1 < checkpoint_height) && !force)
@@ -3955,13 +3958,15 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
   size_t current_index = m_blockchain.size();
   while(m_run.load(std::memory_order_relaxed) && current_index < stop_height)
   {
+    if (max_pulls > 0 && num_pulls++ >= max_pulls)
+      return false; // pull budget reached, caller may resume on a later call
     pull_hashes(0, blocks_start_height, short_chain_history, hashes);
     if (hashes.size() <= 3)
-      return;
+      return true;
     if (blocks_start_height < m_blockchain.offset())
     {
       MERROR("Blocks start before blockchain offset: " << blocks_start_height << " " << m_blockchain.offset());
-      return;
+      return true;
     }
     current_index = blocks_start_height;
     if (hashes.size() + current_index < stop_height) {
@@ -3990,13 +3995,14 @@ void wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
       else if(bl_id != m_blockchain[current_index])
       {
         //split detected here !!!
-        return;
+        return true;
       }
       ++current_index;
       if (current_index >= stop_height)
-        return;
+        return true;
     }
   }
+  return true;
 }
 
 
@@ -4099,7 +4105,14 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     if (!start_height)
       start_height = std::max(m_refresh_from_block_height, m_skip_to_height);;
     // we can shortcut by only pulling hashes up to the start_height
-    fast_refresh(start_height, blocks_start_height, short_chain_history);
+    const uint64_t pre_hashes_height = m_blockchain.size();
+    const uint64_t max_pulls = max_blocks == std::numeric_limits<uint64_t>::max() ? 0 : MAX_HASH_PULLS_PER_REFRESH;
+    if (!fast_refresh(start_height, blocks_start_height, short_chain_history, false, max_pulls))
+    {
+      // pull budget reached before start_height, report hashes added and resume on next call
+      blocks_fetched = m_blockchain.size() - pre_hashes_height;
+      return;
+    }
     // regenerate the history now that we've got a full set of hashes
     short_chain_history.clear();
     get_short_chain_history(short_chain_history, (m_first_refresh_done || trusted_daemon) ? 1 : FIRST_REFRESH_GRANULARITY);
@@ -14624,9 +14637,12 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs, bool re
 {
   CHECK_AND_ASSERT_THROW_MES(m_multisig, "Wallet is not multisig");
 
-  if (!m_multisig_rescan_k.empty() && !m_multisig_rescan_info.empty())
+  // consume pending rescan state from a prior import if refreshing
+  if (refresh_after_import && !m_multisig_rescan_k.empty() && !m_multisig_rescan_info.empty())
     refresh(false);
 
+  // parse and validate locally so failures preserve any pending rescan state
+  std::vector<std::vector<tools::wallet2::multisig_info>> info;
   std::unordered_set<crypto::public_key> seen;
   for (cryptonote::blobdata &data: blobs)
   {
@@ -14686,18 +14702,20 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs, bool re
     }
 
     MINFO(boost::format("%u outputs found") % boost::lexical_cast<std::string>(i.size()));
-    m_multisig_rescan_info.push_back(std::move(i));
+    info.push_back(std::move(i));
   }
 
-  CHECK_AND_ASSERT_THROW_MES(m_multisig_rescan_info.size() + 1 <= m_multisig_signers.size() && m_multisig_rescan_info.size() + 1 >= m_multisig_threshold, "Wrong number of multisig sources");
+  CHECK_AND_ASSERT_THROW_MES(info.size() + 1 <= m_multisig_signers.size() && info.size() + 1 >= m_multisig_threshold, "Wrong number of multisig sources");
 
-  m_multisig_rescan_k.reserve(m_transfers.size());
+  std::vector<std::vector<rct::key>> k;
+  const epee::scope_guard wiper([&]() { for (auto &v: k) memwipe(v.data(), v.size() * sizeof(v[0])); });
+  k.reserve(m_transfers.size());
   for (const auto &td: m_transfers)
-    m_multisig_rescan_k.push_back(td.m_multisig_k);
+    k.push_back(td.m_multisig_k);
 
   // how many outputs we're going to update
   size_t n_outputs = m_transfers.size();
-  for (const auto &pi: m_multisig_rescan_info)
+  for (const auto &pi: info)
     if (pi.size() < n_outputs)
       n_outputs = pi.size();
 
@@ -14705,7 +14723,7 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs, bool re
     return 0;
 
   // check signers are consistent
-  for (const auto &pi: m_multisig_rescan_info)
+  for (const auto &pi: info)
   {
     CHECK_AND_ASSERT_THROW_MES(std::find(m_multisig_signers.begin(), m_multisig_signers.end(), pi[0].m_signer) != m_multisig_signers.end(),
         "Signer is not a member of this multisig wallet");
@@ -14714,14 +14732,20 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs, bool re
   }
 
   // trim data we don't have info for from all participants
-  for (auto &pi: m_multisig_rescan_info)
+  for (auto &pi: info)
     pi.resize(n_outputs);
 
   // sort by signer
-  if (!m_multisig_rescan_info.empty() && !m_multisig_rescan_info.front().empty())
+  if (!info.empty() && !info.front().empty())
   {
-    std::sort(m_multisig_rescan_info.begin(), m_multisig_rescan_info.end(), [](const std::vector<tools::wallet2::multisig_info> &i0, const std::vector<tools::wallet2::multisig_info> &i1){ return memcmp(&i0[0].m_signer, &i1[0].m_signer, sizeof(i0[0].m_signer)) < 0; });
+    std::sort(info.begin(), info.end(), [](const std::vector<tools::wallet2::multisig_info> &i0, const std::vector<tools::wallet2::multisig_info> &i1){ return memcmp(&i0[0].m_signer, &i1[0].m_signer, sizeof(i0[0].m_signer)) < 0; });
   }
+
+  // wipe prior pending rescan state and install its replacement only after full validation
+  for (auto &v: m_multisig_rescan_k)
+    memwipe(v.data(), v.size() * sizeof(v[0]));
+  m_multisig_rescan_info = std::move(info);
+  m_multisig_rescan_k = std::move(k);
 
   // first pass to determine where to detach the blockchain
   for (size_t n = 0; n < n_outputs; ++n)
