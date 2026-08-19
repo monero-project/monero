@@ -162,6 +162,29 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
     return m_status == Status_Ok;
 }
 
+std::string PendingTransactionImpl::convertTxToStr()
+{
+    std::string tx;
+    LOG_PRINT_L3("m_pending_tx size: " << m_pending_tx.size());
+
+    try {
+        tx = m_wallet.m_wallet->dump_tx_to_str(m_pending_tx);
+        m_status = Status_Ok;
+        return tx;
+    } catch (const tools::error::wallet_internal_error&) {
+        m_errorString = tr("Wallet internal eror.");
+        m_status = Status_Error;
+    } catch (const std::exception &e) {
+        m_errorString = string(tr("Unknown exception: ")) + e.what();
+        m_status = Status_Error;
+    } catch (...) {
+        m_errorString = tr("Unhandled exception");
+        LOG_ERROR(m_errorString);
+        m_status = Status_Error;
+    }
+    return ""; // m_status != Status_Ok
+}
+
 uint64_t PendingTransactionImpl::amount() const
 {
     uint64_t result = 0;
