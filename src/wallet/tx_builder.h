@@ -39,6 +39,8 @@
 //third party headers
 
 //standard headers
+#include <functional>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -61,7 +63,10 @@ namespace wallet
  * param: transfers - transfer_details from inside `wallet2` (required because `ptx` includes transfer references)
  * param: redacted - if `true` then:
  *        - We assume `ptx.tx_key` and `ptx.additional_tx_keys` are nullified.
- * param: expect_imported_key_images - if `true` then we can verify key images line up to wallets' imported key images
+ * param: transfer_ki_resolver - if not-std::nullopt then this will be used to access `transfers` key images to
+          verify key images line up to wallets' imported key images
+        callback: const crypto::key_image& _your_lambda_(const size_t transfer_idx)
+          - The callback should panic if `transfer_idx` is invalid.
  */
 void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     const cryptonote::network_type nettype,
@@ -69,6 +74,6 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses,
     const std::vector<wallet2_basic::transfer_details> &transfers,
     const bool redacted,
-    const bool expect_imported_key_images);
+    const std::optional<std::function<const crypto::key_image(const size_t)>> &transfer_ki_resolver);
 } //namespace wallet
 } //namespace tools

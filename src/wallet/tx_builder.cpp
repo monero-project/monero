@@ -80,18 +80,24 @@ static void validate_tx_outs(
     tx_additional_pubkeys_out.clear();
     CHECK_AND_ASSERT_THROW_MES(ext_outputs.size() == dests.size(),
         "validate_tx_outs: ext_outputs size mismatch");
-CHECK_AND_ASSERT_THROW_MES(ptx.tx.version == 1 || ptx.tx.rct_signatures.ecdhInfo.size() == dests.size(),
+    CHECK_AND_ASSERT_THROW_MES(ptx.tx.version == 1 || ptx.tx.rct_signatures.ecdhInfo.size() == dests.size(),
         "validate_tx_outs: ecdhInfo size mismatch");
     CHECK_AND_ASSERT_THROW_MES(ptx.tx.version == 1 || ptx.tx.rct_signatures.outPk.size() == dests.size(),
         "validate_tx_outs: outPk size mismatch");
 
-// Check if multiple keys are expected
-// Note: this is the same method used in `construct_tx_and_get_tx_key()`, so we should expect the same results.
+    // Check if multiple keys are expected
+    // Note: this is the same method used in `construct_tx_and_get_tx_key()`, so we should expect the same results.
     size_t num_stdaddresses = 0;
     size_t num_subaddresses = 0;
     cryptonote::account_public_address single_dest_subaddress;
     cryptonote::classify_addresses(dests, change.addr, num_stdaddresses, num_subaddresses, single_dest_subaddress);
     const bool need_additional_txkeys = num_subaddresses > 0 && (num_stdaddresses > 0 || num_subaddresses > 1);
+
+    if (need_additional_txkeys)
+    {
+        CHECK_AND_ASSERT_THROW_MES(additional_tx_keys.size() == dests.size(),
+            "validate_tx_outs: need additional tx keys but additional tx keys size is wrong");
+    }
 
     // if this is a single-destination transfer to a subaddress, we set the tx pubkey to R=s*D
     if (num_stdaddresses == 0 && num_subaddresses == 1)
@@ -215,9 +221,10 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses,
     const std::vector<wallet2_basic::transfer_details> &transfers,
     const bool redacted,
-    const bool expect_imported_key_images)
+    const std::optional<std::function<const crypto::key_image(const size_t)>> &transfer_ki_resolver)
 {
     const auto &construct = ptx.construction_data;
+    const bool transfer_ki_accessible = transfer_ki_resolver.has_value();
 
     // Extract outputs
     std::vector<cryptonote::txout_to_tagged_key> ext_outputs;
@@ -357,7 +364,11 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
             CHECK_AND_ASSERT_THROW_MES(src.real_output < src.outputs.size(),
                 "sanity_check_pending_tx: ring sig index " << src.real_output << " out of input set size "
                 << src.outputs.size());
-            if (src.outputs[src.real_output].first != transfer.m_global_output_index)
+            // Check both global output index and amount since 'global output index' is actually
+            // 'index in global array of same-amount outputs'.
+            if (src.outputs[src.real_output].first != transfer.m_global_output_index
+                || src.amount != transfer.m_amount
+                || src.outputs[src.real_output].second.dest != rct::pk2rct(transfer.get_public_key()))
                 continue;
             ins_order.push_back(i);
             break;
@@ -374,7 +385,7 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     size_t found_kis_count = 0;
     CHECK_AND_ASSERT_THROW_MES(ext_key_images.size() == ptx.selected_transfers.size(),
         "sanity_check_pending_tx: extracted key images size mismatch to selected transfers");
-    for (size_t i = 0; i < ext_key_images.size() && expect_imported_key_images; ++i)
+    for (size_t i = 0; i < ext_key_images.size() && transfer_ki_accessible; ++i)
     {
         const crypto::key_image &ki = ext_key_images[i];
         for (size_t j = 0; j < ptx.selected_transfers.size(); ++j)
@@ -382,18 +393,14 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
             const auto &selected_transfer = ptx.selected_transfers.at(j);
             CHECK_AND_ASSERT_THROW_MES(selected_transfer < transfers.size(),
                 "sanity_check_pending_tx: invalid transfers index");
-            const auto &transfer = transfers.at(selected_transfer);
-
-            CHECK_AND_ASSERT_THROW_MES(transfer.m_key_image_known,
-                "sanity_check_pending_tx: transfer - KI is expected but unknown");
-            if (transfer.m_key_image != ki)
+            if ((*transfer_ki_resolver)(selected_transfer) != ki)
                 continue;
             inp_order.at(j) = i;
             ++found_kis_count;
             break;
         }
     }
-    CHECK_AND_ASSERT_THROW_MES(!expect_imported_key_images || found_kis_count == ptx.selected_transfers.size(),
+    CHECK_AND_ASSERT_THROW_MES(!transfer_ki_accessible || found_kis_count == ptx.selected_transfers.size(),
         "sanity_check_pending_tx: ki mismatch between selected transfers and tx");
 
     boost::multiprecision::uint128_t input_amnt = 0;
@@ -450,7 +457,7 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
 
         input_amnt += src.amount;
         // We need `inp_order` from here, which is only valid if key images are available.
-        if (!expect_imported_key_images)
+        if (!transfer_ki_accessible)
             continue;
 
         const uint64_t ext_input_amount = ext_input_amounts.at(inp_order.at(i));
