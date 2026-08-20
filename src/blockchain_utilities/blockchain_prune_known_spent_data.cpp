@@ -28,6 +28,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
+#include "blockchain_db/locked_txn.h"
 #include "common/command_line.h"
 #include "serialization/crypto.h"
 #include "cryptonote_core/cryptonote_core.h"
@@ -234,7 +235,7 @@ int main(int argc, char* argv[])
     stop_requested = true;
   });
 
-  db->batch_start();
+  LockedTXN db_txn(*db);
 
   size_t num_total_outputs = 0, num_prunable_outputs = 0, num_known_spent_outputs = 0, num_eligible_outputs = 0, num_eligible_known_spent_outputs = 0;
   for (auto i = known_spent_outputs.begin(); i != known_spent_outputs.end(); ++i)
@@ -266,7 +267,7 @@ int main(int argc, char* argv[])
     num_prunable_outputs += i->second;
   }
 
-  db->batch_stop();
+  db_txn.commit();
 
   MINFO("Total outputs: " << num_total_outputs);
   MINFO("Known spent outputs: " << num_known_spent_outputs);

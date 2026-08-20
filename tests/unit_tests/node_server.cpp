@@ -29,6 +29,7 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include "gtest/gtest.h"
+#include "blockchain_db/locked_txn.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "p2p/net_node.h"
 #include "p2p/net_node.inl"
@@ -862,7 +863,7 @@ TEST(cryptonote_protocol_handler, race_condition)
     const block_t &block,
     const stat::chain &stat
   ){
-    core.get_blockchain_storage().get_db().batch_start({}, {});
+    cryptonote::LockedTXN db_txn(core.get_blockchain_storage().get_db());
     core.get_blockchain_storage().get_db().add_block(
       {block, cryptonote::block_to_blob(block)},
       cryptonote::get_transaction_weight(block.miner_tx),
@@ -873,7 +874,7 @@ TEST(cryptonote_protocol_handler, race_condition)
       stat.reward,
       {}
     );
-    core.get_blockchain_storage().get_db().batch_stop();
+    db_txn.commit();
   };
   struct messages {
     struct core {

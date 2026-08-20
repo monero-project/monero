@@ -27,6 +27,7 @@
 #pragma once
 
 #include <atomic>
+#include <optional>
 
 #include "blockchain_db/blockchain_db.h"
 #include "cryptonote_basic/blobdatatype.h" // for type blobdata
@@ -132,10 +133,6 @@ struct mdb_txn_safe
 
   void commit(std::string message = "");
 
-  // This should only be needed for batch transaction which must be ensured to
-  // be aborted before mdb_env_close, not after. So we can't rely on
-  // BlockchainLMDB destructor to call mdb_txn_safe destructor, as that's too late
-  // to properly abort, since mdb_env_close would have been called earlier.
   void abort();
   void uncheck();
 
@@ -158,7 +155,6 @@ struct mdb_txn_safe
 
   mdb_threadinfo* m_tinfo;
   MDB_txn* m_txn;
-  bool m_batch_txn = false;
   bool m_check;
   static std::atomic<uint64_t> num_active_txns;
 
@@ -167,23 +163,10 @@ struct mdb_txn_safe
 };
 
 
-// If m_batch_active is set, a batch transaction exists beyond this class, such
-// as a batch import with verification enabled, or possibly (later) a batch
-// network sync.
-//
-// For some of the lookup methods, such as get_block_timestamp(), tx_exists(),
-// and get_tx(), when m_batch_active is set, the lookup uses the batch
-// transaction. This isn't only because the transaction is available, but it's
-// necessary so that lookups include the database updates only present in the
-// current batch write.
-//
-// A regular network sync without batch writes is expected to open a new read
-// transaction, as those lookups are part of the validation done prior to the
-// write for block and tx data, so no write transaction is open at the time.
 class BlockchainLMDB final: public BlockchainDB
 {
 public:
-  BlockchainLMDB(bool batch_transactions=true);
+  BlockchainLMDB();
   ~BlockchainLMDB();
 
   void open(const std::string& filename, const int mdb_flags=0) override;
@@ -327,13 +310,7 @@ public:
                             , const std::vector<std::pair<transaction, blobdata>>& txs
                             ) override;
 
-  void set_batch_transactions(bool batch_transactions) override;
-  bool batch_start(uint64_t batch_num_blocks=0, uint64_t batch_bytes=0) override;
-  void batch_commit();
-  void batch_stop() override;
-  void batch_abort() override;
-
-  void block_wtxn_start() override;
+  bool block_wtxn_start() override;
   void block_wtxn_stop() override;
   void block_wtxn_abort() override;
   bool block_rtxn_start() const override;
@@ -369,8 +346,6 @@ private:
   void do_resize(uint64_t size_increase=0);
 
   bool need_resize(uint64_t threshold_size=0) const;
-  void check_and_resize_for_batch(uint64_t batch_num_blocks, uint64_t batch_bytes);
-  uint64_t get_estimated_batch_size(uint64_t batch_num_blocks, uint64_t batch_bytes) const;
 
   void add_block( const block& blk
                 , size_t block_weight
@@ -447,8 +422,6 @@ private:
   // migrate from DB version 4 to 5
   void migrate_4_5();
 
-  void cleanup_batch();
-
 private:
   MDB_env* m_env;
 
@@ -479,15 +452,9 @@ private:
 
   MDB_dbi m_properties;
 
-  mutable uint64_t m_cum_size;	// used in batch size estimation
-  mutable unsigned int m_cum_count;
   std::string m_folder;
-  mdb_txn_safe* m_write_txn; // may point to either a short-lived txn or a batch txn
-  mdb_txn_safe* m_write_batch_txn; // persist batch txn outside of BlockchainLMDB
+  std::optional<mdb_txn_safe> m_write_txn;
   boost::thread::id m_writer;
-
-  bool m_batch_transactions; // support for batch transactions
-  bool m_batch_active; // whether batch transaction is in progress
 
   mdb_txn_cursors m_wcursors;
   mutable boost::thread_specific_ptr<mdb_threadinfo> m_tinfo;

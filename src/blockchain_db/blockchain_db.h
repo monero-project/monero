@@ -719,75 +719,7 @@ public:
    */
   virtual std::string get_db_name() const = 0;
 
-  /**
-   * @brief tells the BlockchainDB to start a new "batch" of blocks
-   *
-   * If the subclass implements a batching method of caching blocks in RAM to
-   * be added to a backing store in groups, it should start a batch which will
-   * end either when <batch_num_blocks> has been added or batch_stop() has
-   * been called.  In either case, it should end the batch and write to its
-   * backing store.
-   *
-   * If a batch is already in-progress, this function must return false.
-   * If a batch was started by this call, it must return true.
-   *
-   * If any of this cannot be done, the subclass should throw the corresponding
-   * subclass of DB_EXCEPTION
-   *
-   * @param batch_num_blocks number of blocks to batch together
-   *
-   * @return true if we started the batch, false if already started
-   */
-  virtual bool batch_start(uint64_t batch_num_blocks=0, uint64_t batch_bytes=0) = 0;
-
-  /**
-   * @brief ends a batch transaction
-   *
-   * If the subclass implements batching, this function should store the
-   * batch it is currently on and mark it finished.
-   *
-   * If no batch is in-progress, this function should throw a DB_ERROR.
-   * This exception may change in the future if it is deemed necessary to
-   * have a more granular exception type for this scenario.
-   *
-   * If any of this cannot be done, the subclass should throw the corresponding
-   * subclass of DB_EXCEPTION
-   */
-  virtual void batch_stop() = 0;
-
-  /**
-   * @brief aborts a batch transaction
-   *
-   * If the subclass implements batching, this function should abort the
-   * batch it is currently on.
-   *
-   * If no batch is in-progress, this function should throw a DB_ERROR.
-   * This exception may change in the future if it is deemed necessary to
-   * have a more granular exception type for this scenario.
-   *
-   * If any of this cannot be done, the subclass should throw the corresponding
-   * subclass of DB_EXCEPTION
-   */
-  virtual void batch_abort() = 0;
-
-  /**
-   * @brief sets whether or not to batch transactions
-   *
-   * If the subclass implements batching, this function tells it to begin
-   * batching automatically.
-   *
-   * If the subclass implements batching and has a batch in-progress, a
-   * parameter of false should disable batching and call batch_stop() to
-   * store the current batch.
-   *
-   * If any of this cannot be done, the subclass should throw the corresponding
-   * subclass of DB_EXCEPTION
-   *
-   * @param bool batch whether or not to use batch transactions.
-   */
-  virtual void set_batch_transactions(bool) = 0;
-
-  virtual void block_wtxn_start() = 0;
+  virtual bool block_wtxn_start() = 0;
   virtual void block_wtxn_stop() = 0;
   virtual void block_wtxn_abort() = 0;
   virtual bool block_rtxn_start() const = 0;
@@ -1875,19 +1807,11 @@ class db_txn_guard
 public:
   db_txn_guard(BlockchainDB *db, bool readonly): db(db), readonly(readonly), active(false)
   {
-    if (readonly)
-    {
-      active = db->block_rtxn_start();
-    }
-    else
-    {
-      db->block_wtxn_start();
-      active = true;
-    }
+    active = readonly ? db->block_rtxn_start() : db->block_wtxn_start();
   }
   virtual ~db_txn_guard()
   {
-    stop();
+    abort();
   }
   void stop()
   {
@@ -1902,6 +1826,9 @@ public:
   }
   void abort()
   {
+    if (!active)
+      return;
+
     if (readonly)
       db->block_rtxn_abort();
     else
