@@ -75,6 +75,8 @@ namespace crypto {
   const crypto::public_key null_pkey = crypto::public_key{};
   const crypto::secret_key null_skey = crypto::secret_key{};
 
+  static constexpr ec_point infinity = {{1}};
+
   static inline unsigned char *operator &(ec_point &point) {
     return &reinterpret_cast<unsigned char &>(point);
   }
@@ -126,6 +128,13 @@ namespace crypto {
     // l = 2^252 + 27742317777372353535851937790883648493.
     // l fits 15 times in 32 bytes (iow, 15 l is the highest multiple of l that fits in 32 bytes)
     static const unsigned char limit[32] = { 0xe3, 0x6a, 0x67, 0x72, 0x8b, 0xce, 0x13, 0x29, 0x8f, 0x30, 0x82, 0x8c, 0x0b, 0xa4, 0x10, 0x39, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf0 };
+#ifndef NDEBUG
+    static constexpr unsigned char fifteen[32] = {15};
+    unsigned char l15[32];
+    sc_mul(l15, sc_l, fifteen);
+    assert(0 == memcmp(l15, limit, sizeof(limit)));
+#endif
+
     while(1)
     {
       generate_random_bytes_thread_safe(32, bytes);
@@ -333,7 +342,6 @@ namespace crypto {
     }
     ge_double_scalarmult_base_vartime(&tmp2, &sig.c, &tmp3, &sig.r);
     ge_tobytes(&buf.comm, &tmp2);
-    static const ec_point infinity = {{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
     if (memcmp(&buf.comm, &infinity, 32) == 0)
       return false;
     hash_to_scalar(&buf, sizeof(s_comm), c);
@@ -771,10 +779,15 @@ POP_WARNINGS
       assert(check_key(*pubs[i]));
     }
 #endif
+    if (0 == memcmp(image.data, infinity.data, sizeof(image)))
+      return false; // false if key image is identity
     if (ge_frombytes_vartime(&image_unp, &image) != 0) {
       return false;
     }
     ge_dsm_precomp(image_pre, &image_unp);
+    ge_scalarmult_p3(&image_unp, sc_l, &image_unp);
+    if (!ge_p3_is_point_at_infinity_vartime(&image_unp))
+      return false; // false if key image is torsioned
     sc_0(&sum);
     buf->h = prefix_hash;
     for (i = 0; i < pubs_count; i++) {
