@@ -2728,9 +2728,9 @@ namespace nodetool
       return 1;
     }
 
-    if(context.peer_id)
+    if(context.handshake_complete())
     {
-      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but seems that connection already have associated peer_id (double COMMAND_HANDSHAKE?)");
+      LOG_WARNING_CC(context, "COMMAND_HANDSHAKE came, but connection already completed a handshake (double COMMAND_HANDSHAKE?)");
       drop_connection(context);
       return 1;
     }
