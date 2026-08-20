@@ -32,6 +32,7 @@ set(unit_tests_sources
   address_from_url.cpp
   base58.cpp
   blockchain_db.cpp
+  blockchain_export.cpp
   block_queue.cpp
   block_reward.cpp
   bulletproofs.cpp
@@ -105,6 +106,9 @@ set(unit_tests_sources
   aligned.cpp
   rpc_version_str.cpp
   zmq_rpc.cpp)
+
+list(APPEND unit_tests_sources
+  ${CMAKE_SOURCE_DIR}/src/blockchain_utilities/bootstrap_file.cpp)
 
 set(unit_tests_headers
   unit_tests_utils.h)
