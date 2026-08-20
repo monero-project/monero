@@ -171,7 +171,8 @@ static void reconstruct_payment_id(const std::string &extracted_payment_id,
     // const std::optional<crypto::hash8> &pre_decrypted_to_check,
     const cryptonote::account_public_address &change_addr,
     const std::vector<cryptonote::tx_destination_entry> &dests,
-    const crypto::secret_key &tx_key,
+    // Will be std::nullopt if tx_key is redacted.
+    const std::optional<crypto::secret_key> tx_key,
     const std::vector<cryptonote::tx_extra_field> &tx_extra_fields)
 {
     // Get the destination that will be able to read the payment id in the final tx.
@@ -206,13 +207,17 @@ static void reconstruct_payment_id(const std::string &extracted_payment_id,
     //         "reconstruct_payment_id: did not extract the same pre-decrypted payment id");
     // }
 
-    // Encrypt the address's payment ID.
-    CHECK_AND_ASSERT_THROW_MES(hw::core::device_default().encrypt_payment_id(to_encrypt_payment_id, view_key_pub, tx_key),
-        "reconstruct_payment_id: failed encrypting payment id");
+    if (tx_key)
+    {
+        // Encrypt the address's payment ID.
+        CHECK_AND_ASSERT_THROW_MES(hw::core::device_default().encrypt_payment_id(to_encrypt_payment_id,
+                view_key_pub, *tx_key),
+            "reconstruct_payment_id: failed encrypting payment id");
 
-    // Check equivalence.
-    CHECK_AND_ASSERT_THROW_MES(to_encrypt_payment_id == encrypted_payment_id8,
-        "reconstruct_payment_id: failed encrypting payment id");
+        // Check equivalence.
+        CHECK_AND_ASSERT_THROW_MES(to_encrypt_payment_id == encrypted_payment_id8,
+            "reconstruct_payment_id: failed encrypting payment id");
+    }
 }
 //-------------------------------------------------------------------------------------------------------------------
 void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
@@ -590,11 +595,11 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
                 if (!extracted_payment_id.empty())
                 {
                     reconstruct_payment_id(extracted_payment_id,
-                        parsed_info ? std::optional<crypto::hash8>(parse_info.payment_id) : std::nullopt,
+                        parsed_info ? std::optional{parse_info.payment_id} : std::nullopt,
                         // decrypted_payment_id8,
                         ptx.change_dts.addr,
                         construct.splitted_dsts,
-                        ptx.tx_key,
+                        redacted ? std::nullopt : std::optional{ptx.tx_key},
                         tx_extra_fields);
                 }
             }

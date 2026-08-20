@@ -11437,8 +11437,9 @@ void wallet2::cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_
 
   // Double-check final values.
   // Cold wallets are not expected to have a complete store of key images.
+  // Cold devices (e.g. trezor) may or may not redact outputs, so we set `redact = true`.
   for (const auto &ptx : exported_txs.ptx)
-    this->sanity_check_pending_tx(ptx, false, false, std::nullopt);
+    this->sanity_check_pending_tx(ptx, true, false, std::nullopt);
 
   // Print
   for (auto &c_ptx: exported_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(c_ptx.tx));
