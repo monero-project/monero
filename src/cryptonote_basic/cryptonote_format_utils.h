@@ -110,7 +110,6 @@ namespace cryptonote
   void get_blob_hash(const blobdata_ref& blob, crypto::hash& res);
   crypto::hash get_blob_hash(const blobdata& blob);
   crypto::hash get_blob_hash(const blobdata_ref& blob);
-  std::string short_hash_str(const crypto::hash& h);
 
   crypto::hash get_transaction_hash(const transaction& t);
   bool get_transaction_hash(const transaction& t, crypto::hash& res);
@@ -154,13 +153,6 @@ namespace cryptonote
   uint64_t round_money_up(uint64_t amount, unsigned significant_digits);
   std::string round_money_up(const std::string &amount, unsigned significant_digits);
   //---------------------------------------------------------------
-  template<class t_object>
-  bool t_serializable_object_from_blob(t_object& to, const blobdata& b_blob)
-  {
-    binary_archive<false> ba{epee::strspan<std::uint8_t>(b_blob)};
-    bool r = ::serialization::serialize(ba, to);
-    return r;
-  }
   //---------------------------------------------------------------
   template<class t_object>
   bool t_serializable_object_to_blob(const t_object& to, blobdata& b_blob)
@@ -267,7 +259,6 @@ namespace cryptonote
     const uint8_t major_version,
     const crypto::hash &seed_hash);
   bool is_valid_decomposed_amount(uint64_t amount);
-  void get_hash_stats(uint64_t &tx_hashes_calculated, uint64_t &tx_hashes_cached, uint64_t &block_hashes_calculated, uint64_t & block_hashes_cached);
 
   crypto::secret_key encrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase);
   crypto::secret_key decrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase);
