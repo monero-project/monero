@@ -382,6 +382,7 @@ namespace cryptonote
       ? std::min(req.max_block_count, (uint64_t)COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT)
       : COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT;
 
+    db_rtxn_guard rtxn_guard(&m_core.get_blockchain_storage().get_db());
     std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, cryptonote::blobdata> > > > bs;
     if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.top_block_hash, res.start_height, req.prune, !req.no_miner_tx, req.block_ids_exclusive, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
     {
@@ -570,6 +571,7 @@ namespace cryptonote
     res.status = "Failed";
     res.blocks.clear();
     res.blocks.reserve(req.heights.size());
+    db_rtxn_guard rtxn_guard(&m_core.get_blockchain_storage().get_db());
     for (uint64_t height : req.heights)
     {
       block blk;
