@@ -50,6 +50,7 @@
 #include "mnemonics/lojban.h"
 #include "mnemonics/english_old.h"
 #include "mnemonics/singleton.h"
+#include "string_tools.h"
 
 namespace
 {
@@ -205,6 +206,27 @@ TEST(mnemonics, language_detection_with_bad_checksum)
     res = crypto::ElectrumWords::words_to_bytes(base_seed + " " + real_checksum, key, language_name);
     ASSERT_EQ(true, res);
     ASSERT_STREQ(language_name.c_str(), "Português");
+}
+
+TEST(mnemonics, explicit_language_decoding)
+{
+    crypto::secret_key key;
+    std::string language_name;
+    bool res;
+
+    const std::string seed = "pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma";
+
+    res = crypto::ElectrumWords::words_to_bytes(seed, key, language_name);
+    ASSERT_EQ(true, res);
+    ASSERT_STREQ(language_name.c_str(), "English");
+    ASSERT_EQ("3b0400003b0400003b0400003b0400003b0400003b0400003b0400003b040000",
+      epee::string_tools::pod_to_hex(unwrap(unwrap(key))));
+
+    res = crypto::ElectrumWords::words_to_bytes(seed, key, language_name, "Spanish");
+    ASSERT_EQ(true, res);
+    ASSERT_STREQ(language_name.c_str(), "Español");
+    ASSERT_EQ("b4050000b4050000b4050000b4050000b4050000b4050000b4050000b4050000",
+      epee::string_tools::pod_to_hex(unwrap(unwrap(key))));
 }
 
 TEST(mnemonics, utf8prefix)
