@@ -1,0 +1,299 @@
+FROM stagex/pallet-gcc-gnu-gnu:sx2026.06.0@sha256:c06b4e5e490d7fdc77951510b5256f889a8bd51c6fa9d6c41c7f6c4cea88f35c AS base
+
+COPY --from=stagex/user-patch:sx2026.06.0@sha256:1d4428893f0ea9abfabc1fb5e365c5593fe10c6ed8ffc592d6528157a4299942 . /
+COPY --from=stagex/core-cmake:sx2026.06.0@sha256:626a3fdf157efacd00c3ceb0529ae80dde1072d64fa1925aafe9819bebc92047 . /
+COPY --from=stagex/core-openssl:sx2026.06.0@sha256:5fbecea19913b8c9bb2e5976b03833d44f99c98290b17ee5ef9b469470b7bbff . /
+COPY --from=stagex/core-ncurses:sx2026.06.0@sha256:90cc5d029c5073405f9db39c88b9509b8959bbd8f19d8cd02c20e9350cc40254 . /
+COPY --from=stagex/core-bash:sx2026.06.0@sha256:6e3c18424c2a03fb9dd14988bfa3016f678289f4b4baf148a44d5dda722f2ddc . /
+COPY --from=stagex/core-bzip2:sx2026.06.0@sha256:5544050f935ae83d5b8c51fcbd712f404ffea27c8603e63903caa7598502ebc7 . /
+COPY --from=stagex/core-git:sx2026.06.0@sha256:153662d5bfbd9fc4331eab59e15e629318aef946d297bc7c2c14e2b90c95d147 . /
+COPY --from=stagex/pallet-rust:sx2026.06.0@sha256:59d4d0c9e232a05ecb99348f7216b521af1b914a430059dbdb9130018f2afde1 . /
+
+FROM base AS base-curl
+
+COPY --from=stagex/core-curl:sx2026.06.0@sha256:7a95abfe88eea0a7afd614d219e0b0f11fd77ce257046489baa0fbbf2fc6c088 . /
+COPY --from=stagex/core-ca-certificates:sx2026.06.0@sha256:ea7076d1bb83693fa4766c9cbd8132e59ac0981799fd8b58961c245cd360b66d . /
+
+FROM base-curl AS rust-std
+
+RUN mkdir -p /src && cd /src && \
+    curl --retry 5 -fL -o rustc-src.tar.gz "https://static.rust-lang.org/dist/rustc-1.96.0-src.tar.gz" && \
+    echo "e90a9eb153b2948afac840dbe9d77b64e376706f2864387ee7717f7450043b44  rustc-src.tar.gz" | sha256sum -c - && \
+    tar -xf rustc-src.tar.gz
+
+FROM base AS native
+
+COPY --from=rust-std /src/rustc-1.96.0-src/vendor /vendor
+
+ENTRYPOINT ["/bin/env"]
+
+FROM base-curl AS linux-cross-base
+
+ARG TARGET
+
+ENV TARGET="${TARGET}" \
+    CROSS_PREFIX=/opt/cross \
+    SYSROOT="/opt/cross/${TARGET}" \
+    PATH=/opt/cross/bin:/usr/bin:/bin
+
+FROM linux-cross-base AS linux-cross-builder
+
+ARG BINUTILS_VERSION=2.45
+ARG GCC_VERSION=15.2.0
+ARG LINUX_ARCH
+ARG LINUX_VERSION=6.12.41
+ARG MUSL_VERSION=1.2.5
+
+RUN mkdir -p /src && cd /src && \
+    curl --retry 5 -fL -o binutils.tar.xz "https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz" && \
+    curl --retry 5 -fL -o gcc.tar.xz "https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz" && \
+    curl --retry 5 -fL -o linux.tar.xz "https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-${LINUX_VERSION}.tar.xz" && \
+    (curl --retry 5 -fL -o musl.tar.gz "https://musl.libc.org/releases/musl-${MUSL_VERSION}.tar.gz" || \
+     curl --retry 5 -fL -o musl.tar.gz "https://distfiles.macports.org/musl/musl-${MUSL_VERSION}.tar.gz") && \
+    echo "c50c0e7f9cb188980e2cc97e4537626b1672441815587f1eab69d2a1bfbef5d2  binutils.tar.xz" | sha256sum -c - && \
+    echo "438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e  gcc.tar.xz" | sha256sum -c - && \
+    echo "6b19a3ae99423de2416964d67251d745910277af258b4c4c63e88fd87dbf0e27  linux.tar.xz" | sha256sum -c - && \
+    echo "a9a118bbe84d8764da0ea0d28b3ab3fae8477fc7e4085d90102b8596fc7c75e4  musl.tar.gz" | sha256sum -c - && \
+    tar -xf binutils.tar.xz && \
+    tar -xf gcc.tar.xz && \
+    tar -xf linux.tar.xz && \
+    tar -xf musl.tar.gz
+
+RUN mkdir -p /build/binutils && \
+    cd /build/binutils && \
+    /src/binutils-${BINUTILS_VERSION}/configure \
+        --target="${TARGET}" \
+        --prefix="${CROSS_PREFIX}" \
+        --with-sysroot="${SYSROOT}" \
+        --disable-gdb \
+        --disable-gprofng \
+        --disable-multilib \
+        --disable-nls \
+        --disable-sim \
+        --disable-werror && \
+    make -j"$(nproc)" && \
+    make install
+
+RUN make -C "/src/linux-${LINUX_VERSION}" ARCH="${LINUX_ARCH}" headers && \
+    mkdir -p "${SYSROOT}/usr/include" && \
+    cp -R "/src/linux-${LINUX_VERSION}/usr/include/." "${SYSROOT}/usr/include/"
+
+RUN mkdir -p /build/gcc-bootstrap && \
+    cd /build/gcc-bootstrap && \
+    /src/gcc-${GCC_VERSION}/configure \
+        --target="${TARGET}" \
+        --prefix="${CROSS_PREFIX}" \
+        --with-sysroot="${SYSROOT}" \
+        --with-newlib \
+        --without-headers \
+        --enable-languages=c \
+        --disable-bootstrap \
+        --disable-decimal-float \
+        --disable-libatomic \
+        --disable-libgomp \
+        --disable-libquadmath \
+        --disable-libsanitizer \
+        --disable-libssp \
+        --disable-libstdcxx \
+        --disable-libvtv \
+        --disable-multilib \
+        --disable-nls \
+        --disable-shared \
+        --disable-threads && \
+    make -j"$(nproc)" all-gcc && \
+    make install-gcc
+
+RUN cd "/src/musl-${MUSL_VERSION}" && \
+    CC="${TARGET}-gcc" \
+    CROSS_COMPILE="${TARGET}-" \
+    ./configure \
+        --target="${TARGET}" \
+        --prefix=/usr \
+        --syslibdir=/lib && \
+    make DESTDIR="${SYSROOT}" install-headers && \
+    mkdir -p "${SYSROOT}/usr/lib" && \
+    touch "${SYSROOT}/usr/lib/libc.so" && \
+    make -C /build/gcc-bootstrap -j"$(nproc)" all-target-libgcc && \
+    make -C /build/gcc-bootstrap install-target-libgcc && \
+    CC="${TARGET}-gcc" \
+    CROSS_COMPILE="${TARGET}-" \
+    CFLAGS="-fPIC" \
+    ./configure \
+        --target="${TARGET}" \
+        --prefix=/usr \
+        --syslibdir=/lib && \
+    rm "${SYSROOT}/usr/lib/libc.so" && \
+    make -j"$(nproc)" && \
+    make DESTDIR="${SYSROOT}" install
+
+RUN mkdir -p /build/gcc-final && \
+    cd /build/gcc-final && \
+    /src/gcc-${GCC_VERSION}/configure \
+        --target="${TARGET}" \
+        --prefix="${CROSS_PREFIX}" \
+        --with-sysroot="${SYSROOT}" \
+        --with-build-sysroot="${SYSROOT}" \
+        --enable-cet=yes \
+        --enable-default-ssp=yes \
+        --enable-default-pie=yes \
+        --enable-gprofng=no \
+        --enable-host-bind-now=yes \
+        --enable-initfini-array=yes \
+        --enable-standard-branch-protection=yes \
+        --enable-languages=c,c++ \
+        --enable-libstdcxx-time \
+        --enable-shared \
+        --enable-threads=posix \
+        --disable-bootstrap \
+        --disable-libgomp \
+        --disable-libquadmath \
+        --disable-libsanitizer \
+        --disable-libssp \
+        --disable-libvtv \
+        --disable-multilib \
+        --disable-nls && \
+    make -j"$(nproc)" all-gcc all-target-libgcc all-target-libstdc++-v3 && \
+    make install-gcc install-target-libgcc install-target-libstdc++-v3
+
+RUN rm -rf "${CROSS_PREFIX}/share/info" "${CROSS_PREFIX}/share/man"
+
+FROM linux-cross-base AS linux-cross
+
+COPY --from=rust-std /src/rustc-1.96.0-src/vendor /vendor
+COPY --from=linux-cross-builder /opt/cross /opt/cross
+
+ENTRYPOINT ["/bin/env"]
+
+FROM base AS mingw-base
+
+COPY --from=stagex/user-zip:sx2026.06.0@sha256:ff420859782cbfa3d0771c87e078247424c00acbe7c46183635393f3e68c29cd . /
+
+ENV TARGET=x86_64-w64-mingw32 \
+    CROSS_PREFIX=/opt/cross \
+    SYSROOT=/opt/cross/x86_64-w64-mingw32 \
+    PATH=/opt/cross/bin:/usr/bin:/bin
+
+FROM mingw-base AS mingw-builder
+
+ARG BINUTILS_VERSION=2.45
+ARG GCC_VERSION=15.2.0
+ARG MINGW_VERSION=14.0.0
+
+RUN mkdir -p /src && cd /src && \
+    curl --retry 5 -fL -o binutils.tar.xz "https://ftp.gnu.org/gnu/binutils/binutils-${BINUTILS_VERSION}.tar.xz" && \
+    curl --retry 5 -fL -o gcc.tar.xz "https://ftp.gnu.org/gnu/gcc/gcc-${GCC_VERSION}/gcc-${GCC_VERSION}.tar.xz" && \
+    curl --retry 5 -fL -o mingw-w64.tar.gz "https://github.com/mingw-w64/mingw-w64/archive/refs/tags/v${MINGW_VERSION}.tar.gz" && \
+    echo "c50c0e7f9cb188980e2cc97e4537626b1672441815587f1eab69d2a1bfbef5d2  binutils.tar.xz" | sha256sum -c - && \
+    echo "438fd996826b0c82485a29da03a72d71d6e3541a83ec702df4271f6fe025d24e  gcc.tar.xz" | sha256sum -c - && \
+    echo "d71cc644cd5a37c337f2719f3e0c79d89e8d8d5fb9e2952a62d3fa23623dc137  mingw-w64.tar.gz" | sha256sum -c - && \
+    tar -xf binutils.tar.xz && \
+    tar -xf gcc.tar.xz && \
+    tar -xf mingw-w64.tar.gz
+
+RUN mkdir -p /build/binutils && \
+    cd /build/binutils && \
+    /src/binutils-${BINUTILS_VERSION}/configure \
+        --target="${TARGET}" \
+        --prefix="${CROSS_PREFIX}" \
+        --with-sysroot="${CROSS_PREFIX}" \
+        --disable-gdb \
+        --disable-gprofng \
+        --disable-multilib \
+        --disable-nls \
+        --disable-sim \
+        --disable-werror && \
+    make -j"$(nproc)" && \
+    make install
+
+RUN mkdir -p /build/mingw-headers && \
+    cd /build/mingw-headers && \
+    /src/mingw-w64-${MINGW_VERSION}/mingw-w64-headers/configure \
+        --host="${TARGET}" \
+        --prefix="${SYSROOT}" \
+        --enable-sdk=all \
+        --enable-idl \
+        --with-default-msvcrt=ucrt && \
+    make -j"$(nproc)" && \
+    make install && \
+    ln -s "${SYSROOT}" "${CROSS_PREFIX}/mingw"
+
+RUN mkdir -p /build/gcc-bootstrap && \
+    cd /build/gcc-bootstrap && \
+    /src/gcc-${GCC_VERSION}/configure \
+        --target="${TARGET}" \
+        --prefix="${CROSS_PREFIX}" \
+        --with-sysroot="${CROSS_PREFIX}" \
+        --with-build-sysroot="${CROSS_PREFIX}" \
+        --enable-languages=c \
+        --disable-bootstrap \
+        --disable-libatomic \
+        --disable-libgomp \
+        --disable-libquadmath \
+        --disable-libsanitizer \
+        --disable-libssp \
+        --disable-libstdcxx \
+        --disable-libvtv \
+        --disable-multilib \
+        --disable-nls \
+        --disable-shared \
+        --disable-threads && \
+    make -j"$(nproc)" all-gcc && \
+    make install-gcc
+
+RUN mkdir -p /build/mingw-crt && \
+    cd /build/mingw-crt && \
+    CC="${TARGET}-gcc" \
+    /src/mingw-w64-${MINGW_VERSION}/mingw-w64-crt/configure \
+        --host="${TARGET}" \
+        --prefix="${SYSROOT}" \
+        --with-sysroot="${SYSROOT}" \
+        --with-default-msvcrt=ucrt \
+        --enable-lib64 \
+        --disable-lib32 && \
+    make -j"$(nproc)" && \
+    make install && \
+    make -C /build/gcc-bootstrap -j"$(nproc)" all-target-libgcc && \
+    make -C /build/gcc-bootstrap install-target-libgcc
+
+RUN mkdir -p /build/winpthreads && \
+    cd /build/winpthreads && \
+    CC="${TARGET}-gcc" \
+    /src/mingw-w64-${MINGW_VERSION}/mingw-w64-libraries/winpthreads/configure \
+        --host="${TARGET}" \
+        --prefix="${SYSROOT}" \
+        --with-sysroot="${SYSROOT}" \
+        --enable-shared \
+        --enable-static && \
+    make -j"$(nproc)" && \
+    make install
+
+RUN mkdir -p /build/gcc-final && \
+    cd /build/gcc-final && \
+    /src/gcc-${GCC_VERSION}/configure \
+        --target="${TARGET}" \
+        --prefix="${CROSS_PREFIX}" \
+        --with-sysroot="${CROSS_PREFIX}" \
+        --with-build-sysroot="${CROSS_PREFIX}" \
+        --enable-languages=c,c++ \
+        --enable-libstdcxx-time \
+        --enable-shared \
+        --enable-threads=posix \
+        --disable-bootstrap \
+        --disable-libgomp \
+        --disable-libquadmath \
+        --disable-libsanitizer \
+        --disable-libssp \
+        --disable-libvtv \
+        --disable-multilib \
+        --disable-nls && \
+    make -j"$(nproc)" all-gcc all-target-libgcc all-target-libstdc++-v3 && \
+    make install-gcc install-target-libgcc install-target-libstdc++-v3
+
+RUN rm -rf "${CROSS_PREFIX}/share/info" "${CROSS_PREFIX}/share/man"
+
+FROM mingw-base AS mingw
+
+COPY --from=rust-std /src/rustc-1.96.0-src/vendor /vendor
+COPY --from=mingw-builder /opt/cross /opt/cross
+
+ENTRYPOINT ["/bin/env"]

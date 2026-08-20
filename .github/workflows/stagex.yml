@@ -1,0 +1,72 @@
+name: ci/gh-actions/stagex
+
+on:
+  push:
+    paths:
+      - 'contrib/depends/**'
+      - 'contrib/stagex/**'
+      - '!contrib/**.md'
+      - '.github/workflows/stagex.yml'
+      - '**/Cargo.lock'
+  pull_request:
+    paths:
+      - 'contrib/depends/**'
+      - 'contrib/stagex/**'
+      - '!contrib/**.md'
+      - '.github/workflows/stagex.yml'
+      - '**/Cargo.lock'
+
+jobs:
+  cache-sources:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: depends sources cache
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: contrib/depends/sources
+          key: sources-${{ hashFiles('contrib/depends/packages/*') }}
+      - name: download depends sources
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: make -C contrib/depends download
+
+  build-stagex:
+    runs-on: ubuntu-24.04
+    needs: [cache-sources]
+    strategy:
+      fail-fast: false
+      matrix:
+        toolchain:
+          - target: "x86_64-linux-musl"
+          - target: "aarch64-linux-musl"
+          - target: "riscv64-linux-musl"
+          - target: "x86_64-w64-mingw32"
+          - target: "x86_64-unknown-freebsd"
+          - target: "x86_64-apple-darwin"
+          - target: "arm64-apple-darwin"
+          - target: "aarch64-linux-android"
+
+    name: ${{ matrix.toolchain.target }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: depends sources cache
+        uses: actions/cache/restore@v4
+        with:
+          path: contrib/depends/sources
+          key: sources-${{ hashFiles('contrib/depends/packages/*') }}
+      - name: install dependencies
+        run: sudo apt update; sudo apt -y install git ca-certificates
+      - name: build
+        run: HOSTS="${{ matrix.toolchain.target }}" ./contrib/stagex/stagex-build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.toolchain.target }}
+          path: |
+            stagex/stagex-build-*/output/${{ matrix.toolchain.target }}/*
+            stagex/stagex-build-*/logs/${{ matrix.toolchain.target }}/*

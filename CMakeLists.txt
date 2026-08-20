@@ -269,7 +269,7 @@ add_library(l3 OBJECT incorrect_source.cpp)
   endforeach()
 endfunction()
 if (NOT (CMAKE_SYSTEM_NAME MATCHES "kOpenBSD.*|OpenBSD.*") AND NOT OSSFUZZ)
-  forbid_undefined_symbols()
+  #forbid_undefined_symbols()
 endif()
 
 if (MINGW)

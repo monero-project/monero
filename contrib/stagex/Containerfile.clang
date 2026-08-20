@@ -1,0 +1,32 @@
+FROM stagex/pallet-clang-gnu-busybox:sx2026.06.0@sha256:8057620684aaa5bac37115b1291ea38319de3fa536c45a71d520e24a6763f247 AS base
+
+COPY --from=stagex/core-bash:sx2026.06.0@sha256:6e3c18424c2a03fb9dd14988bfa3016f678289f4b4baf148a44d5dda722f2ddc . /
+COPY --from=stagex/core-lld:sx2026.06.0@sha256:75ad6c8ac84e26f6a8012c42221cc83a51aa525b542ea346b77f2c4afc992c3a . /
+
+# CMake
+COPY --from=stagex/core-cmake:sx2026.06.0@sha256:626a3fdf157efacd00c3ceb0529ae80dde1072d64fa1925aafe9819bebc92047 . /
+COPY --from=stagex/core-openssl:sx2026.06.0@sha256:5fbecea19913b8c9bb2e5976b03833d44f99c98290b17ee5ef9b469470b7bbff . /
+COPY --from=stagex/core-ncurses:sx2026.06.0@sha256:90cc5d029c5073405f9db39c88b9509b8959bbd8f19d8cd02c20e9350cc40254 . /
+
+COPY --from=stagex/core-git:sx2026.06.0@sha256:153662d5bfbd9fc4331eab59e15e629318aef946d297bc7c2c14e2b90c95d147 . /
+COPY --from=stagex/core-bzip2:sx2026.06.0@sha256:5544050f935ae83d5b8c51fcbd712f404ffea27c8603e63903caa7598502ebc7 . /
+
+# Needed for android
+COPY --from=stagex/user-glibc:sx2026.06.0@sha256:800dfc0be47b321d2f6e8e834e4471c176b00b36a4ca12612a8b44855fbca6c4 . /
+
+FROM base AS rust-std
+
+COPY --from=stagex/core-curl:sx2026.06.0@sha256:7a95abfe88eea0a7afd614d219e0b0f11fd77ce257046489baa0fbbf2fc6c088 . /
+COPY --from=stagex/core-ca-certificates:sx2026.06.0@sha256:ea7076d1bb83693fa4766c9cbd8132e59ac0981799fd8b58961c245cd360b66d . /
+
+RUN mkdir -p /src && cd /src && \
+    curl --retry 5 -fL -o rustc-src.tar.gz "https://static.rust-lang.org/dist/rustc-1.96.0-src.tar.gz" && \
+    echo "e90a9eb153b2948afac840dbe9d77b64e376706f2864387ee7717f7450043b44  rustc-src.tar.gz" | sha256sum -c - && \
+    tar -xf rustc-src.tar.gz
+
+FROM base
+
+COPY --from=stagex/pallet-rust:sx2026.06.0@sha256:59d4d0c9e232a05ecb99348f7216b521af1b914a430059dbdb9130018f2afde1 . /
+COPY --from=rust-std /src/rustc-1.96.0-src/vendor /vendor
+
+ENTRYPOINT ["/bin/env"]
