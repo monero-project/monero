@@ -42,6 +42,28 @@
 
 using namespace cryptonote;
 
+static void collect_transparent_amount_commitments_static(
+    const std::vector<std::reference_wrapper<const transaction>> &tx_refs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout)
+{
+    // Note: we do not clear transparent_amount_commitments_inout because it may be a rolling cache
+
+    for (const std::reference_wrapper<const transaction> &tx_ref : tx_refs)
+    {
+        const transaction &tx = tx_ref.get();
+
+        // We only need commitments for transparent amounts, which are tx version 1 || coinbase txs
+        if (tx.version > 1 && !cryptonote::is_coinbase(tx))
+            continue;
+        for (const auto &tx_out : tx.vout)
+        {
+            const uint64_t amount = tx_out.amount;
+            if (transparent_amount_commitments_inout.find(amount) == transparent_amount_commitments_inout.end())
+                transparent_amount_commitments_inout[amount] = rct::zeroCommitVartime(amount);
+        }
+    }
+}
+
 // Do RCT expansion, then do post-expansion sanity checks, then do full non-semantics verification.
 static bool expand_tx_and_ver_rct_non_sem(transaction& tx, const rct::ctkeyM& mix_ring)
 {
@@ -314,6 +336,46 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
 
 namespace cryptonote
 {
+
+std::vector<std::reference_wrapper<const transaction>> collect_transparent_amount_commitments(
+    const transaction &miner_tx,
+    const std::vector<std::pair<transaction, blobdata>> &tx_pairs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout)
+{
+    std::vector<std::reference_wrapper<const transaction>> tx_refs;
+    tx_refs.reserve(1 + tx_pairs.size());
+    tx_refs.push_back(std::cref(miner_tx));
+    for (const auto &tx : tx_pairs)
+        tx_refs.push_back(std::cref(tx.first));
+    collect_transparent_amount_commitments_static(tx_refs, transparent_amount_commitments_inout);
+    return tx_refs;
+}
+
+std::vector<std::reference_wrapper<const transaction>> collect_transparent_amount_commitments(
+    const transaction &miner_tx,
+    const std::vector<transaction> &txs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout)
+{
+    std::vector<std::reference_wrapper<const transaction>> tx_refs;
+    tx_refs.reserve(1 + txs.size());
+    tx_refs.push_back(std::cref(miner_tx));
+    for (const auto &tx : txs)
+        tx_refs.push_back(std::cref(tx));
+    collect_transparent_amount_commitments_static(tx_refs, transparent_amount_commitments_inout);
+    return tx_refs;
+}
+
+std::vector<std::reference_wrapper<const transaction>> collect_transparent_amount_commitments(
+    const std::unordered_map<crypto::hash, std::pair<transaction, blobdata>> &txs_by_txid,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout)
+{
+    std::vector<std::reference_wrapper<const transaction>> tx_refs;
+    tx_refs.reserve(txs_by_txid.size());
+    for (const auto &tx_pair : txs_by_txid)
+        tx_refs.push_back(std::cref(tx_pair.second.first));
+    collect_transparent_amount_commitments_static(tx_refs, transparent_amount_commitments_inout);
+    return tx_refs;
+}
 
 uint64_t get_transaction_weight_limit(const uint8_t hf_version)
 {
