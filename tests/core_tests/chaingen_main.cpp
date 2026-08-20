@@ -162,6 +162,7 @@ int main(int argc, char* argv[])
     // Mempool
     GENERATE_AND_PLAY(txpool_spend_key_public);
     GENERATE_AND_PLAY(txpool_spend_key_all);
+    GENERATE_AND_PLAY(txpool_zero_fee);
     GENERATE_AND_PLAY(txpool_double_spend_norelay);
     GENERATE_AND_PLAY(txpool_double_spend_local);
     GENERATE_AND_PLAY(txpool_double_spend_keyimage);

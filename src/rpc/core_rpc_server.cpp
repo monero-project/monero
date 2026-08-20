@@ -1051,7 +1051,7 @@ namespace cryptonote
     res.sanity_check_failed = false;
 
     tx_verification_context tvc{};
-    if(!m_core.handle_incoming_tx(tx_blob, tvc, (req.do_not_relay ? relay_method::none : relay_method::local), false) || tvc.m_verifivation_failed)
+    if(!m_core.handle_incoming_tx(tx_blob, tvc, (req.do_not_relay ? relay_method::none : relay_method::local), false, true) || tvc.m_verifivation_failed)
     {
       res.status = "Failed";
       std::string reason = "";
@@ -1086,6 +1086,10 @@ namespace cryptonote
       }
       return true;
     }
+    transaction tx;
+    crypto::hash tx_hash;
+    CHECK_AND_ASSERT_MES(parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash), false, "Failed to calculate transaction hash");
+    res.tx_hash = string_tools::pod_to_hex(tx_hash);
 
     if(tvc.m_relay == relay_method::none)
     {

@@ -119,6 +119,97 @@ bool txpool_spend_key_all::generate(std::vector<test_event_entry>& events)
   return true;
 }
 
+txpool_zero_fee::txpool_zero_fee()
+  : txpool_base()
+  , m_invalid_tx_index(0)
+{
+  REGISTER_CALLBACK_METHOD(txpool_zero_fee, mark_invalid_tx);
+  REGISTER_CALLBACK_METHOD(txpool_zero_fee, check_tx);
+}
+
+bool txpool_zero_fee::generate(std::vector<test_event_entry>& events) const
+{
+  uint64_t send_amount = 1000;
+  uint64_t ts_start = 1338224400;
+  GENERATE_ACCOUNT(miner_account);
+  GENERATE_ACCOUNT(bob_account);
+  MAKE_GENESIS_BLOCK(events, blk_0, miner_account, ts_start);
+  REWIND_BLOCKS_N_HF(events, blk_0r, blk_0, miner_account, CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW + 1, 2);
+  MAKE_NEXT_BLOCK_HF(events, blk_hf4, blk_0r, miner_account, HF_VERSION_DYNAMIC_FEE);
+
+  cryptonote::transaction tx;
+  if (!construct_tx_to_key(events, tx, blk_hf4, miner_account, bob_account, send_amount, 0, 2, true))
+    return false;
+
+  SET_EVENT_VISITOR_SETT(events, event_visitor_settings::set_local_relay |
+    event_visitor_settings::set_txs_received_via_rpc);
+  DO_CALLBACK(events, "mark_invalid_tx");
+  events.push_back(tx);
+
+  SET_EVENT_VISITOR_SETT(events, event_visitor_settings::set_txs_do_not_relay);
+  DO_CALLBACK(events, "mark_invalid_tx");
+  events.push_back(tx);
+
+  SET_EVENT_VISITOR_SETT(events, event_visitor_settings::set_txs_do_not_relay |
+    event_visitor_settings::set_txs_received_via_rpc);
+  events.push_back(tx);
+  DO_CALLBACK(events, "check_tx");
+
+  // A P2P duplicate is ignored before the existing pool metadata can be updated.
+  SET_EVENT_VISITOR_SETT(events, 0);
+  events.push_back(tx);
+  DO_CALLBACK(events, "check_tx");
+
+  MAKE_NEXT_BLOCK_HF(events, blk_hf4_2, blk_hf4, miner_account, HF_VERSION_DYNAMIC_FEE);
+  DO_CALLBACK(events, "check_tx");
+
+  return true;
+}
+
+bool txpool_zero_fee::mark_invalid_tx(cryptonote::core&, size_t ev_index, const std::vector<test_event_entry>&)
+{
+  m_invalid_tx_index = ev_index + 1;
+  return true;
+}
+
+bool txpool_zero_fee::check_tx_verification_context(const cryptonote::tx_verification_context& tvc,
+  bool tx_added, size_t event_idx, const cryptonote::transaction&)
+{
+  if (event_idx == m_invalid_tx_index)
+    return tvc.m_verifivation_failed && tvc.m_fee_too_low && !tx_added;
+  return !tvc.m_verifivation_failed;
+}
+
+bool txpool_zero_fee::check_tx(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events)
+{
+  const cryptonote::transaction* tx = nullptr;
+  for (size_t i = ev_index; i > 0; --i)
+  {
+    if (events[i - 1].type() == typeid(cryptonote::transaction))
+    {
+      tx = &boost::get<cryptonote::transaction>(events[i - 1]);
+      break;
+    }
+  }
+  if (tx == nullptr)
+    return false;
+
+  cryptonote::txpool_tx_meta_t meta{};
+  if (!c.get_blockchain_storage().get_txpool_tx_meta(cryptonote::get_transaction_hash(*tx), meta))
+  {
+    MERROR("Zero-fee RPC transaction was not added to the pool");
+    return false;
+  }
+
+  if (meta.fee != 0 || !meta.received_via_rpc || !meta.do_not_relay || meta.kept_by_block)
+  {
+    MERROR("Zero-fee RPC transaction has incorrect pool metadata");
+    return false;
+  }
+
+  return true;
+}
+
 txpool_double_spend_base::txpool_double_spend_base()
   : txpool_base()
   , m_broadcasted_hashes()

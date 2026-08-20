@@ -553,6 +553,13 @@ TEST(JsonSerialization, InvalidVectorBytes)
     EXPECT_THROW(cryptonote::json::fromJsonValue(doc, out), cryptonote::json::BAD_INPUT);
 }
 
+TEST(JsonSerialization, TxInPool)
+{
+  cryptonote::rpc::tx_in_pool tx{};
+  tx.received_via_rpc = true;
+  EXPECT_TRUE(test_json(tx).received_via_rpc);
+}
+
 TEST(JsonSerialization, DaemonInfo)
 {
   cryptonote::rpc::DaemonInfo info{};

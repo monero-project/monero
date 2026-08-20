@@ -615,6 +615,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct response_t: public rpc_access_response_base
     {
+      std::string tx_hash;
       std::string reason;
       bool not_relayed;
       bool low_mixin;
@@ -631,6 +632,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
+        KV_SERIALIZE(tx_hash)
         KV_SERIALIZE(reason)
         KV_SERIALIZE(not_relayed)
         KV_SERIALIZE(low_mixin)

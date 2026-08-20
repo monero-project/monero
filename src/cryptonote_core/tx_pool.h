@@ -104,13 +104,14 @@ namespace cryptonote
      * @tx_relay how the transaction was received
      * @param tx_weight the transaction's weight
      * @param valid_input_verification_id a previously valid verID if non-null
+     * @param received_via_rpc whether the transaction was received through the RPC server
      * @return True if tx passes verification checks AND is first observation
      *   of tx in `broadcasted` relay method.
      */
     bool add_tx(transaction &tx, const crypto::hash &id, const cryptonote::blobdata &blob,
       size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
       uint8_t version, uint8_t nic_verified_hf_version = 0,
-      const crypto::hash &valid_input_verification_id = crypto::null_hash);
+      const crypto::hash &valid_input_verification_id = crypto::null_hash, bool received_via_rpc = false);
 
     /**
      * @brief add a transaction to the transaction pool
@@ -127,6 +128,7 @@ namespace cryptonote
      * @param version the version used to create the transaction
      * @param nic_verified_hf_version hard fork which "tx" is known to pass non-input consensus test
      * @param valid_input_verification_id a previously valid verID if non-null
+     * @param received_via_rpc whether the transaction was received through the RPC server
      *
      * If "nic_verified_hf_version" parameter is equal to "version" parameter, then we skip the
      * asserting `ver_non_input_consensus(tx)`, which greatly speeds up block popping and returning
@@ -139,7 +141,7 @@ namespace cryptonote
      */
     bool add_tx(transaction &tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
       uint8_t version, uint8_t nic_verified_hf_version = 0,
-      const crypto::hash &valid_input_verification_id = crypto::null_hash);
+      const crypto::hash &valid_input_verification_id = crypto::null_hash, bool received_via_rpc = false);
 
     /**
      * @brief takes a transaction with the given hash from the pool

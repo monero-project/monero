@@ -123,10 +123,11 @@ namespace cryptonote
       * @param tvc metadata about the transaction's validity
       * @param tx_relay how the transaction was received
       * @param relayed whether or not the transaction was relayed to us
+      * @param received_via_rpc whether the transaction was received through the RPC server
       *
       * @return true if the transaction was accepted, false otherwise
       */
-     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
+     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed, bool received_via_rpc);
 
     /**
       * @brief handles a single incoming block
@@ -930,9 +931,10 @@ namespace cryptonote
       * @param tx_weight the weight of the transaction
       * @param tx_relay how the transaction was received
       * @param relayed whether or not the transaction was relayed to us
+      * @param received_via_rpc whether the transaction was received through the RPC server
       *
       */
-     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
+     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed, bool received_via_rpc);
 
      /**
       * @brief add a new transaction to the transaction pool
@@ -943,12 +945,13 @@ namespace cryptonote
       * @param tvc return-by-reference metadata about the transaction's verification process
       * @param tx_relay how the transaction was received
       * @param relayed whether or not the transaction was relayed to us
+      * @param received_via_rpc whether the transaction was received through the RPC server
       *
       * @return true if the transaction is already in the transaction pool,
       * is already in a block on the Blockchain, or is successfully added
       * to the transaction pool
       */
-     bool add_new_tx(transaction& tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
+     bool add_new_tx(transaction& tx, tx_verification_context& tvc, relay_method tx_relay, bool relayed, bool received_via_rpc);
 
      /**
       * @copydoc Blockchain::add_new_block

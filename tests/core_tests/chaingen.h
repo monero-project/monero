@@ -114,7 +114,8 @@ struct event_visitor_settings
     set_txs_keeped_by_block = 1 << 0,
     set_txs_do_not_relay = 1 << 1,
     set_local_relay = 1 << 2,
-    set_txs_stem = 1 << 3
+    set_txs_stem = 1 << 3,
+    set_txs_received_via_rpc = 1 << 4
   };
 
   event_visitor_settings(int a_mask = 0)
@@ -540,6 +541,7 @@ private:
   size_t m_ev_index;
 
   cryptonote::relay_method m_tx_relay;
+  bool m_received_via_rpc;
 
 public:
   push_core_event_visitor(cryptonote::core& c, const std::vector<test_event_entry>& events, t_test_class& validator)
@@ -548,6 +550,7 @@ public:
     , m_validator(validator)
     , m_ev_index(0)
     , m_tx_relay(cryptonote::relay_method::fluff)
+    , m_received_via_rpc(false)
   {
   }
 
@@ -586,6 +589,7 @@ public:
     {
       m_tx_relay = cryptonote::relay_method::fluff;
     }
+    m_received_via_rpc = settings.mask & event_visitor_settings::set_txs_received_via_rpc;
 
     return true;
   }
@@ -596,7 +600,7 @@ public:
 
     cryptonote::tx_verification_context tvc{};
     size_t pool_size = m_c.get_pool_transactions_count();
-    m_c.handle_incoming_tx(t_serializable_object_to_blob(tx), tvc, m_tx_relay, false);
+    m_c.handle_incoming_tx(t_serializable_object_to_blob(tx), tvc, m_tx_relay, false, m_received_via_rpc);
     bool tx_added = pool_size + 1 == m_c.get_pool_transactions_count();
     bool r = m_validator.check_tx_verification_context(tvc, tx_added, m_ev_index, tx);
     CHECK_AND_NO_ASSERT_MES(r, false, "tx verification context check failed");
@@ -617,7 +621,7 @@ public:
     }
     size_t pool_size = m_c.get_pool_transactions_count();
     for (size_t i = 0; i < tx_blobs.size(); ++i)
-      m_c.handle_incoming_tx(tx_blobs[i], tvcs[i], m_tx_relay, false);
+      m_c.handle_incoming_tx(tx_blobs[i], tvcs[i], m_tx_relay, false, m_received_via_rpc);
     size_t tx_added = m_c.get_pool_transactions_count() - pool_size;
     bool r = m_validator.check_tx_verification_context_array(tvcs, tx_added, m_ev_index, txs);
     CHECK_AND_NO_ASSERT_MES(r, false, "tx verification context check failed");
@@ -695,7 +699,7 @@ public:
 
     cryptonote::tx_verification_context tvc{};
     size_t pool_size = m_c.get_pool_transactions_count();
-    m_c.handle_incoming_tx(sr_tx.data, tvc, m_tx_relay, false);
+    m_c.handle_incoming_tx(sr_tx.data, tvc, m_tx_relay, false, m_received_via_rpc);
     bool tx_added = pool_size + 1 == m_c.get_pool_transactions_count();
 
     cryptonote::transaction tx;

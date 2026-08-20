@@ -174,7 +174,7 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
       tx_verification_context tvc = AUTO_VAL_INIT(tvc);
       CHECK_AND_ASSERT_THROW_MES(tx_blob.prunable_hash == crypto::null_hash,
         "block entry must not contain pruned txs");
-      core.handle_incoming_tx(tx_blob.blob, tvc, relay_method::block, true);
+      core.handle_incoming_tx(tx_blob.blob, tvc, relay_method::block, true, false);
       if(tvc.m_verifivation_failed)
       {
         cryptonote::transaction transaction;
