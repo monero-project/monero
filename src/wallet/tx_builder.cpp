@@ -337,6 +337,8 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
 
     // Inputs
     // - We don't check the validity of tx_source_entry::real_out_additional_tx_keys.
+    CHECK_AND_ASSERT_THROW_MES(construct.sources.size() > 0,
+        "sanity_check_pending_tx: tx has no inputs");
     CHECK_AND_ASSERT_THROW_MES(construct.sources.size() == ptx.tx.vin.size(),
         "sanity_check_pending_tx: source/vin size mismatch");
     // NOTE: due to upstream inconsistencies, we are unable to validate mixRing reliably
@@ -477,7 +479,9 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
         std::vector<uint64_t> src_absolute_key_offsets;
         for (const auto &src_out : src.outputs)
             src_absolute_key_offsets.push_back(src_out.first);
-        const std::vector<uint64_t> ext_absolute_key_offsets = cryptonote::relative_output_offsets_to_absolute(ext_relative_key_offsets);
+        const std::vector<uint64_t> ext_absolute_key_offsets = cryptonote::relative_output_offsets_to_absolute(
+            ext_relative_key_offsets
+        );
         CHECK_AND_ASSERT_THROW_MES(src_absolute_key_offsets == ext_absolute_key_offsets,
             "sanity_check_pending_tx: key offsets mismatch");
     }
@@ -561,7 +565,15 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
                 CHECK_AND_ASSERT_THROW_MES(parse_info.address == dest.addr,
                     "sanity_check_pending_tx: destination addr string mismatch - address");
 
-                if (!parsed_uri)
+                if (parse_info.has_payment_id && !extracted_payment_id.empty())
+                {
+                    CHECK_AND_ASSERT_THROW_MES(extracted_payment_id == epee::string_tools::pod_to_hex(parse_info.payment_id),
+                        "sanity_check_pending_tx: destination addr string mismatch - internal payment id inconsistency");
+                }
+
+                // Even if the URI was parsed successfully, the payment ID may only be stored in the internal
+                // 'address' substring.
+                if (parse_info.has_payment_id && extracted_payment_id.empty())
                     extracted_payment_id = epee::string_tools::pod_to_hex(parse_info.payment_id);
             }
 
@@ -623,7 +635,8 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
         "sanity_check_pending_tx: failed checking splitted_dsts consistency");
 
     // Balance check
-    output_amnt += (ptx.dust_added_to_fee ? 0 : ptx.dust) + ptx.fee;
+    output_amnt += (ptx.dust_added_to_fee ? 0 : ptx.dust);
+    output_amnt += ptx.fee;
 
     if (ptx.dust_added_to_fee)
     {
