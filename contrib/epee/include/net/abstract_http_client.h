@@ -73,6 +73,9 @@ namespace http
     virtual bool invoke_get(const boost::string_ref uri, std::chrono::milliseconds timeout, const std::string& body = std::string(), const http_response_info** ppresponse_info = NULL, const fields_list& additional_params = fields_list()) = 0;
     virtual uint64_t get_bytes_sent() const = 0;
     virtual uint64_t get_bytes_received() const = 0;
+    virtual const std::string &get_host() const = 0;
+    virtual const std::string &get_port() const = 0;
+    virtual void wipe_response() = 0;
   };
 
   class http_client_factory

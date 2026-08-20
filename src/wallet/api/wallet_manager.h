@@ -97,7 +97,7 @@ public:
 private:
     WalletManagerImpl();
     friend struct WalletManagerFactory;
-    net::http::client m_http_client;
+    std::unique_ptr<epee::net_utils::http::abstract_http_client> m_http_client;
     std::string m_errorString;
 };
 
