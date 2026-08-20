@@ -397,8 +397,8 @@ namespace cryptonote
     {
       res.blocks.resize(res.blocks.size()+1);
       res.blocks.back().pruned = req.prune;
-      res.blocks.back().block = bd.first.first;
       cumul_block_data_size += bd.first.first.size();
+      res.blocks.back().block = std::move(bd.first.first);
       res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
       ntxes += bd.second.size();
       res.output_indices.back().indices.reserve(1 + bd.second.size());
