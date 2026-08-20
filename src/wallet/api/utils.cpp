@@ -32,6 +32,10 @@
 
 #include "include_base_utils.h"                     // LOG_PRINT_x
 #include "common/util.h"
+#include "net/net_parse_helpers.h"
+#include "ssl_options.h"
+
+#include <boost/algorithm/string/predicate.hpp>
 
 using namespace std;
 
@@ -46,6 +50,29 @@ bool isAddressLocal(const std::string &address)
         MERROR("error: " << e.what());
         return false;
     }
+}
+
+epee::net_utils::ssl_options_t sslOptionsForDaemon(const std::string &daemon_address, bool use_ssl)
+{
+    epee::net_utils::http::url_content parsed{};
+    if (!epee::net_utils::parse_url(daemon_address, parsed))
+        return epee::net_utils::ssl_support_t::e_ssl_support_autodetect;
+
+    // parse_url() reports the scheme as written, hence the case insensitive compare
+    const bool wants_ssl = use_ssl || boost::iequals(parsed.schema, "https");
+
+    // clearnet is deliberately left alone: acting on use_ssl there would cut off the
+    // https daemons reached today by callers that leave it at its default
+    if (!tools::is_privacy_preserving_network(parsed.host))
+        return epee::net_utils::ssl_support_t::e_ssl_support_autodetect;
+
+    if (!wants_ssl)
+        return epee::net_utils::ssl_support_t::e_ssl_support_disabled;
+
+    // require TLS; the network authenticates the endpoint, so certificate verification stays off
+    epee::net_utils::ssl_options_t options(epee::net_utils::ssl_support_t::e_ssl_support_enabled);
+    options.verification = epee::net_utils::ssl_verification_t::none;
+    return options;
 }
 
 void onStartup()

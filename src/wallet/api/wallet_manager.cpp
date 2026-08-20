@@ -32,6 +32,7 @@
 #include "wallet_manager.h"
 #include "wallet.h"
 #include "common_defines.h"
+#include "ssl_options.h"
 #include "common/dns_utils.h"
 #include "common/util.h"
 #include "common/updates.h"
@@ -229,7 +230,7 @@ std::string WalletManagerImpl::errorString() const
 
 void WalletManagerImpl::setDaemonAddress(const std::string &address)
 {
-    m_http_client.set_server(address, boost::none);
+    m_http_client.set_server(address, boost::none, Utils::sslOptionsForDaemon(address, false));
 }
 
 bool WalletManagerImpl::connected(uint32_t *version)
