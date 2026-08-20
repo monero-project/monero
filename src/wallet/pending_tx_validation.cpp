@@ -27,7 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 //paired header
-#include "tx_builder.h"
+#include "pending_tx_validation.h"
 
 //local headers
 #include "misc_log_ex.h"

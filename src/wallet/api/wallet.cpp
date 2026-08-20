@@ -39,7 +39,7 @@
 #include "common_defines.h"
 #include "common/util.h"
 #include "multisig/multisig_account.h"
-#include "wallet/tx_builder.h"
+#include "wallet/pending_tx_validation.h"
 
 #include "mnemonics/electrum-words.h"
 #include "mnemonics/english.h"
