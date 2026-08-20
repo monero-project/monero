@@ -29,6 +29,7 @@
 #include "tower_cycle.h"
 
 #include "misc_log_ex.h"
+#include "string_tools.h"
 
 namespace fcmp_pp
 {
@@ -48,6 +49,108 @@ SeleneScalar selene_scalar_from_bytes(const crypto::ec_coord &bytes)
     int r = ::selene_scalar_from_bytes(to_bytes(bytes), &selene_scalar);
     CHECK_FFI_RES;
     return selene_scalar;
+}
+//----------------------------------------------------------------------------------------------------------------------
+Selene::Point Selene::hash_init_point() const
+{
+    return ::selene_hash_init_point();
+}
+//----------------------------------------------------------------------------------------------------------------------
+Helios::Point Helios::hash_init_point() const
+{
+    return ::helios_hash_init_point();
+}
+//----------------------------------------------------------------------------------------------------------------------
+Selene::Scalar Selene::zero_scalar() const
+{
+    return ::selene_zero_scalar();
+}
+//----------------------------------------------------------------------------------------------------------------------
+Helios::Scalar Helios::zero_scalar() const
+{
+    return ::helios_zero_scalar();
+}
+//----------------------------------------------------------------------------------------------------------------------
+Selene::Point Selene::hash_grow(
+    const Selene::Point &existing_hash,
+    const std::size_t offset,
+    const Selene::Scalar &existing_child_at_offset,
+    const Selene::Chunk &new_children) const
+{
+    Selene::Point hash;
+    int r = ::hash_grow_selene(
+        existing_hash,
+        offset,
+        existing_child_at_offset,
+        new_children,
+        &hash);
+    CHECK_FFI_RES;
+    return hash;
+}
+//----------------------------------------------------------------------------------------------------------------------
+Helios::Point Helios::hash_grow(
+    const Helios::Point &existing_hash,
+    const std::size_t offset,
+    const Helios::Scalar &existing_child_at_offset,
+    const Helios::Chunk &new_children) const
+{
+    Helios::Point hash;
+    int r = ::hash_grow_helios(
+        existing_hash,
+        offset,
+        existing_child_at_offset,
+        new_children,
+        &hash);
+    CHECK_FFI_RES;
+    return hash;
+}
+//----------------------------------------------------------------------------------------------------------------------
+crypto::ec_scalar Selene::to_bytes(const Selene::Scalar &scalar) const
+{
+    crypto::ec_scalar res;
+    ::selene_scalar_to_bytes(&scalar, ::to_bytes(res));
+    return res;
+}
+//----------------------------------------------------------------------------------------------------------------------
+crypto::ec_scalar Helios::to_bytes(const Helios::Scalar &scalar) const
+{
+    crypto::ec_scalar res;
+    ::helios_scalar_to_bytes(&scalar, ::to_bytes(res));
+    return res;
+}
+//----------------------------------------------------------------------------------------------------------------------
+crypto::ec_point Selene::to_bytes(const Selene::Point &point) const
+{
+    crypto::ec_point res;
+    ::selene_point_to_bytes(&point, ::to_bytes(res));
+    return res;
+}
+//----------------------------------------------------------------------------------------------------------------------
+crypto::ec_point Helios::to_bytes(const Helios::Point &point) const
+{
+    crypto::ec_point res;
+    ::helios_point_to_bytes(&point, ::to_bytes(res));
+    return res;
+}
+//----------------------------------------------------------------------------------------------------------------------
+std::string Selene::to_string(const typename Selene::Scalar &scalar) const
+{
+    return epee::string_tools::pod_to_hex(this->to_bytes(scalar));
+}
+//----------------------------------------------------------------------------------------------------------------------
+std::string Helios::to_string(const typename Helios::Scalar &scalar) const
+{
+    return epee::string_tools::pod_to_hex(this->to_bytes(scalar));
+}
+//----------------------------------------------------------------------------------------------------------------------
+std::string Selene::to_string(const typename Selene::Point &point) const
+{
+    return epee::string_tools::pod_to_hex(this->to_bytes(point));
+}
+//----------------------------------------------------------------------------------------------------------------------
+std::string Helios::to_string(const typename Helios::Point &point) const
+{
+    return epee::string_tools::pod_to_hex(this->to_bytes(point));
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

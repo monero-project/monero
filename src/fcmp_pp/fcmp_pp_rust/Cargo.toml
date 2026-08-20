@@ -12,6 +12,11 @@ ciphersuite = { version = "0.4.2", features = ["ed25519"] }
 dalek-ff-group = "0.5.0"
 helioselene = { git = "https://github.com/monero-oxide/monero-oxide", rev = "71da8f03a87f596db674258cda74553068a57bcd" }
 
+full-chain-membership-proofs = { git = "https://github.com/monero-oxide/monero-oxide", rev = "71da8f03a87f596db674258cda74553068a57bcd" }
+
+monero-fcmp-plus-plus-generators = { git = "https://github.com/monero-oxide/monero-oxide", rev = "71da8f03a87f596db674258cda74553068a57bcd" }
+monero-fcmp-plus-plus = { git = "https://github.com/monero-oxide/monero-oxide", rev = "71da8f03a87f596db674258cda74553068a57bcd" }
+
 [patch.crates-io]
 crypto-bigint = { git = "https://github.com/kayabaNerve/crypto-bigint", branch = "c-repr" }
 

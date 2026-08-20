@@ -3,18 +3,6 @@
 version = 3
 
 [[package]]
-name = "ahash"
-version = "0.8.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a15f179cd60c4584b8a8c596927aadc462e27f2ca70c04e0071964a73ba7a75"
-dependencies = [
- "cfg-if",
- "once_cell",
- "version_check",
- "zerocopy",
-]
-
-[[package]]
 name = "base16ct"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -220,6 +208,7 @@ name = "ec-divisors"
 version = "0.1.0"
 source = "git+https://github.com/monero-oxide/monero-oxide?rev=71da8f03a87f596db674258cda74553068a57bcd#71da8f03a87f596db674258cda74553068a57bcd"
 dependencies = [
+ "crypto-bigint",
  "dalek-ff-group 0.5.0",
  "ff",
  "group",
@@ -267,7 +256,10 @@ version = "0.0.0"
 dependencies = [
  "ciphersuite",
  "dalek-ff-group 0.5.0",
+ "full-chain-membership-proofs",
  "helioselene",
+ "monero-fcmp-plus-plus",
+ "monero-fcmp-plus-plus-generators",
 ]
 
 [[package]]
@@ -302,10 +294,72 @@ dependencies = [
 ]
 
 [[package]]
+name = "foldhash"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
+
+[[package]]
+name = "full-chain-membership-proofs"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=71da8f03a87f596db674258cda74553068a57bcd#71da8f03a87f596db674258cda74553068a57bcd"
+dependencies = [
+ "blake2",
+ "ciphersuite",
+ "ec-divisors",
+ "generalized-bulletproofs",
+ "generalized-bulletproofs-circuit-abstraction",
+ "generalized-bulletproofs-ec-gadgets",
+ "generic-array 1.1.1",
+ "multiexp",
+ "rand_core",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6d5a32815ae3f33302d95fdcb2ce17862f8c65363dcfd29360480ba1001fc9c"
+
+[[package]]
+name = "generalized-bulletproofs"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=71da8f03a87f596db674258cda74553068a57bcd#71da8f03a87f596db674258cda74553068a57bcd"
+dependencies = [
+ "blake2",
+ "ciphersuite",
+ "ff",
+ "flexible-transcript",
+ "multiexp",
+ "rand_core",
+ "std-shims",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "generalized-bulletproofs-circuit-abstraction"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=71da8f03a87f596db674258cda74553068a57bcd#71da8f03a87f596db674258cda74553068a57bcd"
+dependencies = [
+ "ciphersuite",
+ "generalized-bulletproofs",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
+name = "generalized-bulletproofs-ec-gadgets"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=71da8f03a87f596db674258cda74553068a57bcd#71da8f03a87f596db674258cda74553068a57bcd"
+dependencies = [
+ "ciphersuite",
+ "generalized-bulletproofs-circuit-abstraction",
+ "generic-array 1.1.1",
+ "std-shims",
+]
 
 [[package]]
 name = "generic-array"
@@ -351,11 +405,11 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.14.5"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
+checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
 dependencies = [
- "ahash",
+ "foldhash",
 ]
 
 [[package]]
@@ -432,6 +486,96 @@ dependencies = [
 ]
 
 [[package]]
+name = "monero-ed25519"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=71da8f03a87f596db674258cda74553068a57bcd#71da8f03a87f596db674258cda74553068a57bcd"
+dependencies = [
+ "blake2",
+ "crypto-bigint",
+ "curve25519-dalek",
+ "monero-io",
+ "monero-primitives",
+ "rand_core",
+ "sha3",
+ "std-shims",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
+name = "monero-fcmp-plus-plus"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=71da8f03a87f596db674258cda74553068a57bcd#71da8f03a87f596db674258cda74553068a57bcd"
+dependencies = [
+ "blake2",
+ "ciphersuite",
+ "dalek-ff-group 0.5.0",
+ "ec-divisors",
+ "flexible-transcript",
+ "full-chain-membership-proofs",
+ "generalized-bulletproofs",
+ "generalized-bulletproofs-ec-gadgets",
+ "generic-array 1.1.1",
+ "helioselene",
+ "monero-ed25519",
+ "monero-fcmp-plus-plus-generators",
+ "monero-io",
+ "monero-primitives",
+ "multiexp",
+ "rand_chacha",
+ "rand_core",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
+name = "monero-fcmp-plus-plus-generators"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=71da8f03a87f596db674258cda74553068a57bcd#71da8f03a87f596db674258cda74553068a57bcd"
+dependencies = [
+ "ciphersuite",
+ "full-chain-membership-proofs",
+ "generalized-bulletproofs",
+ "group",
+ "helioselene",
+ "monero-ed25519",
+ "monero-primitives",
+ "std-shims",
+]
+
+[[package]]
+name = "monero-io"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=71da8f03a87f596db674258cda74553068a57bcd#71da8f03a87f596db674258cda74553068a57bcd"
+dependencies = [
+ "std-shims",
+]
+
+[[package]]
+name = "monero-primitives"
+version = "0.1.0"
+source = "git+https://github.com/monero-oxide/monero-oxide?rev=71da8f03a87f596db674258cda74553068a57bcd#71da8f03a87f596db674258cda74553068a57bcd"
+dependencies = [
+ "blake2",
+ "dalek-ff-group 0.5.0",
+ "sha3",
+]
+
+[[package]]
+name = "multiexp"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ec2ce93a6f06ac6cae04c1da3f2a6a24fcfc1f0eb0b4e0f3d302f0df45326cb"
+dependencies = [
+ "ff",
+ "group",
+ "rand_core",
+ "rustversion",
+ "std-shims",
+ "zeroize",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -456,6 +600,15 @@ checksum = "f950b2377845cebe5cf8b5165cb3cc1a5e0fa5cfa3e1f7f55707d8fd82e0a7b7"
 dependencies = [
  "der",
  "spki",
+]
+
+[[package]]
+name = "ppv-lite86"
+version = "0.2.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85eae3c4ed2f50dcfe72643da4befc30deadb458a9b590d720cde2f2b1e97da9"
+dependencies = [
+ "zerocopy",
 ]
 
 [[package]]
@@ -490,6 +643,16 @@ name = "radium"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dc33ff2d4973d518d823d61aa239014831e521c75da58e3df4840d3f47749d09"
+
+[[package]]
+name = "rand_chacha"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6c10a63a0fa32252be49d21e7709d4d4baf8d231c2dbce1eaa8141b9b127d88"
+dependencies = [
+ "ppv-lite86",
+ "rand_core",
+]
 
 [[package]]
 name = "rand_core"
@@ -583,9 +746,9 @@ dependencies = [
 
 [[package]]
 name = "std-shims"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fbb9ed849fede2765386134c64bc8984081e8c8408bc9201b99c6e3143ec5e7"
+checksum = "227c4f8561598188d0df96dbe749824576174bba278b5b6bb2eacff1066067d0"
 dependencies = [
  "hashbrown",
  "rustversion",
