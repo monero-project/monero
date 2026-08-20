@@ -137,54 +137,10 @@ const rapidjson::Value& FullMessage::getMessage() const
 
 }
 
-rapidjson::Value FullMessage::getMessageCopy()
-{
-  return rapidjson::Value(getMessage(), doc.GetAllocator());
-}
-
 const rapidjson::Value& FullMessage::getID() const
 {
   OBJECT_HAS_MEMBER_OR_THROW(doc, id_field)
   return doc[id_field];
-}
-
-cryptonote::rpc::error FullMessage::getError()
-{
-  cryptonote::rpc::error err;
-  err.use = false;
-  if (doc.HasMember(error_field))
-  {
-    GET_FROM_JSON_OBJECT(doc, err, error);
-    err.use = true;
-  }
-
-  return err;
-}
-
-epee::byte_slice FullMessage::getRequest(const std::string& request, const Message& message, const unsigned id)
-{
-  epee::byte_stream buffer;
-  {
-    rapidjson::Writer<epee::byte_stream> dest{buffer};
-
-    dest.StartObject();
-    INSERT_INTO_JSON_OBJECT(dest, jsonrpc, (boost::string_ref{"2.0", 3}));
-
-    dest.Key(id_field);
-    json::toJsonValue(dest, id);
-
-    dest.Key(method_field);
-    json::toJsonValue(dest, request);
-
-    dest.Key(params_field);
-    message.toJson(dest);
-
-    dest.EndObject();
-
-    if (!dest.IsComplete())
-      throw std::logic_error{"Invalid JSON tree generated"};
-  }
-  return epee::byte_slice{std::move(buffer)};
 }
 
 
