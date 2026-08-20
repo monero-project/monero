@@ -36,9 +36,15 @@ Test the following RPCs:
 
 """
 
+import ast
+
 from framework.wallet import Wallet
 
 class IntegratedAddressTest():
+    error_codes = {
+        -2:"WALLET_RPC_ERROR_CODE_WRONG_ADDRESS",
+        -5:"WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID",
+    }
     def run_test(self):
       self.create()
       self.check()
@@ -76,7 +82,10 @@ class IntegratedAddressTest():
         print('Checking bad payment id')
         fails = 0
         try: wallet.make_integrated_address(standard_address = '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', payment_id = '11223344556677880')
-        except: fails += 1
+        except Exception as e:
+            res_dict = ast.literal_eval(str(e))
+            assert self.error_codes[res_dict["error"]["code"]] == "WALLET_RPC_ERROR_CODE_WRONG_PAYMENT_ID"
+            fails += 1
         try: wallet.make_integrated_address(standard_address = '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', payment_id = '112233445566778')
         except: fails += 1
         try: wallet.make_integrated_address(standard_address = '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK', payment_id = '112233445566778g')
@@ -88,7 +97,10 @@ class IntegratedAddressTest():
         print('Checking bad standard address')
         fails = 0
         try: wallet.make_integrated_address(standard_address = '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerr', payment_id = '1122334455667788')
-        except: fails += 1
+        except Exception as e:
+            res_dict = ast.literal_eval(str(e))
+            assert self.error_codes[res_dict["error"]["code"]] == "WALLET_RPC_ERROR_CODE_WRONG_ADDRESS"
+            fails += 1
         try: wallet.make_integrated_address(standard_address = '4GYjoMG9Y2BBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCVSs1ZojwrDCGS5rUuo', payment_id = '1122334455667788')
         except: fails += 1
         assert fails == 2
