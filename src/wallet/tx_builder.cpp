@@ -638,6 +638,8 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     output_amnt += (ptx.dust_added_to_fee ? 0 : ptx.dust);
     output_amnt += ptx.fee;
 
+    CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.txnFee == ptx.fee,
+            "sanity_check_pending_tx: inconsistent fee");
     if (ptx.dust_added_to_fee)
     {
         CHECK_AND_ASSERT_THROW_MES(ptx.dust <= ptx.fee,
