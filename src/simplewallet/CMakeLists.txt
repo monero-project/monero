@@ -41,7 +41,7 @@ monero_add_executable(simplewallet
   ${simplewallet_private_headers})
 target_link_libraries(simplewallet
   PRIVATE
-    wallet
+    wallet_api
     rpc_base
     cryptonote_core
     cncrypto
