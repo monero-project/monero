@@ -60,7 +60,7 @@
 #define MONERO_DEFAULT_LOG_CATEGORY "net"
 
 #define AGGRESSIVE_TIMEOUT_THRESHOLD 120 // sockets
-#define NEW_CONNECTION_TIMEOUT_LOCAL 1200000 // 2 minutes
+#define NEW_CONNECTION_TIMEOUT_LOCAL 120000 // 2 minutes
 #define NEW_CONNECTION_TIMEOUT_REMOTE 10000 // 10 seconds
 #define DEFAULT_TIMEOUT_MS_LOCAL 1800000 // 30 minutes
 #define DEFAULT_TIMEOUT_MS_REMOTE 300000 // 5 minutes
@@ -531,6 +531,13 @@ namespace net_utils
     }
 
     m_state.socket.wait_write = true;
+    if (m_connection_type == e_connection_type_RPC)
+    {
+      const duration_t base = std::chrono::milliseconds(
+        m_local ? NEW_CONNECTION_TIMEOUT_LOCAL : NEW_CONNECTION_TIMEOUT_REMOTE
+      );
+      start_timer(base + get_timeout_from_bytes_read(m_state.data.write.queue.back().size()));
+    }
     auto on_write = [this, self](const ec_t &ec, size_t bytes_transferred){
       std::lock_guard<std::mutex> guard(m_state.lock);
       m_state.socket.wait_write = false;
