@@ -69,7 +69,7 @@ namespace cryptonote
   extern const command_line::arg_descriptor<difficulty_type> arg_fixed_difficulty;
   extern const command_line::arg_descriptor<bool> arg_offline;
   extern const command_line::arg_descriptor<size_t> arg_block_download_max_size;
-  extern const command_line::arg_descriptor<size_t> arg_span_limit;
+  extern const command_line::arg_descriptor<size_t> arg_block_sync_queue_time;
   extern const command_line::arg_descriptor<bool> arg_sync_pruned_blocks;
 
   /************************************************************************/
@@ -769,6 +769,7 @@ namespace cryptonote
       * @return the number of blocks to sync in one go
       */
      size_t get_block_sync_size(uint64_t height, const uint64_t max_average_of_blocksize_in_queue = 0) const;
+     bool is_block_sync_size_adaptive() const { return block_sync_size == 0; }
 
      /**
       * @brief get the sum of coinbase tx amounts between blocks

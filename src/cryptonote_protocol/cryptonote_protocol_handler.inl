@@ -38,7 +38,9 @@
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+#include <cmath>
 #include <list>
+#include <limits>
 #include <ctime>
 
 #include <cryptonote_core/cryptonote_core.h>
@@ -182,9 +184,8 @@ namespace cryptonote
                                                                                                               m_ask_for_txpool_complement(true),
                                                                                                               m_stopping(false),
                                                                                                               m_no_sync(false),
-                                                                                                              m_span_limit(BLOCK_QUEUE_NSPANS_MINIMUM),
-                                                                                                              m_span_time(0),
-                                                                                                              m_bss(0)
+                                                                                                              m_block_sync_queue_time(0),
+                                                                                                              m_block_queue_limit(0)
 
   {
     if(!m_p2p)
@@ -207,22 +208,28 @@ namespace cryptonote
 
     m_block_download_max_size = command_line::get_arg(vm, cryptonote::arg_block_download_max_size);
     m_sync_pruned_blocks = command_line::get_arg(vm, cryptonote::arg_sync_pruned_blocks);
-    m_span_time = command_line::get_arg(vm, cryptonote::arg_span_limit);
+    m_block_sync_queue_time = command_line::get_arg(vm, cryptonote::arg_block_sync_queue_time);
 
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  void t_cryptonote_protocol_handler<t_core>::calculate_dynamic_span(const double blocks_per_seconds)
+  void t_cryptonote_protocol_handler<t_core>::calculate_block_queue_limit(double blocks_per_second)
   {
-    size_t current_bss = m_bss.load();
-    size_t current_span_limit = m_span_limit.load();
-    MINFO("m_bss : " << current_bss << ", blocks_per_seconds : " << blocks_per_seconds << ", current_span_limit : " << current_span_limit);
-    current_span_limit = (current_bss && blocks_per_seconds) ? (( blocks_per_seconds * 60 * m_span_time ) / current_bss) : BLOCK_QUEUE_NSPANS_MINIMUM;
-    if (current_span_limit < BLOCK_QUEUE_NSPANS_MINIMUM)
-      current_span_limit = BLOCK_QUEUE_NSPANS_MINIMUM;
-    m_span_limit = current_span_limit;
-    MINFO("calculated dynamic span limit is span_limit : " << m_span_limit);
+    if (!(blocks_per_second > 0.0) || !std::isfinite(blocks_per_second))
+    {
+      MWARNING("Not updating block queue limit from invalid sync rate " << blocks_per_second);
+      return;
+    }
+
+    const long double requested_blocks = static_cast<long double>(blocks_per_second) * 60 * m_block_sync_queue_time;
+    const long double max_block_queue_limit = static_cast<long double>(std::numeric_limits<uint64_t>::max());
+    const uint64_t block_queue_limit = requested_blocks >= max_block_queue_limit
+      ? std::numeric_limits<uint64_t>::max()
+      : static_cast<uint64_t>(requested_blocks);
+    m_block_queue_limit = block_queue_limit;
+    MINFO("Calculated dynamic block queue limit: " << block_queue_limit << " blocks at "
+        << blocks_per_second << " blocks per second");
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
@@ -1607,8 +1614,11 @@ namespace cryptonote
           {
             const uint64_t target_blockchain_height = m_core.get_target_blockchain_height();
             const boost::posix_time::time_duration dt = boost::posix_time::microsec_clock::universal_time() - start;
-            const double blocks_per_seconds = (((current_blockchain_height - previous_height) * 1e6) / dt.total_microseconds());
-            calculate_dynamic_span(blocks_per_seconds);
+            const int64_t elapsed_us = dt.total_microseconds();
+            const double blocks_per_seconds = elapsed_us > 0
+              ? ((current_blockchain_height - previous_height) * 1e6) / elapsed_us
+              : 0.0;
+            calculate_block_queue_limit(blocks_per_seconds);
             std::string progress_message = "";
             if (current_blockchain_height < target_blockchain_height)
             {
@@ -2055,6 +2065,7 @@ skip:
         boost::unique_lock<boost::mutex> check_span_lock{m_check_span_queue_mutex};
 
         const size_t nspans = m_block_queue.get_num_filled_spans();
+        const uint64_t nblocks = m_block_queue.get_num_filled_blocks();
         const size_t size = m_block_queue.get_data_size();
         const uint64_t bc_height = m_core.get_current_blockchain_height();
         const auto next_needed_pruning_stripe = get_next_needed_pruning_stripe();
@@ -2062,7 +2073,8 @@ skip:
         const uint32_t peer_stripe = tools::get_pruning_stripe(context.m_pruning_seed);
         const uint32_t local_stripe = tools::get_pruning_stripe(m_core.get_blockchain_pruning_seed());
         const size_t block_queue_size_threshold = m_block_download_max_size ? m_block_download_max_size : BLOCK_QUEUE_SIZE_THRESHOLD;
-        const bool queue_proceed_init = (nspans < m_span_limit.load()) && (size < block_queue_size_threshold);
+        const bool queue_proceed_init = (nspans < BLOCK_QUEUE_NSPANS_MINIMUM || nblocks < m_block_queue_limit.load()) &&
+            size < block_queue_size_threshold;
         // get rid of blocks we already requested, or already have
         if (skip_unneeded_hashes(context, true) && context.m_needed_objects.empty() && context.m_num_requested == 0)
         {
@@ -2108,7 +2120,8 @@ skip:
                << ", stripe_proceed_secondary : " << stripe_proceed_secondary
                << ", next_height_proceed : " << next_height_proceed
                << ", next_block_height/next_needed_height/bc_height : " << next_block_height << "/" << next_needed_height << "/" << bc_height
-               << ", nspans/span_limit : " << nspans << "/" << m_span_limit
+               << ", nspans/minimum : " << nspans << "/" << BLOCK_QUEUE_NSPANS_MINIMUM
+               << ", nblocks/block_queue_limit : " << nblocks << "/" << m_block_queue_limit
                << ", queue size/size_limit : " << size << "/" << block_queue_size_threshold);
 
         // if we're waiting for next span, try to get it before unblocking threads below,
@@ -2192,7 +2205,8 @@ skip:
       NOTIFY_REQUEST_GET_OBJECTS::request req;
       bool is_next = false;
       size_t count = 0;
-      size_t l_m_bss = m_bss = m_core.get_block_sync_size(m_core.get_current_blockchain_height(), max_average_of_blocksize_in_queue());
+      const uint64_t max_average = m_core.is_block_sync_size_adaptive() ? max_average_of_blocksize_in_queue() : 0;
+      const size_t l_m_bss = m_core.get_block_sync_size(m_core.get_current_blockchain_height(), max_average);
       std::pair<uint64_t, uint64_t> span = std::make_pair(0, 0);
       if (force_next_span)
       {
