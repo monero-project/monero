@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -5522,14 +5522,18 @@ void wallet2::decrypt_keys(const epee::wipeable_string &password)
   decrypt_keys(key);
 }
 
-void wallet2::setup_new_blockchain()
+void wallet2::setup_new_blockchain(const bool add_subaddr_account)
 {
+  m_blockchain.clear();
   cryptonote::block b;
   generate_genesis(b);
-  m_blockchain.push_back(get_block_hash(b));
+  const crypto::hash genesis_hash = get_block_hash(b);
+  m_blockchain.push_back(genesis_hash);
   m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
-  add_subaddress_account(tr("Primary account"));
+  if (add_subaddr_account)
+    add_subaddress_account(tr("Primary account"));
 }
+
 
 void wallet2::create_keys_file(const std::string &wallet_, bool watch_only, const epee::wipeable_string &password, bool create_address_file)
 {
@@ -8576,14 +8580,22 @@ uint64_t wallet2::get_fee_quantization_mask()
   return fee_quantization_mask;
 }
 //----------------------------------------------------------------------------------------------------
-fee_algorithm wallet2::get_fee_algorithm()
+fee_algorithm wallet2::get_fee_algorithm(bool offline)
 {
-  // changes at v3, v5, v8
-  if (use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0))
+  offline = offline || m_offline;
+  const auto use_fork_rules_fn = [this, offline](uint8_t version, int64_t early_blocks = 0) -> bool
+  {
+    return offline
+      ? use_fork_rules_offline(version, early_blocks)
+      : use_fork_rules(version, early_blocks);
+  };
+
+  // changes at v3, v5, v8, v17
+  if (use_fork_rules_fn(HF_VERSION_PER_BYTE_FEE, 0))
     return fee_algorithm::HardforkV8;
-  if (use_fork_rules(5, 0))
+  if (use_fork_rules_fn(5, 0))
     return fee_algorithm::HardforkV5;
-  if (use_fork_rules(3, -30 * 14))
+  if (use_fork_rules_fn(3, -30 * 14))
    return fee_algorithm::HardforkV3;
   return fee_algorithm::PreHardforkV3;
 }
@@ -11455,6 +11467,37 @@ bool wallet2::use_fork_rules(uint8_t version, int64_t early_blocks)
     LOG_PRINT_L2("Using v" << (unsigned)version << " rules");
   else
     LOG_PRINT_L2("Not using v" << (unsigned)version << " rules");
+  return close_enough;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::use_fork_rules_offline(uint8_t version, int64_t early_blocks) const
+{
+  // get hard fork table based on network type
+  const size_t wallet_num_hard_forks = m_nettype == TESTNET ? num_testnet_hard_forks
+    : m_nettype == STAGENET ? num_stagenet_hard_forks : num_mainnet_hard_forks;
+  const hardfork_t *wallet_hard_forks = m_nettype == TESTNET ? testnet_hard_forks
+    : m_nettype == STAGENET ? stagenet_hard_forks : mainnet_hard_forks;
+
+  // find hard fork with lowest version >= `version`
+  const hardfork_t *best_fork_info = nullptr;
+  for (std::size_t i = 0; i < wallet_num_hard_forks; ++i)
+  {
+    const hardfork_t &fork_info = wallet_hard_forks[i];
+    if (fork_info.version < version)
+      continue;
+    if (nullptr == best_fork_info || fork_info.version < best_fork_info->version)
+      best_fork_info = &fork_info;
+  }
+
+  if (nullptr == best_fork_info) // did not find fork in table
+    return false;
+
+  const int64_t height = static_cast<int64_t>(get_blockchain_current_height());
+  const bool close_enough = height >= static_cast<int64_t>(best_fork_info->height) - early_blocks;
+  if (close_enough)
+    LOG_PRINT_L2("Using v" << static_cast<unsigned>(version) << " rules (offline)");
+  else
+    LOG_PRINT_L2("Not using v" << static_cast<unsigned>(version) << " rules (offline)");
   return close_enough;
 }
 //----------------------------------------------------------------------------------------------------
