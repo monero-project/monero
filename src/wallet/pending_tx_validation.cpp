@@ -420,6 +420,11 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
         const auto &src = sources_ordered.at(i);
         const auto &transfer = transfers.at(selected_transfer);
 
+        if (ptx.tx.version == 1)
+        {
+            CHECK_AND_ASSERT_THROW_MES(!src.rct,
+                "sanity_check_pending_tx: rct sources not allowed for v1 txs");
+        }
         CHECK_AND_ASSERT_THROW_MES(src.amount == transfer.m_amount,
             "sanity_check_pending_tx: transfer amount mismatch");
         CHECK_AND_ASSERT_THROW_MES(src.real_output < src.outputs.size(),
@@ -470,7 +475,7 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
         const uint64_t ext_input_amount = ext_input_amounts.at(inp_order.at(i));
         const std::vector<uint64_t> &ext_relative_key_offsets = ext_key_offsets.at(inp_order.at(i));
 
-        CHECK_AND_ASSERT_THROW_MES(src.rct
+        CHECK_AND_ASSERT_THROW_MES(ptx.tx.version > 1
             ? ext_input_amount == 0
             : ext_input_amount == src.amount,
             "sanity_check_pending_tx: amount extracted from inputs is wrong");
@@ -514,10 +519,13 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     }
     CHECK_AND_ASSERT_THROW_MES(construct.splitted_dsts.size() == splitted_dsts_repro.size(),
         "sanity_check_pending_tx: failed checking splitted_dsts size");
-    CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.ecdhInfo.size() == splitted_dsts_repro.size(),
-        "sanity_check_pending_tx: ecdhInfo size mismatch");
-    CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.outPk.size() == splitted_dsts_repro.size(),
-        "sanity_check_pending_tx: outPk size mismatch");
+    if (ptx.tx.version > 1)
+    {
+        CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.ecdhInfo.size() == splitted_dsts_repro.size(),
+            "sanity_check_pending_tx: ecdhInfo size mismatch");
+        CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.outPk.size() == splitted_dsts_repro.size(),
+            "sanity_check_pending_tx: outPk size mismatch");
+    }
 
     boost::multiprecision::uint128_t output_amnt = 0;
     size_t integrated_count = 0;
@@ -638,8 +646,11 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     output_amnt += (ptx.dust_added_to_fee ? 0 : ptx.dust);
     output_amnt += ptx.fee;
 
-    CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.txnFee == ptx.fee,
-            "sanity_check_pending_tx: inconsistent fee");
+    if (ptx.tx.version > 1)
+    {
+        CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.txnFee == ptx.fee,
+                "sanity_check_pending_tx: inconsistent fee for tx.v > 1 transaction");
+    }
     if (ptx.dust_added_to_fee)
     {
         CHECK_AND_ASSERT_THROW_MES(ptx.dust <= ptx.fee,
