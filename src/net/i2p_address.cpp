@@ -29,35 +29,28 @@
 #include "i2p_address.h"
 
 #include <algorithm>
-#include <boost/spirit/include/karma_generate.hpp>
-#include <boost/spirit/include/karma_uint.hpp>
 #include <cassert>
 #include <cstring>
-#include <limits>
 
 #include "net/error.h"
 #include "net/host.h"
+#include "serialization/keyvalue_serialization.h"
 #include "string_tools_lexical.h"
 
 namespace net
 {
     namespace
     {
-        // !TODO only b32 addresses right now
-        constexpr const char tld[] = u8".b32.i2p";
-        constexpr const char unknown_host[] = "<unknown i2p host>";
-
-        constexpr const unsigned b32_length = 52;
-
         constexpr const char base32_alphabet[] =
             u8"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz234567";
 
-        expect<void> host_check(boost::string_ref host) noexcept
+        //! Validate a Base32 address (.b32.i2p)
+        expect<void> host_check_b32(boost::string_ref host) noexcept
         {
-            if (!host.ends_with(tld))
+            if (!host.ends_with(tld_b32))
                 return {net::error::expected_tld};
 
-            host.remove_suffix(sizeof(tld) - 1);
+            host.remove_suffix(sizeof(tld_b32) - 1);
 
             if (host.size() != b32_length)
                 return {net::error::invalid_i2p_address};
@@ -66,6 +59,66 @@ namespace net
 
             return success();
         }
+
+        //! Validate a human-readable hostname (.i2p)
+        expect<void> host_check_human(boost::string_ref host) noexcept
+        {
+            if (!host.ends_with(tld_i2p))
+                return {net::error::expected_tld};
+
+            host.remove_suffix(sizeof(tld_i2p) - 1);
+
+            if (host.empty() || host.size() > i2p_name_max_length)
+                return {net::error::invalid_i2p_address};
+
+            //! Reject addresses starting or ending with a dot or hyphen
+            if (host.front() == '.' || host.front() == '-' ||
+                host.back() == '.' || host.back() == '-')
+                return {net::error::invalid_i2p_address};
+
+            //! Reject invalid characters, and two dots/hyphens in a row (or a dot next to a hyphen)
+            char previous = '\0';
+            for (const char c : host)
+            {
+                if (!(('a' <= c && c <= 'z') || ('0' <= c && c <= '9') || c == '.' || c == '-'))
+                {
+                    return {net::error::invalid_i2p_address};
+                }
+                if ((c == '.' || c == '-') && (previous == '.' || previous == '-'))
+                {
+                    return {net::error::invalid_i2p_address};
+                }
+                previous = c;
+            }
+
+            return success();
+        }
+
+        //! Use appropriate function for address validation
+        expect<void> host_check(boost::string_ref host) noexcept
+        {
+            if (host.ends_with(tld_b32))
+            {
+                return host_check_b32(host);
+            }
+            else if (host.ends_with(tld_i2p))
+            {
+                return host_check_human(host);
+            }
+
+            return {net::error::expected_tld};
+        }
+
+        struct i2p_serialized
+        {
+            std::string host;
+            std::uint16_t port; //! Leave for compatibility with older clients
+
+            BEGIN_KV_SERIALIZE_MAP()
+                KV_SERIALIZE(host)
+                KV_SERIALIZE(port)
+            END_KV_SERIALIZE_MAP()
+        };
     }
 
     i2p_address::i2p_address(const boost::string_ref host) noexcept
@@ -97,7 +150,9 @@ namespace net
         net::canonicalize_host(normalized_host);
         MONERO_CHECK(host_check(normalized_host));
 
-        static_assert(b32_length + sizeof(tld) == sizeof(i2p_address::host_), "bad internal host size");
+        static_assert(sizeof(i2p_address::host_) >= b32_length + sizeof(tld_b32) &&
+                      sizeof(i2p_address::host_) >= i2p_name_max_length + sizeof(tld_i2p));
+
         return i2p_address{normalized_host};
     }
 

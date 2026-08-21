@@ -402,7 +402,7 @@ namespace
     zmq_server()
       : zmq_base(),
         handler(),
-        server(handler),
+        server(handler, false),
         pub(),
         sub()
     {

@@ -39,6 +39,7 @@
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "crypto-tests.h"
+#include "fcmp_pp/fcmp_pp_crypto.cpp"
 #include "../io.h"
 
 using namespace std;
@@ -53,6 +54,9 @@ bool operator !=(const key_derivation &a, const key_derivation &b) {
   return 0 != memcmp(&a, &b, sizeof(key_derivation));
 }
 
+bool operator !=(const ec_coord &a, const ec_coord &b) {
+  return 0 != memcmp(&a, &b, sizeof(ec_coord));
+}
 DISABLE_GCC_WARNING(maybe-uninitialized)
 
 int main(int argc, char *argv[]) {
@@ -190,11 +194,11 @@ int main(int argc, char *argv[]) {
       if (expected != actual) {
         goto error;
       }
-    } else if (cmd == "hash_to_ec") {
+    } else if (cmd == "biased_hash_to_ec") {
       public_key key;
       ec_point expected, actual;
       get(input, key, expected);
-      hash_to_ec(key, actual);
+      biased_hash_to_ec(key, actual);
       if (expected != actual) {
         goto error;
       }
@@ -271,6 +275,25 @@ int main(int argc, char *argv[]) {
       get(input, derivation, output_index, expected);
       derive_view_tag(derivation, output_index, actual);
       if (expected != actual) {
+        goto error;
+      }
+    } else if (cmd == "point_to_wei_x_y") {
+      crypto::ec_point point;
+      crypto::ec_coord expected_wei_x, expected_wei_y, actual_wei_x, actual_wei_y;
+      get(input, point, expected_wei_x, expected_wei_y);
+      if (!fcmp_pp::point_to_wei_x_y(point, actual_wei_x, actual_wei_y)) {
+        goto error;
+      }
+      if (expected_wei_x != actual_wei_x || expected_wei_y != actual_wei_y) {
+        goto error;
+      }
+    } else if (cmd == "derive_key_image_generator") {
+      public_key point;
+      bool biased;
+      ec_point expected_result, actual_result;
+      get(input, point, biased, expected_result);
+      crypto::derive_key_image_generator(point, biased, actual_result);
+      if (expected_result != actual_result) {
         goto error;
       }
     } else {

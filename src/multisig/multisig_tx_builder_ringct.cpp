@@ -28,7 +28,6 @@
 
 #include "multisig_tx_builder_ringct.h"
 
-#include "int-util.h"
 #include "memwipe.h"
 
 #include "cryptonote_basic/cryptonote_basic.h"
@@ -41,6 +40,7 @@
 #include "ringct/bulletproofs.h"
 #include "ringct/bulletproofs_plus.h"
 #include "ringct/rctSigs.h"
+#include "scope_guard.h"
 
 #include <boost/multiprecision/cpp_int.hpp>
 
@@ -253,7 +253,7 @@ static void make_tx_secret_key_seed(const crypto::secret_key& tx_secret_key_entr
 
   rct::keyV hash_context;
   hash_context.reserve(2 + sources.size());
-  auto hash_context_wiper = epee::misc_utils::create_scope_leave_handler([&]{
+  const epee::scope_guard hash_context_wiper([&]{
       memwipe(hash_context.data(), hash_context.size() * sizeof(rct::key));
     });
   hash_context.emplace_back();
@@ -281,7 +281,7 @@ static void make_tx_secret_keys(const crypto::secret_key& tx_secret_key_seed,
 
   rct::keyV hash_context;
   hash_context.resize(2);
-  auto hash_context_wiper = epee::misc_utils::create_scope_leave_handler([&]{
+  const epee::scope_guard hash_context_wiper([&]{
       memwipe(hash_context.data(), hash_context.size() * sizeof(rct::key));
     });
   hash_context[0] = rct::sk2rct(tx_secret_key_seed);
@@ -663,7 +663,7 @@ static bool set_tx_rct_signatures(
 
   // make pseudo-output commitments
   rct::keyV a;  //pseudo-output commitment blinding factors
-  auto a_wiper = epee::misc_utils::create_scope_leave_handler([&]{
+  const epee::scope_guard a_wiper([&]{
     memwipe(static_cast<rct::key *>(a.data()), a.size() * sizeof(rct::key));
   });
   if (not reconstruction) {
@@ -749,10 +749,7 @@ static bool set_tx_rct_signatures(
     }
 
     rct::key D;
-    rct::key z;
-    auto z_wiper = epee::misc_utils::create_scope_leave_handler([&]{
-      memwipe(static_cast<rct::key *>(&z), sizeof(rct::key));
-    });
+    tools::scrubbed<rct::key> z;
     if (not reconstruction) {
       sc_sub(z.bytes, sources[i].mask.bytes, a[i].bytes);  //commitment to zero privkey
       ge_p3 H_p3;
@@ -877,7 +874,7 @@ bool tx_builder_ringct_t::init(
 
   // get secret keys for signing input CLSAGs (multisig: or for the initial partial signature)
   rct::keyV input_secret_keys;
-  auto input_secret_keys_wiper = epee::misc_utils::create_scope_leave_handler([&]{
+  const epee::scope_guard input_secret_keys_wiper([&]{
     memwipe(static_cast<rct::key *>(input_secret_keys.data()), input_secret_keys.size() * sizeof(rct::key));
   });
   if (not compute_keys_for_sources(account_keys, sources, subaddr_account, subaddr_minor_indices, input_secret_keys))
@@ -891,7 +888,7 @@ bool tx_builder_ringct_t::init(
   rct::keyV output_public_keys;
   rct::keyV output_amount_secret_keys;
   std::vector<crypto::view_tag> view_tags;
-  auto output_amount_secret_keys_wiper = epee::misc_utils::create_scope_leave_handler([&]{
+  const epee::scope_guard output_amount_secret_keys_wiper([&]{
     memwipe(static_cast<rct::key *>(output_amount_secret_keys.data()), output_amount_secret_keys.size() * sizeof(rct::key));
   });
   if (not compute_keys_for_destinations(account_keys,
@@ -947,10 +944,7 @@ bool tx_builder_ringct_t::first_partial_sign(
   if (source >= num_sources)
     return false;
   rct::key c;
-  rct::key alpha_combined;
-  auto alpha_combined_wiper = epee::misc_utils::create_scope_leave_handler([&]{
-    memwipe(static_cast<rct::key *>(&alpha_combined), sizeof(rct::key));
-  });
+  tools::scrubbed<rct::key> alpha_combined;
   if (not CLSAG_contexts[source].combine_alpha_and_compute_challenge(
     total_alpha_G,
     total_alpha_H,
@@ -993,10 +987,7 @@ bool tx_builder_ringct_t::next_partial_sign(
     return false;
   for (std::size_t i = 0; i < num_sources; ++i) {
     rct::key c;
-    rct::key alpha_combined;
-    auto alpha_combined_wiper = epee::misc_utils::create_scope_leave_handler([&]{
-      memwipe(static_cast<rct::key *>(&alpha_combined), sizeof(rct::key));
-    });
+    tools::scrubbed<rct::key> alpha_combined;
     if (not CLSAG_contexts[i].combine_alpha_and_compute_challenge(
       total_alpha_G[i],
       total_alpha_H[i],
@@ -1011,10 +1002,7 @@ bool tx_builder_ringct_t::next_partial_sign(
     rct::key mu_C;
     if (not CLSAG_contexts[i].get_mu(mu_P, mu_C))
       return false;
-    rct::key w;
-    auto w_wiper = epee::misc_utils::create_scope_leave_handler([&]{
-      memwipe(static_cast<rct::key *>(&w), sizeof(rct::key));
-    });
+    tools::scrubbed<rct::key> w;
     sc_mul(w.bytes, mu_P.bytes, x.bytes);
 
     // include local signer's response:

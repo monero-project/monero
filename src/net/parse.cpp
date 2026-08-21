@@ -187,7 +187,12 @@ namespace net
 
         if (ipv6)
         {
-            return {epee::net_utils::ipv6_network_address{v6, port}};
+            const epee::net_utils::ipv6_network_address address{v6, port};
+            const boost::optional<epee::net_utils::ipv4_network_address> mapped =
+                epee::net_utils::get_ipv4_mapped_address(address);
+            if (mapped)
+                return {std::move(*mapped)};
+            return {address};
         }
         else
         {

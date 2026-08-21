@@ -70,6 +70,7 @@ namespace hw {
 
     class device_progress {
     public:
+      virtual ~device_progress() = default;
       virtual double progress() const { return 0; }
       virtual bool indeterminate() const { return false; }
     };
@@ -151,6 +152,7 @@ namespace hw {
         /* ======================================================================= */
         virtual bool  get_public_address(cryptonote::account_public_address &pubkey) = 0;
         virtual bool  get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey)  = 0;
+        virtual bool  get_cached_view_key(crypto::secret_key &viewkey_out) { return false; }
         virtual bool  generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key, uint64_t kdf_rounds) = 0;
 
         /* ======================================================================= */

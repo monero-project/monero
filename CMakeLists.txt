@@ -58,16 +58,18 @@ endif()
 
 project(monero)
 
-option (USE_COMPILER_CACHE "Use compiler cache if a usable instance is found (sccache/ccache)" ON)
-if (USE_COMPILER_CACHE)
+set (COMPILER_CACHE "auto" CACHE STRING "Compiler cache to use: auto, ccache, sccache, or none")
+set_property(CACHE COMPILER_CACHE PROPERTY STRINGS auto ccache sccache none)
+if (COMPILER_CACHE STREQUAL "none")
+    message(STATUS "Compiler cache deselected")
+elseif (COMPILER_CACHE STREQUAL "auto")
     find_program(SCCACHE sccache)
     find_program(CCACHE ccache)
     if (SCCACHE)
         message(STATUS "Using sccache: ${SCCACHE}")
         set(CMAKE_C_COMPILER_LAUNCHER   "${SCCACHE}")
         set(CMAKE_CXX_COMPILER_LAUNCHER "${SCCACHE}")
-        # Remove this line and uncomment the one below when FCMP++ Rust libraries are merged.
-        # set(ENV{RUSTC_WRAPPER} "${SCCACHE}")
+        set(ENV{RUSTC_WRAPPER} "${SCCACHE}")
     elseif (CCACHE)
         message(STATUS "Using ccache: ${CCACHE}")
         set(CMAKE_C_COMPILER_LAUNCHER   "${CCACHE}")
@@ -75,8 +77,18 @@ if (USE_COMPILER_CACHE)
     else()
         message(STATUS "No compiler cache found")
     endif()
+elseif (COMPILER_CACHE STREQUAL "sccache")
+    find_program(SCCACHE sccache REQUIRED)
+    message(STATUS "Using sccache: ${SCCACHE}")
+    set(CMAKE_C_COMPILER_LAUNCHER   "${SCCACHE}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${SCCACHE}")
+elseif (COMPILER_CACHE STREQUAL "ccache")
+    find_program(CCACHE ccache REQUIRED)
+    message(STATUS "Using ccache: ${CCACHE}")
+    set(CMAKE_C_COMPILER_LAUNCHER   "${CCACHE}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE}")
 else()
-    message(STATUS "Compiler cache deselected")
+    message(FATAL_ERROR "Invalid COMPILER_CACHE value '${COMPILER_CACHE}': expected auto, ccache, sccache, or none")
 endif()
 
 option (USE_COMPILATION_TIME_PROFILER "Use compilation time profiler (for CLang >= 9 only)" OFF)
@@ -410,7 +422,6 @@ endif()
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 enable_testing()
 
-option(BUILD_TRANSLATIONS "Build translations using lrelease (Qt)" OFF)
 option(BUILD_DOCUMENTATION "Build the Doxygen documentation." ON)
 option(BUILD_TESTS "Build tests." OFF)
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -494,7 +505,10 @@ endif()
 # Can't install hook in static build on OSX, because OSX linker does not support --wrap
 # On ARM, having libunwind package (with .so's only) installed breaks static link.
 # When possible, avoid stack tracing using libunwind in favor of using easylogging++.
-if (APPLE OR NETBSD)
+if (CMAKE_BUILD_TYPE_LOWER STREQUAL "release" AND NOT STACK_TRACE)
+  set(DEFAULT_STACK_TRACE OFF)
+  set(LIBUNWIND_LIBRARIES "")
+elseif (APPLE OR NETBSD)
   set(DEFAULT_STACK_TRACE OFF)
   set(LIBUNWIND_LIBRARIES "")
 elseif (DEPENDS AND NOT LINUX)
@@ -628,20 +642,6 @@ function (monero_add_library_with_deps)
     PRIVATE $<TARGET_PROPERTY:${MONERO_ADD_LIBRARY_NAME},INTERFACE_COMPILE_DEFINITIONS>)
 endfunction ()
 
-if(BUILD_TRANSLATIONS)
-# Generate header for embedded translations
-# use target toolchain if depends, otherwise use the
-# lrelease and lupdate binaries from the host
-include(ExternalProject)
-ExternalProject_Add(generate_translations_header
-  SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/translations"
-  BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/translations"
-  STAMP_DIR ${LRELEASE_PATH}
-  CMAKE_ARGS -DLRELEASE_PATH=${LRELEASE_PATH}
-  INSTALL_COMMAND ${CMAKE_COMMAND} -E echo "")
-include_directories("${CMAKE_CURRENT_BINARY_DIR}/translations")
-endif()
-
 add_subdirectory(external)
 
 # Final setup for libunbound
@@ -751,9 +751,8 @@ include(CheckTrezor)
     # mingw doesn't support LTO (multiple definition errors at link time)
     set(USE_LTO_DEFAULT false)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,10485760")
-    if(NOT BUILD_64)
-      add_definitions(-DWINVER=0x0600 -D_WIN32_WINNT=0x0600)
-    endif()
+    # TryAcquireSRWLock* requires Windows 7 or later.
+    add_definitions(-DWINVER=0x0601 -D_WIN32_WINNT=0x0601)
   endif()
   set(C_WARNINGS "-Waggregate-return -Wnested-externs -Wold-style-definition -Wstrict-prototypes")
   set(CXX_WARNINGS "-Wno-reorder -Wno-missing-field-initializers")
@@ -836,6 +835,11 @@ include(CheckTrezor)
   add_cxx_flag_if_supported(-Werror=switch      CXX_SECURITY_FLAGS)
   add_c_flag_if_supported(  -Werror=return-type C_SECURITY_FLAGS)
   add_cxx_flag_if_supported(-Werror=return-type CXX_SECURITY_FLAGS)
+
+  # A missing WinAPI prototype (e.g. TryAcquireSRWLock*) must fail the build
+  if(MINGW)
+    add_c_flag_if_supported(-Werror=implicit-function-declaration C_SECURITY_FLAGS)
+  endif()
 
   message(STATUS "Using C security hardening flags: ${C_SECURITY_FLAGS}")
   message(STATUS "Using C++ security hardening flags: ${CXX_SECURITY_FLAGS}")
@@ -924,7 +928,7 @@ if(STATIC)
 endif()
 
 # Find Boost headers
-set(BOOST_MIN_VER 1.62)
+set(BOOST_MIN_VER 1.69)
 find_package(Boost ${BOOST_MIN_VER} QUIET REQUIRED CONFIG)
 
 if(NOT Boost_FOUND)
@@ -935,11 +939,6 @@ elseif(Boost_FOUND)
   set(BOOST_COMPONENTS filesystem thread chrono serialization program_options)
   if (WIN32)
     list(APPEND BOOST_COMPONENTS locale)
-  endif()
-
-  # Boost System is header-only since 1.69
-  if (Boost_VERSION_STRING VERSION_LESS 1.69.0)
-    list(APPEND BOOST_COMPONENTS system)
   endif()
 
   # Boost Regex is header-only since 1.77

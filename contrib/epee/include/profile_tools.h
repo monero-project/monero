@@ -53,19 +53,12 @@ namespace epee
 #define PROFILE_FUNC_THIRD(immortal_ptr_str)
 #endif
 
-#define START_WAY_POINTS() uint64_t _____way_point_time = epee::misc_utils::get_tick_count();
-#define WAY_POINT(name) {uint64_t delta = epee::misc_utils::get_tick_count()-_____way_point_time; MDEBUG("Way point " << name << ": " << delta);_____way_point_time = misc_utils::get_tick_count();}
-#define WAY_POINT2(name, avrg_obj) {uint64_t delta = epee::misc_utils::get_tick_count()-_____way_point_time; avrg_obj.push(delta); MDEBUG("Way point " << name << ": " << delta);_____way_point_time = misc_utils::get_tick_count();}
 
 
 #define TIME_MEASURE_START(var_name)    uint64_t var_name = epee::misc_utils::get_tick_count();
-#define TIME_MEASURE_PAUSE(var_name)    var_name = epee::misc_utils::get_tick_count() - var_name;
-#define TIME_MEASURE_RESTART(var_name)  var_name = epee::misc_utils::get_tick_count() - var_name;
 #define TIME_MEASURE_FINISH(var_name)   var_name = epee::misc_utils::get_tick_count() - var_name;
 
 #define TIME_MEASURE_NS_START(var_name)    uint64_t var_name = epee::misc_utils::get_ns_count();
-#define TIME_MEASURE_NS_PAUSE(var_name)    var_name = epee::misc_utils::get_ns_count() - var_name;
-#define TIME_MEASURE_NS_RESTART(var_name)  var_name = epee::misc_utils::get_ns_count() - var_name;
 #define TIME_MEASURE_NS_FINISH(var_name)   var_name = epee::misc_utils::get_ns_count() - var_name;
 
 namespace profile_tools

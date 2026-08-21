@@ -61,9 +61,6 @@ namespace cryptonote
   /*                                                                      */
   /************************************************************************/
 
-  //! pair of <transaction fee, transaction hash> for organization
-  typedef std::pair<std::pair<double, std::time_t>, crypto::hash> tx_by_fee_and_receive_time_entry;
-
   class txFeeCompare
   {
   public:
@@ -78,18 +75,9 @@ namespace cryptonote
     }
   }; 
 
-  class hashCompare
-  {
-  public:
-    bool operator()(const crypto::hash& a, const crypto::hash& b) const
-    {
-      return memcmp(a.data, b.data, sizeof(crypto::hash)) < 0;
-    }
-  };
-
   //! container for sorting transactions by fee per unit size
   typedef boost::bimap<boost::bimaps::multiset_of<std::pair<double, std::time_t>, txFeeCompare>,
-                       boost::bimaps::set_of<crypto::hash, hashCompare>> sorted_tx_container;
+                       boost::bimaps::set_of<crypto::hash>> sorted_tx_container;
   
 
   /**
@@ -433,20 +421,6 @@ namespace cryptonote
     uint64_t cookie() const { return m_cookie; }
 
     /**
-     * @brief get the cumulative txpool weight in bytes
-     *
-     * @return the cumulative txpool weight in bytes
-     */
-    size_t get_txpool_weight() const;
-
-    /**
-     * @brief set the max cumulative txpool weight in bytes
-     *
-     * @param bytes the max cumulative txpool weight in bytes
-     */
-    void set_txpool_max_weight(size_t bytes);
-
-    /**
      * @brief reduce the cumulative txpool weight by the weight provided
      *
      * @param weight the weight to reduce the total txpool weight by
@@ -503,7 +477,7 @@ namespace cryptonote
     /**
      * @brief get information about multiple transactions
      */
-    bool get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false, size_t cumul_txblob_size_limit = 0, size_t max_tx_count = 0) const;
+    bool get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive_data = false, size_t max_tx_count = 0) const;
 
     /**
      * @brief get transactions not in the passed set
@@ -515,7 +489,7 @@ namespace cryptonote
      *
      * @return true on success, false on error
      */
-    bool get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t cumul_limit_size = 0) const;
+    bool get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const;
 
   private:
 

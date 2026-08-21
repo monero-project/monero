@@ -1,5 +1,7 @@
 #include "net/net_helper.h"
 
+#include "net/net_utils_base.h"
+
 namespace epee
 {
 namespace net_utils

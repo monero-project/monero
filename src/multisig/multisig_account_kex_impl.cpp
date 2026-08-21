@@ -272,10 +272,7 @@ namespace multisig
       // note: must be mul8 (cofactor), otherwise it is possible to leak to a malicious participant if the local
       //       base_privkey is a multiple of 8 or not
       // note2: avoid making temporaries that won't be memwiped
-      rct::key derivation_rct;
-      auto a_wiper = epee::misc_utils::create_scope_leave_handler([&]{
-        memwipe(&derivation_rct, sizeof(rct::key));
-      });
+      tools::scrubbed<rct::key> derivation_rct;
 
       rct::scalarmultKey(derivation_rct, rct::pk2rct(pubkey_and_origins.first), rct::sk2rct(base_privkey));
       rct::scalarmultKey(derivation_rct, derivation_rct, rct::EIGHT);

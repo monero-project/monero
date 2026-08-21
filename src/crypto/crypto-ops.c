@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -39,7 +39,6 @@ DISABLE_VS_WARNINGS(4146 4244)
 
 /* Predeclarations */
 
-static void fe_sq(fe, const fe);
 static void ge_madd(ge_p1p1 *, const ge_p3 *, const ge_precomp *);
 static void ge_msub(ge_p1p1 *, const ge_p3 *, const ge_precomp *);
 static void ge_p2_0(ge_p2 *);
@@ -90,7 +89,7 @@ void fe_0(fe h) {
 h = 1
 */
 
-static void fe_1(fe h) {
+void fe_1(fe h) {
   h[0] = 1;
   h[1] = 0;
   h[2] = 0;
@@ -648,7 +647,7 @@ Postconditions:
    |h| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
 */
 
-static void fe_neg(fe h, const fe f) {
+void fe_neg(fe h, const fe f) {
   int32_t f0 = f[0];
   int32_t f1 = f[1];
   int32_t f2 = f[2];
@@ -698,7 +697,7 @@ Postconditions:
 See fe_mul.c for discussion of implementation strategy.
 */
 
-static void fe_sq(fe h, const fe f) {
+void fe_sq(fe h, const fe f) {
   int32_t f0 = f[0];
   int32_t f1 = f[1];
   int32_t f2 = f[2];
@@ -1002,7 +1001,7 @@ Postconditions:
    |h| bounded by 1.1*2^26,1.1*2^25,1.1*2^26,1.1*2^25,etc.
 */
 
-static void fe_sub(fe h, const fe f, const fe g) {
+void fe_sub(fe h, const fe f, const fe g) {
   int32_t f0 = f[0];
   int32_t f1 = f[1];
   int32_t f2 = f[2];
@@ -3905,6 +3904,39 @@ int sc_isnonzero(const unsigned char *s) {
     s[27] | s[28] | s[29] | s[30] | s[31]) - 1) >> 8) + 1;
 }
 
+static int edwardsYZ_to_x25519(unsigned char *xbytes, const fe Y, const fe Z) {
+  //! @see Section 4.1 of RFC 7748: https://www.rfc-editor.org/rfc/rfc7748.html#section-4.1
+  //
+  // y = Y/Z
+  // x_mont = (1 + y) / (1 - y)
+  //        = (1 + Y/Z) / (1 - Y/Z)
+  //        = (Z + Y) / (Z - Y)
+
+  fe tmp0;
+  fe tmp1;
+  int r;
+  fe_add(tmp0, Z, Y);       // Z + Y
+  fe_sub(tmp1, Z, Y);       // Z - Y
+  r = -!fe_isnonzero(tmp1); // succeed iff 0 != (Z - Y). AKA fail if identity point or some invalid reprs
+  fe_invert(tmp1, tmp1);    // 1/(Z - Y)
+  fe_mul(tmp0, tmp0, tmp1); // (Z + Y) / (Z - Y)
+  fe_tobytes(xbytes, tmp0); // tobytes((Z + Y) / (Z - Y))
+  return r;                 // 0 on success, otherwise -1
+}
+
+int ge_p3_to_x25519(unsigned char *xbytes, const ge_p3 *h) {
+  return edwardsYZ_to_x25519(xbytes, h->Y, h->Z);
+}
+
+int edwards_bytes_to_x25519_vartime(unsigned char *xbytes, const unsigned char *s) {
+  ge_p3 h;
+  const int r = ge_frombytes_vartime(&h, s);
+  if (0 != r)
+    return r;
+
+  return edwardsYZ_to_x25519(xbytes, h.Y, h.Z);
+}
+
 int ge_p3_is_point_at_infinity_vartime(const ge_p3 *p) {
   // https://eprint.iacr.org/2008/522
   // X == T == 0 and Y/Z == 1
@@ -3979,4 +4011,32 @@ int fe_reduce_vartime(fe reduced_f, const fe f)
   unsigned char f_bytes[32];
   fe_tobytes(f_bytes, f);
   return fe_frombytes_vartime(reduced_f, f_bytes);
+}
+
+// https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2
+static void fe_ed_derivatives_to_wei_x(unsigned char *wei_x, const fe inv_one_minus_y, const fe one_plus_y)
+{
+  // (1/(1-y))*(1+y)
+  fe inv_one_minus_y_mul_one_plus_y;
+  fe_mul(inv_one_minus_y_mul_one_plus_y, inv_one_minus_y, one_plus_y);
+
+  // wei x = (1/(1-y))*(1+y) + (A/3)
+  fe wei_x_fe;
+  fe_add(wei_x_fe, inv_one_minus_y_mul_one_plus_y, fe_a_inv_3);
+  fe_tobytes(wei_x, wei_x_fe);
+}
+
+// https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2
+void fe_ed_derivatives_to_wei_x_y(unsigned char *wei_x, unsigned char *wei_y, const fe inv_one_minus_y, const fe one_plus_y, const fe inv_one_minus_y_mul_x)
+{
+  fe_ed_derivatives_to_wei_x(wei_x, inv_one_minus_y, one_plus_y);
+
+  // c*(1+y)
+  fe fe_c_mul_one_plus_y;
+  fe_mul(fe_c_mul_one_plus_y, fe_c, one_plus_y);
+
+  // wei y = c * (1+y) * (1/((1-y)*x))
+  fe wei_y_fe;
+  fe_mul(wei_y_fe, fe_c_mul_one_plus_y, inv_one_minus_y_mul_x);
+  fe_tobytes(wei_y, wei_y_fe);
 }

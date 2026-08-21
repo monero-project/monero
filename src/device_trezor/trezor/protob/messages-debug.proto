@@ -1,15 +1,16 @@
 syntax = "proto2";
 package hw.trezor.messages.debug;
 
-// Sugar for easier handling in Java
-option java_package = "com.satoshilabs.trezor.lib.protobuf";
-option java_outer_classname = "TrezorMessageDebug";
-
-option (include_in_bitcoin_only) = true;
-
-import "messages.proto";
 import "messages-common.proto";
 import "messages-management.proto";
+import "options.proto";
+
+// Sugar for easier handling in Java
+option java_outer_classname = "TrezorMessageDebug";
+option java_package = "com.satoshilabs.trezor.lib.protobuf";
+
+// Include in BTC-only firmware
+option (include_in_bitcoin_only) = true;
 
 /**
  * Request: "Press" the button on the device
@@ -17,12 +18,12 @@ import "messages-management.proto";
  * @next DebugLinkLayout
  */
 message DebugLinkDecision {
-    optional DebugButton button = 1;  // button press
+    optional DebugButton button = 1;         // button press
     optional DebugSwipeDirection swipe = 2;  // swipe direction
-    optional string input = 3;  // keyboard input
+    optional string input = 3;               // keyboard input
     /**
-    * Structure representing swipe direction
-    */
+     * Structure representing swipe direction
+     */
     enum DebugSwipeDirection {
         UP = 0;
         DOWN = 1;
@@ -31,26 +32,50 @@ message DebugLinkDecision {
     }
 
     /**
-    * Structure representing button presses
-    */
+     * Structure representing button presses
+     */
     enum DebugButton {
         NO = 0;
         YES = 1;
         INFO = 2;
     }
 
-    optional uint32 x = 4;        // touch X coordinate
-    optional uint32 y = 5;        // touch Y coordinate
-    optional bool wait = 6;       // wait for layout change
-    optional uint32 hold_ms = 7;  // touch hold duration
+    /**
+     * Structure representing button presses of UI Caesar
+     */
+    // TODO: probably delete the middle_btn as it is not a physical one
+    enum DebugPhysicalButton {
+        LEFT_BTN = 0;
+        MIDDLE_BTN = 1;
+        RIGHT_BTN = 2;
+    }
+
+    optional uint32 x = 4;                             // touch X coordinate
+    optional uint32 y = 5;                             // touch Y coordinate
+    optional bool wait = 6 [deprecated = true];        // wait for layout change
+    optional uint32 hold_ms = 7;                       // touch hold duration
+    optional DebugPhysicalButton physical_button = 8;  // physical button press
+
+    /**
+     * Explicit touch event type, used to separate TOUCH_START and TOUCH_END
+     * If not set, defaults to full click behavior (TOUCH_START + optional hold + TOUCH_END)
+     */
+    enum DebugTouchEventType {
+        TOUCH_FULL_CLICK = 0;
+        TOUCH_START = 1;
+        TOUCH_END = 2;
+    }
+
+    optional DebugTouchEventType touch_event_type = 9;
 }
 
 /**
- * Response: Device text layout
+ * Response: Device text layout as a list of tokens as returned by Rust
  * @end
  */
 message DebugLinkLayout {
-    repeated string lines = 1;
+    option deprecated = true;
+    repeated string tokens = 1;
 }
 
 /**
@@ -68,18 +93,38 @@ message DebugLinkReseedRandom {
  * @next Success
  */
 message DebugLinkRecordScreen {
-    optional string target_directory = 1;  // empty or missing to stop recording
+    optional string target_directory = 1;             // empty or missing to stop recording
+    optional uint32 refresh_index = 2 [default = 0];  // which index to give the screenshots (after emulator restarts)
 }
 
 /**
- * Request: Computer asks for device state
+ * Request: Host asks for device state
  * @start
  * @next DebugLinkState
  */
 message DebugLinkGetState {
-    optional bool wait_word_list = 1;  // Trezor T only - wait until mnemonic words are shown
-    optional bool wait_word_pos = 2;   // Trezor T only - wait until reset word position is requested
-    optional bool wait_layout = 3;     // wait until current layout changes
+    /// Wait behavior of the call.
+    enum DebugWaitType {
+        /// Respond immediately. If no layout is currently displayed, the layout
+        /// response will be empty.
+        IMMEDIATE = 0;
+        /// Wait for next layout. If a layout is displayed, waits for it to change.
+        /// If no layout is displayed, waits for one to come up.
+        NEXT_LAYOUT = 1;
+        /// Return current layout. If no layout is currently displayed, waits for
+        /// one to come up.
+        CURRENT_LAYOUT = 2;
+    }
+
+    // Trezor T < 2.6.0 only - wait until mnemonic words are shown
+    optional bool wait_word_list = 1 [deprecated = true];
+    // Trezor T < 2.6.0 only - wait until reset word position is requested
+    optional bool wait_word_pos = 2 [deprecated = true];
+    // trezor-core only - wait until current layout changes
+    // changed in 2.6.4: multiple wait types instead of true/false.
+    optional DebugWaitType wait_layout = 3 [default = IMMEDIATE];
+    // Responds immediately with an empty `DebugLinkState` (used for client-side synchronization).
+    optional bool return_empty_state = 4 [default = false];
 }
 
 /**
@@ -87,27 +132,50 @@ message DebugLinkGetState {
  * @end
  */
 message DebugLinkState {
-    optional bytes layout = 1;                              // raw buffer of display
-    optional string pin = 2;                                // current PIN, blank if PIN is not set/enabled
-    optional string matrix = 3;                             // current PIN matrix
-    optional bytes mnemonic_secret = 4;                     // current mnemonic secret
-    optional common.HDNodeType node = 5; // current BIP-32 node
-    optional bool passphrase_protection = 6;                // is node/mnemonic encrypted using passphrase?
-    optional string reset_word = 7;                         // word on device display during ResetDevice workflow
-    optional bytes reset_entropy = 8;                       // current entropy during ResetDevice workflow
-    optional string recovery_fake_word = 9;                 // (fake) word on display during RecoveryDevice workflow
-    optional uint32 recovery_word_pos = 10;                 // index of mnemonic word the device is expecting during RecoveryDevice workflow
-    optional uint32 reset_word_pos = 11;                    // index of mnemonic word the device is expecting during ResetDevice workflow
-    optional management.BackupType mnemonic_type = 12;      // current mnemonic type (BIP-39/SLIP-39)
-    repeated string layout_lines = 13;                      // current layout text
+    optional bytes layout = 1;                // raw buffer of display
+    optional string pin = 2;                  // current PIN, blank if PIN is not set/enabled
+    optional string matrix = 3;               // current PIN matrix
+    optional bytes mnemonic_secret = 4;       // current mnemonic secret
+    optional common.HDNodeType node = 5;      // current BIP-32 node
+    optional bool passphrase_protection = 6;  // is node/mnemonic encrypted using passphrase?
+    optional string reset_word = 7;           // word on device display during ResetDevice workflow
+    optional bytes reset_entropy = 8;         // current entropy during ResetDevice workflow
+    optional string recovery_fake_word = 9;   // (fake) word on display during RecoveryDevice workflow
+    optional uint32 recovery_word_pos = 10;   // index of mnemonic word the device is expecting
+                                              // during RecoveryDevice workflow
+    optional uint32 reset_word_pos = 11;  // index of mnemonic word the device is expecting during ResetDevice workflow
+    optional management.BackupType mnemonic_type = 12;  // current mnemonic type (BIP-39/SLIP-39)
+    repeated string tokens = 13;                        // current layout represented as a list of string tokens
+}
+
+/**
+ * Request: Host asks for device pairing info
+ * @start
+ * @next DebugLinkPairingInfo
+ */
+message DebugLinkGetPairingInfo {
+    optional bytes channel_id = 1;       // ID of the THP channel to get pairing info from
+    optional bytes handshake_hash = 2;   // handshake hash of the THP channel
+    optional bytes nfc_secret_host = 3;  // host's NFC secret (In case of NFC pairing)
+}
+
+/**
+ * Response: Device pairing info
+ * @end
+ */
+message DebugLinkPairingInfo {
+    optional bytes channel_id = 1;         // ID of the THP channel the pairing info is from
+    optional bytes handshake_hash = 2;     // handshake hash of the THP channel
+    optional uint32 code_entry_code = 3;   // CodeEntry pairing code
+    optional bytes code_qr_code = 4;       // QrCode pairing code
+    optional bytes nfc_secret_trezor = 5;  // NFC secret used in NFC pairing
 }
 
 /**
  * Request: Ask device to restart
  * @start
  */
-message DebugLinkStop {
-}
+message DebugLinkStop {}
 
 /**
  * Response: Device wants host to log event
@@ -161,7 +229,6 @@ message DebugLinkFlashErase {
     optional uint32 sector = 1;
 }
 
-
 /**
  * Request: Erase the SD card
  * @start
@@ -173,6 +240,20 @@ message DebugLinkEraseSdCard {
                                // if false, it will be all 0xFF bytes.
 }
 
+/**
+ * Request: Set battery/power state on the emulator.
+ * @start
+ * @next Success
+ */
+message DebugLinkSetBatteryState {
+    optional uint32 soc = 1;                // state of charge percentage (0-100)
+    optional bool usb_connected = 2;        // USB cable connected
+    optional bool wireless_connected = 3;   // wireless charging pad connected
+    optional bool ntc_connected = 4;        // temperature sensor connected
+    optional bool charging_limited = 5;     // charging current is limited
+    optional bool temp_control_active = 6;  // temperature control is limiting charging
+    optional bool battery_connected = 7;    // battery is physically connected
+}
 
 /**
  * Request: Start or stop tracking layout changes
@@ -180,6 +261,93 @@ message DebugLinkEraseSdCard {
  * @next Success
  */
 message DebugLinkWatchLayout {
+    option deprecated = true;
     optional bool watch = 1;  // if true, start watching layout.
                               // if false, stop.
+}
+
+/**
+ * Request: Remove all the previous debug event state
+ * @start
+ * @next Success
+ */
+message DebugLinkResetDebugEvents {
+    option deprecated = true;
+}
+
+/**
+ * Request: Set Optiga's security even counter to maximum
+ * @start
+ * @next Success
+ */
+message DebugLinkOptigaSetSecMax {}
+
+/**
+ * Request: Get GC heap information.
+ * @start
+ * @next DebugLinkGcInfo
+ */
+message DebugLinkGetGcInfo {}
+
+/**
+ * Response: GC heap information details.
+ * @end
+ */
+message DebugLinkGcInfo {
+    repeated DebugLinkGcInfoItem items = 1;
+
+    /**
+     * Key-value pair.
+     */
+    message DebugLinkGcInfoItem {
+        required string name = 1;
+        required uint64 value = 2;
+    }
+}
+
+/**
+ * Request: Set logging filter string.
+ * @start
+ * @next Success
+ */
+message DebugLinkSetLogFilter {
+    optional string filter = 1;  // filter string
+}
+
+/**
+ * Request: Start N4W1 exchange over DebugLink (initiated by the host).
+ * Blocks until there is a N4W1 request to be handled.
+ * @start
+ * @next DebugLinkN4W1Read
+ * @next DebugLinkN4W1Write
+ */
+message DebugLinkN4W1Connected {}
+
+/**
+ * Request: Simulate N4W1 write over DebugLink (sent by the device).
+ * @start
+ * @next DebugLinkN4W1Response
+ */
+message DebugLinkN4W1Write {
+    optional string key = 1;
+    optional bytes value = 2;  // if is None, the entry is deleted
+}
+
+/**
+ * Request: Simulate N4W1 read over DebugLink (sent by the device).
+ * @start
+ * @next DebugLinkN4W1Response
+ */
+message DebugLinkN4W1Read {
+    optional string key = 1;
+}
+
+/**
+ * Response: Simulate N4W1 read/write result over DebugLink (sent by the host).
+ * @next DebugLinkN4W1Read
+ * @next DebugLinkN4W1Write
+ * @next Success
+ */
+message DebugLinkN4W1Response {
+    optional bytes value = 1;  // existing value is returned on write/delete, `None` if key is missing
 }

@@ -36,7 +36,7 @@
 #include "crypto/hash.h"
 #include "wallet/wallet2.h"
 
-
+#include <cstring>
 #include <string>
 #include <list>
 
@@ -97,7 +97,8 @@ void TransactionHistoryImpl::setTxNote(const std::string &txid, const std::strin
     cryptonote::blobdata txid_data;
     if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
         return;
-    const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+    crypto::hash htxid;
+    memcpy(&htxid, txid_data.data(), sizeof(htxid));
 
     m_wallet->m_wallet->set_tx_note(htxid, note);
     refresh();

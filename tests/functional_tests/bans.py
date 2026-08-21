@@ -112,6 +112,16 @@ class BanTest():
         res = daemon.get_bans()
         assert 'bans' not in res or len(res.bans) == 0
 
+        daemon.set_bans([
+            {'host': '1.2.3.4', 'ban': True, 'seconds': 100},
+            {'host': '5.6.7.0/24', 'ban': True, 'seconds': 100},
+        ])
+        res = daemon.get_bans()
+        assert len(res.bans) == 2
+        daemon.set_bans([{'host': 'all', 'ban': False}])
+        res = daemon.get_bans()
+        assert 'bans' not in res or len(res.bans) == 0
+
 
 if __name__ == '__main__':
     BanTest().run_test()

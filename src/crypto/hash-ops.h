@@ -39,6 +39,7 @@
 
 #include <assert.h>
 #include <stdbool.h>
+#include <stdalign.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -65,13 +66,12 @@ static inline void place_length(uint8_t *buffer, size_t bufsize, size_t length) 
 }
 POP_WARNINGS
 
-#pragma pack(push, 1)
 union hash_state {
   uint8_t b[200];
   uint64_t w[25];
 };
-#pragma pack(pop)
 static_assert(sizeof(union hash_state) == 200, "Invalid structure size");
+static_assert(alignof(union hash_state) == alignof(uint64_t), "Invalid structure alignment");
 
 void hash_permutation(union hash_state *state);
 void hash_process(union hash_state *state, const uint8_t *buf, size_t count);

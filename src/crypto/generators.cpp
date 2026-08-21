@@ -1,4 +1,4 @@
-// Copyright (c) 2022-2024, The Monero Project
+// Copyright (c) 2022-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -36,9 +36,8 @@ extern "C"
 #include "hash.h"
 
 #include <cassert>
-#include <cstddef>
-#include <cstdint>
 #include <mutex>
+#include <string_view>
 
 namespace crypto
 {
@@ -68,14 +67,45 @@ constexpr public_key G = bytes_to<public_key>({ 0x58, 0x66, 0x66, 0x66, 0x66, 0x
 //pedersen commitment generator H: toPoint(cn_fast_hash(G))
 constexpr public_key H = bytes_to<public_key>({ 0x8b, 0x65, 0x59, 0x70, 0x15, 0x37, 0x99, 0xaf, 0x2a, 0xea, 0xdc, 0x9f, 0xf1,
     0xad, 0xd0, 0xea, 0x6c, 0x72, 0x51, 0xd5, 0x41, 0x54, 0xcf, 0xa9, 0x2c, 0x17, 0x3a, 0x0d, 0xd3, 0x9c, 0x1f, 0x94 });
+//FCMP++ generator T: unbiased_hash_to_ec(Keccak256("Monero Generator T"))
+//Source: https://github.com/monero-oxide/monero-oxide/blob/0e438aed2cce5c0ab8a935916c1a89bb0077f97f/monero-oxide/ed25519/src/compressed_point.rs#L76-L79
+constexpr public_key T = bytes_to<public_key>({ 97, 183, 54, 206, 147, 182, 42, 61, 55, 120, 171, 32, 77, 168, 93, 59, 76,
+  220, 7, 37, 15, 93, 167, 227, 223, 38, 41, 146, 129, 52, 213, 38 });
+//FCMP++ generator U: unbiased_hash_to_ec(Keccak256("Monero FCMP++ Generator U"))
+//Source: https://github.com/monero-oxide/monero-oxide/blob/0e438aed2cce5c0ab8a935916c1a89bb0077f97f/monero-oxide/ringct/fcmp%2B%2B/generators/src/lib.rs#L16-L18
+constexpr public_key U = bytes_to<public_key>({ 80, 107, 35, 246, 214, 229, 48, 153, 122, 188, 172, 198, 253, 52, 119, 52,
+  177, 76, 43, 215, 155, 234, 0, 238, 176, 72, 87, 232, 234, 221, 26, 138 });
+//FCMP++ generator V: unbiased_hash_to_ec(Keccak256("Monero FCMP++ Generator V"))
+//Source: https://github.com/monero-oxide/monero-oxide/blob/0e438aed2cce5c0ab8a935916c1a89bb0077f97f/monero-oxide/ringct/fcmp%2B%2B/generators/src/lib.rs#L20-L22
+constexpr public_key V = bytes_to<public_key>({ 105, 53, 244, 19, 248, 49, 9, 19, 138, 122, 20, 180, 9, 85, 45, 59, 118,
+  216, 143, 202, 129, 187, 89, 39, 233, 161, 225, 48, 205, 254, 41, 249 });
 static ge_p3 G_p3;
 static ge_p3 H_p3;
+static ge_p3 T_p3;
+static ge_p3 U_p3;
+static ge_p3 V_p3;
 static ge_cached G_cached;
 static ge_cached H_cached;
+static ge_cached T_cached;
+static ge_cached U_cached;
+static ge_cached V_cached;
 
 // misc
 static std::once_flag init_gens_once_flag;
 
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+/**
+ * @brief P = H^2_p(Keccak256(seed)) = Elligator2(Blake2b_512[personal="Monero"](Keccak256(seed)))
+ * @param seed arbitrary seed string for generator
+ * @param[out] point_out P
+ * @see `unbiased_hash_to_ec()`
+ */
+static void unbiased_hash_to_hash_to_ec(const std::string_view seed, crypto::ec_point &point_out)
+{
+    const crypto::hash seed_hash = cn_fast_hash(seed.data(), seed.size());
+    unbiased_hash_to_ec(reinterpret_cast<const unsigned char*>(&seed_hash), sizeof(crypto::hash), point_out);
+}
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
 static public_key reproduce_generator_G()
@@ -120,6 +150,39 @@ static public_key reproduce_generator_H()
     return reproduced_H;
 }
 //-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static public_key reproduce_generator_T()
+{
+    // T = unbiased_hash_to_hash_to_ec("Monero Generator T"))
+    //   = Elligator2(Blake2b_512[personal="Monero"](Keccak256("Monero Generator T")))
+    const std::string_view T_seed{"Monero Generator T"};
+    public_key reproduced_T;
+    unbiased_hash_to_hash_to_ec(T_seed, reproduced_T);
+    return reproduced_T;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static public_key reproduce_generator_U()
+{
+    // U = unbiased_hash_to_hash_to_ec("Monero FCMP++ Generator U"))
+    //   = Elligator2(Blake2b_512[personal="Monero"](Keccak256("Monero FCMP++ Generator U")))
+    const std::string_view U_seed{"Monero FCMP++ Generator U"};
+    public_key reproduced_U;
+    unbiased_hash_to_hash_to_ec(U_seed, reproduced_U);
+    return reproduced_U;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
+static public_key reproduce_generator_V()
+{
+    // V = unbiased_hash_to_hash_to_ec("Monero FCMP++ Generator V"))
+    //   = Elligator2(Blake2b_512[personal="Monero"](Keccak256("Monero FCMP++ Generator V")))
+    const std::string_view V_seed{"Monero FCMP++ Generator V"};
+    public_key reproduced_V;
+    unbiased_hash_to_hash_to_ec(V_seed, reproduced_V);
+    return reproduced_V;
+}
+//-------------------------------------------------------------------------------------------------------------------
 // Make generators, but only once
 //-------------------------------------------------------------------------------------------------------------------
 static void init_gens()
@@ -130,21 +193,36 @@ static void init_gens()
         // sanity check the generators
         static_assert(static_cast<unsigned char>(G.data[0]) == 0x58, "compile-time constant sanity check");
         static_assert(static_cast<unsigned char>(H.data[0]) == 0x8b, "compile-time constant sanity check");
+        static_assert(static_cast<unsigned char>(T.data[0]) == 0x61, "compile-time constant sanity check");
+        static_assert(static_cast<unsigned char>(U.data[0]) == 0x50, "compile-time constant sanity check");
+        static_assert(static_cast<unsigned char>(V.data[0]) == 0x69, "compile-time constant sanity check");
 
         // build ge_p3 representations of generators
         const int G_deserialize = ge_frombytes_vartime(&G_p3, to_bytes(G));
         const int H_deserialize = ge_frombytes_vartime(&H_p3, to_bytes(H));
+        const int T_deserialize = ge_frombytes_vartime(&T_p3, to_bytes(T));
+        const int U_deserialize = ge_frombytes_vartime(&U_p3, to_bytes(U));
+        const int V_deserialize = ge_frombytes_vartime(&V_p3, to_bytes(V));
 
         (void)G_deserialize; assert(G_deserialize == 0);
         (void)H_deserialize; assert(H_deserialize == 0);
+        (void)T_deserialize; assert(T_deserialize == 0);
+        (void)U_deserialize; assert(U_deserialize == 0);
+        (void)V_deserialize; assert(V_deserialize == 0);
 
         // get cached versions
         ge_p3_to_cached(&G_cached, &G_p3);
         ge_p3_to_cached(&H_cached, &H_p3);
+        ge_p3_to_cached(&T_cached, &T_p3);
+        ge_p3_to_cached(&U_cached, &U_p3);
+        ge_p3_to_cached(&V_cached, &V_p3);
 
         // in debug mode, check that generators are reproducible
         (void)reproduce_generator_G; assert(reproduce_generator_G() == G);
         (void)reproduce_generator_H; assert(reproduce_generator_H() == H);
+        (void)reproduce_generator_T; assert(reproduce_generator_T() == T);
+        (void)reproduce_generator_U; assert(reproduce_generator_U() == U);
+        (void)reproduce_generator_V; assert(reproduce_generator_V() == V);
 
     });
 }
@@ -159,6 +237,21 @@ public_key get_H()
     return H;
 }
 //-------------------------------------------------------------------------------------------------------------------
+public_key get_T()
+{
+    return T;
+}
+//-------------------------------------------------------------------------------------------------------------------
+public_key get_U()
+{
+    return U;
+}
+//-------------------------------------------------------------------------------------------------------------------
+public_key get_V()
+{
+    return V;
+}
+//-------------------------------------------------------------------------------------------------------------------
 ge_p3 get_G_p3()
 {
     init_gens();
@@ -171,6 +264,24 @@ ge_p3 get_H_p3()
     return H_p3;
 }
 //-------------------------------------------------------------------------------------------------------------------
+ge_p3 get_T_p3()
+{
+    init_gens();
+    return T_p3;
+}
+//-------------------------------------------------------------------------------------------------------------------
+ge_p3 get_U_p3()
+{
+    init_gens();
+    return U_p3;
+}
+//-------------------------------------------------------------------------------------------------------------------
+ge_p3 get_V_p3()
+{
+    init_gens();
+    return V_p3;
+}
+//-------------------------------------------------------------------------------------------------------------------
 ge_cached get_G_cached()
 {
     init_gens();
@@ -181,6 +292,24 @@ ge_cached get_H_cached()
 {
     init_gens();
     return H_cached;
+}
+//-------------------------------------------------------------------------------------------------------------------
+ge_cached get_T_cached()
+{
+    init_gens();
+    return T_cached;
+}
+//-------------------------------------------------------------------------------------------------------------------
+ge_cached get_U_cached()
+{
+    init_gens();
+    return U_cached;
+}
+//-------------------------------------------------------------------------------------------------------------------
+ge_cached get_V_cached()
+{
+    init_gens();
+    return V_cached;
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace crypto

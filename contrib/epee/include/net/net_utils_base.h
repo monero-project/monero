@@ -32,6 +32,10 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address_v6.hpp>
+#include <boost/optional/optional.hpp>
+#include <cstddef>
+#include <memory>
+#include <stdexcept>
 #include <typeinfo>
 #include <type_traits>
 #include "byte_slice.h"
@@ -118,19 +122,23 @@ namespace net_utils
 
 	public:
 		constexpr ipv4_network_subnet() noexcept
-			: ipv4_network_subnet(0, 0)
+			: m_ip(0), m_mask(0)
 		{}
 
-		constexpr ipv4_network_subnet(uint32_t ip, uint8_t mask) noexcept
-			: m_ip(ip), m_mask(mask) {}
+		ipv4_network_subnet(uint32_t ip, uint8_t mask)
+			: m_ip(ip), m_mask(mask)
+		{
+			CHECK_AND_ASSERT_THROW_MES(mask <= 32, "invalid IPv4 subnet mask");
+		}
 
 		bool equal(const ipv4_network_subnet& other) const noexcept;
 		bool less(const ipv4_network_subnet& other) const noexcept;
-		constexpr bool is_same_host(const ipv4_network_subnet& other) const noexcept
+		bool is_same_host(const ipv4_network_subnet& other) const noexcept
 		{ return subnet() == other.subnet(); }
                 bool matches(const ipv4_network_address &address) const;
 
-		constexpr uint32_t subnet() const noexcept { return m_ip & ~(0xffffffffull << m_mask); }
+		uint8_t mask() const noexcept { return m_mask; }
+		uint32_t subnet() const noexcept;
 		std::string str() const;
 		std::string host_str() const;
 		bool is_loopback() const;
@@ -196,6 +204,9 @@ namespace net_utils
 		static const uint8_t ID = 2;
 	};
 
+	bool should_group_ipv6_by_prefix(const boost::asio::ip::address_v6& ip);
+	boost::asio::ip::address_v6 get_ipv6_subnet_address(const boost::asio::ip::address_v6& ip, const std::size_t prefix_bits);
+
 	inline bool operator==(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
 	{ return lhs.equal(rhs); }
 	inline bool operator!=(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
@@ -210,6 +221,9 @@ namespace net_utils
 	{ return !lhs.less(rhs); }
 
 	// read_bytes / write_bytes for network_addresss is in src/net/serialization.h (for i2p_address and tor_address)
+
+	boost::optional<ipv4_network_address> get_ipv4_mapped_address(const ipv6_network_address& address);
+
 	class network_address
 	{
 		struct interface
@@ -292,6 +306,8 @@ namespace net_utils
 		std::uint16_t port() const { return self ? self->port() : 0; }
 		template<typename Type> const Type &as() const { return as_mutable<const Type>(); }
 	};
+
+	boost::optional<ipv4_network_address> get_ipv4_mapped_address(const network_address& address);
 
 	inline bool operator==(const network_address& lhs, const network_address& rhs)
 	{ return lhs.equal(rhs); }
@@ -392,11 +408,28 @@ namespace net_utils
     virtual bool call_run_once_service_io()=0;
     virtual bool request_callback()=0;
     virtual boost::asio::io_context& get_io_context()=0;
-    //protect from deletion connection object(with protocol instance) during external call "invoke"
-    virtual bool add_ref()=0;
-    virtual bool release()=0;
   protected:
     virtual ~i_service_endpoint() noexcept(false) {}
+	};
+
+	template<typename t_protocol_handler>
+	struct service_endpoint : i_service_endpoint
+	{
+		typedef typename t_protocol_handler::connection_context t_connection_context;
+
+		service_endpoint(typename t_protocol_handler::config_type& config)
+		  : i_service_endpoint(), context(), m_protocol_handler(this, config, context)
+		{}
+
+		t_connection_context context;
+
+		// TODO what do they mean about wait on destructor?? --rfree :
+		//this should be the last one, because it could be wait on destructor, while other activities possible on other threads
+		t_protocol_handler m_protocol_handler;
+
+	protected:
+		virtual ~service_endpoint() noexcept(false)
+		{}
 	};
 
 
@@ -417,18 +450,14 @@ inline MAKE_LOGGABLE(connection_context_base, ct, os)
 #define LOG_INFO_CC(ct, message) MINFO(ct << message)
 #define LOG_DEBUG_CC(ct, message) MDEBUG(ct << message)
 #define LOG_TRACE_CC(ct, message) MTRACE(ct << message)
-#define LOG_CC(level, ct, message) MLOG(level, ct << message)
 
 #define LOG_PRINT_CC_L0(ct, message) LOG_PRINT_L0(ct << message)
 #define LOG_PRINT_CC_L1(ct, message) LOG_PRINT_L1(ct << message)
 #define LOG_PRINT_CC_L2(ct, message) LOG_PRINT_L2(ct << message)
-#define LOG_PRINT_CC_L3(ct, message) LOG_PRINT_L3(ct << message)
-#define LOG_PRINT_CC_L4(ct, message) LOG_PRINT_L4(ct << message)
 
 #define LOG_PRINT_CCONTEXT_L0(message) LOG_PRINT_CC_L0(context, message)
 #define LOG_PRINT_CCONTEXT_L1(message) LOG_PRINT_CC_L1(context, message)
 #define LOG_PRINT_CCONTEXT_L2(message) LOG_PRINT_CC_L2(context, message)
-#define LOG_PRINT_CCONTEXT_L3(message) LOG_PRINT_CC_L3(context, message)
 #define LOG_ERROR_CCONTEXT(message)    LOG_ERROR_CC(context, message)
  
 #define CHECK_AND_ASSERT_MES_CC(condition, return_val, err_message) CHECK_AND_ASSERT_MES(condition, return_val, "[" << epee::net_utils::print_connection_context_short(context) << "]" << err_message)

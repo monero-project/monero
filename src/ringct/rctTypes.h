@@ -740,10 +740,6 @@ namespace rct {
     // if the key holds a value > 2^64
     // then false is returned
     bool h2d(xmr_amount &amountd, const key &test);
-    //32 byte key to int[64]
-    void h2b(bits  amountb2, const key & test);
-    //int[64] to 32 byte key
-    void b2h(key  & amountdh, bits amountb2);
     //int[64] to uint long long
     xmr_amount b2d(bits amountb);
 
@@ -784,7 +780,7 @@ inline std::ostream &operator <<(std::ostream &o, const rct::key &v) {
 
 namespace std
 {
-  template<> struct hash<rct::key> { std::size_t operator()(const rct::key &k) const { return reinterpret_cast<const std::size_t&>(k); } };
+  template<> struct hash<rct::key> { std::size_t operator()(const rct::key &k) const { return ::crypto::siphash_to_size_t(&k, sizeof(k)); } };
 }
 
 

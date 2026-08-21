@@ -33,19 +33,11 @@
 /* rfree: implementation for throttle details */
 
 #include <string>
-#include <vector>
-#include <atomic>
-
-#include <boost/asio.hpp>
-
-#include <memory>
 
 #include "syncobj.h"
 
-#include "net/net_utils_base.h" 
 #include "misc_log_ex.h" 
 #include <boost/chrono.hpp>
-#include "misc_language.h"
 #include <fstream>
 #include <iomanip>
 #include <algorithm>
@@ -54,7 +46,6 @@
 
 #include <boost/asio/basic_socket.hpp>
 #include <boost/asio/ip/unicast.hpp>
-#include "net/abstract_tcp_server2.h"
 
 // TODO:
 #include "net/network_throttle-detail.hpp"
@@ -354,7 +345,7 @@ size_t network_throttle::get_recommended_size_of_planned_transport() const {
 
 double network_throttle::get_current_speed() const {
 	unsigned int bytes_transferred = 0;
-	if (m_history.size() == 0 || m_slot_size == 0)
+	if (m_history.size() <= 1 || m_slot_size == 0)
 		return 0;
 		
 	auto it = m_history.begin();

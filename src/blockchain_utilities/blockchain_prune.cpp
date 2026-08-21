@@ -35,6 +35,7 @@
 #include "common/pruning.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "blockchain_db/lmdb/db_lmdb.h"
+#include "scope_guard.h"
 #include "version.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -123,7 +124,9 @@ static void add_size(MDB_env *env, uint64_t bytes)
   mdb_env_stat(env, &mst);
 
   uint64_t new_mapsize = (uint64_t)mei.me_mapsize + bytes;
-  new_mapsize += (new_mapsize % mst.ms_psize);
+  const uint64_t remainder = new_mapsize % mst.ms_psize;
+  if (remainder)
+    new_mapsize += mst.ms_psize - remainder;
 
   int result = mdb_env_set_mapsize(env, new_mapsize);
   if (result)
@@ -169,7 +172,7 @@ static uint32_t get_blockchain_db_version(MDB_env *env)
   MDB_val v;
   uint32_t db_version = std::numeric_limits<uint32_t>::max();
 
-  const epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){
+  const epee::scope_guard txn_dtor([&](){
     if (tx_active) mdb_txn_abort(txn);
   });
 
@@ -209,7 +212,7 @@ static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned
 
   MINFO("Copying " << table);
 
-  epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){
+  const epee::scope_guard txn_dtor([&](){
     if (tx_active1) mdb_txn_abort(txn1);
     if (tx_active0) mdb_txn_abort(txn0);
   });
@@ -235,7 +238,7 @@ static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned
   if (dbr) throw std::runtime_error("Failed to commit txn: " + std::string(mdb_strerror(dbr)));
   tx_active1 = false;
   MDB_stat stats;
-  dbr = mdb_env_stat(env0, &stats);
+  dbr = mdb_stat(txn0, dbi0, &stats);
   if (dbr) throw std::runtime_error("Failed to stat " + std::string(table) + " LMDB table: " + std::string(mdb_strerror(dbr)));
   check_resize(env1, (stats.ms_branch_pages + stats.ms_overflow_pages + stats.ms_leaf_pages) * stats.ms_psize);
   dbr = mdb_txn_begin(env1, NULL, 0, &txn1);
@@ -304,7 +307,7 @@ static void prune(MDB_env *env0, MDB_env *env1)
 
   MGINFO("Creating pruned txs_prunable");
 
-  epee::misc_utils::auto_scope_leave_caller txn_dtor = epee::misc_utils::create_scope_leave_handler([&](){
+  const epee::scope_guard txn_dtor([&](){
     if (tx_active1) mdb_txn_abort(txn1);
     if (tx_active0) mdb_txn_abort(txn0);
   });

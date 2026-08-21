@@ -32,6 +32,11 @@ if (WIN32 OR STATIC)
   add_definitions(-DSTATICLIB)
 endif ()
 
+set(STACK_TRACE_USE_WRAP OFF)
+if (STACK_TRACE AND NOT STATIC AND CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(STACK_TRACE_USE_WRAP ON)
+endif()
+
 function (monero_private_headers group)
   source_group("${group}\\Private"
     FILES

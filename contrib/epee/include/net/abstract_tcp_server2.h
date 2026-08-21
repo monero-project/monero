@@ -46,7 +46,6 @@
 #include <memory>
 #include <condition_variable>
 
-#include <boost/asio.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/strand.hpp>
@@ -93,13 +92,21 @@ namespace net_utils
   /// Represents a single connection from a client.
   template<class t_protocol_handler>
   class connection
-    : public boost::enable_shared_from_this<connection<t_protocol_handler> >,
-    private boost::noncopyable, 
-    public i_service_endpoint,
-    public connection_basic
+    : public std::enable_shared_from_this<connection<t_protocol_handler>>,
+    private boost::noncopyable,
+    public connection_basic, // shared_state shared_ptr must be destroyed after service_endpoint
+    public service_endpoint<t_protocol_handler>
   {
   public:
     typedef typename t_protocol_handler::connection_context t_connection_context;
+
+    enum status_t {
+      TERMINATED,
+      RUNNING,
+      INTERRUPTED,
+      TERMINATING,
+      WASTED,
+    };
   private:
     using connection_t = connection<t_protocol_handler>;
     using connection_ptr = boost::shared_ptr<connection_t>;
@@ -148,14 +155,6 @@ namespace net_utils
       bool is_multithreaded,
       boost::optional<network_address> real_remote
     );
-
-    enum status_t {
-      TERMINATED,
-      RUNNING,
-      INTERRUPTED,
-      TERMINATING,
-      WASTED,
-    };
 
     struct state_t {
       struct stat_t {
@@ -261,14 +260,13 @@ namespace net_utils
 
     io_context_t &m_io_context;
     t_connection_type m_connection_type;
-    t_connection_context m_conn_context{};
     strand_t m_strand;
     timers_t m_timers;
     connection_ptr self{};
     bool m_local{};
     std::string m_host{};
     state_t m_state{};
-    t_protocol_handler m_handler;
+
   public:
     struct shared_state : connection_basic_shared_state, t_protocol_handler::config_type
     {
@@ -311,7 +309,7 @@ namespace net_utils
     // `real_remote` is the actual endpoint (if connection is to proxy, etc.)
     bool start(bool is_income, bool is_multithreaded, network_address real_remote);
 
-    void get_context(t_connection_context& context_){context_ = m_conn_context;}
+    void get_context(t_connection_context& context_){context_ = get_context();}
 
     void call_back_starter();
     
@@ -321,6 +319,8 @@ namespace net_utils
 		bool speed_limit_is_enabled() const; ///< tells us should we be sleeping here (e.g. do not sleep on RPC connections)
 
     bool cancel(bool wait_for_shutdown = false);
+
+    status_t get_status() const noexcept { return m_state.status; }
     
   private:
     //----------------- i_service_endpoint ---------------------
@@ -330,9 +330,12 @@ namespace net_utils
     virtual bool call_run_once_service_io();
     virtual bool request_callback();
     virtual io_context_t& get_io_context();
-    virtual bool add_ref();
-    virtual bool release();
     //------------------------------------------------------
+    const t_connection_context& get_context() const noexcept { return this->context; }
+    t_connection_context& get_context() noexcept { return this->context; }
+
+    const t_protocol_handler& get_protocol_handler() const noexcept { return this->m_protocol_handler; }
+    t_protocol_handler& get_protocol_handler() noexcept { return this->m_protocol_handler; }
 	public:
 			void setRpcStation();
   };
@@ -353,7 +356,7 @@ namespace net_utils
     };
 
   public:
-    typedef boost::shared_ptr<connection<t_protocol_handler> > connection_ptr;
+    typedef std::shared_ptr<connection<t_protocol_handler>> connection_ptr;
     typedef typename t_protocol_handler::connection_context t_connection_context;
     /// Construct the server to listen on the specified TCP address and port, and
     /// serve up files from the given directory.

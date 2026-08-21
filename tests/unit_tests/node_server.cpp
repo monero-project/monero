@@ -40,6 +40,7 @@
 #include "serialization/wire/epee.h"
 #include "serialization/wire/wrappers_impl.h"
 #include "unit_tests_utils.h"
+#include <algorithm>
 #include <condition_variable>
 #include <thread>
 
@@ -123,6 +124,27 @@ public:
 
 typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<test_core>> Server;
 
+TEST(node_server, ipv6_peer_group)
+{
+  const auto make_ipv6 = [](const char* ip) {
+    return epee::net_utils::network_address{
+      epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6(ip), 18080}
+    };
+  };
+
+  const boost::optional<nodetool::ipv6_peer_group> first = nodetool::get_ipv6_peer_group(make_ipv6("2001:db8:1::1"));
+  const boost::optional<nodetool::ipv6_peer_group> same = nodetool::get_ipv6_peer_group(make_ipv6("2001:db8:ffff::1"));
+  const boost::optional<nodetool::ipv6_peer_group> different = nodetool::get_ipv6_peer_group(make_ipv6("2001:db9::1"));
+
+  ASSERT_TRUE(first);
+  ASSERT_TRUE(same);
+  ASSERT_TRUE(different);
+  EXPECT_EQ(*first, *same);
+  EXPECT_NE(*first, *different);
+  EXPECT_FALSE(nodetool::get_ipv6_peer_group(make_ipv6("::ffff:192.0.2.1")));
+  EXPECT_FALSE(nodetool::get_ipv6_peer_group(MAKE_IPV4_ADDRESS(192, 0, 2, 1)));
+}
+
 static bool is_blocked(Server &server, const epee::net_utils::network_address &address, time_t *t = NULL)
 {
   std::map<std::string, time_t> hosts = server.get_blocked_hosts();
@@ -148,6 +170,128 @@ static bool is_blocked(Server &server, const epee::net_utils::network_address &a
       return true;
 
   return false;
+}
+
+TEST(node_server, ipv4_mapped_ipv6_address)
+{
+  boost::asio::ip::address_v6::bytes_type bytes = {};
+  bytes[10] = 0xff;
+  bytes[11] = 0xff;
+  bytes[12] = 45;
+  bytes[13] = 155;
+  bytes[14] = 69;
+  bytes[15] = 10;
+
+  const epee::net_utils::network_address mapped{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes}, 18080}
+  };
+  const boost::optional<epee::net_utils::ipv4_network_address> ipv4 = epee::net_utils::get_ipv4_mapped_address(mapped);
+  ASSERT_TRUE(bool(ipv4));
+  EXPECT_EQ("45.155.69.10", ipv4->host_str());
+  EXPECT_EQ(18080, ipv4->port());
+
+  const epee::net_utils::network_address ipv6{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6::loopback(), 18080}
+  };
+  EXPECT_FALSE(epee::net_utils::get_ipv4_mapped_address(ipv6));
+
+  EXPECT_TRUE(nodetool::is_forbidden_ipv4_mapped_ipv6_address(mapped));
+  EXPECT_FALSE(nodetool::is_forbidden_ipv4_mapped_ipv6_address(ipv6));
+  EXPECT_TRUE(nodetool::should_skip_connect_address(mapped, true));
+  EXPECT_TRUE(nodetool::should_skip_connect_address(ipv6, false));
+  EXPECT_FALSE(nodetool::should_skip_connect_address(ipv6, true));
+}
+
+TEST(node_server, p2p_connection_limit_ipv6_by_64)
+{
+  const epee::net_utils::network_address ipv6_a{
+    epee::net_utils::ipv6_network_address{
+      boost::asio::ip::make_address_v6("2001:db8:abcd:1234:1111:2222:3333:4444"), 18080
+    }
+  };
+  const epee::net_utils::network_address ipv6_b{
+    epee::net_utils::ipv6_network_address{
+      boost::asio::ip::make_address_v6("2001:db8:abcd:1234:ffff:eeee:dddd:cccc"), 18080
+    }
+  };
+  const epee::net_utils::network_address ipv6_c{
+    epee::net_utils::ipv6_network_address{
+      boost::asio::ip::make_address_v6("2001:db8:abcd:1235::1"), 18080
+    }
+  };
+
+  EXPECT_TRUE(nodetool::is_same_p2p_connection_limit_host(ipv6_a, ipv6_b));
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(ipv6_a, ipv6_c));
+
+  const epee::net_utils::network_address loopback_a{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6::loopback(), 18080}
+  };
+  const epee::net_utils::network_address loopback_b{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("::2"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(loopback_a, loopback_b));
+
+  const epee::net_utils::network_address link_local_a{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fe80::1"), 18080}
+  };
+  const epee::net_utils::network_address link_local_b{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fe80::2"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(link_local_a, link_local_b));
+
+  const epee::net_utils::network_address unique_local_a{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fc00::1"), 18080}
+  };
+  const epee::net_utils::network_address unique_local_b{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fc00::2"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(unique_local_a, unique_local_b));
+
+  const epee::net_utils::network_address unique_local_c{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fd00::1"), 18080}
+  };
+  const epee::net_utils::network_address unique_local_d{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fd00::2"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(unique_local_c, unique_local_d));
+
+  const epee::net_utils::network_address multicast_a{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("ff00::1"), 18080}
+  };
+  const epee::net_utils::network_address multicast_b{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("ff00::2"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(multicast_a, multicast_b));
+
+  const epee::net_utils::network_address site_local_a{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fec0::1"), 18080}
+  };
+  const epee::net_utils::network_address site_local_b{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fec0::2"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(site_local_a, site_local_b));
+
+  const epee::net_utils::network_address ipv4_a{MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 1, 18080)};
+  const epee::net_utils::network_address ipv4_b{MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 2, 18080)};
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(ipv4_a, ipv4_b));
+
+  boost::asio::ip::address_v6::bytes_type bytes_a = {};
+  bytes_a[10] = 0xff;
+  bytes_a[11] = 0xff;
+  bytes_a[12] = 203;
+  bytes_a[13] = 0;
+  bytes_a[14] = 113;
+  bytes_a[15] = 1;
+  const epee::net_utils::network_address mapped_a{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes_a}, 18080}
+  };
+
+  boost::asio::ip::address_v6::bytes_type bytes_b = bytes_a;
+  bytes_b[15] = 2;
+  const epee::net_utils::network_address mapped_b{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes_b}, 18080}
+  };
+  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(mapped_a, mapped_b));
 }
 
 namespace
@@ -210,6 +354,44 @@ namespace
     peer.last_seen = last_seen;
     return peer;
   }
+}
+
+TEST(node_server, peerlist_merge_rejects_ipv4_mapped_ipv6_address)
+{
+  boost::asio::ip::address_v6::bytes_type bytes = {};
+  bytes[10] = 0xff;
+  bytes[11] = 0xff;
+  bytes[12] = 45;
+  bytes[13] = 155;
+  bytes[14] = 69;
+  bytes[15] = 10;
+
+  const epee::net_utils::network_address mapped{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes}, 18080}
+  };
+  const epee::net_utils::network_address ipv4{MAKE_IPV4_ADDRESS_PORT(11, 22, 33, 44, 18080)};
+
+  std::vector<nodetool::peerlist_entry> remote_peerlist;
+  remote_peerlist.push_back(make_peer(mapped, 1, 100));
+  remote_peerlist.push_back(make_peer(ipv4, 2, 200));
+
+  nodetool::peerlist_manager peerlist;
+  ASSERT_TRUE(peerlist.init(nodetool::peerlist_types{}, false));
+  ASSERT_TRUE(peerlist.merge_peerlist(remote_peerlist, [](const nodetool::peerlist_entry& pe) {
+    return !nodetool::is_forbidden_ipv4_mapped_ipv6_address(pe.adr);
+  }));
+
+  std::vector<nodetool::peerlist_entry> gray;
+  std::vector<nodetool::peerlist_entry> white;
+  peerlist.get_peerlist(gray, white);
+  const auto contains_address = [](const std::vector<nodetool::peerlist_entry>& peers, const epee::net_utils::network_address& address) {
+    return std::any_of(peers.begin(), peers.end(), [&address](const nodetool::peerlist_entry& peer) {
+      return peer.adr == address;
+    });
+  };
+  EXPECT_TRUE(contains_address(gray, ipv4));
+  EXPECT_FALSE(contains_address(gray, mapped));
+  EXPECT_FALSE(contains_address(white, mapped));
 }
 
 TEST(ban, add)
@@ -313,24 +495,36 @@ TEST(ban, limit)
   ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4)));
 }
 
+TEST(ban, clear)
+{
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  ASSERT_FALSE(server.clear_bans());
+  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(1,2,3,4)));
+  ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(5,6,7,0,24)));
+  ASSERT_TRUE(server.clear_bans());
+  ASSERT_TRUE(server.get_blocked_hosts().empty());
+  ASSERT_TRUE(server.get_blocked_subnets().empty());
+  ASSERT_FALSE(server.clear_bans());
+}
+
 TEST(ban, subnet)
 {
   time_t seconds;
   test_core pr_core;
   cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
   Server server(cprotocol);
-  {
-    boost::program_options::options_description opts{};
-    Server::init_options(opts);
-    cryptonote::core::init_options(opts);
+  const auto node_dir = create_temp_dir("ban-subnet-%%%%%%%%%%%%%%%%");
+  ASSERT_TRUE(!node_dir.empty());
+  const epee::scope_guard auto_remove_node_dir([&node_dir](){
+      remove_tree(node_dir);
+    });
 
-    const char *argv[] = {"ban_subnet_test"};
-    boost::program_options::variables_map vm;
-    boost::program_options::store(
-      boost::program_options::parse_command_line(1, argv, opts), vm
-    );
-    server.init(vm);
-  }
+  const auto vm = make_regtest_options(node_dir);
+  ASSERT_TRUE(server.init(vm));
   cprotocol.set_p2p_endpoint(&server);
 
   ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(1,2,3,4,24), 10));
@@ -349,12 +543,92 @@ TEST(ban, subnet)
   ASSERT_TRUE(server.get_blocked_subnets().size() == 1);
   ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,255,3,255), &seconds));
   ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,0,3,255), &seconds));
-  ASSERT_FALSE(server.unblock_subnet(MAKE_IPV4_SUBNET(1,2,3,8,24)));
-  ASSERT_TRUE(server.get_blocked_subnets().size() == 1);
-  ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(1,2,3,4,8), 10));
-  ASSERT_TRUE(server.get_blocked_subnets().size() == 1);
+  ASSERT_TRUE(server.unblock_subnet(MAKE_IPV4_SUBNET(1,2,3,8,24)));
+  ASSERT_TRUE(server.get_blocked_subnets().size() == 16);
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,2,3,8), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,2,2,255), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(1,2,4,0), &seconds));
   ASSERT_TRUE(server.unblock_subnet(MAKE_IPV4_SUBNET(1,255,0,0,8)));
   ASSERT_TRUE(server.get_blocked_subnets().size() == 0);
+}
+
+TEST(ban, subnet_arithmetic)
+{
+  time_t seconds;
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  const auto node_dir = create_temp_dir("ban-subnet-arithmetic-%%%%%%%%%%%%%%%%");
+  ASSERT_TRUE(!node_dir.empty());
+  const epee::scope_guard auto_remove_node_dir([&node_dir](){
+      remove_tree(node_dir);
+    });
+
+  const auto vm = make_regtest_options(node_dir);
+  ASSERT_TRUE(server.init(vm));
+  cprotocol.set_p2p_endpoint(&server);
+
+  ASSERT_NO_THROW((void)(MAKE_IPV4_SUBNET(0,0,0,0,0)));
+  ASSERT_NO_THROW((void)(MAKE_IPV4_SUBNET(203,0,113,9,32)));
+  ASSERT_THROW((void)(MAKE_IPV4_SUBNET(203,0,113,9,33)), std::runtime_error);
+
+  ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(172,16,0,0,16), 10));
+  ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(172,16,1,0,24), 10));
+  ASSERT_TRUE(server.unblock_subnet(MAKE_IPV4_SUBNET(172,16,0,0,16)));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,16,1,1), &seconds));
+  ASSERT_TRUE(server.get_blocked_subnets().empty());
+
+  ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(172,16,0,0,12), 10));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,16,1,1), &seconds));
+  ASSERT_TRUE(server.unblock_subnet(MAKE_IPV4_SUBNET(172,16,1,0,24)));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,16,1,1), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,16,1,255), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,16,0,255), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,16,2,0), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,31,255,255), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,15,255,255), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,32,0,0), &seconds));
+  ASSERT_TRUE(server.get_blocked_subnets().size() == 12);
+
+  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(172,16,2,42), 10));
+  ASSERT_TRUE(server.unblock_subnet(MAKE_IPV4_SUBNET(172,16,2,0,24)));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,16,2,42), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,16,2,255), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,16,3,0), &seconds));
+  ASSERT_TRUE(server.get_blocked_subnets().size() == 12);
+
+  ASSERT_TRUE(server.unblock_subnet(MAKE_IPV4_SUBNET(172,16,3,7,32)));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,16,3,6), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,16,3,7), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(172,16,3,8), &seconds));
+
+  ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(203,0,113,9,32), 10));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(203,0,113,9), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(203,0,113,8), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(203,0,113,10), &seconds));
+  ASSERT_TRUE(server.unblock_subnet(MAKE_IPV4_SUBNET(203,0,113,9,32)));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(203,0,113,9), &seconds));
+
+  ASSERT_TRUE(server.block_host(MAKE_IPV4_ADDRESS(10,1,2,3), 10));
+  ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(192,0,2,0,24), 10));
+  ASSERT_TRUE(server.unblock_subnet(MAKE_IPV4_SUBNET(0,0,0,0,0)));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(10,1,2,3), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(192,0,2,100), &seconds));
+  ASSERT_TRUE(server.get_blocked_hosts().empty());
+  ASSERT_TRUE(server.get_blocked_subnets().empty());
+
+  ASSERT_TRUE(server.block_subnet(MAKE_IPV4_SUBNET(0,0,0,0,0), 10));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(0,0,0,0), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(255,255,255,255), &seconds));
+  ASSERT_TRUE(server.unblock_subnet(MAKE_IPV4_SUBNET(203,0,113,9,32)));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(203,0,113,8), &seconds));
+  ASSERT_FALSE(server.is_host_blocked(MAKE_IPV4_ADDRESS(203,0,113,9), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(203,0,113,10), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(0,0,0,0), &seconds));
+  ASSERT_TRUE(server.is_host_blocked(MAKE_IPV4_ADDRESS(255,255,255,255), &seconds));
+  ASSERT_TRUE(server.get_blocked_subnets().size() == 32);
+  ASSERT_TRUE(server.unblock_subnet(MAKE_IPV4_SUBNET(0,0,0,0,0)));
+  ASSERT_TRUE(server.get_blocked_subnets().empty());
 }
 
 TEST(ban, ignores_port)
@@ -382,7 +656,7 @@ TEST(ban, file_banlist)
 
   const auto node_dir = create_temp_dir();
   ASSERT_TRUE(!node_dir.empty());
-  auto auto_remove_node_dir = epee::misc_utils::create_scope_leave_handler([&node_dir](){
+  const epee::scope_guard auto_remove_node_dir([&node_dir](){
       boost::filesystem::remove_all(node_dir);
     });
 
@@ -514,7 +788,7 @@ TEST(cryptonote_protocol_handler, race_condition)
   using context_t = contexts::p2p;
   using handler_t = epee::levin::async_protocol_handler<context_t>;
   using connection_t = epee::net_utils::connection<handler_t>;
-  using connection_ptr = boost::shared_ptr<connection_t>;
+  using connection_ptr = std::shared_ptr<connection_t>;
   using connections_t = std::vector<connection_ptr>;
   using shared_state_t = typename connection_t::shared_state;
   using shared_state_ptr = std::shared_ptr<shared_state_t>;
@@ -1202,7 +1476,7 @@ TEST(node_server, race_condition)
     using messages = messages_race;
     using handler_t = epee::levin::async_protocol_handler<context_t>;
     using connection_t = epee::net_utils::connection<handler_t>;
-    using connection_ptr = boost::shared_ptr<connection_t>;
+    using connection_ptr = std::shared_ptr<connection_t>;
     using shared_state_t = typename connection_t::shared_state;
     using shared_state_ptr = std::shared_ptr<shared_state_t>;
     using io_context_t = boost::asio::io_context;
@@ -1322,7 +1596,7 @@ TEST(regtest, isolates_p2p_state_from_mainnet_data_dir)
 {
   const path_t dir = create_temp_dir("regtest-%%%%%%%%%%%%%%%%");
   ASSERT_TRUE(!dir.empty());
-  auto cleanup = epee::misc_utils::create_scope_leave_handler([&dir]{
+  const epee::scope_guard cleanup([&dir]{
     remove_tree(dir);
   });
 

@@ -56,7 +56,7 @@ UWYU_COMMAND="$PROG;-Xiwyu;any;-Xiwyu;iwyu;-Xiwyu;args" # Copy-pasted from the u
 cmake ../.. \
 -DCMAKE_C_COMPILER=clang \
 -DCMAKE_CXX_COMPILER=clang++ \
--DUSE_COMPILER_CACHE=ON \
+-DCOMPILER_CACHE=auto \
 -DCMAKE_C_INCLUDE_WHAT_YOU_USE="$UWYU_COMMAND" \
 -DCMAKE_CXX_INCLUDE_WHAT_YOU_USE="$UWYU_COMMAND" \
 -DBUILD_SHARED_LIBS=ON \
@@ -70,6 +70,6 @@ tar -cJvf "$RESULT.txz" "$RESULT"		# Zip the result, because it's huge.
 rm -v "$RESULT"
 
 echo ""
-echo "Readable result stored in: $DIR_BUILD/$RESULT.gz"
+echo "Readable result stored in: $DIR_BUILD/$RESULT.txz"
 
 echo "$KPI" > "kpis.txt"

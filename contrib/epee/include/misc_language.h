@@ -31,11 +31,7 @@
 #include <boost/utility/value_init.hpp>
 
 #include <algorithm>
-#include <functional>
-#include <utility>
 #include <vector>
-
-#include "scope_guard.h"
 
 namespace epee
 {
@@ -77,18 +73,6 @@ namespace misc_utils
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
-
-  /// name exists for backwards compatibility. if writing new code, you shouldn't
-  /// use this type unless you *need* the scope leaver to be polymorphic because the std::function
-  /// adds unnecessary overhead if you know the type of the functional object at compile-time
-  using auto_scope_leave_caller = scope_guard<std::function<void()>>;
-
-  // name exists for backwards compatibility
-  template<class t_scope_leave_handler>
-  auto_scope_leave_caller create_scope_leave_handler(t_scope_leave_handler &&f)
-  {
-    return auto_scope_leave_caller(std::forward<t_scope_leave_handler>(f));
-  }
 
   template<typename T> struct struct_init: T
   {

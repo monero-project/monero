@@ -63,6 +63,7 @@ static void generate_system_random_bytes(size_t n, void *result) {
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -96,6 +97,7 @@ static void generate_system_random_bytes(size_t n, void *result) {
 #endif
 
 static union hash_state state;
+unsigned char crypto_siphash_key[16];
 
 #if !defined(NDEBUG)
 static volatile int curstate; /* To catch thread safety problems. */
@@ -107,10 +109,27 @@ FINALIZER(deinit_random) {
   curstate = 0;
 #endif
   memset(&state, 0, sizeof(union hash_state));
+  memset(crypto_siphash_key, 0, sizeof(crypto_siphash_key));
 }
 
+static void lock_random_state(void) {
+#if defined(_WIN32)
+  VirtualLock(&state, sizeof(state));
+#else
+  mlock(&state, sizeof(state));
+#endif
+}
+
+#define HASH_CAPACITY_AREA 64
+
 INITIALIZER(init_random) {
-  generate_system_random_bytes(32, &state);
+  static_assert(sizeof(state) == HASH_DATA_AREA + HASH_CAPACITY_AREA,
+    "Keccak state is the wrong size");
+  lock_random_state();
+  generate_system_random_bytes(HASH_DATA_AREA, &state);
+  hash_permutation(&state);
+
+  generate_system_random_bytes(sizeof(crypto_siphash_key), crypto_siphash_key);
   REGISTER_FINALIZER(deinit_random);
 #if !defined(NDEBUG)
   assert(curstate == 0);
@@ -119,32 +138,35 @@ INITIALIZER(init_random) {
 }
 
 void generate_random_bytes_not_thread_safe(size_t n, void *result) {
+  /*
+   * This function assumes that the state is recently permutated. We permutate
+   * *after* squeezing so that a memory leak of the state immediately after
+   * leaving this function does not leak the previous squeezed values.
+   */
+
 #if !defined(NDEBUG)
   assert(curstate == 1);
   curstate = 2;
 #endif
-  if (n == 0) {
-#if !defined(NDEBUG)
-    assert(curstate == 2);
-    curstate = 1;
-#endif
-    return;
-  }
-  for (;;) {
+
+  while (n > HASH_DATA_AREA) {
+    memcpy(result, &state, HASH_DATA_AREA);
     hash_permutation(&state);
-    if (n <= HASH_DATA_AREA) {
-      memcpy(result, &state, n);
-#if !defined(NDEBUG)
-      assert(curstate == 2);
-      curstate = 1;
-#endif
-      return;
-    } else {
-      memcpy(result, &state, HASH_DATA_AREA);
-      result = padd(result, HASH_DATA_AREA);
-      n -= HASH_DATA_AREA;
-    }
+    result = padd(result, HASH_DATA_AREA);
+    n -= HASH_DATA_AREA;
   }
+
+  if (n) {
+    memcpy(result, &state, n);
+    /* See section 4.3 "Forward security" of https://keccak.team/files/SpongePRNG.pdf */
+    memset(&state, 0, HASH_DATA_AREA);
+    hash_permutation(&state);
+  }
+
+#if !defined(NDEBUG)
+  assert(curstate == 2);
+  curstate = 1;
+#endif
 }
 
 void add_extra_entropy_not_thread_safe(const void *ptr, size_t bytes)
@@ -153,11 +175,11 @@ void add_extra_entropy_not_thread_safe(const void *ptr, size_t bytes)
 
   while (bytes > 0)
   {
-    hash_permutation(&state);
     const size_t round_bytes = bytes > HASH_DATA_AREA ? HASH_DATA_AREA : bytes;
     for (i = 0; i < round_bytes; ++i)
       state.b[i] ^= ((const uint8_t*)ptr)[i];
     bytes -= round_bytes;
     ptr = cpadd(ptr, round_bytes);
+    hash_permutation(&state);
   }
 }

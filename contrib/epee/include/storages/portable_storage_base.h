@@ -61,7 +61,6 @@
 
 #define SERIALIZE_FLAG_ARRAY              0x80
 
-
 namespace epee
 {
   namespace serialization
@@ -70,7 +69,7 @@ namespace epee
 #pragma pack(1)
     struct storage_block_header
     {
-      uint32_t m_signature_a;
+       uint32_t m_signature_a;
       uint32_t m_signature_b;
       uint8_t  m_ver;
     };

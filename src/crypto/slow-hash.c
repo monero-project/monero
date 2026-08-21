@@ -155,11 +155,14 @@ static inline int force_software_aes(void)
   } while(0)
 
 #define VARIANT1_INIT64() \
+  uint64_t tweak1_2 = 0; \
   if (variant == 1) \
   { \
+    uint64_t nonce; \
     VARIANT1_CHECK(); \
-  } \
-  const uint64_t tweak1_2 = (variant == 1) ? (state.hs.w[24] ^ (*((const uint64_t*)NONCE_POINTER))) : 0
+    memcpy(&nonce, NONCE_POINTER, sizeof(nonce)); \
+    tweak1_2 = state.hs.w[24] ^ nonce; \
+  }
 
 #define VARIANT2_INIT64() \
   uint64_t division_result = 0; \
@@ -469,7 +472,6 @@ static inline int force_software_aes(void)
   _b1 = _b; \
   _b = _c; \
 
-#pragma pack(push, 1)
 union cn_slow_hash_state
 {
     union hash_state hs;
@@ -479,7 +481,6 @@ union cn_slow_hash_state
         uint8_t init[INIT_SIZE_BYTE];
     };
 };
-#pragma pack(pop)
 
 THREADV uint8_t *hp_state = NULL;
 THREADV int hp_allocated = 0;
@@ -1086,7 +1087,6 @@ STATIC INLINE void xor64(uint64_t *a, const uint64_t b)
     *a ^= b;
 }
 
-#pragma pack(push, 1)
 union cn_slow_hash_state
 {
     union hash_state hs;
@@ -1096,7 +1096,6 @@ union cn_slow_hash_state
         uint8_t init[INIT_SIZE_BYTE];
     };
 };
-#pragma pack(pop)
 
 #if defined(__aarch64__) && defined(__ARM_FEATURE_CRYPTO)
 
@@ -1166,12 +1165,17 @@ static const int rcon[] = {
 	0x01,0x01,0x01,0x01,
 	0x0c0f0e0d,0x0c0f0e0d,0x0c0f0e0d,0x0c0f0e0d,	// rotate-n-splat
 	0x1b,0x1b,0x1b,0x1b };
+const uint8_t *key_ptr = key;
+uint8_t *expanded_key_ptr = expandedKey;
+const int *rcon_ptr = rcon;
+int count;
+
 __asm__(
 "	eor	v0.16b,v0.16b,v0.16b\n"
 "	ld1	{v3.16b},[%0],#16\n"
 "	ld1	{v1.4s,v2.4s},[%2],#32\n"
 "	ld1	{v4.16b},[%0]\n"
-"	mov	w2,#5\n"
+"	mov	%w3,#5\n"
 "	st1	{v3.4s},[%1],#16\n"
 "\n"
 "1:\n"
@@ -1179,7 +1183,7 @@ __asm__(
 "	ext	v5.16b,v0.16b,v3.16b,#12\n"
 "	st1	{v4.4s},[%1],#16\n"
 "	aese	v6.16b,v0.16b\n"
-"	subs	w2,w2,#1\n"
+"	subs	%w3,%w3,#1\n"
 "\n"
 "	eor	v3.16b,v3.16b,v5.16b\n"
 "	ext	v5.16b,v0.16b,v5.16b,#12\n"
@@ -1205,7 +1209,15 @@ __asm__(
 "	eor	v4.16b,v4.16b,v6.16b\n"
 "	b	1b\n"
 "\n"
-"2:\n" : : "r"(key), "r"(expandedKey), "r"(rcon));
+"2:\n"
+	: "+&r"(key_ptr),
+	  "+&r"(expanded_key_ptr),
+	  "+&r"(rcon_ptr),
+	  "=&r"(count),
+	  "=m"(*(uint8_t (*)[176]) expandedKey)
+	: "m"(*(const int (*)[8]) rcon),
+	  "m"(*(const uint8_t (*)[32]) key)
+	: "v0", "v1", "v2", "v3", "v4", "v5", "v6", "cc");
 }
 
 /* An ordinary AES round is a sequence of SubBytes, ShiftRows, MixColumns, AddRoundKey. There
@@ -1767,7 +1779,6 @@ static void xor64(uint8_t* left, const uint8_t* right)
   }
 }
 
-#pragma pack(push, 1)
 union cn_slow_hash_state {
   union hash_state hs;
   struct {
@@ -1775,7 +1786,6 @@ union cn_slow_hash_state {
     uint8_t init[INIT_SIZE_BYTE];
   };
 };
-#pragma pack(pop)
 
 void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int prehashed, uint64_t height) {
 #ifndef FORCE_USE_HEAP

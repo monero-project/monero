@@ -33,6 +33,9 @@
 #pragma once
 
 #include <boost/asio/post.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/placeholders.hpp>
+#include <boost/asio/ip/v6_only.hpp>
 #include <boost/foreach.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -44,13 +47,11 @@
 #include <boost/thread/condition_variable.hpp> // TODO
 #include <boost/make_shared.hpp>
 #include <boost/thread.hpp>
-#include "warnings.h"
 #include "string_tools_lexical.h"
 #include "misc_language.h"
 #include "net/abstract_tcp_server2.h"
+#include "scope_guard.h"
 
-#include <sstream>
-#include <iomanip>
 #include <algorithm>
 #include <functional>
 #include <random>
@@ -86,7 +87,8 @@ namespace net_utils
     static std::mutex hosts_mutex;
     std::lock_guard<std::mutex> guard(hosts_mutex);
     static std::map<std::string, unsigned int> hosts;
-    unsigned int &val = hosts[m_host];
+    auto it = hosts.emplace(m_host, 0).first;
+    unsigned int &val = it->second;
     if (delta > 0)
       MTRACE("New connection from host " << m_host << ": " << val);
     else if (delta < 0)
@@ -94,7 +96,9 @@ namespace net_utils
     CHECK_AND_ASSERT_THROW_MES(delta >= 0 || val >= (unsigned)-delta, "Count would go negative");
     CHECK_AND_ASSERT_THROW_MES(delta <= 0 || val <= std::numeric_limits<unsigned int>::max() - (unsigned)delta, "Count would wrap");
     val += delta;
-    return val;
+    const unsigned int ret = val;
+    if (ret == 0) hosts.erase(it);
+    return ret;
   }
 
   template<typename T>
@@ -369,9 +373,9 @@ namespace net_utils
         {
           m_state.stat.in.throttle.handle_trafic_exact(bytes_transferred);
           const auto speed = m_state.stat.in.throttle.get_current_speed();
-          m_conn_context.m_current_speed_down = speed;
-          m_conn_context.m_max_speed_down = std::max(
-            m_conn_context.m_max_speed_down,
+          get_context().m_current_speed_down = speed;
+          get_context().m_max_speed_down = std::max(
+            get_context().m_max_speed_down,
             speed
           );
           if (speed_limit_is_enabled()) {
@@ -382,8 +386,8 @@ namespace net_utils
             ).handle_trafic_exact(bytes_transferred);
           }
           connection_basic::logger_handle_net_read(bytes_transferred);
-          m_conn_context.m_last_recv = time(NULL);
-          m_conn_context.m_recv_cnt += bytes_transferred;
+          get_context().m_last_recv = time(NULL);
+          get_context().m_recv_cnt += bytes_transferred;
           start_timer(get_timeout_from_bytes_read(bytes_transferred), true);
         }
         handle_read(bytes_transferred);
@@ -427,7 +431,7 @@ namespace net_utils
       [this, self, bytes_transferred]{
         bool success = false;
         TRY_ENTRY();
-        success = m_handler.handle_recv(
+        success = get_protocol_handler().handle_recv(
           reinterpret_cast<char *>(m_state.data.read.buffer.data()),
           bytes_transferred
         );
@@ -545,9 +549,9 @@ namespace net_utils
         {
           m_state.stat.out.throttle.handle_trafic_exact(bytes_transferred);
           const auto speed = m_state.stat.out.throttle.get_current_speed();
-          m_conn_context.m_current_speed_up = speed;
-          m_conn_context.m_max_speed_down = std::max(
-            m_conn_context.m_max_speed_down,
+          get_context().m_current_speed_up = speed;
+          get_context().m_max_speed_up = std::max(
+            get_context().m_max_speed_up,
             speed
           );
           if (speed_limit_is_enabled()) {
@@ -558,8 +562,8 @@ namespace net_utils
             ).handle_trafic_exact(bytes_transferred);
           }
           connection_basic::logger_handle_net_write(bytes_transferred);
-          m_conn_context.m_last_send = time(NULL);
-          m_conn_context.m_send_cnt += bytes_transferred;
+          get_context().m_last_send = time(NULL);
+          get_context().m_send_cnt += bytes_transferred;
 
           start_timer(get_default_timeout(), true);
         }
@@ -677,7 +681,7 @@ namespace net_utils
       return;
     m_state.protocol.wait_release = true;
     m_state.lock.unlock();
-    m_handler.release_protocol();
+    get_protocol_handler().release_protocol();
     m_state.lock.lock();
     m_state.protocol.wait_release = false;
     m_state.protocol.released = true;
@@ -826,7 +830,8 @@ namespace net_utils
       return false;
 
     // Wait for the write queue to fall below the max. If it doesn't after a
-    // randomized delay, drop the connection.
+    // randomized delay, drop the connection. P2P senders fail fast instead of
+    // parking an io_context worker thread here.
     auto wait_consume = [this] {
       auto random_delay = []{
         using engine = std::mt19937;
@@ -850,6 +855,12 @@ namespace net_utils
       if (m_state.data.write.queue.size() <= ABSTRACT_SERVER_SEND_QUE_MAX_COUNT &&
           m_state.data.write.total_bytes <= static_cast<shared_state&>(connection_basic::get_state()).response_soft_limit)
         return true;
+
+      if (m_connection_type == e_connection_type_P2P) {
+        MWARNING("Connection " << get_context().m_connection_id << " tripped write limit, terminating");
+        terminate_async();
+        return false;
+      }
       m_state.data.write.wait_consume = true;
       bool success = m_state.condition.wait_for(
         m_state.lock,
@@ -888,7 +899,11 @@ namespace net_utils
     };
     if (!wait_sender())
       return false;
-    constexpr size_t CHUNK_SIZE = 32 * 1024;
+    /* CHUNK_SIZE indirectly caps outgoing to 128 * 1024 * 1000
+     (ABSTRACT_SERVER_SEND_QUE_MAX_COUNT). The "soft" limit total is currently
+     100 MiB (ABSTRACT_SERVER_SEND_QUE_MAX_BYTES_DEFAULT). These values will
+     need to be re-visited alongside block limit increases. */
+    constexpr size_t CHUNK_SIZE = 128 * 1024;
     if (m_connection_type == e_connection_type_RPC ||
       message.size() <= 2 * CHUNK_SIZE
     ) {
@@ -900,13 +915,18 @@ namespace net_utils
       start_write();
     }
     else {
+      std::size_t soft_limit = 0;
+      const scope_guard scope_exit_handler([&soft_limit, this] {
+        m_state.data.write.total_bytes += soft_limit;
+      });
+
       while (!message.empty()) {
         if (!wait_consume())
           return false;
         m_state.data.write.queue.emplace_front(
           message.take_slice(CHUNK_SIZE)
         );
-        m_state.data.write.total_bytes += m_state.data.write.queue.front().size();
+        soft_limit += m_state.data.write.queue.front().size();
         start_write();
       }
     }
@@ -980,7 +1000,7 @@ namespace net_utils
     if (ec.value())
       return false;
     connection_basic::m_is_multithreaded = is_multithreaded;
-    m_conn_context.set_details(
+    get_context().set_details(
       boost::uuids::random_generator()(),
       *real_remote,
       is_income,
@@ -1004,7 +1024,7 @@ namespace net_utils
     );
     m_state.protocol.wait_init = true;
     guard.unlock();
-    m_handler.after_init_connection();
+    static_cast<shared_state&>(connection_basic::get_state()).after_init_connection(connection<T>::shared_from_this());
     guard.lock();
     m_state.protocol.wait_init = false;
     m_state.protocol.initialized = true;
@@ -1048,13 +1068,13 @@ namespace net_utils
     t_connection_context&& initial
   ):
     connection_basic(io_context, std::move(socket), shared_state, ssl_support),
-    m_handler(this, *shared_state, m_conn_context),
+    service_endpoint<T>(check_and_get(shared_state)),
     m_connection_type(connection_type),
     m_io_context{io_context},
-    m_conn_context(std::move(initial)),
     m_strand{m_io_context},
     m_timers{m_io_context}
   {
+    get_context() = std::move(initial);
   }
 
   template<typename T>
@@ -1109,7 +1129,7 @@ namespace net_utils
       " connection type " << std::to_string(m_connection_type) <<
       " " << connection_basic::socket().local_endpoint().address().to_string() <<
       ":" << connection_basic::socket().local_endpoint().port() <<
-      " <--> " << m_conn_context.m_remote_address.str() <<
+      " <--> " << get_context().m_remote_address.str() <<
       " (via " << address << ":" << port << ")"
     );
   }
@@ -1158,7 +1178,7 @@ namespace net_utils
     // stopping the server, we don't want the io_context to stop before the shutdown sequence completes, since we
     // execute terminate inside m_strand. So we wait for the connection's shutdown sequence to complete before stopping
     // the io_context.
-    MDEBUG("Waiting for connection " << m_conn_context.m_connection_id << " to shutdown, current state: " << m_state.status);
+    MDEBUG("Waiting for connection " << get_context().m_connection_id << " to shutdown, current state: " << m_state.status);
     const bool shutdown = m_state.condition.wait_for(
       m_state.lock,
       std::chrono::seconds(5),
@@ -1169,9 +1189,9 @@ namespace net_utils
       }
     );
     if (shutdown)
-      MDEBUG("Shut down connection " << m_conn_context.m_connection_id);
+      MDEBUG("Shut down connection " << get_context().m_connection_id);
     else
-      MERROR("Connection " << m_conn_context.m_connection_id << " did not shut down");
+      MERROR("Connection " << get_context().m_connection_id << " did not shut down");
 
     return shutdown;
   }
@@ -1200,7 +1220,7 @@ namespace net_utils
     ++m_state.protocol.wait_callback;
     boost::asio::post(connection_basic::strand_, [this, self]{
       TRY_ENTRY();
-      m_handler.handle_qued_callback();
+      get_protocol_handler().handle_qued_callback();
       CATCH_ENTRY_SWALLOW_EX("m_handler.handle_qued_callback");
       std::lock_guard<std::mutex> guard(m_state.lock);
       --m_state.protocol.wait_callback;
@@ -1216,31 +1236,6 @@ namespace net_utils
   typename connection<T>::io_context_t &connection<T>::get_io_context()
   {
     return m_io_context;
-  }
-
-  template<typename T>
-  bool connection<T>::add_ref()
-  {
-    try {
-      auto self = connection<T>::shared_from_this();
-      std::lock_guard<std::mutex> guard(m_state.lock);
-      this->self = std::move(self);
-      ++m_state.protocol.reference_counter;
-      return true;
-    }
-    catch (boost::bad_weak_ptr &exception) {
-      return false;
-    }
-  }
-
-  template<typename T>
-  bool connection<T>::release()
-  {
-    connection_ptr self;
-    std::lock_guard<std::mutex> guard(m_state.lock);
-    if (!(--m_state.protocol.reference_counter))
-      self = std::move(this->self);
-    return true;
   }
 
   template<typename T>
@@ -1849,7 +1844,7 @@ namespace net_utils
     connections_.insert(new_connection_l);
     MDEBUG("connections_ size now " << connections_.size());
     connections_mutex.unlock();
-    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ CRITICAL_REGION_LOCAL(connections_mutex); connections_.erase(new_connection_l); });
+    const scope_guard scope_exit_handler([&](){ CRITICAL_REGION_LOCAL(connections_mutex); connections_.erase(new_connection_l); });
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
 
     bool try_ipv6 = false;
@@ -1976,7 +1971,7 @@ namespace net_utils
     connections_.insert(new_connection_l);
     MDEBUG("connections_ size now " << connections_.size());
     connections_mutex.unlock();
-    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ CRITICAL_REGION_LOCAL(connections_mutex); connections_.erase(new_connection_l); });
+    const scope_guard scope_exit_handler([&](){ CRITICAL_REGION_LOCAL(connections_mutex); connections_.erase(new_connection_l); });
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
     
     bool try_ipv6 = false;

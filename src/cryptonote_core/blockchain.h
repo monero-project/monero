@@ -134,18 +134,6 @@ namespace cryptonote
     bool init(BlockchainDB* db, const network_type nettype = MAINNET, bool offline = false, const cryptonote::test_options *test_options = NULL, difficulty_type fixed_difficulty = 0, const GetCheckpointsCallback& get_checkpoints = nullptr);
 
     /**
-     * @brief Initialize the Blockchain state
-     *
-     * @param db a pointer to the backing store to use for the blockchain
-     * @param hf a structure containing hardfork information
-     * @param nettype network type
-     * @param offline true if running offline, else false
-     *
-     * @return true on success, false if any initialization steps fail
-     */
-    bool init(BlockchainDB* db, HardFork*& hf, const network_type nettype = MAINNET, bool offline = false);
-
-    /**
      * @brief Uninitializes the blockchain state
      *
      * Saves to disk any state that needs to be maintained
@@ -1177,8 +1165,6 @@ namespace cryptonote
     // TODO: evaluate whether or not each of these typedefs are left over from blockchain_storage
     typedef std::unordered_set<crypto::key_image> key_images_container;
 
-    typedef std::vector<block_extended_info> blocks_container;
-
     typedef std::unordered_map<crypto::hash, block_extended_info> blocks_ext_by_hash;
 
 
@@ -1466,7 +1452,7 @@ namespace cryptonote
      *
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
-    bool prevalidate_miner_transaction(const block& b, uint64_t height, uint8_t hf_version);
+    static bool prevalidate_miner_transaction(const block& b, uint64_t height, uint8_t hf_version);
 
     /**
      * @brief validates a miner (coinbase) transaction
@@ -1566,7 +1552,7 @@ namespace cryptonote
     bool add_block_as_invalid(const block_extended_info& bei, const crypto::hash& h);
 
     /**
-     * @brief checks a block's timestamp
+     * @brief checks a block's timestamp on top of the main chain
      *
      * This function grabs the timestamps from the most recent <n> blocks,
      * where n = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW.  If there are not those many
@@ -1577,26 +1563,27 @@ namespace cryptonote
      *   false otherwise
      *
      * @param b the block to be checked
-     * @param median_ts return-by-reference the median of timestamps
+     * @param[out] median_ts_out the median of timestamps (optional)
      *
      * @return true if the block's timestamp is valid, otherwise false
      */
-    bool check_block_timestamp(const block& b, uint64_t& median_ts) const;
-    bool check_block_timestamp(const block& b) const { uint64_t median_ts; return check_block_timestamp(b, median_ts); }
+    bool check_block_timestamp_main_chain(const block& b, uint64_t* median_ts_out = nullptr) const;
 
     /**
      * @brief checks a block's timestamp
      *
      * If the block is not more recent than the median of the recent
-     * timestamps passed here, it is considered invalid.
+     * timestamps passed here, it is considered invalid. If the block is too
+     * recent, according to the local system clock, it is considered invalid.
      *
-     * @param timestamps a list of the most recent timestamps to check against
+     * @param[inout] timestamps a list of the most recent timestamps to check against
      * @param b the block to be checked
+     * @param[out] median_ts_out the median of `timestamps` (optional)
      *
      * @return true if the block's timestamp is valid, otherwise false
      */
-    bool check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b, uint64_t& median_ts) const;
-    bool check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b) const { uint64_t median_ts; return check_block_timestamp(timestamps, b, median_ts); }
+    static bool check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b,
+      uint64_t* median_ts_out = nullptr);
 
     /**
      * @brief finish an alternate chain's timestamp window from the main chain

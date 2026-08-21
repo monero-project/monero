@@ -122,8 +122,15 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_nu
         {
           if (!payment_id_string.empty())
             payment_id_string += ", ";
-          payment_id_string = std::string("encrypted payment ID ") + epee::string_tools::pod_to_hex(payment_id8);
-          has_encrypted_payment_id = true;
+          if (payment_id8 == crypto::null_hash8)
+          {
+            payment_id_string += std::string("dummy encrypted payment ID");
+          }
+          else
+          {
+            payment_id_string += std::string("encrypted payment ID ") + epee::string_tools::pod_to_hex(payment_id8);
+            has_encrypted_payment_id = true;
+          }
         }
         else if (cryptonote::get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
         {
@@ -205,7 +212,8 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_nu
   std::string change_string;
   if (change > 0)
   {
-    std::string address = get_account_address_as_str(m_wallet.m_wallet->nettype(), get_tx(0).subaddr_account > 0, get_tx(0).change_dts.addr);
+    const tools::wallet2::tx_construction_data &cd = get_tx(first_known_non_zero_change_index);
+    std::string address = get_account_address_as_str(m_wallet.m_wallet->nettype(), cd.subaddr_account > 0, cd.change_dts.addr);
     change_string += (boost::format(tr("%s change to %s")) % cryptonote::print_money(change) % address).str();
   }
   else
@@ -297,7 +305,9 @@ std::vector<std::string> UnsignedTransactionImpl::recipientAddress() const
           MERROR("empty destinations, skipped");
           continue;
         }
-        result.push_back(cryptonote::get_account_address_as_str(m_wallet.m_wallet->nettype(), utx.dests[0].is_subaddress, utx.dests[0].addr));
+        for (const auto &unsigned_dest : utx.dests) {
+            result.push_back(cryptonote::get_account_address_as_str(m_wallet.m_wallet->nettype(), unsigned_dest.is_subaddress, unsigned_dest.addr));
+        }
     }
     return result;
 }

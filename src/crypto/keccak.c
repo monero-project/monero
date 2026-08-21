@@ -119,50 +119,49 @@ typedef uint64_t state_t[25];
 void keccak(const uint8_t *in, size_t inlen, uint8_t *md, int mdlen)
 {
     state_t st;
-    uint8_t temp[144];
+    uint64_t temp[18];
     size_t i, rsiz, rsizw;
 
-    static_assert(HASH_DATA_AREA <= sizeof(temp), "Bad keccak preconditions");
-    if (mdlen <= 0 || (mdlen >= 100 && sizeof(st) != (size_t)mdlen))
+    static_assert(HASH_DATA_AREA + sizeof(uint64_t) == sizeof(temp), "Bad keccak preconditions");
+    if (mdlen <= 0 || (mdlen >= 100 && sizeof(st) != (size_t)mdlen) || ((size_t)mdlen % sizeof(uint64_t)) != 0)
     {
       local_abort("Bad keccak use");
     }
 
     rsiz = sizeof(state_t) == mdlen ? HASH_DATA_AREA : 200 - 2 * mdlen;
     rsizw = rsiz / 8;
+    if (rsiz == 0 || rsiz > sizeof(temp) || rsizw * sizeof(uint64_t) > sizeof(temp))
+    {
+      local_abort("Bad keccak use");
+    }
     
     memset(st, 0, sizeof(st));
 
     for ( ; inlen >= rsiz; inlen -= rsiz, in += rsiz) {
+      memcpy(temp, in, rsiz);
       for (i = 0; i < rsizw; i++) {
-        uint64_t ina;
-        memcpy(&ina, in + i * 8, 8);
-        st[i] ^= swap64le(ina);
+        st[i] ^= SWAP64LE(temp[i]);
       }
       keccakf(st, KECCAK_ROUNDS);
     }
     
     // last block and padding
-    if (inlen + 1 >= sizeof(temp) || inlen > rsiz || rsiz - inlen + inlen + 1 >= sizeof(temp) || rsiz == 0 || rsiz - 1 >= sizeof(temp) || rsizw * 8 > sizeof(temp))
+    memset(temp, 0, sizeof(temp));
+    if (inlen >= rsiz)
     {
       local_abort("Bad keccak use");
     }
-
     if (inlen > 0)
       memcpy(temp, in, inlen);
-    temp[inlen++] = 1;
-    memset(temp + inlen, 0, rsiz - inlen);
-    temp[rsiz - 1] |= 0x80;
+    ((uint8_t *) temp)[inlen] = 1;
+    ((uint8_t *) temp)[rsiz - 1] |= 0x80;
 
-    for (i = 0; i < rsizw; i++)
-        st[i] ^= swap64le(((uint64_t *) temp)[i]);
+    for (i = 0; i < rsizw; i++) {
+      st[i] ^= SWAP64LE(temp[i]);
+    }
 
     keccakf(st, KECCAK_ROUNDS);
 
-    if (((size_t)mdlen % sizeof(uint64_t)) != 0)
-    {
-      local_abort("Bad keccak use");
-    }
     memcpy_swap64le(md, st, mdlen/sizeof(uint64_t));
 }
 

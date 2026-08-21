@@ -7,19 +7,6 @@
 cryptonote::core_rpc_server::connection_context ctx;
 epee::json_rpc::error error_resp;
 
-// Helper function to disable bootstrap daemon
-void disable_bootstrap_daemon(cryptonote::core_rpc_server& rpc) {
-  cryptonote::COMMAND_RPC_SET_BOOTSTRAP_DAEMON::request req;
-  cryptonote::COMMAND_RPC_SET_BOOTSTRAP_DAEMON::response res;
-
-  req.address = "";
-  req.username = "";
-  req.password = "";
-  req.proxy = "";
-
-  rpc.on_set_bootstrap_daemon(req, res, &ctx);
-}
-
 // Retrieve fuzz targets base on SAFE settings
 std::map<int, std::function<void(cryptonote::core_rpc_server& rpc, FuzzedDataProvider&)>> get_fuzz_targets(bool safe) {
     std::map<int, std::function<void(cryptonote::core_rpc_server& rpc, FuzzedDataProvider&)>> results;
@@ -311,21 +298,6 @@ void fuzz_get_transaction_pool_stats(cryptonote::core_rpc_server& rpc, FuzzedDat
   req.client = "fuzz";
 
   rpc.on_get_transaction_pool_stats(req, res, &ctx);
-}
-
-void fuzz_set_bootstrap_daemon(cryptonote::core_rpc_server& rpc, FuzzedDataProvider& provider) {
-  cryptonote::COMMAND_RPC_SET_BOOTSTRAP_DAEMON::request req;
-  cryptonote::COMMAND_RPC_SET_BOOTSTRAP_DAEMON::response res;
-
-  req.address = provider.ConsumeRandomLengthString(64);
-  req.username = provider.ConsumeRandomLengthString(32);
-  req.password = provider.ConsumeRandomLengthString(32);
-  req.proxy = provider.ConsumeRandomLengthString(32);
-
-  rpc.on_set_bootstrap_daemon(req, res, &ctx);
-
-  // Immediate reset bootstrap daemon to avoid affecting other fuzzing with external calls
-  disable_bootstrap_daemon(rpc);
 }
 
 void fuzz_stop_daemon(cryptonote::core_rpc_server& rpc, FuzzedDataProvider& provider) {
@@ -865,7 +837,6 @@ std::map<int, std::function<void(cryptonote::core_rpc_server&, FuzzedDataProvide
   {56, fuzz_stop_mining},
   {57, fuzz_mining_status},
   {58, fuzz_save_bc},
-  {59, fuzz_set_bootstrap_daemon},
   {60, fuzz_stop_daemon},
   {61, fuzz_update},
   {62, fuzz_add_aux_pow},

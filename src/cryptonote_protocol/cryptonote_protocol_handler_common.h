@@ -40,6 +40,7 @@ namespace cryptonote
   /************************************************************************/
   struct i_cryptonote_protocol
   {
+    virtual ~i_cryptonote_protocol() = default;
     virtual bool is_synchronized() const = 0;
     virtual bool relay_block(NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& exclude_context)=0;
     virtual bool relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, const boost::uuids::uuid& source, epee::net_utils::zone zone, relay_method tx_relay)=0;

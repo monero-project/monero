@@ -43,6 +43,7 @@
 #include "common/pruning.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "crypto/crypto.h"
+#include "misc_language.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
 
@@ -104,36 +105,6 @@ struct MDB_val_copy: public MDB_val
   }
 private:
   T t_copy;
-};
-
-template<>
-struct MDB_val_copy<cryptonote::blobdata>: public MDB_val
-{
-  MDB_val_copy(const cryptonote::blobdata &bd) :
-    data(new char[bd.size()])
-  {
-    memcpy(data.get(), bd.data(), bd.size());
-    mv_size = bd.size();
-    mv_data = data.get();
-  }
-private:
-  std::unique_ptr<char[]> data;
-};
-
-template<>
-struct MDB_val_copy<const char*>: public MDB_val
-{
-  MDB_val_copy(const char *s):
-    size(strlen(s)+1), // include the NUL, makes it easier for compares
-    data(new char[size])
-  {
-    mv_size = size;
-    mv_data = data.get();
-    memcpy(mv_data, s, size);
-  }
-private:
-  size_t size;
-  std::unique_ptr<char[]> data;
 };
 
 }
@@ -591,7 +562,9 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
   if (increase_size > 0)
     new_mapsize = mei.me_mapsize + increase_size;
 
-  new_mapsize += (new_mapsize % mst.ms_psize);
+  const uint64_t remainder = new_mapsize % mst.ms_psize;
+  if (remainder)
+    new_mapsize += mst.ms_psize - remainder;
 
   mdb_txn_safe::prevent_new_txns();
 

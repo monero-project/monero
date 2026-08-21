@@ -388,7 +388,7 @@ TEST(Crypto, batch_inversion_touching)
   for (std::size_t i = 0; i < 2; ++i)
     random_fe(vals[i]);
 
-  fe_batch_invert(vals + 2, vals, 2);
+  ASSERT_EQ(0, fe_batch_invert(vals + 2, vals, 2));
 
   // Do batch inversions and compare to individual inversions
   for (std::size_t i = 0; i < 2; ++i)
@@ -520,4 +520,57 @@ TEST(Crypto, mul8_is_identity_vartime)
     crypto::ec_point _;
     ASSERT_FALSE(fcmp_pp::get_valid_torsion_cleared_point_vartime(rct::rct2pt(point), _));
   }
+}
+
+TEST(Crypto, fe_constants)
+{
+  // A / 3
+  fe inv_3;
+  static const fe fe_3{3, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  fe_invert(inv_3, fe_3);
+  fe a_inv_3;
+  fe_mul(a_inv_3, fe_a, inv_3);
+
+  // c = sqrt(-(A + 2))
+  // Since sqrt isn't implemented, instead showing: c^2 = -(A + 2)
+  // TODO: test fe_c directly once sqrt is implemented
+  fe c_sq;
+  fe_sq(c_sq, fe_c);
+  // -(A + 2) = -A - 2
+  static const fe fe_2{2, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  fe ma_sub_2;
+  fe_sub(ma_sub_2, fe_ma, fe_2);
+  fe_reduce_vartime(ma_sub_2, ma_sub_2);
+
+  ASSERT_TRUE(memcmp(fe_a_inv_3, a_inv_3,  sizeof(fe)) == 0);
+  ASSERT_TRUE(memcmp(c_sq,       ma_sub_2, sizeof(fe)) == 0);
+
+  // Parity with spec
+  // https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2 Page 19
+  unsigned char A_INV_3_PAPER[32] = {
+      0x2a, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
+      0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
+      0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xaa,
+      0xaa, 0xaa, 0xaa, 0xaa, 0xaa, 0xad, 0x24, 0x51
+    };
+
+  // https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2 Pages 19-20
+  unsigned char FE_C_PAPER[32] = {
+      0x70, 0xd9, 0x12, 0x0b, 0x9f, 0x5f, 0xf9, 0x44,
+      0x2d, 0x84, 0xf7, 0x23, 0xfc, 0x03, 0xb0, 0x81,
+      0x3a, 0x5e, 0x2c, 0x2e, 0xb4, 0x82, 0xe5, 0x7d,
+      0x33, 0x91, 0xfb, 0x55, 0x00, 0xba, 0x81, 0xe7
+    };
+
+  // Reverse to have comparable endian order
+  unsigned char a_inv_3_bytes[32];
+  fe_tobytes(a_inv_3_bytes, fe_a_inv_3);
+  std::reverse(a_inv_3_bytes, a_inv_3_bytes + 32);
+
+  unsigned char fe_c_bytes[32];
+  fe_tobytes(fe_c_bytes, fe_c);
+  std::reverse(fe_c_bytes, fe_c_bytes + 32);
+
+  ASSERT_TRUE(memcmp(a_inv_3_bytes, A_INV_3_PAPER, 32) == 0);
+  ASSERT_TRUE(memcmp(fe_c_bytes,    FE_C_PAPER,    32) == 0);
 }

@@ -37,9 +37,7 @@
 #ifndef INCLUDED_network_throttle_hpp
 #define INCLUDED_network_throttle_hpp
 
-#include <boost/asio.hpp>
 #include <string>
-#include <vector>
 #include <boost/noncopyable.hpp>
 #include <boost/shared_ptr.hpp>
 
@@ -47,24 +45,14 @@
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/thread/thread.hpp>
 
-#include "syncobj.h"
 
-#include "net/net_utils_base.h" 
-#include "misc_log_ex.h" 
 #include <boost/lambda/bind.hpp>
 #include <boost/lambda/lambda.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/chrono.hpp>
 #include <boost/utility/value_init.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include "misc_language.h"
-#include <sstream>
-#include <iomanip>
-#include <algorithm>
 
-#include <memory>
-#include <mutex>
-#include <fstream>
 
 namespace epee
 {
@@ -75,7 +63,6 @@ namespace net_utils
 typedef double network_speed_kbps;   // externally, for parameters and return values, all defined in kilobytes per second
 typedef double network_speed_bps;    // throttle-internally, bytes per second
 typedef double network_time_seconds;
-typedef double network_MB;
 
 class i_network_throttle;
 
@@ -123,6 +110,7 @@ class network_throttle_manager {
 */
 class i_network_throttle {
 	public:
+		virtual ~i_network_throttle() = default;
 		virtual void set_name(const std::string &name)=0;
 		virtual void set_target_speed( network_speed_kbps target )=0;
 		virtual network_speed_kbps get_target_speed()=0;

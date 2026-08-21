@@ -39,6 +39,7 @@
 #include <typeinfo>
 #include <type_traits>
 #include "net/http_client.h"
+#include "scope_guard.h"
 
 #include "rapidjson/document.h"
 #include "rapidjson/writer.h"
@@ -86,7 +87,7 @@ namespace trezor {
     additional_params.push_back(std::make_pair("Content-Type","application/json; charset=utf-8"));
 
     const http::http_response_info* pri = nullptr;
-    const auto data_cleaner = epee::misc_utils::create_scope_leave_handler([&]() {
+    const epee::scope_guard data_cleaner([&]() {
       if (!req_param.empty()) {
         memwipe(&req_param[0], req_param.size());
       }

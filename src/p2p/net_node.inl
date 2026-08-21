@@ -38,6 +38,7 @@
 #include <boost/thread/thread.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/algorithm/string.hpp>
+#include <array>
 #include <atomic>
 #include <functional>
 #include <limits>
@@ -67,6 +68,111 @@
 
 namespace nodetool
 {
+  namespace
+  {
+    uint64_t ipv4_subnet_size(const uint8_t mask)
+    {
+      CHECK_AND_ASSERT_THROW_MES(mask <= 32, "invalid IPv4 subnet mask");
+      return mask == 0 ? (uint64_t{1} << 32) : (uint64_t{1} << (32 - mask));
+    }
+
+    uint64_t ipv4_subnet_first(const epee::net_utils::ipv4_network_subnet &subnet)
+    {
+      return SWAP32BE(subnet.subnet());
+    }
+
+    uint64_t ipv4_subnet_last(const epee::net_utils::ipv4_network_subnet &subnet)
+    {
+      return ipv4_subnet_first(subnet) + ipv4_subnet_size(subnet.mask()) - 1;
+    }
+
+    epee::net_utils::ipv4_network_subnet make_ipv4_subnet(const uint64_t first, const uint8_t mask)
+    {
+      return {SWAP32BE(static_cast<uint32_t>(first)), mask};
+    }
+
+    void subtract_ipv4_subnet(
+      const epee::net_utils::ipv4_network_subnet &blocked,
+      const epee::net_utils::ipv4_network_subnet &removed,
+      std::vector<epee::net_utils::ipv4_network_subnet> &result)
+    {
+      const uint64_t blocked_first = ipv4_subnet_first(blocked);
+      const uint64_t blocked_last = ipv4_subnet_last(blocked);
+      const uint64_t removed_first = ipv4_subnet_first(removed);
+      const uint64_t removed_last = ipv4_subnet_last(removed);
+
+      if (removed_last < blocked_first || blocked_last < removed_first)
+      {
+        result.push_back(blocked);
+        return;
+      }
+      if (removed_first <= blocked_first && blocked_last <= removed_last)
+        return;
+
+      const uint8_t child_mask = blocked.mask() + 1;
+      CHECK_AND_ASSERT_THROW_MES(child_mask <= 32, "invalid IPv4 subnet split");
+
+      const uint64_t child_size = ipv4_subnet_size(child_mask);
+      subtract_ipv4_subnet(make_ipv4_subnet(blocked_first, child_mask), removed, result);
+      subtract_ipv4_subnet(make_ipv4_subnet(blocked_first + child_size, child_mask), removed, result);
+    }
+
+    void emplace_blocked_subnet(
+      std::map<epee::net_utils::ipv4_network_subnet, time_t> &subnets,
+      const epee::net_utils::ipv4_network_subnet &subnet,
+      const time_t limit)
+    {
+      auto entry = subnets.find(subnet);
+      if (entry == subnets.end() || entry->second < limit)
+        subnets[subnet] = limit;
+    }
+  }
+
+  using ipv6_peer_group = std::array<unsigned char, 4>;
+
+  inline boost::optional<ipv6_peer_group> get_ipv6_peer_group(const epee::net_utils::network_address& address)
+  {
+    if (address.get_type_id() != epee::net_utils::ipv6_network_address::get_type_id())
+      return boost::none;
+
+    const boost::asio::ip::address_v6 ip = address.as<const epee::net_utils::ipv6_network_address>().ip();
+    if (ip.is_v4_mapped())
+      return boost::none;
+
+    const boost::asio::ip::address_v6::bytes_type bytes = ip.to_bytes();
+    return ipv6_peer_group{{bytes[0], bytes[1], bytes[2], bytes[3]}};
+  }
+  //-----------------------------------------------------------------------------------
+
+  inline bool is_forbidden_ipv4_mapped_ipv6_address(const epee::net_utils::network_address& address)
+  {
+    return bool(epee::net_utils::get_ipv4_mapped_address(address));
+  }
+
+  inline bool should_skip_connect_address(const epee::net_utils::network_address& address, bool use_ipv6)
+  {
+    if (address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id() && !use_ipv6)
+      return true;
+
+    return is_forbidden_ipv4_mapped_ipv6_address(address);
+  }
+
+  inline bool is_same_p2p_connection_limit_host(const epee::net_utils::network_address& left, const epee::net_utils::network_address& right)
+  {
+    if (left.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id() &&
+        right.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
+    {
+      const boost::asio::ip::address_v6 left_ip = left.as<const epee::net_utils::ipv6_network_address>().ip();
+      const boost::asio::ip::address_v6 right_ip = right.as<const epee::net_utils::ipv6_network_address>().ip();
+      if (epee::net_utils::should_group_ipv6_by_prefix(left_ip) &&
+          epee::net_utils::should_group_ipv6_by_prefix(right_ip))
+        return epee::net_utils::get_ipv6_subnet_address(left_ip, 64) ==
+          epee::net_utils::get_ipv6_subnet_address(right_ip, 64);
+    }
+
+    return left.is_same_host(right);
+  }
+  //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   node_server<t_payload_net_handler>::~node_server()
   {
@@ -127,7 +233,6 @@ namespace nodetool
     network_zone& public_zone = m_network_zones[epee::net_utils::zone::public_];
     public_zone.m_config.m_support_flags = P2P_SUPPORT_FLAGS;
     public_zone.m_config.m_peer_id = crypto::rand<uint64_t>();
-    m_first_connection_maker_call = true;
 
     CATCH_ENTRY_L0("node_server::init_config", false);
     return true;
@@ -380,12 +485,51 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::unblock_subnet(const epee::net_utils::ipv4_network_subnet &subnet)
   {
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
-    auto i = m_blocked_subnets.find(subnet);
-    if (i == m_blocked_subnets.end())
+    bool unblocked = false;
+
+    for (auto i = m_blocked_hosts.begin(); i != m_blocked_hosts.end(); )
+    {
+      auto address = net::get_network_address(i->first, 0);
+      if (address && address->get_type_id() == epee::net_utils::ipv4_network_address::get_type_id()
+        && subnet.matches(address->template as<epee::net_utils::ipv4_network_address>()))
+      {
+        i = m_blocked_hosts.erase(i);
+        unblocked = true;
+      }
+      else
+        ++i;
+    }
+
+    std::map<epee::net_utils::ipv4_network_subnet, time_t> blocked_subnets;
+    std::vector<epee::net_utils::ipv4_network_subnet> remaining;
+    remaining.reserve(32);
+    for (const auto &blocked_subnet : m_blocked_subnets)
+    {
+      remaining.clear();
+      subtract_ipv4_subnet(blocked_subnet.first, subnet, remaining);
+      if (remaining.size() != 1 || remaining.front() != blocked_subnet.first)
+        unblocked = true;
+      for (const auto &entry : remaining)
+        emplace_blocked_subnet(blocked_subnets, entry, blocked_subnet.second);
+    }
+
+    if (!unblocked)
       return false;
-    m_blocked_subnets.erase(i);
-    MCLOG_CYAN(el::Level::Info, "global", "Subnet " << subnet.host_str() << " unblocked.");
+    m_blocked_subnets.swap(blocked_subnets);
+    MCLOG_CYAN(el::Level::Info, "global", "Subnet " << subnet.str() << " unblocked.");
     return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::clear_bans()
+  {
+    CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
+    const bool had_bans = !m_blocked_hosts.empty() || !m_blocked_subnets.empty();
+    m_blocked_hosts.clear();
+    m_blocked_subnets.clear();
+    if (had_bans)
+      MCLOG_CYAN(el::Level::Info, "global", "All bans cleared.");
+    return had_bans;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -935,9 +1079,6 @@ namespace nodetool
     for(const auto& p: m_command_line_peers)
       m_network_zones.at(p.adr.get_zone()).m_peerlist.append_with_peer_white(p);
 
-    //only in case if we really sure that we have external visible ip
-    m_have_address = true;
-
     //configure self
 
     public_zone.m_net_server.set_threads_prefix("P2P"); // all zones use these threads/asio::io_service
@@ -1000,7 +1141,6 @@ namespace nodetool
       const network_zone& public_zone = m_network_zones.at(epee::net_utils::zone::public_);
       while (!is_closing && !public_zone.m_net_server.is_stop_signal_sent())
       { // main loop of thread
-        //number_of_peers = m_net_server.get_config_object().get_connections_count();
         for (auto& zone : m_network_zones)
         {
           unsigned int number_of_in_peers = 0;
@@ -1154,7 +1294,7 @@ namespace nodetool
     bool r = epee::net_utils::async_invoke_remote_command2<typename COMMAND_HANDSHAKE::response>(context_, COMMAND_HANDSHAKE::ID, arg, zone.m_net_server.get_config_object(),
       [this, &pi, &ev, &hsh_result, &just_take_peerlist, &context_, &timeout](int code, const typename COMMAND_HANDSHAKE::response& rsp, p2p_connection_context& context)
     {
-      epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ev.raise();});
+      const epee::scope_guard scope_exit_handler([&](){ev.raise();});
 
       if(code < 0)
       {
@@ -1372,6 +1512,9 @@ namespace nodetool
     if (zone.m_connect == nullptr) // outgoing connections in zone not possible
       return false;
 
+    if (should_skip_connect_address(na, m_use_ipv6))
+      return false;
+
     if (zone.m_our_address == na)
       return false;
 
@@ -1551,17 +1694,9 @@ namespace nodetool
 
     // Local helper method to get the host string, i.e. the pure IP address without port
     const auto get_host_string = [](const epee::net_utils::network_address &address) {
-      if (address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
-      {
-        const boost::asio::ip::address_v6 actual_ip = address.as<const epee::net_utils::ipv6_network_address>().ip();
-        if (actual_ip.is_v4_mapped())
-        {
-          auto v4ip = boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
-          uint32_t actual_ipv4;
-          memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
-          return epee::net_utils::ipv4_network_address(actual_ipv4, 0).host_str();
-        }
-      }
+      const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(address);
+      if (mapped)
+        return epee::net_utils::ipv4_network_address(mapped->ip(), 0).host_str();
       return address.host_str();
     };
 
@@ -1574,9 +1709,12 @@ namespace nodetool
     std::vector<peerlist_entry> peers;
     std::unordered_set<std::string> hosts;
     size_t total_peers_size = 0;
-    zone.m_peerlist.foreach(use_white_list, [&peers, &hosts, &total_peers_size, &get_host_string](const peerlist_entry &peer)
+    zone.m_peerlist.foreach(use_white_list, [this, &peers, &hosts, &total_peers_size, &get_host_string](const peerlist_entry &peer)
     {
       ++total_peers_size;
+      if (should_skip_connect_address(peer.adr, m_use_ipv6))
+        return true;
+
       const std::string host_string = get_host_string(peer.adr);
       if (hosts.insert(host_string).second)
       {
@@ -1601,9 +1739,10 @@ namespace nodetool
 
       const uint32_t next_needed_pruning_stripe = m_payload_handler.get_next_needed_pruning_stripe().second;
 
-      // Build a list of all distinct /24 subnets we are connected to now right now; to catch
+      // Build a list of all distinct IPv4 /24 and IPv6 /32 groups we are connected to right now; to catch
       // any connection changes, re-build the list for every outer try loop pass
       std::set<uint32_t> connected_subnets;
+      std::set<ipv6_peer_group> connected_ipv6_groups;
       const uint32_t subnet_mask = ntohl(0xffffff00);
       const bool is_public_zone = &zone == &m_network_zones.at(epee::net_utils::zone::public_);
       if (is_public_zone)
@@ -1619,13 +1758,14 @@ namespace nodetool
           else if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
           {
             const epee::net_utils::network_address na = cntxt.m_remote_address;
-            const boost::asio::ip::address_v6 &actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
-            if (actual_ip.is_v4_mapped())
+            const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(na);
+            if (mapped)
+              connected_subnets.insert(mapped->ip() & subnet_mask);
+            else
             {
-              auto v4ip = boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
-              uint32_t actual_ipv4;
-              memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
-              connected_subnets.insert(actual_ipv4 & subnet_mask);
+              const boost::optional<ipv6_peer_group> group = get_ipv6_peer_group(na);
+              if (group)
+                connected_ipv6_groups.insert(*group);
             }
           }
           return true;
@@ -1656,8 +1796,9 @@ namespace nodetool
           std::shuffle(shuffled_indexes.begin(), shuffled_indexes.end(), crypto::random_device{});
 
           // Step 2: Deduplicate by only taking 1 candidate from each /24 subnet that occurs, the FIRST
-          // candidate seen from each subnet within the now random order
+          // candidate seen from each subnet within the now random order. Native IPv6 peers use /32 groups.
           std::set<uint32_t> subnets = connected_subnets;
+          std::set<ipv6_peer_group> ipv6_groups = connected_ipv6_groups;
           for (size_t index : shuffled_indexes)
           {
             const peerlist_entry &peer = peers.at(index);
@@ -1675,18 +1816,20 @@ namespace nodetool
             else if (peer.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
             {
               const epee::net_utils::network_address na = peer.adr;
-              const boost::asio::ip::address_v6 &actual_ip = na.as<const epee::net_utils::ipv6_network_address>().ip();
-              if (actual_ip.is_v4_mapped())
+              const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(na);
+              if (mapped)
               {
-                auto v4ip = boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, actual_ip);
-                uint32_t actual_ipv4;
-                memcpy(&actual_ipv4, v4ip.to_bytes().data(), sizeof(actual_ipv4));
-                uint32_t subnet = actual_ipv4 & subnet_mask;
+                uint32_t subnet = mapped->ip() & subnet_mask;
                 take = subnets.find(subnet) == subnets.end();
                 if (take)
                   subnets.insert(subnet);
               }
-              // else 'take' stays true, we will take an IPv6 address that is not V4 mapped
+              else
+              {
+                const boost::optional<ipv6_peer_group> group = get_ipv6_peer_group(na);
+                if (group)
+                  take = ipv6_groups.insert(*group).second;
+              }
             }
             if (take)
               subnet_peers.push_back(peer);
@@ -2034,31 +2177,6 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  size_t node_server<t_payload_net_handler>::get_outgoing_connections_count()
-  {
-    size_t count = 0;
-    for(auto& zone : m_network_zones)
-      count += get_outgoing_connections_count(zone.second);
-    return count;
-  }
-  //-----------------------------------------------------------------------------------
-  template<class t_payload_net_handler>
-  size_t node_server<t_payload_net_handler>::get_incoming_connections_count()
-  {
-    size_t count = 0;
-    for (auto& zone : m_network_zones)
-    {
-      zone.second.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
-      {
-        if(cntxt.m_is_income)
-          ++count;
-        return true;
-      });
-    }
-    return count;
-  }
-  //-----------------------------------------------------------------------------------
-  template<class t_payload_net_handler>
   size_t node_server<t_payload_net_handler>::get_public_white_peers_count()
   {
     auto public_zone = m_network_zones.find(epee::net_utils::zone::public_);
@@ -2213,11 +2331,15 @@ namespace nodetool
       bool ignore = false;
       peerlist_entry &be = local_peerlist[i];
       epee::net_utils::network_address &na = be.adr;
-      if (na.is_loopback() || na.is_local())
+      if (is_forbidden_ipv4_mapped_ipv6_address(na))
       {
         ignore = true;
       }
-      else if (be.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
+      else if (na.is_loopback() || na.is_local())
+      {
+        ignore = true;
+      }
+      else if (na.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
       {
         const epee::net_utils::ipv4_network_address &ipv4 = na.as<const epee::net_utils::ipv4_network_address>();
         if (ipv4.ip() == 0)
@@ -2266,7 +2388,8 @@ namespace nodetool
     LOG_TRACE_CC(context, "REMOTE PEERLIST: " << ENDL << print_peerlist_to_string(peerlist_));
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
     return m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.merge_peerlist(peerlist_, [this](const peerlist_entry &pe) {
-      return !is_addr_recently_failed(pe.adr) && is_remote_host_allowed(pe.adr);
+      return !is_forbidden_ipv4_mapped_ipv6_address(pe.adr) &&
+        !is_addr_recently_failed(pe.adr) && is_remote_host_allowed(pe.adr);
     });
   }
   //-----------------------------------------------------------------------------------
@@ -2279,7 +2402,7 @@ namespace nodetool
     else
       node_data.my_port = 0;
     node_data.rpc_port = zone.m_can_pingback ? m_rpc_port : 0;
-    node_data.rpc_credits_per_hash = zone.m_can_pingback ? m_rpc_credits_per_hash : 0;
+    node_data.rpc_credits_per_hash = 0;
     node_data.network_id = m_network_id;
     node_data.support_flags = zone.m_config.m_support_flags;
     return true;
@@ -2393,8 +2516,8 @@ namespace nodetool
       return false;
 
     network_zone& zone = m_network_zones.at(context.m_remote_address.get_zone());
-    int res = zone.m_net_server.get_config_object().send(message.finalize_notify(command), context.m_connection_id);
-    return res > 0;
+    bool res = zone.m_net_server.get_config_object().send(message.finalize_notify(command), context.m_connection_id);
+    return res;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -2554,6 +2677,9 @@ namespace nodetool
 
     std::vector<peerlist_entry> local_peerlist_new;
     zone.m_peerlist.get_peerlist_head(local_peerlist_new, true, max_peerlist_size);
+    local_peerlist_new.erase(std::remove_if(local_peerlist_new.begin(), local_peerlist_new.end(), [](const peerlist_entry& peer) {
+      return is_forbidden_ipv4_mapped_ipv6_address(peer.adr);
+    }), local_peerlist_new.end());
 
     /* Tor/I2P nodes receiving connections via forwarding (from tor/i2p daemon)
     do not know the address of the connecting peer. This is relayed to them,
@@ -2678,6 +2804,9 @@ namespace nodetool
 
     //fill response
     zone.m_peerlist.get_peerlist_head(rsp.local_peerlist_new, true);
+    rsp.local_peerlist_new.erase(std::remove_if(rsp.local_peerlist_new.begin(), rsp.local_peerlist_new.end(), [](const peerlist_entry& peer) {
+      return is_forbidden_ipv4_mapped_ipv6_address(peer.adr);
+    }), rsp.local_peerlist_new.end());
     for (const auto &e: rsp.local_peerlist_new)
       context.sent_addresses.insert(e.adr);
     get_local_node_data(rsp.node_data, zone);
@@ -2693,17 +2822,6 @@ namespace nodetool
     rsp.status = PING_OK_RESPONSE_STATUS_TEXT;
     rsp.peer_id = m_network_zones.at(context.m_remote_address.get_zone()).m_config.m_peer_id;
     return 1;
-  }
-  //-----------------------------------------------------------------------------------
-  template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::log_peerlist()
-  {
-    std::vector<peerlist_entry> pl_white;
-    std::vector<peerlist_entry> pl_gray;
-    for (auto& zone : m_network_zones)
-      zone.second.m_peerlist.get_peerlist(pl_gray, pl_white);
-    MINFO(ENDL << "Peerlist white:" << ENDL << print_peerlist_to_string(pl_white) << ENDL << "Peerlist gray:" << ENDL << print_peerlist_to_string(pl_gray) );
-    return true;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -2947,7 +3065,7 @@ namespace nodetool
 
     m_network_zones.at(epee::net_utils::zone::public_).m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
     {
-      if (cntxt.m_is_income && cntxt.m_remote_address.is_same_host(address)) {
+      if (cntxt.m_is_income && is_same_p2p_connection_limit_host(cntxt.m_remote_address, address)) {
         count++;
 
         // the only call location happens BEFORE foreach_connection list is updated
@@ -2981,6 +3099,16 @@ namespace nodetool
 
       peerlist_entry pe{};
       if (!zone.second.m_peerlist.get_random_gray_peer(pe))
+        continue;
+
+      if (is_forbidden_ipv4_mapped_ipv6_address(pe.adr))
+      {
+        zone.second.m_peerlist.remove_from_peer_gray(pe);
+        LOG_PRINT_L2("PEER EVICTED FROM GRAY PEER LIST: address: " << pe.adr.host_str() << " Peer ID: " << peerid_to_string(pe.id));
+        continue;
+      }
+
+      if (should_skip_connect_address(pe.adr, m_use_ipv6))
         continue;
 
       if (!check_connection_and_handshake_with_peer(pe.adr, pe.last_seen))
@@ -3067,6 +3195,9 @@ namespace nodetool
     }
     else if (is_ipv6)
     {
+      if (epee::net_utils::get_ipv4_mapped_address(na))
+        return boost::none;
+
       const epee::net_utils::ipv6_network_address &ipv6 = na.as<const epee::net_utils::ipv6_network_address>();
       address = ipv6.ip().to_string();
       port = epee::string_tools::num_to_string_fast(ipv6.port());

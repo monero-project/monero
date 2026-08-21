@@ -43,6 +43,7 @@
 #include "mnemonics/electrum-words.h"
 #include "mnemonics/english.h"
 #include <boost/format.hpp>
+#include <cstring>
 #include <sstream>
 #include <unordered_map>
 
@@ -65,7 +66,7 @@ using namespace cryptonote;
     m_refreshCV.notify_one(); \
     boost::mutex::scoped_lock lock(m_refreshMutex); \
     boost::mutex::scoped_lock lock2(m_refreshMutex2); \
-    epee::misc_utils::auto_scope_leave_caller scope_exit_handler = epee::misc_utils::create_scope_leave_handler([&](){ \
+    const epee::scope_guard scope_exit_handler([&](){ \
         /* m_refreshMutex's still locked here */ \
         if (refresh_enabled) \
             startRefresh(); \
@@ -363,7 +364,8 @@ bool Wallet::keyValid(const std::string &secret_key_string, const std::string &a
       error = tr("Failed to parse key");
       return false;
   }
-  crypto::secret_key key = *reinterpret_cast<const crypto::secret_key*>(key_data.data());
+  crypto::secret_key key;
+  memcpy(&unwrap(unwrap(key)), key_data.data(), sizeof(key));
 
   // check the key match the given address
   crypto::public_key pkey;
@@ -613,7 +615,7 @@ bool WalletImpl::recoverFromKeysWithPassword(const std::string &path,
             return false;
         }
         has_spendkey = true;
-        spendkey = *reinterpret_cast<const crypto::secret_key*>(spendkey_data.data());
+        memcpy(&unwrap(unwrap(spendkey)), spendkey_data.data(), sizeof(spendkey));
     }
 
     // parse view secret key
@@ -635,7 +637,7 @@ bool WalletImpl::recoverFromKeysWithPassword(const std::string &path,
           setStatusError(tr("failed to parse secret view key"));
           return false;
       }
-      viewkey = *reinterpret_cast<const crypto::secret_key*>(viewkey_data.data());
+      memcpy(&unwrap(unwrap(viewkey)), viewkey_data.data(), sizeof(viewkey));
     }
     // check the spend and view keys match the given address
     crypto::public_key pkey;
@@ -681,6 +683,7 @@ bool WalletImpl::recoverFromKeysWithPassword(const std::string &path,
         setStatusError(string(tr("failed to generate new wallet: ")) + e.what());
         return false;
     }
+    m_password = password;
     return true;
 }
 
@@ -698,6 +701,7 @@ bool WalletImpl::recoverFromDevice(const std::string &path, const std::string &p
         setStatusError(string(tr("failed to generate new wallet: ")) + e.what());
         return false;
     }
+    m_password = password;
     return true;
 }
 
@@ -766,6 +770,7 @@ bool WalletImpl::recover(const std::string &path, const std::string &password, c
     try {
         m_wallet->set_seed_language(old_language);
         m_wallet->generate(path, password, recovery_key, true, false);
+        m_password = password;
 
     } catch (const std::exception &e) {
         setStatusCritical(e.what());
@@ -970,6 +975,16 @@ bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transact
     if(daemon_username != "")
         m_daemon_login.emplace(daemon_username, daemon_password);
     return doInit(daemon_address, proxy_address, upper_transaction_size_limit, use_ssl);
+}
+
+void WalletImpl::allowMismatchedDaemonVersion(bool allow_mismatch)
+{
+    m_wallet->allow_mismatched_daemon_version(allow_mismatch);
+}
+
+void WalletImpl::setRingDatabase(const std::string &path)
+{
+    m_wallet->set_ring_database(path);
 }
 
 void WalletImpl::setRefreshFromBlockHeight(uint64_t refresh_from_block_height)
@@ -1963,7 +1978,8 @@ bool WalletImpl::setUserNote(const std::string &txid, const std::string &note)
     cryptonote::blobdata txid_data;
     if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
       return false;
-    const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+    crypto::hash htxid;
+    memcpy(&htxid, txid_data.data(), sizeof(htxid));
 
     m_wallet->set_tx_note(htxid, note);
     return true;
@@ -1976,7 +1992,8 @@ std::string WalletImpl::getUserNote(const std::string &txid) const
     cryptonote::blobdata txid_data;
     if(!epee::string_tools::parse_hexstr_to_binbuff(txid, txid_data) || txid_data.size() != sizeof(crypto::hash))
       return "";
-    const crypto::hash htxid = *reinterpret_cast<const crypto::hash*>(txid_data.data());
+    crypto::hash htxid;
+    memcpy(&htxid, txid_data.data(), sizeof(htxid));
 
     return m_wallet->get_tx_note(htxid);
 }

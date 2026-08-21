@@ -109,10 +109,26 @@ TEST(AddressFromURL, Failure)
 {
   bool dnssec_result = false;
 
-  std::vector<std::string> addresses = tools::dns_utils::addresses_from_url("example.veryinvalid", dnssec_result);
+  std::vector<std::string> addresses = tools::dns_utils::addresses_from_url("nonexistent.getmonero.org", dnssec_result);
 
-  // for a non-existing domain such as "example.invalid", the non-existence is proved with NSEC records
+  // The absence of a TXT record is authenticated with DNSSEC denial records.
   ASSERT_TRUE(dnssec_result);
 
   ASSERT_EQ(0, addresses.size());
+}
+
+TEST(AddressFromURL, Disabled)
+{
+  cryptonote::address_parse_info info;
+  tools::wallet2 wallet;
+  wallet.enable_dns(false);
+
+  EXPECT_TRUE(cryptonote::get_account_address_from_str_or_url(
+      info, cryptonote::MAINNET, MONERO_DONATION_ADDR, wallet.is_dns_enabled()));
+  EXPECT_FALSE(cryptonote::get_account_address_from_str_or_url(
+      info, cryptonote::MAINNET, "donate.getmonero.org", wallet.is_dns_enabled()));
+
+  wallet.enable_dns(true);
+  wallet.set_offline();
+  EXPECT_FALSE(wallet.is_dns_enabled());
 }

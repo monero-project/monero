@@ -44,6 +44,7 @@ extern "C"
 #include "cryptonote_config.h"
 #include "memwipe.h"
 #include "misc_language.h"
+#include "scope_guard.h"
 #include "serialization/wire/epee.h"
 #include "serialization/wire/wrapper/array_blob.h"
 #include "serialization/wire/wrapper/defaulted.h"
@@ -77,9 +78,9 @@ DISABLE_VS_WARNINGS(4244 4345)
   {
     using value_type = crypto::ec_scalar;
     std::vector<value_type> temp_keys;
-    const auto cleanup = epee::misc_utils::create_scope_leave_handler(
+    const epee::scope_guard cleanup{
       [&temp_keys] { memwipe(temp_keys.data(), temp_keys.size() * sizeof(value_type)); }
-    );
+    };
 
     account_keys_map(source, dest, temp_keys);
     dest.m_multisig_keys.resize(temp_keys.size());
@@ -91,7 +92,7 @@ DISABLE_VS_WARNINGS(4244 4345)
     using value_type = crypto::ec_scalar;
     std::vector<value_type> temp_keys;
     temp_keys.resize(source.m_multisig_keys.size());
-    const auto cleanup = epee::misc_utils::create_scope_leave_handler(
+    const epee::scope_guard cleanup(
       [&temp_keys] { memwipe(temp_keys.data(), temp_keys.size() * sizeof(value_type)); }
     );
 

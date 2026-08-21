@@ -137,7 +137,7 @@ TEST(parse_tx_extra, handles_pub_key_and_padding)
 
 TEST(parse_and_validate_tx_extra, is_valid_tx_extra_parsed)
 {
-  cryptonote::transaction tx = AUTO_VAL_INIT(tx);
+  cryptonote::transaction tx;
   cryptonote::account_base acc;
   acc.generate();
   cryptonote::blobdata b = "dsdsdfsdfsf";
@@ -147,7 +147,7 @@ TEST(parse_and_validate_tx_extra, is_valid_tx_extra_parsed)
 }
 TEST(parse_and_validate_tx_extra, fails_on_big_extra_nonce)
 {
-  cryptonote::transaction tx = AUTO_VAL_INIT(tx);
+  cryptonote::transaction tx;
   cryptonote::account_base acc;
   acc.generate();
   cryptonote::blobdata b(TX_EXTRA_NONCE_MAX_COUNT + 1, 0);
@@ -155,7 +155,7 @@ TEST(parse_and_validate_tx_extra, fails_on_big_extra_nonce)
 }
 TEST(parse_and_validate_tx_extra, fails_on_wrong_size_in_extra_nonce)
 {
-  cryptonote::transaction tx = AUTO_VAL_INIT(tx);
+  cryptonote::transaction tx;
   tx.extra.resize(20, 0);
   tx.extra[0] = TX_EXTRA_NONCE;
   tx.extra[1] = 255;

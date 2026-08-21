@@ -18,7 +18,8 @@ respawn_delay=10
 respawn_max=0
 
 depend() {
-    after net
+    need net
+    use dns
 }
 
 start_pre() {

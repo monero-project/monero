@@ -1,21 +1,33 @@
 syntax = "proto2";
 package hw.trezor.messages.management;
 
+import "options.proto";
+
 // Sugar for easier handling in Java
-option java_package = "com.satoshilabs.trezor.lib.protobuf";
 option java_outer_classname = "TrezorMessageManagement";
+option java_package = "com.satoshilabs.trezor.lib.protobuf";
 
+// Include in BTC-only firmware
 option (include_in_bitcoin_only) = true;
-
-import "messages.proto";
 
 /**
  * Type of the mnemonic backup given/received by the device during reset/recovery.
  */
 enum BackupType {
-    Bip39 = 0;              // also called "Single Backup", see BIP-0039
-    Slip39_Basic = 1;       // also called "Shamir Backup", see SLIP-0039
-    Slip39_Advanced = 2;    // also called "Super Shamir" or "Shamir with Groups", see SLIP-0039#two-level-scheme
+    Bip39 = 0;                     // also called "Single Backup", see BIP-0039
+    Slip39_Basic = 1;              // also called "Shamir Backup", see SLIP-0039
+    Slip39_Advanced = 2;           // also called "Super Shamir" or "Shamir with Groups", see SLIP-0039#two-level-scheme
+    Slip39_Single_Extendable = 3;  // extendable single-share Shamir backup
+    Slip39_Basic_Extendable = 4;   // extendable multi-share Shamir backup
+    Slip39_Advanced_Extendable = 5;  // extendable multi-share Shamir backup with groups
+}
+
+/**
+ * Backup method of the mnemonic shares.
+ */
+enum BackupMethod {
+    Display = 0;  // the share words are displayed on the device screen
+    N4W1 = 1;
 }
 
 /**
@@ -27,13 +39,23 @@ enum SafetyCheckLevel {
     PromptTemporarily = 2;  // like PromptAlways but reverts to Strict after reboot
 }
 
+/**
+ * Allowed display rotation angles (in degrees from North)
+ */
+enum DisplayRotation {
+    North = 0;
+    East = 90;
+    South = 180;
+    West = 270;
+}
 
 /**
  * Format of the homescreen image
  */
 enum HomescreenFormat {
-    Toif144x144 = 1;
-    Jpeg240x240 = 2;
+    Toif = 1;  // full-color toif
+    Jpeg = 2;  // jpeg
+    ToiG = 3;  // greyscale toif
 }
 
 /**
@@ -42,8 +64,8 @@ enum HomescreenFormat {
  * @next Features
  */
 message Initialize {
-    optional bytes session_id = 1;     // assumed device session id; Trezor clears caches if it is different or empty
-    optional bool _skip_passphrase = 2 [deprecated=true]; // removed as part of passphrase redesign
+    optional bytes session_id = 1;  // assumed device session id; Trezor clears caches if it is different or empty
+    optional bool _skip_passphrase = 2 [deprecated = true];  // removed as part of passphrase redesign
     optional bool derive_cardano = 3;  // whether to derive Cardano Icarus root keys in this session
 }
 
@@ -52,49 +74,100 @@ message Initialize {
  * @start
  * @next Features
  */
-message GetFeatures {
-}
+message GetFeatures {}
 
 /**
  * Response: Reports various information about the device
  * @end
  */
 message Features {
-    optional string vendor = 1;                 // name of the manufacturer, e.g. "trezor.io"
-    required uint32 major_version = 2;          // major version of the firmware/bootloader, e.g. 1
-    required uint32 minor_version = 3;          // minor version of the firmware/bootloader, e.g. 0
-    required uint32 patch_version = 4;          // patch version of the firmware/bootloader, e.g. 0
-    optional bool bootloader_mode = 5;          // is device in bootloader mode?
-    optional string device_id = 6;              // device's unique identifier
-    optional bool pin_protection = 7;           // is device protected by PIN?
-    optional bool passphrase_protection = 8;    // is node/mnemonic encrypted using passphrase?
-    optional string language = 9;               // device language
-    optional string label = 10;                 // device description label
-    optional bool initialized = 12;             // does device contain seed?
-    optional bytes revision = 13;               // SCM revision of firmware
-    optional bytes bootloader_hash = 14;        // hash of the bootloader
-    optional bool imported = 15;                // was storage imported from an external source?
-    optional bool unlocked = 16;                // is the device unlocked? called "pin_cached" previously
-    optional bool _passphrase_cached = 17 [deprecated=true]; // is passphrase already cached in session?
-    optional bool firmware_present = 18;        // is valid firmware loaded?
-    optional bool needs_backup = 19;            // does storage need backup? (equals to Storage.needs_backup)
-    optional uint32 flags = 20;                 // device flags (equals to Storage.flags)
-    optional string model = 21;                 // device hardware model
-    optional uint32 fw_major = 22;              // reported firmware version if in bootloader mode
-    optional uint32 fw_minor = 23;              // reported firmware version if in bootloader mode
-    optional uint32 fw_patch = 24;              // reported firmware version if in bootloader mode
-    optional string fw_vendor = 25;             // reported firmware vendor if in bootloader mode
-    // optional bytes fw_vendor_keys = 26;      // obsoleted, use fw_vendor
-    optional bool unfinished_backup = 27;       // report unfinished backup (equals to Storage.unfinished_backup)
-    optional bool no_backup = 28;               // report no backup (equals to Storage.no_backup)
-    optional bool recovery_mode = 29;           // is recovery mode in progress
-    repeated Capability capabilities = 30;      // list of supported capabilities
+    optional string vendor = 1;               // name of the manufacturer, e.g. "trezor.io"
+    required uint32 major_version = 2;        // major version of the firmware/bootloader, e.g. 1
+    required uint32 minor_version = 3;        // minor version of the firmware/bootloader, e.g. 0
+    required uint32 patch_version = 4;        // patch version of the firmware/bootloader, e.g. 0
+    optional uint32 build_version = 61;       // build version of the firmware/bootloader, e.g. 0
+    optional bool bootloader_mode = 5;        // is device in bootloader mode?
+    optional string device_id = 6;            // device's unique identifier
+    optional bool pin_protection = 7;         // is device protected by PIN?
+    optional bool passphrase_protection = 8;  // is node/mnemonic encrypted using passphrase?
+    optional string language = 9;             // device language
+    optional string label = 10;               // device description label
+    optional bool initialized = 12;           // does device contain seed?
+    optional bytes revision = 13;             // SCM revision of firmware
+    optional bytes bootloader_hash = 14;      // hash of the bootloader
+    optional bool imported = 15;              // was storage imported from an external source?
+    optional bool unlocked = 16;              // is the device unlocked? called "pin_cached" previously
+    optional bool _passphrase_cached = 17 [deprecated = true];  // is passphrase already cached in session?
+    optional bool firmware_present = 18;                        // is firmware loaded?
+    optional BackupAvailability backup_availability = 19;  // does storage need backup? is repeated backup unlocked?
+    optional uint32 flags = 20;                            // device flags (equals to Storage.flags)
+    optional string model = 21;                            // device hardware model
+    optional uint32 fw_major = 22;                         // reported firmware version if in bootloader mode
+    optional uint32 fw_minor = 23;                         // reported firmware version if in bootloader mode
+    optional uint32 fw_patch = 24;                         // reported firmware version if in bootloader mode
+    optional uint32 fw_build = 62;                         // reported firmware version if in bootloader mode
+    optional string fw_vendor = 25;                        // reported firmware vendor if in bootloader mode
+    // optional bytes fw_vendor_keys = 26;                 // obsoleted, use fw_vendor
+    optional bool unfinished_backup = 27;          // report unfinished backup (equals to Storage.unfinished_backup)
+    optional bool no_backup = 28;                  // report no backup (equals to Storage.no_backup)
+    optional RecoveryStatus recovery_status = 29;  // whether or not we are in recovery mode and of what kind
+    repeated Capability capabilities = 30;         // list of supported capabilities
+    optional BackupType backup_type = 31;          // type of device backup (BIP-39 / SLIP-39 basic / SLIP-39 advanced)
+    optional bool sd_card_present = 32;            // is SD card present
+    optional bool sd_protection = 33;              // is SD Protect enabled
+    optional bool wipe_code_protection = 34;       // is wipe code protection enabled
+    optional bytes session_id = 35;
+    optional bool passphrase_always_on_device = 36;    // device enforces passphrase entry on Trezor
+    optional SafetyCheckLevel safety_checks = 37;      // safety check level, set to Prompt to limit path
+                                                       // namespace enforcement
+    optional uint32 auto_lock_delay_ms = 38;           // number of milliseconds after which the device locks itself
+    optional DisplayRotation display_rotation = 39;    // rotation of display (in degrees from North)
+    optional bool experimental_features = 40;          // are experimental message types enabled?
+    optional bool busy = 41;                           // is the device busy, showing "Do not disconnect"?
+    optional HomescreenFormat homescreen_format = 42;  // format of the homescreen, 1 = TOIf, 2 = jpg, 3 = TOIG
+    optional bool hide_passphrase_from_host = 43;      // should we hide the passphrase when it comes from host?
+    optional string internal_model = 44;               // internal model name
+    optional uint32 unit_color = 45;                   // color of the unit/device
+    optional bool unit_btconly = 46;                   // unit/device is intended as bitcoin only
+    optional uint32 homescreen_width = 47;             // homescreen width in pixels
+    optional uint32 homescreen_height = 48;            // homescreen height in pixels
+    optional bool bootloader_locked = 49;              // bootloader is locked
+    optional bool language_version_matches = 50 [default = true];  // translation blob version matches firmware version
+    optional uint32 unit_packaging = 51;                           // unit/device packaging version
+    optional bool haptic_feedback = 52;                            // haptic feedback is enabled
+    optional RecoveryType recovery_type = 53;                      // what type of recovery we are in
+                                                                   // NB: this works in conjunction with recovery_status
+    optional uint32 optiga_sec = 54;                               // Optiga's security event counter.
+    optional uint32 soc = 55;                                      // Battery state of charge (0 - 100%)
+    optional bool firmware_corrupted = 56;                         // true if the firmware is corrupted
+    optional uint32 auto_lock_delay_battery_ms = 57;               // number of milliseconds after which
+                                                                   // the battery-powered device locks itself
+    optional bool led = 58;                                        // RGB LED settings
+    optional bool usb_connected = 59;                              // USB connected
+    optional bool wireless_connected = 60;                         // Wireless charger connected
+    optional bool tap_to_wake = 63;                                // tap to wake is enabled (None = not supported)
+
+    enum BackupAvailability {
+        /// Device is already backed up, or a previous backup has failed.
+        NotAvailable = 0;
+        /// Device is not backed up. Backup is required.
+        Required = 1;
+        /// Device is already backed up and can be backed up again.
+        Available = 2;
+    }
+
+    enum RecoveryStatus {
+        Nothing = 0;   // we are not in recovery mode
+        Recovery = 1;  // we are in "Normal" or "DryRun" recovery
+        Backup = 2;    // we are in repeated backup mode
+    }
+
     enum Capability {
         option (has_bitcoin_only_values) = true;
 
         Capability_Bitcoin = 1 [(bitcoin_only) = true];
         Capability_Bitcoin_like = 2;                    // Altcoins based on the Bitcoin source code
-        Capability_Binance = 3;
+        Capability_Binance = 3;                         // BNB Smart Chain
         Capability_Cardano = 4;
         Capability_Crypto = 5 [(bitcoin_only) = true];  // generic crypto operations for GPG, SSH, etc.
         Capability_EOS = 6;
@@ -108,21 +181,19 @@ message Features {
         Capability_U2F = 14;
         Capability_Shamir = 15 [(bitcoin_only) = true];
         Capability_ShamirGroups = 16 [(bitcoin_only) = true];
-        Capability_PassphraseEntry = 17 [(bitcoin_only) = true];  // the device is capable of passphrase entry directly on the device
+        Capability_PassphraseEntry = 17 [(bitcoin_only) = true];  // the device is capable of passphrase entry
+                                                                  // directly on the device
+        Capability_Solana = 18;
+        Capability_Translations = 19 [(bitcoin_only) = true];
+        Capability_Brightness = 20 [(bitcoin_only) = true];
+        Capability_Haptic = 21 [(bitcoin_only) = true];
+        Capability_BLE = 22 [(bitcoin_only) = true];  // Bluetooth Low Energy
+        Capability_NFC = 23 [(bitcoin_only) = true];  // Near Field Communications
+        Capability_Tron = 24;
+        Capability_N4W1 = 25 [(bitcoin_only) = true];
+        Capability_TouchWakeup = 26 [(bitcoin_only) = true];  // Touch to wake from sleep
+        reserved 27;                                          // reserved for internal use
     }
-    optional BackupType backup_type = 31;       // type of device backup (BIP-39 / SLIP-39 basic / SLIP-39 advanced)
-    optional bool sd_card_present = 32;         // is SD card present
-    optional bool sd_protection = 33;           // is SD Protect enabled
-    optional bool wipe_code_protection = 34;    // is wipe code protection enabled
-    optional bytes session_id = 35;
-    optional bool passphrase_always_on_device = 36;  // device enforces passphrase entry on Trezor
-    optional SafetyCheckLevel safety_checks = 37;            // safety check level, set to Prompt to limit path namespace enforcement
-    optional uint32 auto_lock_delay_ms = 38;    // number of milliseconds after which the device locks itself
-    optional uint32 display_rotation = 39;      // in degrees from North
-    optional bool experimental_features = 40;   // are experimental message types enabled?
-    optional bool busy = 41;                    // is the device busy, showing "Do not disconnect"?
-    optional HomescreenFormat homescreen_format = 42;   // format of the homescreen, 1 = TOIf 144x144, 2 = jpg 240x240
-    optional bool hide_passphrase_from_host = 43;   // should we hide the passphrase when it comes from host?
 }
 
 /**
@@ -130,8 +201,7 @@ message Features {
  * @start
  * @next Success
  */
-message LockDevice {
-}
+message LockDevice {}
 
 /**
  * Request: Show a "Do not disconnect" dialog instead of the standard homescreen.
@@ -139,37 +209,84 @@ message LockDevice {
  * @next Success
  */
 message SetBusy {
-    optional uint32 expiry_ms = 1;  // The time in milliseconds after which the dialog will automatically disappear. Overrides any previously set expiry. If not set, then the dialog is hidden.
+    optional uint32 expiry_ms = 1;  // The time in milliseconds after which the dialog will automatically disappear.
+                                    // Overrides any previously set expiry. If not set, then the dialog is hidden.
 }
 
 /**
- * Request: end the current session. Following actions must call Initialize again.
+ * Request: end the current sesson. Following actions must call Initialize again.
  * Cache for the current session is discarded, other sessions remain intact.
  * Device is not PIN-locked.
  * @start
  * @next Success
  */
-message EndSession {
-}
+message EndSession {}
 
 /**
- * Request: change language and/or label of the device
+ * Request: change some property of the device, e.g. label or homescreen
  * @start
  * @next Success
+ * @next DataChunkRequest
  * @next Failure
  */
 message ApplySettings {
-    optional string language = 1;
+    optional string language = 1 [deprecated = true];
     optional string label = 2;
     optional bool use_passphrase = 3;
-    optional bytes homescreen = 4;
-    optional uint32 _passphrase_source = 5 [deprecated=true];   // ASK = 0; DEVICE = 1; HOST = 2;
+    optional bytes homescreen = 4;                               // homescreen image in single array, deprecated for 14
+    optional uint32 _passphrase_source = 5 [deprecated = true];  // ASK = 0; DEVICE = 1; HOST = 2;
     optional uint32 auto_lock_delay_ms = 6;
-    optional uint32 display_rotation = 7;  // in degrees from North
-    optional bool passphrase_always_on_device = 8;  // do not prompt for passphrase, enforce device entry
-    optional SafetyCheckLevel safety_checks = 9;  // Safety check level, set to Prompt to limit path namespace enforcement
-    optional bool experimental_features = 10;  // enable experimental message types
-    optional bool hide_passphrase_from_host = 11;  // do not show passphrase coming from host
+    optional DisplayRotation display_rotation = 7;               // rotation of display (in degrees from North)
+    optional bool passphrase_always_on_device = 8;               // do not prompt for passphrase, enforce device entry
+    optional SafetyCheckLevel safety_checks = 9;                 // Safety check level,
+                                                                 // set to Prompt to limit path namespace enforcement
+    optional bool experimental_features = 10;                    // enable experimental message types
+    optional bool hide_passphrase_from_host = 11;                // do not show passphrase coming from host
+    optional bool haptic_feedback = 13;                          // enable haptic feedback
+    optional uint32 homescreen_length = 14;           // byte length of new homescreen, device will request chunks
+    optional uint32 auto_lock_delay_battery_ms = 15;  // time in ms after which device locks when on battery
+                                                      // or wireless charger
+}
+
+/**
+ * Request: change the device language via translation data.
+ * Does not send the translation data itself, as they are too large for one message.
+ * Device will request the translation data in chunks.
+ * @start
+ * @next DataChunkRequest
+ * @next Failure
+ */
+message ChangeLanguage {
+    // byte length of the whole translation blob (set to 0 for default language - english)
+    required uint32 data_length = 1;
+    // Prompt the user on screen.
+    // In certain conditions (such as freshly installed device), the confirmation prompt
+    // is not mandatory. Setting show_display=false will skip the prompt if that's
+    // the case. If the device does not allow skipping the prompt, a request with
+    // show_display=false will return a failure. (This way the host can safely try
+    // to change the language without invoking a prompt.)
+    // Setting show_display to true will always show the prompt.
+    // Leaving the option unset will show the prompt only when necessary.
+    optional bool show_display = 2;
+}
+
+/**
+ * Response: Device asks for more data from translation/homescreen image.
+ * @end
+ * @next DataChunkAck
+ */
+message DataChunkRequest {
+    required uint32 data_length = 1;  // Number of bytes being requested
+    required uint32 data_offset = 2;  // Offset of the first byte being requested
+}
+
+/**
+ * Request: Translation/homescreen payload data.
+ * @next DataChunkRequest
+ * @next Success
+ */
+message DataChunkAck {
+    required bytes data_chunk = 1;  // Bytes from translation/homescreen payload
 }
 
 /**
@@ -189,7 +306,7 @@ message ApplyFlags {
  * @next Failure
  */
 message ChangePin {
-    optional bool remove = 1;   // is PIN removal requested?
+    optional bool remove = 1;  // is PIN removal requested?
 }
 
 /**
@@ -199,7 +316,7 @@ message ChangePin {
  * @next Failure
  */
 message ChangeWipeCode {
-    optional bool remove = 1;   // is wipe code removal requested?
+    optional bool remove = 1;  // is wipe code removal requested?
 }
 
 /**
@@ -211,8 +328,8 @@ message ChangeWipeCode {
 message SdProtect {
     required SdProtectOperationType operation = 1;
     /**
-    * Structure representing SD card protection operation
-    */
+     * Structure representing SD card protection operation
+     */
     enum SdProtectOperationType {
         DISABLE = 0;
         ENABLE = 1;
@@ -226,8 +343,8 @@ message SdProtect {
  * @next Success
  */
 message Ping {
-    optional string message = 1 [default=""];   // message to send back in Success message
-    optional bool button_protection = 2;        // ask for button press
+    optional string message = 1 [default = ""];  // message to send back in Success message
+    optional bool button_protection = 2;         // ask for button press
 }
 
 /**
@@ -235,8 +352,7 @@ message Ping {
  * @start
  * @next Failure
  */
-message Cancel {
-}
+message Cancel {}
 
 /**
  * Request: Request a sample of random data generated by hardware RNG. May be used for testing.
@@ -245,7 +361,7 @@ message Cancel {
  * @next Failure
  */
 message GetEntropy {
-    required uint32 size = 1;       // size of requested entropy
+    required uint32 size = 1;  // size of requested entropy
 }
 
 /**
@@ -253,7 +369,7 @@ message GetEntropy {
  * @end
  */
 message Entropy {
-    required bytes entropy = 1;     // chunk of random generated bytes
+    required bytes entropy = 1;  // chunk of random generated bytes
 }
 
 /**
@@ -263,7 +379,7 @@ message Entropy {
  * @next Failure
  */
 message GetFirmwareHash {
-    optional bytes challenge = 1;   // Blake2s key up to 32 bytes in length.
+    optional bytes challenge = 1;  // Blake2s key up to 32 bytes in length.
 }
 
 /**
@@ -275,13 +391,84 @@ message FirmwareHash {
 }
 
 /**
+ * Request: Request a signature of the provided challenge.
+ * @start
+ * @next AuthenticityProof
+ * @next AuthenticityProofSizes
+ * @next Failure
+ */
+message AuthenticateDevice {
+    required bytes challenge = 1;  // A random challenge to sign.
+    optional bool stream = 2;      // If set, the certificates and signatures data is sent using a stream of
+                                   // AuthenticityProofChunk responses (to avoid sending one large response).
+}
+
+/**
+ * Response: Signature of the provided challenge along with a certificate issued by the Trezor company.
+ * @end
+ */
+message AuthenticityProof {
+    repeated bytes optiga_certificates = 1;  // A certificate chain starting with the Optiga device certificate,
+                                             // followed by intermediate CA certificates, the last of which is signed by
+                                             // Trezor company's root CA.
+    required bytes optiga_signature = 2;     // A DER-encoded signature of "\x13AuthenticateDevice:" + length-prefixed
+                                             // challenge that should be verified using the Optiga device certificate.
+    repeated bytes tropic_certificates = 3;  // A certificate chain starting with the Tropic device certificate,
+                                             // followed by intermediate CA certificates, the last of which is signed by
+                                             // Trezor company's root CA.
+    optional bytes tropic_signature = 4;     // A DER-encoded signature of "\x13AuthenticateDevice:" + length-prefixed
+                                             // challenge that should be verified using the Tropic device certificate.
+    repeated bytes mcu_certificates = 5;     // An MCU device certificate signed by Trezor company's root CA.
+    optional bytes mcu_signature = 6;        // A DER-encoded signature of "\x13AuthenticateDevice:" + length-prefixed
+                                             // challenge that should be verified using the MCU device certificate.
+}
+
+/**
+ * Response: Sizes of the corresponding proof parts (see above).
+ * @next GetAuthenticityProofChunk
+ */
+message AuthenticityProofSizes {
+    repeated uint32 optiga_certificates = 1;
+    required uint32 optiga_signature = 2;
+    repeated uint32 tropic_certificates = 3;
+    optional uint32 tropic_signature = 4;
+    repeated uint32 mcu_certificates = 5;
+    optional uint32 mcu_signature = 6;
+}
+
+/**
+ * Request: Request authenticity proof data chunk, or finish the workflow if `proof_type` is not set.
+ * @next AuthenticityProofChunk
+ * @next Success
+ */
+message GetAuthenticityProofChunk {
+    optional AuthenticityProofType proof_type = 1;  // Specifies proof part to fetch.
+    optional uint32 index = 2;   // If set, certificates[index] is fetched. Otherwise, signature is fetched.
+    required uint32 offset = 3;  // Data chunk offset (in bytes).
+    required uint32 size = 4;    // Data chunk size (in bytes).
+
+    enum AuthenticityProofType {
+        OPTIGA = 0;
+        TROPIC = 1;
+        MCU = 2;
+    }
+}
+
+/**
+ * Response: Return requested authenticity proof data chunk.
+ * @next GetAuthenticityProofChunk
+ */
+message AuthenticityProofChunk {
+    required bytes chunk = 1;
+}
+
+/**
  * Request: Request device to wipe all sensitive data and settings
  * @start
  * @next Success
  * @next Failure
  */
-message WipeDevice {
-}
+message WipeDevice {}
 
 /**
  * Request: Load seed and related internal settings from the computer
@@ -290,15 +477,16 @@ message WipeDevice {
  * @next Failure
  */
 message LoadDevice {
-    repeated string mnemonics = 1;                          // seed encoded as mnemonic (12, 18 or 24 words for BIP39, 20 or 33 for SLIP39)
-    optional string pin = 3;                                // set PIN protection
-    optional bool passphrase_protection = 4;                // enable master node encryption using passphrase
-    optional string language = 5 [default='en-US'];         // device language (IETF BCP 47 language tag)
-    optional string label = 6;                              // device label
-    optional bool skip_checksum = 7;                        // do not test mnemonic for valid BIP-39 checksum
-    optional uint32 u2f_counter = 8;                        // U2F counter
-    optional bool needs_backup = 9;                         // set "needs backup" flag
-    optional bool no_backup = 10;                           // indicate that no backup is going to be made
+    repeated string mnemonics = 1;  // seed encoded as mnemonic (12, 18 or 24 words for BIP39, 20 or 33 for SLIP39)
+    optional string pin = 3;        // set PIN protection
+    optional bool passphrase_protection = 4;           // enable master node encryption using passphrase
+    optional string language = 5 [deprecated = true];  // deprecated (use ChangeLanguage)
+    optional string label = 6;                         // device label
+    optional bool skip_checksum = 7;                   // do not test mnemonic for valid BIP-39 checksum
+    optional uint32 u2f_counter = 8;                   // U2F counter
+    optional bool needs_backup = 9;                    // set "needs backup" flag
+    optional bool no_backup = 10;                      // indicate that no backup is going to be made
+    optional bool unfinished_backup = 11;              // indicate that backup process has failed
 }
 
 /**
@@ -308,16 +496,18 @@ message LoadDevice {
  * @next Failure
  */
 message ResetDevice {
-    optional bool display_random = 1;                       // display entropy generated by the device before asking for additional entropy
-    optional uint32 strength = 2 [default=256];             // strength of seed in bits
-    optional bool passphrase_protection = 3;                // enable master node encryption using passphrase
-    optional bool pin_protection = 4;                       // enable PIN protection
-    optional string language = 5 [default='en-US'];         // device language (IETF BCP 47 language tag)
-    optional string label = 6;                              // device label
-    optional uint32 u2f_counter = 7;                        // U2F counter
-    optional bool skip_backup = 8;                          // postpone seed backup to BackupDevice workflow
-    optional bool no_backup = 9;                            // indicate that no backup is going to be made
-    optional BackupType backup_type = 10 [default=Bip39];   // type of the mnemonic backup
+    reserved 1;                                                    // unused display_random
+    optional uint32 strength = 2 [default = 256];                  // strength of seed in bits
+    optional bool passphrase_protection = 3;                       // enable master node encryption using passphrase
+    optional bool pin_protection = 4;                              // enable PIN protection
+    optional string language = 5 [deprecated = true];              // deprecated (use ChangeLanguage)
+    optional string label = 6;                                     // device label
+    optional uint32 u2f_counter = 7;                               // U2F counter
+    optional bool skip_backup = 8;                                 // postpone seed backup to BackupDevice workflow
+    optional bool no_backup = 9;                                   // indicate that no backup is going to be made
+    optional BackupType backup_type = 10 [default = Bip39];        // type of the mnemonic backup
+    optional bool entropy_check = 11;                              // run with entropy check protocol
+    optional BackupMethod backup_method = 12 [default = Display];  // how the mnemonic shares should be backed up
 }
 
 /**
@@ -326,6 +516,13 @@ message ResetDevice {
  * @next Success
  */
 message BackupDevice {
+    optional uint32 group_threshold = 1;
+    message Slip39Group {
+        required uint32 member_threshold = 1;
+        required uint32 member_count = 2;
+    }
+    repeated Slip39Group groups = 2;
+    optional BackupMethod backup_method = 3 [default = Display];  // how the mnemonic shares should be backed up
 }
 
 /**
@@ -333,14 +530,34 @@ message BackupDevice {
  * @next EntropyAck
  */
 message EntropyRequest {
+    optional bytes entropy_commitment = 1;  // HMAC-SHA256 of Trezor's internal entropy used in entropy check.
+    optional bytes prev_entropy = 2;        // Trezor's internal entropy from the previous round of entropy check.
 }
 
 /**
  * Request: Provide additional entropy for seed generation function
  * @next Success
+ * @next EntropyCheckReady
  */
 message EntropyAck {
-    required bytes entropy = 1;     // 256 bits (32 bytes) of random data
+    required bytes entropy = 1;  // 256 bits (32 bytes) of the host's random data
+}
+
+/**
+ * Response: Trezor is ready for the next phase of the entropy check protocol.
+ * @next EntropyCheckContinue
+ * @next GetPublicKey
+ */
+message EntropyCheckReady {}
+
+/**
+ * Request: Proceed with the next phase of the entropy check protocol, asking Trezor to either reveal its internal
+ * entropy or to finish and store the seed.
+ * @next Success
+ * @next EntropyRequest
+ */
+message EntropyCheckContinue {
+    optional bool finish = 1 [default = false];  // finish the entropy check protocol, store the seed
 }
 
 /**
@@ -350,29 +567,36 @@ message EntropyAck {
  * @next WordRequest
  */
 message RecoveryDevice {
-    optional uint32 word_count = 1;                     // number of words in BIP-39 mnemonic
-    optional bool passphrase_protection = 2;            // enable master node encryption using passphrase
-    optional bool pin_protection = 3;                   // enable PIN protection
-    optional string language = 4;                       // device language (IETF BCP 47 language tag)
-    optional string label = 5;                          // device label
-    optional bool enforce_wordlist = 6;                 // enforce BIP-39 wordlist during the process
-    // 7 reserved for unused recovery method
-    optional RecoveryDeviceType type = 8;               // supported recovery type
-    optional uint32 u2f_counter = 9;                    // U2F counter
-    optional bool dry_run = 10;                         // perform dry-run recovery workflow (for safe mnemonic validation)
+    optional uint32 word_count = 1;                              // number of words in BIP-39 mnemonic (T1 only)
+    optional bool passphrase_protection = 2;                     // enable master node encryption using passphrase
+    optional bool pin_protection = 3;                            // enable PIN protection
+    optional string language = 4 [deprecated = true];            // deprecated (use ChangeLanguage)
+    optional string label = 5;                                   // device label
+    optional bool enforce_wordlist = 6;                          // enforce BIP-39 wordlist during the process (T1 only)
+    reserved 7;                                                  // unused recovery method
+    optional RecoveryDeviceInputMethod input_method = 8;         // supported recovery input method (T1 only)
+    optional uint32 u2f_counter = 9;                             // U2F counter
+    optional RecoveryType type = 10 [default = NormalRecovery];  // the type of recovery to perform
+    optional BackupMethod backup_method = 11;                    // how the shares should be recovered from backup
     /**
      * Type of recovery procedure. These should be used as bitmask, e.g.,
-     * `RecoveryDeviceType_ScrambledWords | RecoveryDeviceType_Matrix`
+     * `RecoveryDeviceInputMethod_ScrambledWords | RecoveryDeviceInputMethod_Matrix`
      * listing every method supported by the host computer.
      *
-     * Note that ScrambledWords must be supported by every implementation
-     * for backward compatibility; there is no way to not support it.
+     * Note that Matrix recovery is the recommended recovery method. ScrambledWords
+     * is allowed only for 24 word recovery, unless safety checks are disabled.
      */
-    enum RecoveryDeviceType {
+    enum RecoveryDeviceInputMethod {
         // use powers of two when extending this field
-        RecoveryDeviceType_ScrambledWords = 0;        // words in scrambled order
-        RecoveryDeviceType_Matrix = 1;                // matrix recovery type
+        ScrambledWords = 0;  // words in scrambled order
+        Matrix = 1;          // matrix recovery type
     }
+}
+
+enum RecoveryType {
+    NormalRecovery = 0;        // recovery from seedphrase on an uninitialized device
+    DryRun = 1;                // mnemonic validation
+    UnlockRepeatedBackup = 2;  // unlock SLIP-39 repeated backup
 }
 
 /**
@@ -383,8 +607,8 @@ message RecoveryDevice {
 message WordRequest {
     required WordRequestType type = 1;
     /**
-    * Type of Recovery Word request
-    */
+     * Type of Recovery Word request
+     */
     enum WordRequestType {
         WordRequestType_Plain = 0;
         WordRequestType_Matrix9 = 1;
@@ -399,7 +623,7 @@ message WordRequest {
  * @next Failure
  */
 message WordAck {
-    required string word = 1;           // one word of mnemonic on asked position
+    required string word = 1;  // one word of mnemonic on asked position
 }
 
 /**
@@ -416,8 +640,7 @@ message SetU2FCounter {
  * @start
  * @next NextU2FCounter
  */
-message GetNextU2FCounter {
-}
+message GetNextU2FCounter {}
 
 /**
  * Request: Set U2F counter
@@ -433,8 +656,7 @@ message NextU2FCounter {
  * @next PreauthorizedRequest
  * @next Failure
  */
-message DoPreauthorized {
-}
+message DoPreauthorized {}
 
 /**
  * Request: Device awaits a preauthorized operation.
@@ -442,8 +664,7 @@ message DoPreauthorized {
  * @next SignTx
  * @next GetOwnershipProof
  */
-message PreauthorizedRequest {
-}
+message PreauthorizedRequest {}
 
 /**
  * Request: Cancel any outstanding authorization in the current session.
@@ -451,15 +672,28 @@ message PreauthorizedRequest {
  * @next Success
  * @next Failure
  */
-message CancelAuthorization {
-}
+message CancelAuthorization {}
 
 /**
  * Request: Reboot firmware to bootloader
  * @start
  * @next Success
+ * @next DataChunkRequest
  */
 message RebootToBootloader {
+    // Action to be performed after rebooting to bootloader
+    optional BootCommand boot_command = 1 [default = STOP_AND_WAIT];
+    // Firmware header to be flashed after rebooting to bootloader
+    optional bytes firmware_header = 2;
+    // Deprecated (length of language blob to be installed before upgrading firmware)
+    reserved 3;
+
+    enum BootCommand {
+        // Go to bootloader menu
+        STOP_AND_WAIT = 0;
+        // Connect to host and wait for firmware update
+        INSTALL_UPGRADE = 1;
+    }
 }
 
 /**
@@ -467,18 +701,14 @@ message RebootToBootloader {
  * @start
  * @next Nonce
  */
-message GetNonce {
-    option (experimental_message) = true;
-}
+message GetNonce {}
 
 /**
  * Response: Contains a random nonce
  * @end
  */
 message Nonce {
-    option (experimental_message) = true;
-
-    required bytes nonce = 1; // a 32-byte random value generated by Trezor
+    required bytes nonce = 1;  // a 32-byte random value generated by Trezor
 }
 
 /**
@@ -488,8 +718,8 @@ message Nonce {
  * @next Failure
  */
 message UnlockPath {
-    repeated uint32 address_n = 1;     // prefix of the BIP-32 path leading to the account (m / purpose')
-    optional bytes mac = 2;            // the MAC returned by UnlockedPathRequest
+    repeated uint32 address_n = 1;  // prefix of the BIP-32 path leading to the account (m / purpose')
+    optional bytes mac = 2;         // the MAC returned by UnlockedPathRequest
 }
 
 /**
@@ -500,5 +730,44 @@ message UnlockPath {
  * @next GetAddress
  */
 message UnlockedPathRequest {
-    optional bytes mac = 1;            // authentication code for future UnlockPath calls
+    required bytes mac = 1;  // authentication code for future UnlockPath calls
+}
+
+/**
+ * Request: Show tutorial screens on the device
+ * @start
+ * @next Success
+ */
+message ShowDeviceTutorial {}
+
+/**
+ * Request: Unlocks bootloader, !irreversible!
+ * @start
+ * @next Success
+ * @next Failure
+ */
+message UnlockBootloader {}
+
+/**
+ * Request: Set device brightness
+ * @start
+ * @next Success
+ */
+message SetBrightness {
+    optional uint32 value = 1;  // if not specified, let the user choose
+}
+
+/**
+ * Request: Get unit serial number
+ * @start
+ * @next SerialNumber
+ */
+message GetSerialNumber {}
+
+/**
+ * Response: contains unit serial number
+ * @end
+ */
+message SerialNumber {
+    required string serial_number = 1;
 }

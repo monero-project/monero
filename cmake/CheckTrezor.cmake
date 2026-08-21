@@ -123,6 +123,7 @@ endif()
 if(Protobuf_FOUND AND USE_DEVICE_TREZOR)
     # .proto files to compile
     set(_proto_files "messages.proto"
+                     "options.proto"
                      "messages-common.proto"
                      "messages-management.proto"
                      "messages-monero.proto")
@@ -161,6 +162,15 @@ if(Protobuf_FOUND AND USE_DEVICE_TREZOR)
         file(READ "${_proto_out_dir}/${file}" file_content)
         string(REPLACE "PROTOBUF_DEPRECATED_ENUM" ""
                 updated_content "${file_content}")
+        string(PREPEND updated_content
+                "#if defined(__GNUC__)\n"
+                "#pragma GCC diagnostic push\n"
+                "#pragma GCC diagnostic ignored \"-Wdeprecated-declarations\"\n"
+                "#endif\n")
+        string(APPEND updated_content
+                "#if defined(__GNUC__)\n"
+                "#pragma GCC diagnostic pop\n"
+                "#endif\n")
         file(WRITE "${_proto_out_dir}/${file}" "${updated_content}")
     endforeach ()
 

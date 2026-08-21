@@ -150,8 +150,6 @@ public:
 
   bool print_net_stats(const std::vector<std::string>& args);
 
-  bool set_bootstrap_daemon(const std::vector<std::string>& args);
-
   bool flush_cache(const std::vector<std::string>& args);
 };
 

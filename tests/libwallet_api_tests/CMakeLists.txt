@@ -33,6 +33,8 @@ set(libwallet_api_tests_sources
 set(libwallet_api_tests_headers
   )
 
+find_package(Python3 REQUIRED)
+
 monero_add_minimal_executable(libwallet_api_tests
   ${libwallet_api_tests_sources}
   ${libwallet_api_tests_headers})
@@ -67,4 +69,6 @@ set_property(TARGET libwallet_api_tests
 
 add_test(
   NAME    libwallet_api_tests
-  COMMAND libwallet_api_tests)
+  COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/libwallet_api_tests.py" "${CMAKE_BINARY_DIR}" "$<TARGET_FILE:daemon>" "$<TARGET_FILE:libwallet_api_tests>")
+
+set_tests_properties(libwallet_api_tests PROPERTIES TIMEOUT 240)

@@ -5,8 +5,8 @@
 //
 
 #include "daemonizer/posix_fork.h"
-#include "misc_language.h"
 #include "misc_log_ex.h"
+#include "scope_guard.h"
 
 #include <cerrno>
 #include <cstdlib>
@@ -50,8 +50,7 @@ void fork(const std::string & pidfile)
       pid_fd = -1;
     }
   };
-  epee::misc_utils::auto_scope_leave_caller pid_fd_guard =
-    epee::misc_utils::create_scope_leave_handler(close_pid_fd);
+  const epee::scope_guard pid_fd_guard(std::forward<decltype(close_pid_fd) const &&>(close_pid_fd));
   if (! pidfile.empty ())
   {
     struct stat st;

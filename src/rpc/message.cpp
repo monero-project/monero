@@ -28,6 +28,7 @@
 
 #include "message.h"
 
+#include <rapidjson/document.h>
 #include <string_view>
 
 #include "crypto/wire.h"
@@ -46,6 +47,7 @@ const char* Message::STATUS_RETRY = "Retry";
 const char* Message::STATUS_FAILED = "Failed";
 const char* Message::STATUS_BAD_REQUEST = "Invalid request type";
 const char* Message::STATUS_BAD_JSON = "Malformed json";
+const char* Message::STATUS_REQUEST_TOO_LARGE = "Request too large";
 
 namespace
 {
@@ -169,6 +171,15 @@ expect<epee::byte_slice> BAD_JSON(const std::string& error_details)
   fail.error_details = error_details;
   return getJsonResponse(fail, wire::basic_value{});
 }
+
+expect<epee::byte_slice> REQUEST_TOO_LARGE()
+{
+  Message fail;
+  fail.status = Message::STATUS_REQUEST_TOO_LARGE;
+  fail.error_details = "Request exceeds maximum message size.";
+  return getJsonResponse(fail, wire::basic_value{});
+}
+
 
 }  // namespace rpc
 

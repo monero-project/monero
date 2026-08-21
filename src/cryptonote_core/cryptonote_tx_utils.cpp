@@ -30,8 +30,6 @@
 
 #include <optional>
 #include <unordered_set>
-#include <random>
-#include "include_base_utils.h"
 #include "misc_log_ex.h"
 #include "string_tools.h"
 using namespace epee;
@@ -45,7 +43,9 @@ using namespace epee;
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
 #include "crypto/wire.h"
+#include "misc_language.h"
 #include "ringct/rctSigs.h"
+#include "scope_guard.h"
 #include "serialization/wire.h"
 
 using namespace crypto;
@@ -668,7 +668,7 @@ namespace cryptonote
   {
     hw::device &hwdev = sender_account_keys.get_device();
     hwdev.open_tx(tx_key);
-    const auto auto_close_tx = epee::misc_utils::create_scope_leave_handler([&hwdev](){
+    const epee::scope_guard auto_close_tx([&hwdev](){
       hwdev.close_tx();
     });
     {

@@ -406,7 +406,6 @@ bool ver_mixed_rct_semantics(std::vector<const rct::rctSig*> rvv)
             // coinbase should not come here, so we reject for all other types
             MERROR("Unexpected Null rctSig type");
             return false;
-            break;
         case rct::RCTTypeSimple:
             if (!rct::verRctSemanticsSimple(rv))
             {
@@ -442,7 +441,6 @@ bool ver_mixed_rct_semantics(std::vector<const rct::rctSig*> rvv)
         default:
             MERROR("Unknown rct type: " << rv.type);
             return false;
-            break;
         }
 
         // Save this ring sig for later, as we will attempt simple RCT semantics batch verification

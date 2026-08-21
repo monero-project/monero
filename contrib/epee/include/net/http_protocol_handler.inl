@@ -225,7 +225,7 @@ namespace net_utils
 	      CRITICAL_REGION_LOCAL(m_config.m_lock);
 	      if (m_config.m_connection_count)
 	        --m_config.m_connection_count;
-	      auto elem = m_config.m_connections.find(m_conn_context.m_remote_address.host_str());
+	      auto elem = m_config.m_connections.find(get_rpc_connection_limit_key(m_conn_context.m_remote_address));
 	      if (elem != m_config.m_connections.end())
 	      {
 	        if (elem->second == 1 || elem->second == 0)
@@ -243,7 +243,7 @@ namespace net_utils
 	bool simple_http_connection_handler<t_connection_context>::after_init_connection()
 	{
 	  CRITICAL_REGION_LOCAL(m_config.m_lock);
-	  ++m_config.m_connections[m_conn_context.m_remote_address.host_str()];
+	  ++m_config.m_connections[get_rpc_connection_limit_key(m_conn_context.m_remote_address)];
 	  ++m_config.m_connection_count;
 	  m_initialized = true;
 	  return true;

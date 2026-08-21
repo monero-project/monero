@@ -240,8 +240,8 @@ t_command_server::t_command_server(
     m_command_lookup.set_handler(
       "unban"
     , std::bind(&t_command_parser_executor::unban, &m_parser, p::_1)
-    , "unban <address>"
-    , "Unban a given <IP>."
+    , "unban <address>|all"
+    , "Unban a given <address>, or all banned addresses."
     );
     m_command_lookup.set_handler(
       "banned"
@@ -317,13 +317,6 @@ t_command_server::t_command_server(
       "check_blockchain_pruning"
     , std::bind(&t_command_parser_executor::check_blockchain_pruning, &m_parser, p::_1)
     , "Check the blockchain pruning."
-    );
-    m_command_lookup.set_handler(
-      "set_bootstrap_daemon"
-    , std::bind(&t_command_parser_executor::set_bootstrap_daemon, &m_parser, p::_1)
-    , "set_bootstrap_daemon (auto | none | host[:port] [username] [password]) [proxy_ip:proxy_port]"
-    , "URL of a 'bootstrap' remote daemon that the connected wallets can use while this daemon is still not fully synced.\n"
-      "Use 'auto' to enable automatic public nodes discovering and bootstrap daemon switching"
     );
     m_command_lookup.set_handler(
       "flush_cache"

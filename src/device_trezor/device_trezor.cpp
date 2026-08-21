@@ -172,6 +172,8 @@ namespace trezor {
         pubkey = info.address;
         return true;
 
+      } catch(exc::FirmwareNotSupportedException const&){
+        throw;
       } catch(std::exception const& e){
         MERROR("Get public address exception: " << e.what());
         return false;
@@ -180,7 +182,7 @@ namespace trezor {
 
     bool device_trezor::get_public_address_with_no_passphrase(cryptonote::account_public_address &pubkey) {
       m_reply_with_empty_passphrase = true;
-      const auto empty_passphrase_reverter = epee::misc_utils::create_scope_leave_handler([&]() {
+      const epee::scope_guard empty_passphrase_reverter([&]() {
         m_reply_with_empty_passphrase = false;
       });
 
@@ -205,6 +207,10 @@ namespace trezor {
 
         return true;
 
+      } catch(const exc::proto::CancelledException &){
+        CHECK_AND_ASSERT_THROW_MES(false, "Key export rejected on device");
+      } catch(exc::FirmwareNotSupportedException const&){
+        throw;
       } catch(std::exception const& e){
         MERROR("Get secret keys exception: " << e.what());
         return false;
@@ -662,7 +668,7 @@ namespace trezor {
         auto offloaded_bp = signer->step_rsig(cur_dst);
         if (offloaded_bp){
           auto bp_ack = this->client_exchange<messages::monero::MoneroTransactionSetOutputAck>(offloaded_bp);
-          signer->step_set_rsig_ack(ack);
+          signer->step_set_rsig_ack(bp_ack);
         }
 
         EVENT_PROGRESS(6, cur_dst, num_outputs);

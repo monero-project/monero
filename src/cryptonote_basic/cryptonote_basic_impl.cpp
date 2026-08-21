@@ -28,15 +28,11 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-#include "include_base_utils.h"
-using namespace epee;
-
 #include "cryptonote_basic_impl.h"
 #include "string_tools.h"
 #include "serialization/binary_utils.h"
 #include "cryptonote_format_utils.h"
 #include "cryptonote_config.h"
-#include "misc_language.h"
 #include "common/base58.h"
 #include "crypto/hash.h"
 #include "int-util.h"
@@ -44,6 +40,8 @@ using namespace epee;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "cn"
+
+using namespace epee;
 
 namespace cryptonote {
 
@@ -239,8 +237,21 @@ namespace cryptonote {
     , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm
     )
   {
+    return get_account_address_from_str_or_url(info, nettype, str_or_url, true, dns_confirm);
+  }
+  //--------------------------------------------------------------------------------
+  bool get_account_address_from_str_or_url(
+      address_parse_info& info
+    , network_type nettype
+    , const std::string& str_or_url
+    , bool allow_dns
+    , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm
+    )
+  {
     if (get_account_address_from_str(info, nettype, str_or_url))
       return true;
+    if (!allow_dns)
+      return false;
     bool dnssec_valid;
     std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(str_or_url, dnssec_valid, dns_confirm);
     return !address_str.empty() &&

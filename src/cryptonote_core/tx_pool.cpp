@@ -302,9 +302,10 @@ namespace cryptonote
         {
           using clock = std::chrono::system_clock;
           auto last_relayed_time = std::numeric_limits<decltype(meta.last_relayed_time)>::max();
-          if (tx_relay == relay_method::forward)
+          if (tx_relay == relay_method::forward || tx_relay == relay_method::stem)
           {
-            last_relayed_time = clock::to_time_t(clock::now() + crypto::random_poisson_seconds{forward_delay_average}());
+            const auto delay = tx_relay == relay_method::forward ? forward_delay_average : dandelionpp_embargo_average;
+            last_relayed_time = clock::to_time_t(clock::now() + crypto::random_poisson_seconds{delay}());
             set_if_less(m_next_check, time_t(last_relayed_time));
           }
           // else the `set_relayed` function will adjust the time accordingly later
@@ -369,18 +370,6 @@ namespace cryptonote
       return false;
     return add_tx(tx, h, bl, get_transaction_weight(tx, bl.size()), tvc, tx_relay, relayed, version,
       nic_verified_hf_version, valid_input_verification_id);
-  }
-  //---------------------------------------------------------------------------------
-  size_t tx_memory_pool::get_txpool_weight() const
-  {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-    return m_txpool_weight;
-  }
-  //---------------------------------------------------------------------------------
-  void tx_memory_pool::set_txpool_max_weight(size_t bytes)
-  {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-    m_txpool_max_weight = bytes;
   }
   //---------------------------------------------------------------------------------
   void tx_memory_pool::reduce_txpool_weight(size_t weight)
@@ -665,7 +654,7 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------
-  bool tx_memory_pool::get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive, size_t cumul_txblob_size_limit, size_t max_tx_count) const
+  bool tx_memory_pool::get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive, size_t max_tx_count) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -676,7 +665,6 @@ namespace cryptonote
       max_tx_count ? std::min(max_tx_count, txids.size()) : txids.size();
 
     txs.reserve(std::min<size_t>(max_allowed, 1000000)); // reserve limited to min(1 million, max_allowed)
-    size_t cumul_txblob_size = 0;
 
     for (size_t i = 0; i < txids.size() && txs.size() < max_allowed; ++i)
       {
@@ -686,11 +674,6 @@ namespace cryptonote
         if (!success)
           continue;
 
-        if (cumul_txblob_size_limit &&
-            cumul_txblob_size + details.blob_size >= cumul_txblob_size_limit)
-          continue;
-
-        cumul_txblob_size += details.blob_size;
         txs.emplace_back(it, std::move(details));
       }
 
@@ -816,7 +799,6 @@ namespace cryptonote
 
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
-    LockedTXN lock(m_blockchain.get_db());
     txs.reserve(m_blockchain.get_txpool_tx_count());
     m_blockchain.for_all_txpool_txes([this, now, &txs, &change_timestamps, &next_check](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *){
       // 0 fee transactions are never relayed
@@ -840,6 +822,8 @@ namespace cryptonote
           case relay_method::local:
           case relay_method::fluff:
           case relay_method::block:
+            if (!meta.relayed)
+              break; // if it hasn't been relayed yet, relay it
             if (now - meta.last_relayed_time <= get_relay_delay(meta.last_relayed_time, meta.receive_time))
               return true; // continue to next tx
             break;
@@ -865,16 +849,32 @@ namespace cryptonote
       return true;
     }, false, relay_category::relayable);
 
-    for (auto& elem : change_timestamps)
+    if (!change_timestamps.empty())
     {
-      /* These transactions are still in forward or stem state, so the field
-         represents the next time a relay should be attempted. Will be
-         overwritten when the state is upgraded to stem, fluff or block. This
-         function is only called every ~2 minutes, so this resetting should be
-         unnecessary, but is primarily a precaution against potential changes
-	 to the callback routines. */
-      elem.second.last_relayed_time = now + get_relay_delay(elem.second.last_relayed_time, elem.second.receive_time);
-      m_blockchain.update_txpool_tx(elem.first, elem.second);
+      LockedTXN db_lock(m_blockchain.get_db());
+      bool made_an_update = false;
+      for (auto& elem : change_timestamps)
+      {
+        /* These transactions are still in forward or stem state, so the field
+          represents the next time a relay should be attempted. Will be
+          overwritten when the state is upgraded to stem, fluff or block. This
+          function is only called every ~2 minutes, so this resetting should be
+          unnecessary, but is primarily a precaution against potential changes
+          to the callback routines. */
+        elem.second.last_relayed_time = now + get_relay_delay(elem.second.last_relayed_time, elem.second.receive_time);
+        try
+        {
+          m_blockchain.update_txpool_tx(elem.first, elem.second);
+          made_an_update = true;
+        }
+        catch (...)
+        {
+          MDEBUG("Got an exception while updating txpool meta for relayable tx " << elem.first << ", ignoring...");
+          continue;
+        }
+      }
+      if (made_an_update)
+        db_lock.commit();
     }
 
     m_next_check = time_t(next_check);
@@ -972,7 +972,7 @@ namespace cryptonote
     }, false, category);
   }
   //------------------------------------------------------------------
-  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental, size_t cumul_limit_size) const
+  bool tx_memory_pool::get_pool_info(time_t start_time, bool include_sensitive, size_t max_tx_count, std::vector<std::pair<crypto::hash, tx_details>>& added_txs, std::vector<crypto::hash>& remaining_added_txids, std::vector<crypto::hash>& removed_txs, bool& incremental) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -1007,8 +1007,7 @@ namespace cryptonote
       LOG_PRINT_L2("Giving back the whole pool");
 
     // If incremental, handle removed TXIDs first since it's important that txs are removed
-    // from synchronizers' pools, and we need to estimate how much space we have left to
-    // request full-bodied txs
+    // from synchronizers' pools.
     if (incremental)
     {
       std::multimap<time_t, removed_tx_info>::const_iterator rit = m_removed_txs_by_time.lower_bound(start_time);
@@ -1039,20 +1038,12 @@ namespace cryptonote
         txids.push_back(pit.first);
     }
 
-    // Estimate max cumulative size left for full tx blobs
-    const size_t removed_txids_clawback{32 * removed_txs.size()};
-    const size_t remaining_txids_clawback{32 * txids.size()};
-    const size_t added_tx_txid_clawback(32 * txids.size());
-    const size_t total_clawback{removed_txids_clawback + remaining_txids_clawback + added_tx_txid_clawback};
-    const size_t cumulative_txblob_size_limit{cumul_limit_size > total_clawback ? cumul_limit_size - total_clawback : 0};
-
-    // Perform TX info fetch, limited to max_tx_count and cumulative_txblob_size_limit
-    if (cumulative_txblob_size_limit && !txids.empty() && max_tx_count)
+    // Perform TX info fetch, limited to max_tx_count.
+    if (!txids.empty())
     {
       if (!get_transactions_info(epee::to_span(txids),
                                  added_txs,
                                  include_sensitive,
-                                 cumulative_txblob_size_limit,
                                  max_tx_count))
         return false;
     }

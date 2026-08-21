@@ -118,6 +118,12 @@ namespace exc {
     ProtocolException(): CommunicationException("Trezor protocol error"){}
   };
 
+  class FirmwareNotSupportedException: public TrezorException {
+  public:
+    using TrezorException::TrezorException;
+    FirmwareNotSupportedException(): TrezorException("Trezor firmware version does not support Monero"){}
+  };
+
   // Communication protocol namespace
   // Separated to distinguish between client and Trezor side exceptions.
 namespace proto {

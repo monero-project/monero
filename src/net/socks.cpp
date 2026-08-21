@@ -608,7 +608,7 @@ namespace socks
                         bytes = sizeof(v5_response_ipv6);
                     else
                     {
-                        self.done(socks::error::unexpected_version, self_);
+                        self.done(socks::error::address_type_not_supported, self_);
                         return;
                     }
                 }

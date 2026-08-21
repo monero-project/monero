@@ -140,6 +140,7 @@ struct UnsignedTransaction
     // returns a string with information about all transactions.
     virtual std::string confirmationMessage() const = 0;
     virtual std::vector<std::string> paymentId() const = 0;
+    // returns one address per destination, in the same order as amount().
     virtual std::vector<std::string> recipientAddress() const = 0;
     virtual uint64_t minMixinCount() const = 0;
     /*!
@@ -546,6 +547,8 @@ struct Wallet
      * \return  - true on success
      */
     virtual bool init(const std::string &daemon_address, uint64_t upper_transaction_size_limit = 0, const std::string &daemon_username = "", const std::string &daemon_password = "", bool use_ssl = false, bool lightWallet = false, const std::string &proxy_address = "") = 0;
+    virtual void allowMismatchedDaemonVersion(bool allow_mismatch) = 0;
+    virtual void setRingDatabase(const std::string &path) = 0;
 
    /*!
     * \brief createWatchOnly - Creates a watch only wallet

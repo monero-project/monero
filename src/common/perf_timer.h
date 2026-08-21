@@ -75,8 +75,6 @@ private:
   el::Level level;
 };
 
-void set_performance_timer_log_level(el::Level level);
-
 #define PERF_TIMER_NAME(name) pt_##name
 #define PERF_TIMER_UNIT(name, unit) tools::LoggingPerformanceTimer PERF_TIMER_NAME(name)(#name, "perf." MONERO_DEFAULT_LOG_CATEGORY, unit, tools::performance_timer_log_level)
 #define PERF_TIMER_UNIT_L(name, unit, l) tools::LoggingPerformanceTimer PERF_TIMER_NAME(name)t_##name(#name, "perf." MONERO_DEFAULT_LOG_CATEGORY, unit, l)
