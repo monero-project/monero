@@ -159,14 +159,11 @@ namespace
         for (int i = 0; i < reading_cycles; ++i)
             boost::this_thread::sleep_for(boost::chrono::milliseconds(duration_dist(rng)));
 
+        // a shared holder must never recurse into writer(): shared -> exclusive upgrade is
+        // unsupported and is now a hard failure, not silent mutual-exclusion corruption
         const bool recurse = std::uniform_int_distribution<int>(0, 3)(rng) == 0; // ~25%
         if (recurse)
-        {
-            if (std::uniform_int_distribution<int>(0, 1)(rng))
-                writer(lock);
-            else
-                reader(lock);
-        }
+            reader(lock);
         lock.unlock_shared();
     }
 
