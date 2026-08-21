@@ -60,6 +60,7 @@ namespace tools
 
     bool init(const boost::program_options::variables_map *vm);
     bool run();
+    void stop_refresh();
     void stop();
     void set_wallet(wallet2 *cr);
 
@@ -285,6 +286,9 @@ namespace tools
       std::string m_wallet_dir;
       tools::private_file rpc_login_file;
       std::atomic<bool> m_stop;
+      std::atomic<bool> m_teardown;
+      std::atomic<unsigned> m_stop_refresh_active;
+      std::atomic<bool> m_wallet_swap_active;
       bool m_restricted;
       const boost::program_options::variables_map *m_vm;
       std::atomic<uint32_t> m_auto_refresh_period;
