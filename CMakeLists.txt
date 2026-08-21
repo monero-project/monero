@@ -953,6 +953,7 @@ endif()
 add_definitions(-DBOOST_ASIO_ENABLE_SEQUENTIAL_STRAND_ALLOCATION)
 add_definitions(-DBOOST_NO_AUTO_PTR)
 add_definitions(-DBOOST_UUID_DISABLE_ALIGNMENT) # This restores UUID's std::has_unique_object_representations property
+add_definitions(-DBOOST_THREAD_V2_SHARED_MUTEX) # Avoids writer starvation in boost::shared_mutex
 
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 if(MINGW)

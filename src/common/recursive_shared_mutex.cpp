@@ -28,7 +28,7 @@
 
 #include "recursive_shared_mutex.h"
 
-#include <cassert>
+#include "misc_log_ex.h"
 
 namespace tools
 {
@@ -46,7 +46,8 @@ recursive_shared_mutex::recursive_shared_mutex()
 void recursive_shared_mutex::lock()
 {
     access_counter_t& access = thread_local_access_per_mutex[m_slot];
-    assert(0 == access || access & write_bit);
+    CHECK_AND_ASSERT_THROW_MES(0 == access || (access & write_bit),
+        "recursive_shared_mutex::lock(): thread already holds the shared lock; upgrading shared to exclusive is not supported");
 
     if (!access) m_rw_mutex.lock();
 
@@ -56,7 +57,8 @@ void recursive_shared_mutex::lock()
 bool recursive_shared_mutex::try_lock()
 {
     access_counter_t& access = thread_local_access_per_mutex[m_slot];
-    assert(0 == access || access & write_bit);
+    CHECK_AND_ASSERT_THROW_MES(0 == access || (access & write_bit),
+        "recursive_shared_mutex::try_lock(): thread already holds the shared lock; upgrading shared to exclusive is not supported");
 
     if (access || m_rw_mutex.try_lock())
     {
@@ -71,9 +73,13 @@ bool recursive_shared_mutex::try_lock()
 
 void recursive_shared_mutex::unlock()
 {
-    access_counter_t& access = thread_local_access_per_mutex[m_slot];
-    assert(access & depth_mask);
+    const auto it = thread_local_access_per_mutex.find(m_slot);
+    CHECK_AND_ASSERT_THROW_MES(it != thread_local_access_per_mutex.end() && (it->second & depth_mask),
+        "recursive_shared_mutex::unlock(): unlock() called without holding the exclusive lock");
+    CHECK_AND_ASSERT_THROW_MES(it->second & write_bit,
+        "recursive_shared_mutex::unlock(): thread holds the shared lock, not the exclusive lock; call unlock_shared() instead");
 
+    access_counter_t& access = it->second;
     const bool still_held = --access & depth_mask;
     if (!still_held)
     {
@@ -106,8 +112,14 @@ bool recursive_shared_mutex::try_lock_shared()
 
 void recursive_shared_mutex::unlock_shared()
 {
-    access_counter_t& access = thread_local_access_per_mutex[m_slot];
-    assert(access & depth_mask);
+    const auto it = thread_local_access_per_mutex.find(m_slot);
+    CHECK_AND_ASSERT_THROW_MES(it != thread_local_access_per_mutex.end() && (it->second & depth_mask),
+        "recursive_shared_mutex::unlock_shared(): unlock_shared() called without holding the lock");
+
+    access_counter_t& access = it->second;
+    const bool releasing_outermost = 1 == (access & depth_mask);
+    CHECK_AND_ASSERT_THROW_MES(!releasing_outermost || !(access & write_bit),
+        "recursive_shared_mutex::unlock_shared(): thread holds the exclusive lock; call unlock() instead");
 
     const bool still_held = --access & depth_mask;
     if (!still_held)
