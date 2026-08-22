@@ -85,6 +85,7 @@ namespace epee
       m_net_server.get_config_object().m_access_control_origins = std::move(access_control_origins);
 
       m_net_server.get_config_object().m_user = std::move(user);
+      m_net_server.get_config_object().m_auth.reset();
       m_net_server.get_config_object().m_max_public_ip_connections = max_public_ip_connections;
       m_net_server.get_config_object().m_max_private_ip_connections = max_private_ip_connections;
       m_net_server.get_config_object().m_max_connections = max_connections;
