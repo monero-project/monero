@@ -198,6 +198,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_use_ipv6);
     command_line::add_arg(desc, arg_p2p_ignore_ipv4);
     command_line::add_arg(desc, arg_p2p_external_port);
+    command_line::add_arg(desc, arg_p2p_external_ip);
     command_line::add_arg(desc, arg_p2p_allow_local_ip);
     command_line::add_arg(desc, arg_p2p_add_peer);
     command_line::add_arg(desc, arg_p2p_add_priority_node);
@@ -569,7 +570,46 @@ namespace nodetool
     public_zone.m_port_ipv6 = command_line::get_arg(vm, arg_p2p_bind_port_ipv6);
     public_zone.m_can_pingback = true;
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
+    m_external_ip = command_line::get_arg(vm, arg_p2p_external_ip);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
+    if (!command_line::is_arg_defaulted(vm, arg_p2p_external_ip) && !m_external_ip.empty())
+    {
+      std::string host_str;
+      std::string port_str;
+      net::get_network_address_host_and_port(m_external_ip, host_str, port_str);
+      if (!port_str.empty())
+      {
+        MERROR("--p2p-external-ip only accepts an IP address. Use --p2p-external-port to specify a port.");
+        return false;
+      } 
+      std::uint16_t final_port = m_external_port;
+      if (!final_port)
+      {
+        const std::uint16_t default_p2p_port = cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT;
+        std::uint16_t bind_port = 0;
+        epee::string_tools::get_xtype_from_string(bind_port, public_zone.m_port);
+        final_port = bind_port ? bind_port : default_p2p_port;
+      }
+      expect<epee::net_utils::network_address> adr = net::get_network_address(host_str, final_port);
+      if (!adr)
+      {
+        MERROR("Failed to parse external IP \"" << m_external_ip << "\": " << adr.error().message());
+        return false;
+      }
+      if (adr->get_zone() != epee::net_utils::zone::public_)
+      {
+        MERROR("External IP \"" << m_external_ip << "\" is not in public network zone");
+        return false;
+      }
+      if (!m_allow_local_ip && (adr->is_loopback() || adr->is_local()))
+      {
+        MERROR("External IP \"" << m_external_ip << "\" is local or loopback address. Use --allow-local-ip to allow.");
+        return false;
+      }
+      public_zone.m_our_address = std::move(*adr);
+      m_external_port = final_port;
+      MINFO("External address defined as " << public_zone.m_our_address.str());
+    }
     if (!command_line::is_arg_defaulted(vm, arg_igd))
     {
       MWARNING("UPnP port mapping support was removed. The --igd option is currently non-functional.");
@@ -1120,6 +1160,8 @@ namespace nodetool
     }
     if(m_external_port)
       MDEBUG("External port defined as " << m_external_port);
+    if(public_zone.m_our_address.get_zone() == epee::net_utils::zone::public_)
+      MDEBUG("External address defined as " << public_zone.m_our_address.str());
 
     return res;
   }
@@ -2211,6 +2253,18 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::get_our_address(epee::net_utils::network_address& address, epee::net_utils::zone zone) const
+  {
+    auto it = m_network_zones.find(zone);
+    if (it != m_network_zones.end())
+    {
+      address = it->second.m_our_address;
+      return true;
+    }
+    return false;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::idle_worker()
   {
     m_peer_handshake_idle_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::peer_sync_idle_maker, this));
@@ -2671,7 +2725,7 @@ namespace nodetool
     network_zone& zone = m_network_zones.at(zone_type);
 
     //will add self to peerlist if in same zone as outgoing later in this function
-    const bool outgoing_to_same_zone = !context.m_is_income && zone.m_our_address.get_zone() == zone_type;
+    const bool outgoing_to_same_zone = !context.m_is_income && !m_hide_my_port && zone.m_our_address.get_zone() == zone_type;
     const uint32_t max_peerlist_size = P2P_DEFAULT_PEERS_IN_HANDSHAKE - (outgoing_to_same_zone ? 1 : 0);
 
     std::vector<peerlist_entry> local_peerlist_new;
@@ -2682,7 +2736,8 @@ namespace nodetool
 
     /* Tor/I2P nodes receiving connections via forwarding (from tor/i2p daemon)
     do not know the address of the connecting peer. This is relayed to them,
-    iff the node has setup an inbound hidden service.
+    iff the node has setup an inbound hidden service. Similarly, clearnet nodes 
+    with an advertised external address relay it.
 
     \note Insert into `local_peerlist_new` so that it is only sent once like
       the other peers. */
