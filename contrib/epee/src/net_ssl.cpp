@@ -556,7 +556,8 @@ bool ssl_options_t::handshake(
   boost::asio::ssl::stream_base::handshake_type type,
   boost::asio::const_buffer buffer,
   const std::string& host,
-  std::chrono::milliseconds timeout) const
+  std::chrono::milliseconds timeout,
+  const std::function<bool()>& abort_requested) const
 {
   configure(socket, type, host);
 
@@ -610,6 +611,15 @@ bool ssl_options_t::handshake(
     boost::asio::post(
       strand,
       [&]{
+        std::lock_guard<std::mutex> guard(state.lock);
+        if (state.cancel_handshake) {
+          // cancelled before the socket operation could start: finish here so
+          // the cancelling side cannot leave a handshake running unattended
+          state.wait_handshake = false;
+          state.result = boost::asio::error::operation_aborted;
+          state.condition.notify_all();
+          return;
+        }
         socket.async_handshake(
           type,
           boost::asio::buffer(buffer),
@@ -618,10 +628,28 @@ bool ssl_options_t::handshake(
       }
     );
 
+    bool aborted = false;
     while (!io_context.stopped())
     {
       io_context.poll_one();
       std::lock_guard<std::mutex> guard(state.lock);
+      if (!aborted && abort_requested && abort_requested())
+      {
+        // abort from another thread: close the socket so the handshake cannot
+        // stall again, then keep pumping until both handlers have finished
+        aborted = true;
+        if (state.wait_handshake && !state.cancel_handshake)
+        {
+          state.cancel_handshake = true;
+          ec_t ec;
+          socket.next_layer().close(ec);
+        }
+        if (state.wait_timer && !state.cancel_timer)
+        {
+          state.cancel_timer = true;
+          deadline.cancel();
+        }
+      }
       state.condition.wait_for(
         state.lock,
         std::chrono::milliseconds(30),
