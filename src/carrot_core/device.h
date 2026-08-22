@@ -137,7 +137,7 @@ struct view_incoming_key_device
 
     /**
      * @brief Derive a janus anchor for "special" enotes
-     *   anchor_sp = H_16(D_e, input_context, Ko, k_v)
+     *   anchor_sp = H_16[k_v](D_e, input_context, Ko)
      * @param enote_ephemeral_pubkey D_e
      * @param input_context input_context
      * @param account_spend_pubkey K_s
