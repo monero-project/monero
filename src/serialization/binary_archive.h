@@ -129,7 +129,7 @@ struct binary_archive<false> : public binary_archive_base<false>
       v = 0; // ensures initialization
   }
   
-  void serialize_blob(void *buf, size_t len, const char *delimiter="")
+  void serialize_blob(void *buf, size_t len)
   {
     const std::size_t actual = bytes_.remove_prefix(len);
     good_ &= (len == actual);
@@ -160,9 +160,6 @@ struct binary_archive<false> : public binary_archive_base<false>
   void begin_array() { }
   void delimit_array() { }
   void end_array() { }
-
-  void begin_string(const char *delimiter /*="\""*/) { }
-  void end_string(const char *delimiter   /*="\""*/) { }
 
   void read_variant_tag(variant_tag_type &t) {
     serialize_int(t);
@@ -203,7 +200,7 @@ struct binary_archive<true> : public binary_archive_base<true>
     }
   }
 
-  void serialize_blob(void *buf, size_t len, const char *delimiter="")
+  void serialize_blob(void *buf, size_t len)
   {
     stream_.write((char *)buf, len);
   }
@@ -227,9 +224,6 @@ struct binary_archive<true> : public binary_archive_base<true>
   void begin_array() { }
   void delimit_array() { }
   void end_array() { }
-
-  void begin_string(const char *delimiter="\"") { }
-  void end_string(const char *delimiter="\"") { }
 
   void write_variant_tag(variant_tag_type t) {
     serialize_int(t);
