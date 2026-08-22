@@ -240,6 +240,7 @@ namespace nodetool
     node_server(t_payload_net_handler& payload_handler)
       : m_payload_handler(payload_handler),
         m_external_port(0),
+        m_external_ip(),
         m_rpc_port(0),
         m_allow_local_ip(false),
         m_hide_my_port(false),
@@ -271,6 +272,7 @@ namespace nodetool
     size_t get_public_gray_peers_count();
     void get_public_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
     void get_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
+    bool get_our_address(epee::net_utils::network_address& address, epee::net_utils::zone zone = epee::net_utils::zone::public_) const;
 
     void change_max_out_public_peers(size_t count);
     uint32_t get_max_out_public_peers() const;
@@ -425,6 +427,7 @@ namespace nodetool
     uint32_t m_listening_port;
     uint32_t m_listening_port_ipv6;
     uint32_t m_external_port;
+    std::string m_external_ip;
     uint16_t m_rpc_port;
     bool m_allow_local_ip;
     bool m_hide_my_port;
@@ -497,6 +500,7 @@ namespace nodetool
     extern const command_line::arg_descriptor<bool>        arg_p2p_use_ipv6;
     extern const command_line::arg_descriptor<bool>        arg_p2p_ignore_ipv4;
     extern const command_line::arg_descriptor<uint32_t>    arg_p2p_external_port;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_external_ip;
     extern const command_line::arg_descriptor<bool>        arg_p2p_allow_local_ip;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_peer;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_priority_node;
