@@ -204,7 +204,8 @@ bool try_make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key 
     ge_scalarmult_p3(&D_e_in_ed25519, to_bytes(enote_ephemeral_privkey), &address_spend_pubkey_p3);
 
     // D_e = ConvertPointE(K_e)
-    ge_p3_to_x25519(enote_ephemeral_pubkey_out.data, &D_e_in_ed25519);
+    if (0 != ge_p3_to_x25519(enote_ephemeral_pubkey_out.data, &D_e_in_ed25519))
+        return false;
 
     return true;
 }

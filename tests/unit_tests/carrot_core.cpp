@@ -3069,3 +3069,99 @@ TEST(carrot_core, tx_inout_proof_special_2out_2selfsend_subaddr)
         boost::none, s_sender_receiver_ed25519, sig, /*version=*/2));
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, scan_binding_identity_De_identity_Kjs)
+{
+    // An enote with an "identity" D_e and identity K^j_s shouldn't scan for a rando account,
+    // otherwise DoS on subaddress-map-less scanners is possible.
+
+    // (It's not really an identity, but it acts like it in the Montgomery ladder for scalar-point multiplication)
+    static constexpr crypto::x25519_pubkey x25519_identity = {};
+    // See rct::I
+    static constexpr crypto::public_key ed25519_identity = {
+        { 0x01}
+    };
+
+    {
+        // Anything times this "identity" representation should be itself
+        crypto::x25519_secret_key k;
+        crypto::generate_random_bytes_thread_safe(sizeof(k), k.data);
+        crypto::x25519_pubkey Q;
+        crypto::x25519_scmul_key_unclamped(k, x25519_identity, Q);
+        ASSERT_EQ(0, memcmp(Q.data, x25519_identity.data, 32));
+    }
+
+    const crypto::key_image tx_first_key_image{{2, 0, 2, 6, 0, 8, 2, 2}};
+    const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
+
+    // Use s_sr = D_e = 0, since for any d_e, s_sr = D_e = d_e D_e = 0
+    const crypto::x25519_pubkey &s_sender_receiver = x25519_identity;
+
+    crypto::hash s_sender_receiver_ctx;
+    make_carrot_contextualized_sender_receiver_secret(s_sender_receiver.data, x25519_identity, input_context,
+        s_sender_receiver_ctx);
+
+    const xmr_amount amount = 0;
+    const CarrotEnoteType enote_type = CarrotEnoteType::PAYMENT;
+
+    crypto::secret_key amount_blinding_factor;
+    make_carrot_amount_blinding_factor(s_sender_receiver_ctx, amount, ed25519_identity, enote_type,
+        amount_blinding_factor);
+
+    const amount_commitment_t amount_commitment = commit_carrot_amount(amount, amount_blinding_factor);
+
+    crypto::public_key onetime_address;
+    ASSERT_TRUE(try_make_carrot_onetime_address(ed25519_identity, s_sender_receiver_ctx, amount_commitment,
+        onetime_address));
+
+    const encrypted_amount_t amount_enc = encrypt_carrot_amount(amount, s_sender_receiver_ctx, onetime_address);
+    const encrypted_janus_anchor_t anchor_enc = gen_janus_anchor();
+    view_tag_t view_tag;
+    make_carrot_view_tag(x25519_identity.data, input_context, onetime_address, view_tag);
+
+    const CarrotEnoteV1 attack_enote{
+        onetime_address,
+        amount_commitment,
+        amount_enc,
+        anchor_enc,
+        view_tag,
+        x25519_identity,
+        tx_first_key_image
+    };
+
+    // Generate completely random K_s, k_v pair
+    crypto::public_key main_address_spend_pubkey = mock::gen_public_key();
+    crypto::secret_key k_view_incoming = mock::gen_secret_key();
+    const view_incoming_key_ram_borrowed_device k_view_incoming_dev(k_view_incoming);
+
+    for (int odd_kv = 0; odd_kv < 2; ++odd_kv)
+    {
+        // Set LSB of k_v based on `odd_kv`
+        unsigned char *p_k_view = reinterpret_cast<unsigned char*>(k_view_incoming.data);
+        if (odd_kv)
+            *p_k_view |= 0x01;
+        else
+            *p_k_view &= 0xfe;
+
+        // This should return false for random k_v scanner
+        crypto::secret_key recovered_sender_extension_g;
+        crypto::secret_key recovered_sender_extension_t;
+        crypto::public_key recovered_address_spend_pubkey;
+        xmr_amount recovered_amount;
+        crypto::secret_key recovered_amount_blinding_factor;
+        payment_id_t recovered_payment_id;
+        CarrotEnoteType recovered_enote_type;
+        ASSERT_FALSE(try_scan_carrot_enote_external_receiver(attack_enote,
+            std::nullopt,
+            s_sender_receiver,
+            {&main_address_spend_pubkey, 1},
+            k_view_incoming_dev,
+            recovered_sender_extension_g,
+            recovered_sender_extension_t,
+            recovered_address_spend_pubkey,
+            recovered_amount,
+            recovered_amount_blinding_factor,
+            recovered_payment_id,
+            recovered_enote_type));
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
