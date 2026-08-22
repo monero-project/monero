@@ -30,6 +30,7 @@
 #define _NET_SSL_H
 
 #include <chrono>
+#include <functional>
 #include <stdint.h>
 #include <string>
 #include <vector>
@@ -134,6 +135,8 @@ namespace net_utils
           situations where multiple hostnames are being handled by a server. If
           `verification == system_ca` the client also does a rfc2818 check to
           ensure that the server certificate is to the provided hostname.
+        \param abort_requested Polled while waiting; when it returns true the
+          handshake is cancelled and fails instead of running to `timeout`.
 
         \return True if the SSL handshake completes with peer verification
           settings. */
@@ -143,7 +146,8 @@ namespace net_utils
       boost::asio::ssl::stream_base::handshake_type type,
       boost::asio::const_buffer buffer = {},
       const std::string& host = {},
-      std::chrono::milliseconds timeout = std::chrono::seconds(15)) const;
+      std::chrono::milliseconds timeout = std::chrono::seconds(15),
+      const std::function<bool()>& abort_requested = nullptr) const;
   };
 
         // https://security.stackexchange.com/questions/34780/checking-client-hello-for-https-classification
