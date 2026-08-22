@@ -2900,7 +2900,7 @@ namespace cryptonote
           return false;
         }
 
-        res.distributions.push_back({std::move(*data), amount, "", req.binary, req.compress});
+        res.distributions.push_back({std::move(*data), amount, req.binary, true});
       }
     }
     catch (const std::exception &e)
@@ -2945,7 +2945,7 @@ namespace cryptonote
           return true;
         }
 
-        res.distributions.push_back({std::move(*data), amount, "", req.binary, req.compress});
+        res.distributions.push_back({std::move(*data), amount, req.binary, true});
       }
     }
     catch (const std::exception &e)
