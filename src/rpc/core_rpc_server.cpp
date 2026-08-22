@@ -2863,12 +2863,17 @@ namespace cryptonote
   {
     RPC_TRACKER(get_txpool_backlog);
 
+    const bool restricted = m_restricted && ctx;
     if (!m_core.get_txpool_backlog(res.backlog))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Failed to get txpool backlog";
       return false;
     }
+
+    if (restricted)
+      for (tx_backlog_entry& entry : res.backlog)
+        entry.time_in_pool = 0;
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
