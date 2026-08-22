@@ -315,7 +315,7 @@ namespace
     boost::filesystem::remove_all(path, ec);
   }
 
-  boost::program_options::variables_map make_regtest_options(const path_t& dir)
+  boost::program_options::variables_map make_regtest_options(const path_t& dir, std::vector<std::string> extra_args = {})
   {
     boost::program_options::options_description desc;
     cryptonote::core::init_options(desc);
@@ -332,6 +332,7 @@ namespace
       "--disable-dns-checkpoints",
       "--offline",
     };
+    args.insert(args.end(), extra_args.begin(), extra_args.end());
 
     boost::program_options::variables_map vm;
     boost::program_options::store(
@@ -1620,6 +1621,156 @@ TEST(regtest, isolates_p2p_state_from_mainnet_data_dir)
   nodetool::peerlist_types regtest_public = regtest_storage->take_zone(epee::net_utils::zone::public_);
   EXPECT_TRUE(regtest_public.white.empty());
   EXPECT_TRUE(regtest_public.gray.empty());
+}
+
+TEST(node_server, external_ip_valid)
+{
+  const path_t dir = create_temp_dir("external_ip-%%%%%%%%%%%%%%%%");
+  ASSERT_TRUE(!dir.empty());
+  const epee::scope_guard cleanup([&dir]{
+    remove_tree(dir);
+  });
+
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  const auto vm = make_regtest_options(dir, {"--p2p-external-ip=198.51.100.1"});
+  ASSERT_TRUE(server.init(vm));
+
+  epee::net_utils::network_address our_addr;
+  ASSERT_TRUE(server.get_our_address(our_addr, epee::net_utils::zone::public_));
+  EXPECT_EQ(our_addr.host_str(), "198.51.100.1");
+  EXPECT_EQ(our_addr.port(), ::config::P2P_DEFAULT_PORT);
+}
+
+TEST(node_server, external_ip_with_custom_port)
+{
+  const path_t dir = create_temp_dir("external_ip-%%%%%%%%%%%%%%%%");
+  ASSERT_TRUE(!dir.empty());
+  const epee::scope_guard cleanup([&dir]{
+    remove_tree(dir);
+  });
+
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  const auto vm = make_regtest_options(dir, {"--p2p-external-ip=198.51.100.1:28080"});
+  ASSERT_TRUE(server.init(vm));
+
+  epee::net_utils::network_address our_addr;
+  ASSERT_TRUE(server.get_our_address(our_addr, epee::net_utils::zone::public_));
+  EXPECT_EQ(our_addr.host_str(), "198.51.100.1");
+  EXPECT_EQ(our_addr.port(), 28080);
+  ASSERT_TRUE(server.deinit());
+}
+
+TEST(node_server, external_ip_combined_with_external_port)
+{
+  const path_t dir = create_temp_dir("external_ip-%%%%%%%%%%%%%%%%");
+  ASSERT_TRUE(!dir.empty());
+  const epee::scope_guard cleanup([&dir]{
+    remove_tree(dir);
+  });
+
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  const auto vm = make_regtest_options(dir, {"--p2p-external-ip=198.51.100.1", "--p2p-external-port=38080"});
+  ASSERT_TRUE(server.init(vm));
+
+  epee::net_utils::network_address our_addr;
+  ASSERT_TRUE(server.get_our_address(our_addr, epee::net_utils::zone::public_));
+  EXPECT_EQ(our_addr.host_str(), "198.51.100.1");
+  EXPECT_EQ(our_addr.port(), 38080);
+  ASSERT_TRUE(server.deinit());
+}
+
+TEST(node_server, external_ip_invalid_format)
+{
+  const path_t dir = create_temp_dir("external_ip-%%%%%%%%%%%%%%%%");
+  ASSERT_TRUE(!dir.empty());
+  const epee::scope_guard cleanup([&dir]{
+    remove_tree(dir);
+  });
+
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  const auto vm = make_regtest_options(dir, {"--p2p-external-ip=invalid_ip_string"});
+  EXPECT_FALSE(server.init(vm));
+}
+
+TEST(node_server, external_ip_local_rejected_without_allow_local)
+{
+  const path_t dir = create_temp_dir("external_ip-%%%%%%%%%%%%%%%%");
+  ASSERT_TRUE(!dir.empty());
+  const epee::scope_guard cleanup([&dir]{
+    remove_tree(dir);
+  });
+
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  const auto vm = make_regtest_options(dir, {"--p2p-external-ip=127.0.0.1"});
+  EXPECT_FALSE(server.init(vm));
+
+  const auto vm_private = make_regtest_options(dir, {"--p2p-external-ip=192.168.1.1"});
+  EXPECT_FALSE(server.init(vm_private));
+}
+
+TEST(node_server, external_ip_local_allowed_with_allow_local)
+{
+  const path_t dir = create_temp_dir("external_ip-%%%%%%%%%%%%%%%%");
+  ASSERT_TRUE(!dir.empty());
+  const epee::scope_guard cleanup([&dir]{
+    remove_tree(dir);
+  });
+
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  const auto vm = make_regtest_options(dir, {"--p2p-external-ip=192.168.1.1", "--allow-local-ip"});
+  ASSERT_TRUE(server.init(vm));
+
+  epee::net_utils::network_address our_addr;
+  ASSERT_TRUE(server.get_our_address(our_addr, epee::net_utils::zone::public_));
+  EXPECT_EQ(our_addr.host_str(), "192.168.1.1");
+  ASSERT_TRUE(server.deinit());
+}
+
+TEST(node_server, external_ip_valid_ipv6)
+{
+  const path_t dir = create_temp_dir("external_ip-%%%%%%%%%%%%%%%%");
+  ASSERT_TRUE(!dir.empty());
+  const epee::scope_guard cleanup([&dir]{
+    remove_tree(dir);
+  });
+
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  const auto vm = make_regtest_options(dir, {"--p2p-external-ip=[2001:db8::1]:18080"});
+  ASSERT_TRUE(server.init(vm));
+
+  epee::net_utils::network_address our_addr;
+  ASSERT_TRUE(server.get_our_address(our_addr, epee::net_utils::zone::public_));
+  EXPECT_EQ(our_addr.host_str(), "2001:db8::1");
+  EXPECT_EQ(our_addr.port(), 18080);
+  ASSERT_TRUE(server.deinit());
 }
 
 namespace nodetool { template class node_server<cryptonote::t_cryptonote_protocol_handler<test_core>>; }
