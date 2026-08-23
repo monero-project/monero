@@ -118,6 +118,10 @@ file(MAKE_DIRECTORY "${FCMP_PP_RUST_HEADER_DIR}")
 
 file(REMOVE "${FCMP_PP_RUST_LIB}")
 
+if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
+  set(CARGO_JOB_SERVER_AWARE JOB_SERVER_AWARE TRUE)
+endif()
+
 add_custom_command(
   COMMENT "Building fcmp++ rust lib"
   OUTPUT ${FCMP_PP_RUST_HEADER}
@@ -127,6 +131,7 @@ add_custom_command(
   COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/${RUST_TARGET}/${TARGET_DIR}/libfcmp_pp_rust.a ${FCMP_PP_RUST_LIB}
   COMMAND echo "Finished copying fcmp++ rust targets"
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  ${CARGO_JOB_SERVER_AWARE}
   VERBATIM
 )
 
