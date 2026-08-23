@@ -26,6 +26,8 @@
 
 #pragma once
 #include <boost/asio/steady_timer.hpp>
+#include <boost/thread/lock_types.hpp>
+#include <boost/thread/mutex.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/unordered_map.hpp>
 
@@ -196,7 +198,6 @@ public:
     virtual int command() const noexcept=0;
     virtual bool handle(int res, const epee::span<const uint8_t> buff, connection_context& context)=0;
     virtual void cancel()=0;
-    virtual bool cancel_timer()=0;
     virtual bool reset_timer(bool first)=0;
   };
   template <class callback_t>
@@ -207,13 +208,15 @@ public:
     callback_t m_cb;
     const std::chrono::milliseconds m_timeout;
     const int m_command;
-    bool m_cancel_timer_called;
-    bool m_timer_cancelled;
+    boost::mutex m_sync; // for callback
 
     void failure(const int rc)
     {
       std::shared_ptr<net_utils::service_endpoint<derived_handler>> con;
+      boost::unique_lock<boost::mutex> lock{m_sync};
       m_con.swap(con);
+      m_timer.cancel();
+      lock.unlock();
       if (!con)
         return;
 
@@ -232,8 +235,7 @@ public:
         m_cb(std::forward<F>(cb)),
         m_timeout(timeout),
         m_command(command),
-        m_cancel_timer_called(false),
-        m_timer_cancelled(false)
+        m_sync()
     {
       if (!m_con)
         throw std::logic_error{"Unexpected nullptr connection"};
@@ -251,44 +253,42 @@ public:
    
     virtual bool handle(int res, const epee::span<const uint8_t> buff, typename async_protocol_handler::connection_context& context) override final
     {
-      if(!cancel_timer())
-        return false;
-
       std::shared_ptr<net_utils::service_endpoint<derived_handler>> con;
+      boost::unique_lock<boost::mutex> lock{m_sync};
       m_con.swap(con);
+      m_timer.cancel();
+      lock.unlock();
+
       if (con)
         m_cb(res, buff, context);
-      return true;
+      return bool(con);
     }
     virtual void cancel() override final
     {
-      if(cancel_timer())
-        failure(LEVIN_ERROR_CONNECTION_DESTROYED);
+      failure(LEVIN_ERROR_CONNECTION_DESTROYED);
     }
-    virtual bool cancel_timer() override final
-    {
-      if(!m_cancel_timer_called)
-      {
-        m_cancel_timer_called = true;
-        m_timer_cancelled = 1 == m_timer.cancel();
-      }
-      return m_timer_cancelled;
-    }
+
     virtual bool reset_timer(bool first) override final
     {
       if (m_command == connection_context::handshake_command() && !first)
         return true;
-      std::shared_ptr<anvoke_handler> self;
-      if (!m_cancel_timer_called && (self = this->weak_from_this().lock()) && (first || m_timer.cancel() > 0))
+
+      auto self = this->weak_from_this().lock();
+      if (self)
       {
-        m_timer.expires_after(m_timeout);
-        m_timer.async_wait([self = std::move(self)](const boost::system::error_code& ec)
+        const boost::lock_guard<boost::mutex> lock{m_sync};
+        if (first || self->m_timer.cancel() > 0)
         {
-          if(ec != boost::asio::error::operation_aborted)
-            self->failure(LEVIN_ERROR_CONNECTION_TIMEDOUT);
-        });
-        return true;
+          m_timer.expires_after(m_timeout);
+          m_timer.async_wait([self = std::move(self)] (const boost::system::error_code& ec)
+          {
+            if (ec != boost::asio::error::operation_aborted)
+              self->failure(LEVIN_ERROR_CONNECTION_TIMEDOUT);
+          });
+          return true;
+        }
       }
+
       return false;
     }
   };
@@ -527,13 +527,10 @@ public:
             if(!m_invoke_response_handlers.empty())
             {//async call scenario
               const std::shared_ptr<invoke_response_handler_base> response_handler = m_invoke_response_handlers.front().lock();
-              bool timer_cancelled = false;
-              if (response_handler)
-                timer_cancelled = response_handler->cancel_timer();
               m_invoke_response_handlers.pop_front();
               invoke_response_handlers_guard.unlock();
 
-              if(timer_cancelled)
+              if (response_handler)
                 response_handler->handle(m_current_head.m_return_code, buff_to_invoke, m_connection_context);
             }
             else
