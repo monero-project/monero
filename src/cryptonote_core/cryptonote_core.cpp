@@ -382,6 +382,13 @@ namespace cryptonote
 
     epee::debug::g_test_dbg_lock_sleep() = command_line::get_arg(vm, arg_test_dbg_lock_sleep);
 
+    block_sync_size = command_line::get_arg(vm, arg_block_sync_size);
+    if (block_sync_size > CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT)
+    {
+      MERROR("Error --block-sync-size cannot be greater than " << CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT);
+      return false;
+    }
+
     return true;
   }
   //-----------------------------------------------------------------------------------------------
@@ -680,10 +687,6 @@ namespace cryptonote
     bool show_time_stats = command_line::get_arg(vm, arg_show_time_stats) != 0;
     m_blockchain_storage.set_show_time_stats(show_time_stats);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
-
-    block_sync_size = command_line::get_arg(vm, arg_block_sync_size);
-    if (block_sync_size > BLOCKS_SYNCHRONIZING_MAX_COUNT)
-      MERROR("Error --block-sync-size cannot be greater than " << BLOCKS_SYNCHRONIZING_MAX_COUNT);
 
     if(block_sync_size)
       MWARNING("When --block-sync-size defined, the --batch-max-weight is not going to have any effect.");
