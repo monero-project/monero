@@ -8648,7 +8648,7 @@ fee_priority wallet2::adjust_priority(fee_priority priority)
       if (blocks.size() != 1)
       {
         MERROR("Bad estimated backlog array size");
-        return priority;
+        return fee_priority::Unimportant;
       }
       else if (blocks[0].first > 0)
       {
@@ -8660,7 +8660,7 @@ fee_priority wallet2::adjust_priority(fee_priority priority)
       uint64_t block_weight_limit = 0;
       const auto result = m_node_rpc_proxy.get_block_weight_limit(block_weight_limit);
       if (result)
-        return priority;
+        return fee_priority::Unimportant;
       const uint64_t full_reward_zone = block_weight_limit / 2;
 
       // get the last N block headers and sum the block sizes
@@ -8668,7 +8668,7 @@ fee_priority wallet2::adjust_priority(fee_priority priority)
       if (m_blockchain.size() < N)
       {
         MERROR("The blockchain is too short");
-        return priority;
+        return fee_priority::Unimportant;
       }
       cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request getbh_req = AUTO_VAL_INIT(getbh_req);
       cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response getbh_res = AUTO_VAL_INIT(getbh_res);
@@ -8684,7 +8684,7 @@ fee_priority wallet2::adjust_priority(fee_priority priority)
       if (getbh_res.headers.size() != N)
       {
         MERROR("Bad blockheaders size");
-        return priority;
+        return fee_priority::Unimportant;
       }
       size_t block_weight_sum = 0;
       for (const cryptonote::block_header_response &i : getbh_res.headers)
@@ -8707,6 +8707,7 @@ fee_priority wallet2::adjust_priority(fee_priority priority)
     {
       MERROR(e.what());
     }
+    return fee_priority::Unimportant; // fall back to low priority on failure, matching get_base_fee's handling of Default
   }
   return priority;
 }
