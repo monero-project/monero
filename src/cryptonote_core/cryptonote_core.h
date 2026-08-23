@@ -505,19 +505,15 @@ namespace cryptonote
 
      /**
       * @copydoc tx_memory_pool::get_pool_transactions_and_spent_keys_info
-      * @param include_sensitive_txes include private transactions
-      *
       * @note see tx_memory_pool::get_pool_transactions_and_spent_keys_info
       */
-     bool get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_txes = false) const;
+     bool get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
 
      /**
       * @copydoc tx_memory_pool::get_pool_for_rpc
-      * @param include_sensitive include node-private fields (timing)
-      *
       * @note see tx_memory_pool::get_pool_for_rpc
       */
-     bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos, bool include_sensitive) const;
+     bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const;
 
      /**
       * @copydoc tx_memory_pool::get_transactions_count

@@ -39,9 +39,10 @@ namespace rpc
 {
   namespace
   {
-    constexpr std::array<std::string_view, 9> blocked_in_restricted_mode{{
+    constexpr std::array<std::string_view, 10> blocked_in_restricted_mode{{
       "flush_txpool",
       "get_peer_list",
+      "get_transaction_pool",
       "mining_status",
       "relay_tx",
       "save_bc",
