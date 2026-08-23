@@ -4618,14 +4618,18 @@ std::string simple_wallet::get_mnemonic_language()
   return language_list_self[language_number];
 }
 //----------------------------------------------------------------------------------------------------
-boost::optional<tools::password_container> simple_wallet::get_and_verify_password() const
+boost::optional<tools::password_container> simple_wallet::get_and_verify_password(bool *read_failed) const
 {
+  if (read_failed) *read_failed = false;
   const bool verify = m_wallet_file.empty();
   auto pwd_container = (m_wallet->is_background_wallet() && m_wallet->background_sync_type() == tools::wallet2::BackgroundSyncCustomPassword)
     ? background_sync_cache_password_prompter(verify)
     : default_password_prompter(verify);
   if (!pwd_container)
+  {
+    if (read_failed) *read_failed = true;
     return boost::none;
+  }
 
   if (!m_wallet->verify_password(pwd_container->password()))
   {
@@ -6208,6 +6212,7 @@ bool simple_wallet::prompt_if_old(const std::vector<tools::wallet2::pending_tx> 
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::check_for_inactivity_lock(bool user)
 {
+  bool close_wallet = false;
   if (m_locked)
   {
 #ifdef HAVE_READLINE
@@ -6269,7 +6274,8 @@ void simple_wallet::check_for_inactivity_lock(bool user)
       }
       try
       {
-        const auto pwd_container = get_and_verify_password();
+        bool read_failed = false;
+        const auto pwd_container = get_and_verify_password(&read_failed);
         if (pwd_container)
         {
           if (started_background_sync)
@@ -6277,6 +6283,12 @@ void simple_wallet::check_for_inactivity_lock(bool user)
             LOCK_IDLE_SCOPE();
             m_wallet->stop_background_sync(pwd_container->password());
           }
+          break;
+        }
+        if (read_failed)
+        {
+          // Password read was interrupted; close the wallet instead of looping back to the prompt
+          close_wallet = true;
           break;
         }
       }
@@ -6297,6 +6309,7 @@ void simple_wallet::check_for_inactivity_lock(bool user)
     m_in_command = false;
     m_locked = false;
   }
+  if (close_wallet) stop();
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::on_command(bool (simple_wallet::*cmd)(const std::vector<std::string>&), const std::vector<std::string> &args)
