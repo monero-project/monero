@@ -318,12 +318,9 @@ namespace cryptonote
      *
      * @param tx_infos return-by-reference the transactions' information
      * @param key_image_infos return-by-reference the spent key images' information
-     * @param include_sensitive_data return stempool, anonymity-pool, and unrelayed
-     *    txes and fields that are sensitive to the node privacy
-     *
      * @return true
      */
-    bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_data = false) const;
+    bool get_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
 
     /**
      * @brief get information about all transactions and key images in the pool
@@ -332,11 +329,9 @@ namespace cryptonote
      *
      * @param tx_infos [out] the transactions' information
      * @param key_image_infos [out] the spent key images' information
-     * @param include_sensitive include fields that are sensitive to node privacy
-     *
      * @return true
      */
-    bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos, bool include_sensitive) const;
+    bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const;
 
     /**
      * @brief check for presence of key images in the pool
