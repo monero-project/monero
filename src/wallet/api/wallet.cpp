@@ -2526,7 +2526,10 @@ void WalletImpl::pendingTxPostProcess(PendingTransactionImpl * pending)
 
 bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_address, uint64_t upper_transaction_size_limit, bool ssl)
 {
-    if (!m_wallet->init(daemon_address, m_daemon_login, proxy_address, upper_transaction_size_limit))
+    const auto ssl_support = ssl
+        ? epee::net_utils::ssl_support_t::e_ssl_support_enabled
+        : epee::net_utils::ssl_support_t::e_ssl_support_disabled;
+    if (!m_wallet->init(daemon_address, m_daemon_login, proxy_address, upper_transaction_size_limit, true, ssl_support))
        return false;
 
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)

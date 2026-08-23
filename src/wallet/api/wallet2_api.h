@@ -542,6 +542,7 @@ struct Wallet
      * \param upper_transaction_size_limit
      * \param daemon_username
      * \param daemon_password
+     * \param use_ssl - enable SSL for the daemon connection
      * \param lightWallet - deprecated
      * \param proxy_address - set proxy address, empty string to disable
      * \return  - true on success
