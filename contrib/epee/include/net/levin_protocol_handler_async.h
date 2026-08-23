@@ -109,7 +109,7 @@ public:
   std::chrono::milliseconds m_invoke_timeout;
 
   template<class callback_t>
-  int invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, const callback_t &cb, std::chrono::milliseconds timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
+  int invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, callback_t &&cb, std::chrono::milliseconds timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED);
 
   bool send(epee::byte_slice message, const boost::uuids::uuid& connection_id);
   bool close(boost::uuids::uuid connection_id, const bool wait_for_shutdown);
@@ -223,12 +223,13 @@ public:
     }
 
   public:
-    anvoke_handler(const callback_t& cb, const std::chrono::milliseconds timeout, std::shared_ptr<net_utils::service_endpoint<derived_handler>> con, int command)
+    template<typename F>
+    anvoke_handler(F&& cb, const std::chrono::milliseconds timeout, std::shared_ptr<net_utils::service_endpoint<derived_handler>> con, int command)
       : invoke_response_handler_base(),
         std::enable_shared_from_this<anvoke_handler<callback_t>>(),
         m_con(con),
         m_timer(con->get_io_context()),
-        m_cb(std::move(cb)),
+        m_cb(std::forward<F>(cb)),
         m_timeout(timeout),
         m_command(command),
         m_cancel_timer_called(false),
@@ -318,7 +319,7 @@ public:
   }
   
   template<class callback_t>
-  bool add_invoke_response_handler(const callback_t &cb, const std::chrono::milliseconds timeout,  std::shared_ptr<net_utils::service_endpoint<derived_handler>> con, int command)
+  bool add_invoke_response_handler(callback_t &&cb, const std::chrono::milliseconds timeout,  std::shared_ptr<net_utils::service_endpoint<derived_handler>> con, int command)
   {
     CRITICAL_REGION_LOCAL(m_invoke_response_handlers_lock);
     if (m_protocol_released)
@@ -326,7 +327,8 @@ public:
       MERROR("Adding response handler to a released object");
       return false;
     }
-    std::shared_ptr<invoke_response_handler_base> handler(std::make_shared<anvoke_handler<callback_t>>(cb, timeout, std::move(con), command));
+    std::shared_ptr<invoke_response_handler_base> handler =
+      std::make_shared<anvoke_handler<std::decay_t<callback_t>>>(std::forward<callback_t>(cb), timeout, std::move(con), command);
     if (handler->reset_timer(true))
     {
       m_invoke_response_handlers.push_back(std::move(handler));
@@ -631,7 +633,7 @@ public:
   }
 
   template<class callback_t>
-  bool async_invoke(std::shared_ptr<net_utils::service_endpoint<derived_handler>> self, int command, message_writer in_msg, const callback_t &cb, std::chrono::milliseconds timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
+  bool async_invoke(std::shared_ptr<net_utils::service_endpoint<derived_handler>> self, int command, message_writer in_msg, callback_t &&cb, std::chrono::milliseconds timeout = LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
   {
     assert(self && this == std::addressof(self->m_protocol_handler));
 
@@ -653,7 +655,7 @@ public:
         break;
       }
 
-      if(!add_invoke_response_handler(cb, timeout, std::move(self), command))
+      if(!add_invoke_response_handler(std::forward<callback_t>(cb), timeout, std::move(self), command))
       {
         err_code = LEVIN_ERROR_CONNECTION_DESTROYED;
         break;
@@ -774,13 +776,13 @@ std::shared_ptr<net_utils::service_endpoint<typename get_handler<t_connection_co
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context> template<class callback_t>
-int async_protocol_handler_config<t_connection_context>::invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, const callback_t &cb, const std::chrono::milliseconds timeout)
+int async_protocol_handler_config<t_connection_context>::invoke_async(int command, message_writer in_msg, boost::uuids::uuid connection_id, callback_t &&cb, const std::chrono::milliseconds timeout)
 {
   std::shared_ptr<levin_endpoint> con = find_and_lock_connection(connection_id);
   if (!con)
     return LEVIN_ERROR_CONNECTION_NOT_FOUND;
   levin_endpoint& ref = *con;
-  return ref.m_protocol_handler.async_invoke(std::move(con), command, std::move(in_msg), cb, timeout);
+  return ref.m_protocol_handler.async_invoke(std::move(con), command, std::move(in_msg), std::forward<callback_t>(cb), timeout);
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context> template<class callback_t>
