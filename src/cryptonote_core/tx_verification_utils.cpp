@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2024, The Monero Project
+// Copyright (c) 2023-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -197,7 +197,8 @@ static bool tx_ver_legacy_ring_sigs(transaction& tx, const rct::ctkeyM& mix_ring
 
         const bool ver = crypto::check_ring_signature(tx_prefix_hash,
             pin->k_image,
-            p_output_keys,
+            p_output_keys.data(),
+            p_output_keys.size(),
             tx.signatures.at(input_idx).data());
         if (!ver)
         {

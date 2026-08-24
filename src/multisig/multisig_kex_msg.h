@@ -1,4 +1,4 @@
-// Copyright (c) 2021-2024, The Monero Project
+// Copyright (c) 2021-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,6 +31,7 @@
 #include "crypto/crypto.h"
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 
