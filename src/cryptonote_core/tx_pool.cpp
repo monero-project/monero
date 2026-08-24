@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -1516,10 +1516,11 @@ namespace cryptonote
   }
   //---------------------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
-  bool tx_memory_pool::get_block_template_backlog(size_t median_weight,
-    uint64_t already_generated_coins,
-    uint8_t version/*AKA hf_version*/,
-    float overpick,
+  bool tx_memory_pool::get_block_template_backlog(const size_t median_weight,
+    const uint64_t already_generated_coins,
+    const uint8_t version/*AKA hf_version*/,
+    const float overpick,
+    const bool include_sensitive,
     std::vector<tx_block_template_backlog_entry> &selected_backlog)
   {
     selected_backlog.clear();
@@ -1542,6 +1543,7 @@ namespace cryptonote
     }
 
     static_assert(MAX_HF_VERSION == 16, "Check below weights and limits");
+    const relay_category category = include_sensitive ? relay_category::legacy : relay_category::broadcasted;
     const size_t max_total_weight_pre_v5 = (130 * median_weight) / 100;
     const size_t max_total_weight_v5 = 2 * median_weight;
     const size_t consensus_max_total_weight = version >= 5 ? max_total_weight_v5 : max_total_weight_pre_v5;
@@ -1559,8 +1561,16 @@ namespace cryptonote
     LockedTXN lock(m_blockchain.get_db());
 
     auto sorted_it = m_txs_by_fee_and_receive_time.begin();
+    bool tentative_break = false;
     for (; sorted_it != m_txs_by_fee_and_receive_time.end(); ++sorted_it)
     {
+      if (tentative_break)
+      {
+        if (selected_backlog.size() && total_weight + reference_tx_weight > max_total_weight)
+          break; // there is not much room left, and last tx breaches the limit, so next txs will probably too
+        tentative_break = false;
+      }
+
       const crypto::hash &txid = sorted_it->get_right();
       txpool_tx_meta_t meta;
       if (!m_blockchain.get_txpool_tx_meta(txid, meta))
@@ -1575,7 +1585,7 @@ namespace cryptonote
         << total_weight << "/" << max_total_weight << ", current coinbase "
         << print_money(best_coinbase) << ", relay method " << (unsigned)meta.get_relay_method());
 
-      if (!meta.matches(relay_category::legacy) && !(m_mine_stem_txes && meta.get_relay_method() == relay_method::stem))
+      if (!meta.matches(category) && !(m_mine_stem_txes && meta.get_relay_method() == relay_method::stem))
       {
         LOG_PRINT_L2("  tx relay method is " << (unsigned)meta.get_relay_method());
         continue;
@@ -1590,10 +1600,8 @@ namespace cryptonote
       if (max_total_weight < total_weight + meta.weight)
       {
         LOG_PRINT_L2("  would exceed maximum block weight");
-        if (selected_backlog.empty() || total_weight + reference_tx_weight < max_total_weight)
-          continue; // there is much room, so even though this tx would breach the limit, maybe next txs will fit
-        else
-          break; // stop searching once the block is reasonably full, since next txs will have worse fee per weight
+        tentative_break = true;
+        continue;
       }
 
       if (0 == overpick)
@@ -1604,13 +1612,15 @@ namespace cryptonote
         if(!get_block_reward(median_weight, total_weight + meta.weight, already_generated_coins, block_reward, version))
         {
           LOG_PRINT_L2("  would exceed maximum block weight");
-          break;
+          tentative_break = true;
+          continue;
         }
         coinbase = block_reward + fee + meta.fee;
         if (coinbase < best_coinbase)
         {
           LOG_PRINT_L2("  would decrease coinbase to " << print_money(coinbase));
-          break;
+          tentative_break = true;
+          continue;
         }
       }
 

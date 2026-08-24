@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -264,6 +264,7 @@ namespace cryptonote
      * @param already_generated_coins the current total number of coins "minted"
      * @param hf_version the current hard fork version
      * @param overpick if >0, the ratio over the hard weight limit for which to limit total weight of `selected_backlog`
+     * @param include_sensitive return stempool (only if m_mine_stem_txes), anonymity-pool, and unrelayed txes
      * @param[out] selected_backlog potential (TXID, weight, fee) tuples, in descending preference order
      *
      * Not all transactions in the pool will be returned for performance, consensus, and/or
@@ -289,6 +290,7 @@ namespace cryptonote
       uint64_t already_generated_coins,
       uint8_t hf_version,
       float overpick,
+      bool include_sensitive,
       std::vector<tx_block_template_backlog_entry> &selected_backlog);
 
     /**

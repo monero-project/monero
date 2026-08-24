@@ -1676,7 +1676,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 
   std::vector<tx_block_template_backlog_entry> selected_backlog;
   if (!m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins,
-    b.major_version, /*overpick=*/0, selected_backlog))
+    b.major_version, /*overpick=*/0, /*include_sensitive=*/true, selected_backlog))
   {
     return false;
   }
@@ -1771,8 +1771,8 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
     {
       CHECK_AND_ASSERT_MES(!b.tx_hashes.empty(),
         false, "Failed to create miner transaction, but have no non-miner txs to pop");
-      b.tx_hashes.pop_back();
       assert(selected_backlog.size() == b.tx_hashes.size());
+      b.tx_hashes.pop_back();
       const tx_block_template_backlog_entry &backlog_entry = selected_backlog.back();
       assert(txs_weight >= backlog_entry.weight);
       txs_weight -= backlog_entry.weight;
@@ -1858,7 +1858,7 @@ bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto
   already_generated_coins = m_db->get_block_already_generated_coins(height - 1);
 
   return m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins, major_version,
-    DEFAULT_RPC_TX_BACKLOG_OVERPICK, tx_backlog);
+    DEFAULT_RPC_TX_BACKLOG_OVERPICK, /*include_sensitive=*/false, tx_backlog);
 }
 //------------------------------------------------------------------
 // for an alternate chain, get the timestamps from the main chain to complete
@@ -5627,7 +5627,7 @@ void Blockchain::send_miner_notifications(uint64_t height, const crypto::hash &s
 
   std::vector<tx_block_template_backlog_entry> tx_backlog;
   if (!m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins, major_version,
-    overpick, tx_backlog))
+    overpick, /*include_sensitive=*/false, tx_backlog))
   {
     MERROR("Could not retreive mempool's block template backlog for block " << height
       << ": median weight " << median_weight << " already generated coins "
