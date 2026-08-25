@@ -234,18 +234,51 @@ public:
     virtual uint64_t getBytesSent() override;
 
 private:
+    enum class refresh_result
+    {
+        success,
+        failure,
+        deferred
+    };
+
+    class RefreshLock
+    {
+    public:
+        explicit RefreshLock(WalletImpl &wallet, bool interrupt_refresh = true);
+        ~RefreshLock();
+
+        RefreshLock(const RefreshLock &) = delete;
+        RefreshLock &operator=(const RefreshLock &) = delete;
+        static bool heldByCurrentThread();
+        static bool heldByCurrentThread(const WalletImpl &wallet);
+
+    private:
+        void release();
+
+        WalletImpl &m_wallet;
+        RefreshLock *m_previous;
+        boost::mutex::scoped_lock m_refreshLock;
+        boost::mutex::scoped_lock m_refreshLock2;
+        static thread_local RefreshLock *s_current;
+    };
+
     void clearStatus() const;
     void setStatusError(const std::string& message) const;
     void setStatusCritical(const std::string& message) const;
     void setStatus(int status, const std::string& message) const;
     void refreshThreadFunc();
-    void doRefresh();
+    void requestRefresh();
+    refresh_result doRefresh(bool clear_status = false);
     bool daemonSynced() const;
     void stopRefresh();
     bool isNewWallet() const;
     void pendingTxPostProcess(PendingTransactionImpl * pending);
     bool doInit(const std::string &daemon_address, const std::string &proxy_address, uint64_t upper_transaction_size_limit = 0, bool ssl = false);
     bool checkBackgroundSync(const std::string &message) const;
+    bool refreshCallbackOnCurrentThread() const;
+    bool refreshingOnCurrentThread() const;
+    bool refreshLockHeldOnCurrentThread() const;
+    bool refreshLockedOnCurrentThread() const;
 
 private:
     friend class PendingTransactionImpl;
@@ -275,8 +308,13 @@ private:
     // multi-threaded refresh stuff
     std::atomic<bool> m_refreshEnabled;
     std::atomic<bool> m_refreshThreadDone;
+    std::atomic<bool> m_refreshRequested{false};
     std::atomic<int>  m_refreshIntervalMillis;
     std::atomic<bool> m_refreshShouldRescan;
+    std::atomic<unsigned> m_refreshLockRequests{0};
+    std::atomic<bool> m_refreshInterrupted{false};
+    boost::mutex        m_refreshLockStateMutex;
+    bool                m_refreshLockRestart{false};
     // synchronizing  refresh loop;
     boost::mutex        m_refreshMutex;
 

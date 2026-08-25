@@ -59,19 +59,6 @@ using namespace cryptonote;
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "WalletAPI"
 
-#define LOCK_REFRESH() \
-    bool refresh_enabled = m_refreshEnabled; \
-    m_refreshEnabled = false; \
-    m_wallet->stop(); \
-    m_refreshCV.notify_one(); \
-    boost::mutex::scoped_lock lock(m_refreshMutex); \
-    boost::mutex::scoped_lock lock2(m_refreshMutex2); \
-    const epee::scope_guard scope_exit_handler([&](){ \
-        /* m_refreshMutex's still locked here */ \
-        if (refresh_enabled) \
-            startRefresh(); \
-    })
-
 #define PRE_VALIDATE_BACKGROUND_SYNC() \
   do \
   { \
@@ -96,6 +83,14 @@ using namespace cryptonote;
 namespace Monero {
 
 namespace {
+    struct RefreshContext
+    {
+        WalletImpl *wallet;
+        RefreshContext *previous;
+    };
+
+    thread_local RefreshContext *current_refresh = nullptr;
+
     // copy-pasted from simplewallet
     static const int    DEFAULT_REFRESH_INTERVAL_MILLIS = 1000 * 10;
     // limit maximum refresh interval as one minute
@@ -429,6 +424,99 @@ void Wallet::error(const std::string &category, const std::string &str) {
 }
 
 ///////////////////////// WalletImpl implementation ////////////////////////
+thread_local WalletImpl::RefreshLock *WalletImpl::RefreshLock::s_current = nullptr;
+
+WalletImpl::RefreshLock::RefreshLock(WalletImpl &wallet, bool interrupt_refresh)
+    : m_wallet(wallet)
+    , m_previous(nullptr)
+    , m_refreshLock(wallet.m_refreshMutex, boost::defer_lock)
+    , m_refreshLock2(wallet.m_refreshMutex2, boost::defer_lock)
+{
+    {
+        boost::lock_guard<boost::mutex> lock(m_wallet.m_refreshLockStateMutex);
+        ++m_wallet.m_refreshLockRequests;
+        if (m_wallet.m_refreshEnabled.exchange(false))
+            m_wallet.m_refreshLockRestart = true;
+        if (interrupt_refresh && m_wallet.m_refreshLockRequests == 1)
+        {
+            m_wallet.m_refreshInterrupted = true;
+            m_wallet.m_wallet->suspend_refresh();
+        }
+    }
+    m_wallet.m_refreshCV.notify_one();
+    try
+    {
+        m_refreshLock.lock();
+        m_refreshLock2.lock();
+        if (!interrupt_refresh)
+            m_wallet.m_wallet->resume_refresh();
+    }
+    catch (...)
+    {
+        release();
+        throw;
+    }
+    m_previous = s_current;
+    s_current = this;
+}
+
+WalletImpl::RefreshLock::~RefreshLock()
+{
+    s_current = m_previous;
+    release();
+}
+
+bool WalletImpl::RefreshLock::heldByCurrentThread(const WalletImpl &wallet)
+{
+    for (RefreshLock *lock = s_current; lock; lock = lock->m_previous)
+        if (&lock->m_wallet == &wallet)
+            return true;
+    return false;
+}
+
+bool WalletImpl::RefreshLock::heldByCurrentThread()
+{
+    return s_current != nullptr;
+}
+
+void WalletImpl::RefreshLock::release()
+{
+    boost::lock_guard<boost::mutex> lock(m_wallet.m_refreshLockStateMutex);
+    if (--m_wallet.m_refreshLockRequests == 0)
+    {
+        m_wallet.m_refreshInterrupted = false;
+        m_wallet.m_wallet->resume_refresh();
+        if (m_wallet.m_refreshLockRestart)
+            m_wallet.m_refreshEnabled = true;
+        m_wallet.m_refreshLockRestart = false;
+        if (m_wallet.m_refreshEnabled)
+            m_wallet.requestRefresh();
+    }
+}
+
+bool WalletImpl::refreshingOnCurrentThread() const
+{
+    for (RefreshContext *context = current_refresh; context; context = context->previous)
+        if (context->wallet == this)
+            return true;
+    return false;
+}
+
+bool WalletImpl::refreshCallbackOnCurrentThread() const
+{
+    return current_refresh != nullptr;
+}
+
+bool WalletImpl::refreshLockedOnCurrentThread() const
+{
+    return RefreshLock::heldByCurrentThread(*this);
+}
+
+bool WalletImpl::refreshLockHeldOnCurrentThread() const
+{
+    return RefreshLock::heldByCurrentThread();
+}
+
 WalletImpl::WalletImpl(NetworkType nettype, uint64_t kdf_rounds)
     :m_wallet(nullptr)
     , m_status(Wallet::Status_Ok)
@@ -780,10 +868,21 @@ bool WalletImpl::recover(const std::string &path, const std::string &password, c
 
 bool WalletImpl::close(bool store)
 {
+    if (refreshCallbackOnCurrentThread())
+    {
+        setStatusError(tr("Cannot close wallet from a refresh callback"));
+        return false;
+    }
+    if (refreshLockHeldOnCurrentThread())
+    {
+        setStatusError(tr("Cannot close wallet from another wallet operation"));
+        return false;
+    }
 
     bool result = false;
     LOG_PRINT_L1("closing wallet...");
     try {
+        RefreshLock refresh_lock(*this);
         if (store) {
             // Do not store wallet with invalid status
             // Status Critical refers to errors on opening or creating wallets.
@@ -793,6 +892,7 @@ bool WalletImpl::close(bool store)
                 LOG_ERROR("Status_Critical - not saving wallet");
             LOG_PRINT_L1("wallet::store done");
         }
+        pauseRefresh();
         LOG_PRINT_L1("Calling wallet::stop...");
         m_wallet->stop();
         LOG_PRINT_L1("wallet::stop done");
@@ -943,6 +1043,18 @@ void WalletImpl::stop()
 
 bool WalletImpl::store(const std::string &path)
 {
+    if (refreshCallbackOnCurrentThread())
+    {
+        setStatusError(tr("Cannot store wallet from a refresh callback"));
+        return false;
+    }
+    if (refreshLockHeldOnCurrentThread())
+    {
+        setStatusError(tr("Cannot store wallet from another wallet operation"));
+        return false;
+    }
+
+    RefreshLock refresh_lock(*this);
     clearStatus();
     try {
         if (path.empty()) {
@@ -1083,28 +1195,44 @@ bool WalletImpl::synchronized() const
 
 bool WalletImpl::refresh()
 {
-    clearStatus();
-    //TODO: make doRefresh return bool to know whether the error occurred during refresh or not
-    //otherwise one may try, say, to send transaction, transfer fails and this method returns false
-    doRefresh();
-    return status() == Status_Ok;
+    if (refreshCallbackOnCurrentThread())
+    {
+        setStatusError(tr("Cannot refresh wallet from a refresh callback"));
+        return false;
+    }
+    if (refreshLockHeldOnCurrentThread())
+    {
+        setStatusError(tr("Cannot refresh wallet from another wallet operation"));
+        return false;
+    }
+
+    return doRefresh(true) == refresh_result::success;
 }
 
 void WalletImpl::refreshAsync()
 {
     LOG_PRINT_L3(__FUNCTION__ << ": Refreshing asynchronously..");
     clearStatus();
-    m_refreshCV.notify_one();
+    requestRefresh();
 }
 
 bool WalletImpl::rescanBlockchain()
 {
+    if (refreshCallbackOnCurrentThread())
+    {
+        setStatusError(tr("Cannot rescan blockchain from a refresh callback"));
+        return false;
+    }
+    if (refreshLockHeldOnCurrentThread())
+    {
+        setStatusError(tr("Cannot rescan blockchain from another wallet operation"));
+        return false;
+    }
+
     if (checkBackgroundSync("cannot rescan blockchain"))
         return false;
-    clearStatus();
     m_refreshShouldRescan = true;
-    doRefresh();
-    return status() == Status_Ok;
+    return doRefresh(true) == refresh_result::success;
 }
 
 void WalletImpl::rescanBlockchainAsync()
@@ -1334,6 +1462,17 @@ bool WalletImpl::scanTransactions(const std::vector<std::string> &txids)
 
 bool WalletImpl::setupBackgroundSync(const Wallet::BackgroundSyncType background_sync_type, const std::string &wallet_password, const optional<std::string> &background_cache_password)
 {
+    if (refreshCallbackOnCurrentThread())
+    {
+        setStatusError(tr("Cannot setup background sync from a refresh callback"));
+        return false;
+    }
+    if (refreshLockHeldOnCurrentThread())
+    {
+        setStatusError(tr("Cannot setup background sync from another wallet operation"));
+        return false;
+    }
+
     try
     {
         PRE_VALIDATE_BACKGROUND_SYNC();
@@ -1351,7 +1490,8 @@ bool WalletImpl::setupBackgroundSync(const Wallet::BackgroundSyncType background
             ? boost::optional<epee::wipeable_string>(*background_cache_password)
             : boost::none;
 
-        LOCK_REFRESH();
+        RefreshLock refresh_lock(*this);
+        clearStatus();
         m_wallet->setup_background_sync(bgs_type, wallet_password, bgc_password);
     }
     catch (const std::exception &e)
@@ -1376,10 +1516,22 @@ Wallet::BackgroundSyncType WalletImpl::getBackgroundSyncType() const
 
 bool WalletImpl::startBackgroundSync()
 {
+    if (refreshCallbackOnCurrentThread())
+    {
+        setStatusError(tr("Cannot start background sync from a refresh callback"));
+        return false;
+    }
+    if (refreshLockHeldOnCurrentThread())
+    {
+        setStatusError(tr("Cannot start background sync from another wallet operation"));
+        return false;
+    }
+
     try
     {
         PRE_VALIDATE_BACKGROUND_SYNC();
-        LOCK_REFRESH();
+        RefreshLock refresh_lock(*this);
+        clearStatus();
         m_wallet->start_background_sync();
     }
     catch (const std::exception &e)
@@ -1393,10 +1545,22 @@ bool WalletImpl::startBackgroundSync()
 
 bool WalletImpl::stopBackgroundSync(const std::string &wallet_password)
 {
+    if (refreshCallbackOnCurrentThread())
+    {
+        setStatusError(tr("Cannot stop background sync from a refresh callback"));
+        return false;
+    }
+    if (refreshLockHeldOnCurrentThread())
+    {
+        setStatusError(tr("Cannot stop background sync from another wallet operation"));
+        return false;
+    }
+
     try
     {
         PRE_VALIDATE_BACKGROUND_SYNC();
-        LOCK_REFRESH();
+        RefreshLock refresh_lock(*this);
+        clearStatus();
         m_wallet->stop_background_sync(epee::wipeable_string(wallet_password));
     }
     catch (const std::exception &e)
@@ -1553,7 +1717,17 @@ bool WalletImpl::exportMultisigImages(string& images) {
 }
 
 size_t WalletImpl::importMultisigImages(const vector<string>& images) {
+    if (refreshCallbackOnCurrentThread()) {
+        setStatusError(tr("Cannot import multisig images from a refresh callback"));
+        return 0;
+    }
+    if (refreshLockHeldOnCurrentThread()) {
+        setStatusError(tr("Cannot import multisig images from another wallet operation"));
+        return 0;
+    }
+
     try {
+        RefreshLock refresh_lock(*this, false);
         clearStatus();
         checkMultisigWalletReady(m_wallet);
 
@@ -1635,15 +1809,25 @@ PendingTransaction* WalletImpl::restoreMultisigTransaction(const string& signDat
 PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<string> &dst_addr, const string &payment_id, optional<std::vector<uint64_t>> amount, uint32_t mixin_count, PendingTransaction::Priority priority, uint32_t subaddr_account, std::set<uint32_t> subaddr_indices)
 
 {
+    std::unique_ptr<PendingTransactionImpl> transaction(new PendingTransactionImpl(*this));
+    if (refreshCallbackOnCurrentThread())
+    {
+        setStatusError(tr("Cannot create transaction from a refresh callback"));
+        statusWithErrorString(transaction->m_status, transaction->m_errorString);
+        return transaction.release();
+    }
+    if (refreshLockHeldOnCurrentThread())
+    {
+        setStatusError(tr("Cannot create transaction from another wallet operation"));
+        statusWithErrorString(transaction->m_status, transaction->m_errorString);
+        return transaction.release();
+    }
+    RefreshLock refresh_lock(*this);
     clearStatus();
-    // Pause refresh thread while creating transaction
-    pauseRefresh();
-      
+
     cryptonote::address_parse_info info;
 
     const auto adjusted_priority = m_wallet->adjust_priority(static_cast<uint32_t>(priority));
-
-    PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
     do {
         if (checkBackgroundSync("cannot create transactions"))
@@ -1721,7 +1905,7 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
                                                                               adjusted_priority,
                                                                               extra, subaddr_account, subaddr_indices);
             }
-            pendingTxPostProcess(transaction);
+            pendingTxPostProcess(transaction.get());
 
             if (multisig().isMultisig) {
                 auto tx_set = m_wallet->make_multisig_tx_set(transaction->m_pending_tx);
@@ -1794,9 +1978,7 @@ PendingTransaction *WalletImpl::createTransactionMultDest(const std::vector<stri
     } while (false);
 
     statusWithErrorString(transaction->m_status, transaction->m_errorString);
-    // Resume refresh thread
-    startRefresh();
-    return transaction;
+    return transaction.release();
 }
 
 PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const string &payment_id, optional<uint64_t> amount, uint32_t mixin_count,
@@ -1809,10 +1991,22 @@ PendingTransaction *WalletImpl::createTransaction(const string &dst_addr, const 
 PendingTransaction *WalletImpl::createSweepUnmixableTransaction()
 
 {
+    std::unique_ptr<PendingTransactionImpl> transaction(new PendingTransactionImpl(*this));
+    if (refreshCallbackOnCurrentThread())
+    {
+        setStatusError(tr("Cannot create transaction from a refresh callback"));
+        statusWithErrorString(transaction->m_status, transaction->m_errorString);
+        return transaction.release();
+    }
+    if (refreshLockHeldOnCurrentThread())
+    {
+        setStatusError(tr("Cannot create transaction from another wallet operation"));
+        statusWithErrorString(transaction->m_status, transaction->m_errorString);
+        return transaction.release();
+    }
+    RefreshLock refresh_lock(*this);
     clearStatus();
     cryptonote::tx_destination_entry de;
-
-    PendingTransactionImpl * transaction = new PendingTransactionImpl(*this);
 
     do {
         if (checkBackgroundSync("cannot sweep"))
@@ -1820,7 +2014,7 @@ PendingTransaction *WalletImpl::createSweepUnmixableTransaction()
 
         try {
             transaction->m_pending_tx = m_wallet->create_unmixable_sweep_transactions();
-            pendingTxPostProcess(transaction);
+            pendingTxPostProcess(transaction.get());
 
         } catch (const tools::error::daemon_busy&) {
             // TODO: make it translatable with "tr"?
@@ -1888,7 +2082,7 @@ PendingTransaction *WalletImpl::createSweepUnmixableTransaction()
     } while (false);
 
     statusWithErrorString(transaction->m_status, transaction->m_errorString);
-    return transaction;
+    return transaction.release();
 }
 
 void WalletImpl::disposeTransaction(PendingTransaction *t)
@@ -2415,11 +2609,17 @@ void WalletImpl::refreshThreadFunc()
         LOG_PRINT_L3(__FUNCTION__ << ": waiting for refresh...");
         // if auto refresh enabled, we wait for the "m_refreshIntervalSeconds" interval.
         // if not - we wait forever
-        if (m_refreshIntervalMillis > 0) {
-            boost::posix_time::milliseconds wait_for_ms(m_refreshIntervalMillis.load());
-            m_refreshCV.timed_wait(lock, wait_for_ms);
-        } else {
-            m_refreshCV.wait(lock);
+        if (!m_refreshRequested.exchange(false)) {
+            const auto refresh_requested = [this] {
+                return m_refreshThreadDone || m_refreshRequested;
+            };
+            if (m_refreshIntervalMillis > 0) {
+                boost::posix_time::milliseconds wait_for_ms(m_refreshIntervalMillis.load());
+                m_refreshCV.timed_wait(lock, wait_for_ms, refresh_requested);
+            } else {
+                m_refreshCV.wait(lock, refresh_requested);
+            }
+            m_refreshRequested = false;
         }
 
         LOG_PRINT_L3(__FUNCTION__ << ": refresh lock acquired...");
@@ -2434,18 +2634,46 @@ void WalletImpl::refreshThreadFunc()
     LOG_PRINT_L3(__FUNCTION__ << ": refresh thread stopped");
 }
 
-void WalletImpl::doRefresh()
+void WalletImpl::requestRefresh()
+{
+    m_refreshRequested = true;
+    m_refreshCV.notify_one();
+}
+
+WalletImpl::refresh_result WalletImpl::doRefresh(bool clear_status)
 {
     bool rescan = m_refreshShouldRescan.exchange(false);
     // synchronizing async and sync refresh calls
     boost::lock_guard<boost::mutex> guarg(m_refreshMutex2);
+    if (clear_status)
+        clearStatus();
+    if (m_refreshLockRequests != 0)
+    {
+        if (rescan)
+            m_refreshShouldRescan = true;
+        if (clear_status)
+            setStatusError(tr("Refresh interrupted by another wallet operation"));
+        return refresh_result::deferred;
+    }
+    RefreshContext *const previous_refresh = current_refresh;
+    RefreshContext refresh_context{this, previous_refresh};
+    current_refresh = &refresh_context;
+    const epee::scope_guard refresh_guard([previous_refresh] {
+        current_refresh = previous_refresh;
+    });
+    bool refresh_failed = false;
+    bool rescan_completed = false;
+    // Keep queued rescans pending while an API operation holds the refresh locks.
     do try {
         LOG_PRINT_L3(__FUNCTION__ << ": doRefresh, rescan = "<<rescan);
         // Syncing daemon and refreshing wallet simultaneously is very resource intensive.
         // Disable refresh if wallet is disconnected or daemon isn't synced.
         if (daemonSynced()) {
             if(rescan)
+            {
                 m_wallet->rescan_blockchain(false);
+                rescan_completed = true;
+            }
             m_wallet->refresh(trustedDaemon());
             m_synchronized = m_wallet->is_synced();
             // assuming if we have empty history, it wasn't initialized yet
@@ -2459,21 +2687,33 @@ void WalletImpl::doRefresh()
         }
     } catch (const std::exception &e) {
         setStatusError(e.what());
+        refresh_failed = true;
         break;
-    }while(!rescan && (rescan=m_refreshShouldRescan.exchange(false))); // repeat if not rescanned and rescan was requested
+    }while(m_refreshLockRequests == 0 && !rescan &&
+        (rescan=m_refreshShouldRescan.exchange(false)));
 
+    if (!refresh_failed && m_refreshInterrupted)
+    {
+        if (rescan && !rescan_completed)
+            m_refreshShouldRescan = true;
+        if (clear_status)
+            setStatusError(tr("Refresh interrupted by another wallet operation"));
+        return refresh_result::deferred;
+    }
     if (m_wallet2Callback->getListener()) {
         m_wallet2Callback->getListener()->refreshed();
     }
+    if (refresh_failed)
+        return refresh_result::failure;
+    return status() == Status_Ok ? refresh_result::success : refresh_result::failure;
 }
-
 
 void WalletImpl::startRefresh()
 {
     if (!m_refreshEnabled) {
         LOG_PRINT_L2(__FUNCTION__ << ": refresh started/resumed...");
         m_refreshEnabled = true;
-        m_refreshCV.notify_one();
+        requestRefresh();
     }
 }
 
@@ -2492,9 +2732,10 @@ void WalletImpl::stopRefresh()
 void WalletImpl::pauseRefresh()
 {
     LOG_PRINT_L2(__FUNCTION__ << ": refresh paused...");
-    // TODO synchronize access
+    boost::lock_guard<boost::mutex> lock(m_refreshLockStateMutex);
     if (!m_refreshThreadDone) {
         m_refreshEnabled = false;
+        m_refreshLockRestart = false;
     }
 }
 
