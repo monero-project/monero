@@ -80,15 +80,43 @@ std::vector<std::string> PendingTransactionImpl::txid() const
 
 bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
 {
+    return commitInternal(filename, overwrite, false);
+}
+
+bool PendingTransactionImpl::commitWithRefreshLock()
+{
+    return commitInternal("", false, true);
+}
+
+bool PendingTransactionImpl::commitInternal(
+        const std::string &filename,
+        bool overwrite,
+        bool allow_current_refresh_lock)
+{
 
     LOG_PRINT_L3("m_pending_tx size: " << m_pending_tx.size());
 
     try {
       // Save tx to file
       if (!filename.empty()) {
+        const bool refreshing_wallet = m_wallet.refreshingOnCurrentThread();
+        if (m_wallet.refreshCallbackOnCurrentThread() && !refreshing_wallet) {
+          m_errorString = tr("Cannot save transaction from another wallet's refresh callback");
+          m_status = Status_Error;
+          return false;
+        }
+        const bool wallet_refresh_locked = m_wallet.refreshLockedOnCurrentThread();
+        if (m_wallet.refreshLockHeldOnCurrentThread() && !wallet_refresh_locked) {
+          m_errorString = tr("Cannot save transaction from another wallet operation");
+          m_status = Status_Error;
+          return false;
+        }
+        std::unique_ptr<WalletImpl::RefreshLock> refresh_lock;
+        if (!refreshing_wallet && !wallet_refresh_locked)
+          refresh_lock.reset(new WalletImpl::RefreshLock(m_wallet));
         boost::system::error_code ignore;
-        bool tx_file_exists = boost::filesystem::exists(filename, ignore);
-        if(tx_file_exists && !overwrite){
+        const bool tx_file_exists = boost::filesystem::exists(filename, ignore);
+        if (tx_file_exists && !overwrite) {
           m_errorString = string(tr("Attempting to save transaction to file, but specified file(s) exist. Exiting to not risk overwriting. File:")) + filename;
           m_status = Status_Error;
           LOG_ERROR(m_errorString);
@@ -100,16 +128,33 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
           m_status = Status_Error;
         } else {
           m_status = Status_Ok;
+          m_errorString.clear();
         }
       }
       // Commit tx
       else {
+        if (m_wallet.refreshCallbackOnCurrentThread()) {
+            m_errorString = tr("Cannot commit transaction from a refresh callback");
+            m_status = Status_Error;
+            return false;
+        }
+        const bool wallet_refresh_locked = m_wallet.refreshLockedOnCurrentThread();
+        if (m_wallet.refreshLockHeldOnCurrentThread() &&
+            !(allow_current_refresh_lock && wallet_refresh_locked)) {
+            m_errorString = tr("Cannot commit transaction from another wallet operation");
+            m_status = Status_Error;
+            return false;
+        }
+        if (m_pending_tx.empty())
+            return m_status == Status_Ok;
+        std::unique_ptr<WalletImpl::RefreshLock> refresh_lock;
+        if (!wallet_refresh_locked)
+            refresh_lock.reset(new WalletImpl::RefreshLock(m_wallet));
+
         auto multisigState = m_wallet.multisig();
         if (multisigState.isMultisig && m_signers.size() < multisigState.threshold) {
             throw runtime_error("Not enough signers to send multisig transaction");
         }
-
-        m_wallet.pauseRefresh();
 
         const bool tx_cold_signed = m_wallet.m_wallet->get_account().get_device().has_tx_cold_sign();
         if (tx_cold_signed){
@@ -133,6 +178,8 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
             // if no exception, remove element from vector
             m_pending_tx.pop_back();
         } // TODO: extract method;
+        m_status = Status_Ok;
+        m_errorString.clear();
       }
     } catch (const tools::error::daemon_busy&) {
         // TODO: make it translatable with "tr"?
@@ -158,7 +205,6 @@ bool PendingTransactionImpl::commit(const std::string &filename, bool overwrite)
         m_status = Status_Error;
     }
 
-    m_wallet.startRefresh();
     return m_status == Status_Ok;
 }
 

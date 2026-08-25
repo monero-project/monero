@@ -1209,6 +1209,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_upper_transaction_weight_limit(0),
   m_run(true),
   m_stopped(false),
+  m_refresh_suspended(false),
   m_callback(0),
   m_trusted_daemon(false),
   m_nettype(nettype),
@@ -3473,6 +3474,13 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   refresh(trusted_daemon, start_height, blocks_fetched, received_money);
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::refresh_with_status(bool trusted_daemon)
+{
+  uint64_t blocks_fetched = 0;
+  bool received_money = false;
+  return refresh_internal(trusted_daemon, 0, blocks_fetched, received_money, true, true, std::numeric_limits<uint64_t>::max());
+}
+//----------------------------------------------------------------------------------------------------
 void check_block_hard_fork_version(cryptonote::network_type nettype, uint8_t hf_version, uint64_t height, bool &wallet_is_outdated, bool &daemon_is_outdated)
 {
   const size_t wallet_num_hard_forks = nettype == TESTNET ? num_testnet_hard_forks
@@ -4066,11 +4074,16 @@ std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> wallet2::create
 //----------------------------------------------------------------------------------------------------
 void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool, bool try_incremental, uint64_t max_blocks)
 {
+  refresh_internal(trusted_daemon, start_height, blocks_fetched, received_money, check_pool, try_incremental, max_blocks);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::refresh_internal(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool, bool try_incremental, uint64_t max_blocks)
+{
   if (m_offline)
   {
     blocks_fetched = 0;
     received_money = 0;
-    return;
+    return true;
   }
 
   if (!m_first_refresh_done)
@@ -4116,7 +4129,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     {
       // pull budget reached before start_height, report hashes added and resume on next call
       blocks_fetched = m_blockchain.size() - pre_hashes_height;
-      return;
+      return true;
     }
     // regenerate the history now that we've got a full set of hashes
     short_chain_history.clear();
@@ -4125,9 +4138,12 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     // and then fall through to regular refresh processing
   }
 
-  // If stop() is called during fast refresh we don't need to continue
-  if(!refresh_running())
-    return;
+  // If stop() is called during fast refresh we don't need to continue.
+  // Preserve existing behavior by leaving first-refresh bookkeeping untouched
+  // when no regular refresh work has started yet.
+  if (!refresh_running())
+    return !m_refresh_suspended;
+  bool refresh_interrupted = false;
   // always reset start_height to 0 to force short_chain_ history to be used on
   // subsequent pulls in this refresh.
   start_height = 0;
@@ -4149,8 +4165,19 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   // infer when we get an incoming output
 
   bool first = true, last = false;
-  while(refresh_running() && blocks_fetched < max_blocks)
+  while(blocks_fetched < max_blocks)
   {
+    if (!first && blocks.empty())
+    {
+      m_node_rpc_proxy.set_height(m_blockchain.size());
+      break;
+    }
+    if (!refresh_running())
+    {
+      refresh_interrupted = m_refresh_suspended;
+      break;
+    }
+
     uint64_t next_blocks_start_height;
     std::vector<cryptonote::block_complete_entry> next_blocks;
     std::vector<parsed_block> next_parsed_blocks;
@@ -4164,11 +4191,6 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
       next_blocks.clear();
       next_parsed_blocks.clear();
       added_blocks = 0;
-      if (!first && blocks.empty())
-      {
-        m_node_rpc_proxy.set_height(m_blockchain.size());
-        break;
-      }
       if (!last)
         tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(first, try_incremental, start_height, next_blocks_start_height, short_chain_history, blocks, parsed_blocks, next_blocks, next_parsed_blocks, process_pool_txs, last, error, exception);});
 
@@ -4292,8 +4314,18 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   try
   {
     // If stop() is called we don't need to check pending transactions
-    if (check_pool && refresh_running() && !process_pool_txs.empty())
-      process_pool_state(process_pool_txs);
+    if (check_pool && !process_pool_txs.empty())
+    {
+      if (refresh_running())
+        process_pool_state(process_pool_txs);
+      else if (m_refresh_suspended)
+      {
+        // The daemon cursor advances when the pool batch is fetched. Force a
+        // full pool snapshot on retry if suspension prevents us from applying it.
+        m_pool_info_query_time = 0;
+        refresh_interrupted = true;
+      }
+    }
   }
   catch (...)
   {
@@ -4304,6 +4336,9 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   if (m_background_syncing || m_is_background_wallet)
     m_background_sync_data.first_refresh_done = true;
 
+  if (refresh_interrupted)
+    return false;
+
   m_multisig_rescan_info = std::vector<std::vector<tools::wallet2::multisig_info>>{};
   for (auto &v: m_multisig_rescan_k)
     memwipe(v.data(), v.size() * sizeof(v[0]));
@@ -4311,14 +4346,14 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   m_multisig_rescan_k = std::vector<std::vector<rct::key>>{};
 
   LOG_PRINT_L1("Refresh done, blocks received: " << blocks_fetched << ", balance (all accounts): " << print_money(balance_all(false)) << ", unlocked: " << print_money(unlocked_balance_all(false)));
+  return true;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::refresh(bool trusted_daemon, uint64_t & blocks_fetched, bool& received_money, bool& ok)
 {
   try
   {
-    refresh(trusted_daemon, 0, blocks_fetched, received_money);
-    ok = true;
+    ok = refresh_internal(trusted_daemon, 0, blocks_fetched, received_money, true, true, std::numeric_limits<uint64_t>::max());
   }
   catch (...)
   {
