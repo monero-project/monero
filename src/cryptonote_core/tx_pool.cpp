@@ -462,27 +462,57 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::insert_key_images(const transaction_prefix &tx, const crypto::hash &id, relay_method tx_relay)
   {
-    for(const auto& in: tx.vin)
+    // Already-recorded key images for `id`, which can be rolled back if a later
+    // input fails validation. Without this, a partial failure would leave the
+    // key images of earlier inputs falsely marked as spent by `id`, even though
+    // `id` was never added to the pool.
+    std::vector<crypto::key_image> inserted_key_images;
+    inserted_key_images.reserve(tx.vin.size());
+
+    const auto insert_one = [&](const txin_v& in) -> bool
     {
       CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, txin, false);
-      std::unordered_set<crypto::hash>& kei_image_set = m_spent_key_images[txin.k_image];
 
       // Only allow multiple txes per key-image if kept-by-block. Only allow
       // the same txid if going from local/stem->fluff.
 
       if (tx_relay != relay_method::block)
       {
-        const bool one_txid =
-          (kei_image_set.empty() || (kei_image_set.size() == 1 && *(kei_image_set.cbegin()) == id));
+        const auto find_it = m_spent_key_images.find(txin.k_image);
+        const bool one_txid = find_it == m_spent_key_images.end() ||
+          (find_it->second.empty() || (find_it->second.size() == 1 && *(find_it->second.cbegin()) == id));
         CHECK_AND_ASSERT_MES(one_txid, false, "internal error: tx_relay=" << unsigned(tx_relay)
-                                           << ", kei_image_set.size()=" << kei_image_set.size() << ENDL << "txin.k_image=" << txin.k_image << ENDL
+                                           << ", kei_image_set.size()=" << (find_it == m_spent_key_images.end() ? 0 : find_it->second.size()) << ENDL << "txin.k_image=" << txin.k_image << ENDL
                                            << "tx_id=" << id);
       }
 
+      std::unordered_set<crypto::hash>& kei_image_set = m_spent_key_images[txin.k_image];
+      const bool newly_inserted = kei_image_set.insert(id).second;
       const bool new_or_previously_private =
-        kei_image_set.insert(id).second ||
+        newly_inserted ||
         !m_blockchain.txpool_tx_matches_category(id, relay_category::legacy);
       CHECK_AND_ASSERT_MES(new_or_previously_private, false, "internal error: try to insert duplicate iterator in key_image set");
+
+      if (newly_inserted) inserted_key_images.push_back(txin.k_image);
+      return true;
+    };
+
+    for (const auto& in : tx.vin)
+    {
+      if (insert_one(in)) continue;
+
+      // Roll back every key image inserted by this call for `id` before the
+      // failure, so that the pool state looks like this call never happened.
+      for (const crypto::key_image& k_image : inserted_key_images)
+      {
+        const auto it = m_spent_key_images.find(k_image);
+        if (it == m_spent_key_images.end())
+          continue;
+        it->second.erase(id);
+        if (it->second.empty())
+          m_spent_key_images.erase(it);
+      }
+      return false;
     }
     ++m_cookie;
     return true;
