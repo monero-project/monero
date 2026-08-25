@@ -96,6 +96,14 @@ using namespace cryptonote;
 namespace Monero {
 
 namespace {
+    struct RefreshContext
+    {
+        WalletImpl *wallet;
+        RefreshContext *previous;
+    };
+
+    thread_local RefreshContext *current_refresh = nullptr;
+
     // copy-pasted from simplewallet
     static const int    DEFAULT_REFRESH_INTERVAL_MILLIS = 1000 * 10;
     // limit maximum refresh interval as one minute
@@ -943,8 +951,25 @@ void WalletImpl::stop()
 
 bool WalletImpl::store(const std::string &path)
 {
+    for (RefreshContext *context = current_refresh; context; context = context->previous)
+    {
+        if (context->wallet == this)
+        {
+            setStatusError(tr("Cannot store wallet from a refresh callback"));
+            return false;
+        }
+    }
+
     clearStatus();
+    ++m_storeRequests;
+    m_wallet->suspend_refresh();
+    epee::unique_scope_guard store_request_guard([this] {
+        if (--m_storeRequests == 0)
+            m_wallet->resume_refresh();
+    });
     try {
+        LOCK_REFRESH();
+        const epee::scope_guard store_request_exit([&] { store_request_guard.reset(); });
         if (path.empty()) {
             m_wallet->store();
         } else {
@@ -2439,7 +2464,20 @@ void WalletImpl::doRefresh()
     bool rescan = m_refreshShouldRescan.exchange(false);
     // synchronizing async and sync refresh calls
     boost::lock_guard<boost::mutex> guarg(m_refreshMutex2);
+    RefreshContext *const previous_refresh = current_refresh;
+    RefreshContext refresh_context{this, previous_refresh};
+    current_refresh = &refresh_context;
+    const epee::scope_guard refresh_guard([previous_refresh] {
+        current_refresh = previous_refresh;
+    });
+    // Keep queued rescans pending while store() waits for the refresh locks.
     do try {
+        if (m_storeRequests != 0)
+        {
+            if (rescan)
+                m_refreshShouldRescan = true;
+            break;
+        }
         LOG_PRINT_L3(__FUNCTION__ << ": doRefresh, rescan = "<<rescan);
         // Syncing daemon and refreshing wallet simultaneously is very resource intensive.
         // Disable refresh if wallet is disconnected or daemon isn't synced.
@@ -2460,7 +2498,8 @@ void WalletImpl::doRefresh()
     } catch (const std::exception &e) {
         setStatusError(e.what());
         break;
-    }while(!rescan && (rescan=m_refreshShouldRescan.exchange(false))); // repeat if not rescanned and rescan was requested
+    }while(m_storeRequests == 0 && !rescan &&
+        (rescan=m_refreshShouldRescan.exchange(false)));
 
     if (m_wallet2Callback->getListener()) {
         m_wallet2Callback->getListener()->refreshed();
