@@ -341,7 +341,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
     MINFO("Blockchain not loaded, generating genesis block.");
     block bl;
     block_verification_context bvc = {};
-    generate_genesis_block(bl, get_config(m_nettype).GENESIS_TX, get_config(m_nettype).GENESIS_NONCE);
+    CHECK_AND_ASSERT_MES(generate_genesis_block(bl, get_config(m_nettype).GENESIS_TX, get_config(m_nettype).GENESIS_NONCE), false, "Failed to generate genesis block");
     db_wtxn_guard wtxn_guard(m_db);
     add_new_block(bl, bvc);
     CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "Failed to add genesis block to blockchain");
@@ -1876,7 +1876,7 @@ bool Blockchain::build_alt_chain(const crypto::hash &prev_id, std::list<block_ex
       // make sure block connects correctly to the main chain
       auto h = m_db->get_block_hash_from_height(alt_chain.front().height - 1);
       CHECK_AND_ASSERT_MES(h == alt_chain.front().bl.prev_id, false, "alternative chain has wrong connection to main chain");
-      complete_timestamps_vector(m_db->get_block_height(alt_chain.front().bl.prev_id), timestamps);
+      CHECK_AND_ASSERT_MES(complete_timestamps_vector(m_db->get_block_height(alt_chain.front().bl.prev_id), timestamps), false, "Failed to complete timestamps vector");
     }
     // if block not associated with known alternate chain
     else
@@ -1886,7 +1886,7 @@ bool Blockchain::build_alt_chain(const crypto::hash &prev_id, std::list<block_ex
       bool parent_in_main = m_db->block_exists(prev_id);
       CHECK_AND_ASSERT_MES(parent_in_main, false, "internal error: broken imperative condition: parent_in_main");
 
-      complete_timestamps_vector(m_db->get_block_height(prev_id), timestamps);
+      CHECK_AND_ASSERT_MES(complete_timestamps_vector(m_db->get_block_height(prev_id), timestamps), false, "Failed to complete timestamps vector");
     }
 
     return true;
