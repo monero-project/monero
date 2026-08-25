@@ -94,7 +94,6 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1),
   m_btc_valid(false),
-  m_batch_success(true),
   m_prepare_height(0)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -342,7 +341,6 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
     block bl;
     block_verification_context bvc = {};
     generate_genesis_block(bl, get_config(m_nettype).GENESIS_TX, get_config(m_nettype).GENESIS_NONCE);
-    db_wtxn_guard wtxn_guard(m_db);
     add_new_block(bl, bvc);
     CHECK_AND_ASSERT_MES(!bvc.m_verifivation_failed, false, "Failed to add genesis block to blockchain");
   }
@@ -532,14 +530,11 @@ bool Blockchain::deinit()
 }
 //------------------------------------------------------------------
 // This function removes blocks from the top of blockchain.
-// It starts a batch and calls private method pop_block_from_blockchain().
 void Blockchain::pop_blocks(uint64_t nblocks, const bool keep_txs)
 {
   uint64_t i = 0;
   CRITICAL_REGION_LOCAL(m_tx_pool);
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
-
-  bool stop_batch = m_db->batch_start();
 
   try
   {
@@ -555,15 +550,10 @@ void Blockchain::pop_blocks(uint64_t nblocks, const bool keep_txs)
   catch (const std::exception& e)
   {
     LOG_ERROR("Error when popping blocks after processing " << i << " blocks: " << e.what());
-    if (stop_batch)
-      m_db->batch_abort();
     return;
   }
 
   CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
-
-  if (stop_batch)
-    m_db->batch_stop();
 
   if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
   {
@@ -724,7 +714,6 @@ bool Blockchain::reset_and_set_genesis_block(const block& b)
   m_db->drop_alt_blocks();
   m_hardfork->init();
 
-  db_wtxn_guard wtxn_guard(m_db);
   block_verification_context bvc = {};
   add_new_block(b, bvc);
   if (!update_next_cumulative_weight_limit())
@@ -4296,7 +4285,6 @@ leave:
     catch (const KEY_IMAGE_EXISTS& e)
     {
       LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
-      m_batch_success = false;
       bvc.m_verifivation_failed = true;
       return_txs_to_pool();
       return false;
@@ -4305,7 +4293,6 @@ leave:
     {
       //TODO: figure out the best way to deal with this failure
       LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
-      m_batch_success = false;
       bvc.m_verifivation_failed = true;
       return_txs_to_pool();
       return false;
@@ -4506,7 +4493,7 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
   crypto::hash id = get_block_hash(bl);
   CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
-  db_rtxn_guard rtxn_guard(m_db);
+  db_wtxn_guard wtxn_guard(m_db);
   int where = 0;
   if(have_block(id, &where))
   {
@@ -4518,18 +4505,23 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
   }
 
   //check that block refers to chain tail
+  bool block_handle_res = false;
   if(!(bl.prev_id == get_tail_id()))
   {
     //chain switching or wrong block
     bvc.m_added_to_main_chain = false;
-    rtxn_guard.stop();
-    return handle_alternative_block(bl, id, bvc, extra_block_txs);
+    block_handle_res = handle_alternative_block(bl, id, bvc, extra_block_txs);
     //never relay alternative blocks
   }
+  else
+  {
+    block_handle_res = handle_block_to_main_chain(bl, id, bvc, extra_block_txs);
+  }
 
-  rtxn_guard.stop();
-  return handle_block_to_main_chain(bl, id, bvc, extra_block_txs);
+  if (block_handle_res)
+    wtxn_guard.stop();
 
+  return block_handle_res;
   }
   catch (const std::exception &e)
   {
@@ -4544,10 +4536,8 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
 void Blockchain::check_against_checkpoints(const checkpoints& points, bool enforce)
 {
   const auto& pts = points.get_points();
-  bool stop_batch;
 
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
-  stop_batch = m_db->batch_start();
   const uint64_t blockchain_height = m_db->height();
   for (const auto& pt : pts)
   {
@@ -4572,8 +4562,6 @@ void Blockchain::check_against_checkpoints(const checkpoints& points, bool enfor
       }
     }
   }
-  if (stop_batch)
-    m_db->batch_stop();
 }
 //------------------------------------------------------------------
 // returns false if any of the checkpoints loading returns false.
@@ -4641,33 +4629,11 @@ void Blockchain::block_longhash_worker(uint64_t height, const epee::span<const b
 //------------------------------------------------------------------
 bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
 {
-  bool success = false;
-
   MTRACE("Blockchain::" << __func__);
   CRITICAL_REGION_BEGIN(m_blockchain_lock);
   TIME_MEASURE_START(t1);
 
-  try
-  {
-    if (m_batch_success)
-    {
-      m_db->batch_stop();
-      if (m_reset_timestamps_and_difficulties_height)
-      {
-        m_timestamps_and_difficulties_height = 0;
-        m_reset_timestamps_and_difficulties_height = false;
-      }
-    }
-    else
-      m_db->batch_abort();
-    success = true;
-  }
-  catch (const std::exception &e)
-  {
-    MERROR("Exception in cleanup_handle_incoming_blocks: " << e.what());
-  }
-
-  if (success && m_sync_counter > 0)
+  if (m_sync_counter > 0)
   {
     if (force_sync)
     {
@@ -4712,7 +4678,7 @@ bool Blockchain::cleanup_handle_incoming_blocks(bool force_sync)
 
   update_blockchain_pruning();
 
-  return success;
+  return true;
 }
 
 //------------------------------------------------------------------
@@ -4875,7 +4841,6 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 {
   MTRACE("Blockchain::" << __func__);
   TIME_MEASURE_START(prepare);
-  bool stop_batch;
   uint64_t bytes = 0;
   size_t total_txs = 0;
   blocks.clear();
@@ -4910,14 +4875,6 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
     total_txs += entry.txs.size();
   }
   m_bytes_to_sync += bytes;
-  while (!(stop_batch = m_db->batch_start(blocks_entry.size(), bytes))) {
-    m_blockchain_lock.unlock();
-    m_tx_pool.unlock();
-    epee::misc_utils::sleep_no_w(1000);
-    m_tx_pool.lock();
-    m_blockchain_lock.lock();
-  }
-  m_batch_success = true;
 
   const uint64_t height = m_db->height();
   if ((height + blocks_entry.size()) < m_blocks_hash_check.size())
@@ -5216,16 +5173,6 @@ void Blockchain::prepare_handle_incoming_block_no_preprocess(const size_t block_
   // increment sync byte counter to trigger sync against database backing store
   // later in cleanup_handle_incoming_blocks()
   m_bytes_to_sync += block_byte_estimate;
-
-  // spin until we start a batch
-  while (!m_db->batch_start(1, block_byte_estimate)) {
-    m_blockchain_lock.unlock();
-    m_tx_pool.unlock();
-    epee::misc_utils::sleep_no_w(1000);
-    m_tx_pool.lock();
-    m_blockchain_lock.lock();
-  }
-  m_batch_success = true;
 }
 
 void Blockchain::add_txpool_tx(const crypto::hash &txid, const cryptonote::blobdata &blob, const txpool_tx_meta_t &meta)

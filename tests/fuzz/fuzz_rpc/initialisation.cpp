@@ -289,8 +289,6 @@ bool generate_random_blocks(cryptonote::core& core, FuzzedDataProvider& provider
     }
   }
 
-  core.get_blockchain_storage().get_db().batch_start();
-
   bool added_block = false;
   for (const auto& blk : cached_blocks) {
     cryptonote::block_verification_context bvc{};

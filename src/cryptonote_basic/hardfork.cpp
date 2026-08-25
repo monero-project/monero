@@ -31,6 +31,7 @@
 
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "blockchain_db/blockchain_db.h"
+#include "blockchain_db/locked_txn.h"
 #include "hardfork.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -201,10 +202,10 @@ uint8_t HardFork::get_block_version(uint64_t height) const
 bool HardFork::reorganize_from_block_height(uint64_t height)
 {
   CRITICAL_REGION_LOCAL(lock);
+  LockedTXN db_txn(db);
+
   if (height >= db.height())
     return false;
-
-  bool stop_batch = db.batch_start();
 
   versions.clear();
 
@@ -232,8 +233,7 @@ bool HardFork::reorganize_from_block_height(uint64_t height)
     add(db.get_block_from_height(h), h);
   }
 
-  if (stop_batch)
-    db.batch_stop();
+  db_txn.commit();
 
   return true;
 }
