@@ -26,6 +26,9 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <cstddef>
+#include <cstring>
+
 #include "gtest/gtest.h"
 #include "int-util.h"
 #include "cryptonote_basic/difficulty.h"
@@ -37,6 +40,13 @@ static cryptonote::difficulty_type MKDIFF(uint64_t high, uint64_t low)
   return d;
 }
 
+static void set_hash_word(crypto::hash &hash, std::size_t index, uint64_t value)
+{
+  ASSERT_LT(index, sizeof(hash.data) / sizeof(value));
+  value = SWAP64LE(value);
+  memcpy(hash.data + index * sizeof(value), &value, sizeof(value));
+}
+
 static crypto::hash MKHASH(uint64_t high, uint64_t low)
 {
   cryptonote::difficulty_type hash_target = high;
@@ -45,16 +55,16 @@ static crypto::hash MKHASH(uint64_t high, uint64_t low)
   crypto::hash h;
   uint64_t val;
   val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
-  ((uint64_t*)&h)[0] = SWAP64LE(val);
+  set_hash_word(h, 0, val);
   hash_value >>= 64;
   val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
-  ((uint64_t*)&h)[1] = SWAP64LE(val);
+  set_hash_word(h, 1, val);
   hash_value >>= 64;
   val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
-  ((uint64_t*)&h)[2] = SWAP64LE(val);
+  set_hash_word(h, 2, val);
   hash_value >>= 64;
   val = (hash_value & 0xffffffffffffffff).convert_to<uint64_t>();
-  ((uint64_t*)&h)[3] = SWAP64LE(val);
+  set_hash_word(h, 3, val);
   return h;
 }
 
