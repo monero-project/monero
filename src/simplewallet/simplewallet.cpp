@@ -1154,6 +1154,7 @@ bool simple_wallet::make_multisig_main(const std::vector<std::string> &args, boo
     fail_msg_writer() << tr("wallet is watch-only and cannot be made multisig");
     return false;
   }
+  CHECK_IF_BACKGROUND_SYNCING("cannot be made multisig");
 
   if(m_wallet->get_num_transfer_details())
   {
@@ -1262,6 +1263,8 @@ bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &
       fail_msg_writer() << tr("Your original password was incorrect.");
       return false;
     }
+
+    LOCK_IDLE_SCOPE();
 
     try
     {
