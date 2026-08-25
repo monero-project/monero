@@ -34,27 +34,8 @@ namespace epee
 {
 namespace net_utils
 {
-  inline const char* get_hex_vals()
-  {
-    static constexpr const char hexVals[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
-    return hexVals;
-  }
-
-  inline const char* get_unsave_chars()
-  {
-    //static constexpr char unsave_chars[] = "\"<>%\\^[]`+$,@:;/!#?=&";
-    static constexpr const char unsave_chars[] = "\"<>%\\^[]`+$,@:;!#&";
-    return unsave_chars;
-  }
-
-  bool is_unsafe(unsigned char compare_char);
-  std::string dec_to_hex(char num, int radix);
-  int get_index(const char *s, char c);
-  std::string hex_to_dec_2bytes(const char *s);
-  std::string convert(char val);
-  std::string conver_to_url_format(const std::string& uri);
-  std::string convert_from_url_format(const std::string& uri);
-
+  std::string convert_to_url_format(std::string_view uri);
+  std::string convert_from_url_format(std::string_view uri);
 namespace http
 {
   class abstract_http_client
