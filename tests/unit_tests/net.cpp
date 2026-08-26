@@ -53,13 +53,20 @@
 #include <gtest/gtest.h>
 #include <map>
 #include <memory>
+#include <thread>
 #include <type_traits>
+#ifndef _WIN32
+#include <atomic>
+#include <csignal>
+#include <pthread.h>
+#endif
 
 #include "crypto/crypto.h"
 #include "net/dandelionpp.h"
 #include "net/error.h"
 #include "net/host.h"
 #include "net/i2p_address.h"
+#include "net/net_helper.h"
 #include "net/net_utils_base.h"
 #include "net/socks.h"
 #include "net/socks_connect.h"
@@ -87,6 +94,180 @@ namespace
         "VWW6YBAL4BD7SZMGNCYRUUCPGFKQAHZDDI37KTCEO3AH7NGMCOPNPYYD.ONION";
     static constexpr const char v3_onion_2[] =
         "zpv4fa3szgel7vf6jdjeugizdclq2vzkelscs2bhbgnlldzzggcen3ad.onion";
+}
+
+TEST(blocked_mode_client, shutdown_aborts_blocked_recv)
+{
+    boost::asio::io_context server_io;
+    boost::asio::ip::tcp::acceptor acceptor{
+        server_io,
+        {boost::asio::ip::address_v4::loopback(), 0}
+    };
+
+    epee::net_utils::blocked_mode_client client;
+    client.set_ssl(epee::net_utils::ssl_options_t{
+        epee::net_utils::ssl_support_t::e_ssl_support_disabled
+    });
+    const std::string port = std::to_string(acceptor.local_endpoint().port());
+    ASSERT_TRUE(client.connect("127.0.0.1", port, std::chrono::seconds{5}));
+
+    boost::system::error_code error;
+    boost::asio::ip::tcp::socket peer{server_io};
+    acceptor.accept(peer, error);
+    ASSERT_FALSE(error);
+
+    // recv blocks on the silent peer until a single shutdown from another thread
+    // aborts it; the abort is sticky, so the shot is valid on every timing
+    std::thread stopper{[&client] {
+        std::this_thread::sleep_for(std::chrono::milliseconds{100});
+        EXPECT_TRUE(client.shutdown());
+    }};
+    std::string response;
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_FALSE(client.recv(response, std::chrono::seconds{30}));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds{10});
+    stopper.join();
+    EXPECT_FALSE(client.is_connected());
+}
+
+#ifndef _WIN32
+namespace
+{
+    std::atomic<epee::net_utils::blocked_mode_client*> g_signal_client{nullptr};
+
+    void shutdown_from_signal(int)
+    {
+        epee::net_utils::blocked_mode_client* const client = g_signal_client.load();
+        if (client)
+            client->shutdown();
+    }
+}
+
+TEST(blocked_mode_client, shutdown_aborts_blocked_recv_from_signal_handler)
+{
+    boost::asio::io_context server_io;
+    boost::asio::ip::tcp::acceptor acceptor{
+        server_io,
+        {boost::asio::ip::address_v4::loopback(), 0}
+    };
+
+    epee::net_utils::blocked_mode_client client;
+    client.set_ssl(epee::net_utils::ssl_options_t{
+        epee::net_utils::ssl_support_t::e_ssl_support_disabled
+    });
+    const std::string port = std::to_string(acceptor.local_endpoint().port());
+    ASSERT_TRUE(client.connect("127.0.0.1", port, std::chrono::seconds{5}));
+
+    boost::system::error_code error;
+    boost::asio::ip::tcp::socket peer{server_io};
+    acceptor.accept(peer, error);
+    ASSERT_FALSE(error);
+
+    struct sigaction handler {}, previous {};
+    handler.sa_handler = shutdown_from_signal;
+    sigemptyset(&handler.sa_mask);
+    ASSERT_EQ(0, sigaction(SIGUSR1, &handler, &previous));
+    g_signal_client = &client;
+
+    // the signal lands on the thread blocked in recv, so the handler's shutdown()
+    // runs in signal context and may only use async-signal-safe calls
+    const pthread_t blocked = pthread_self();
+    std::thread stopper{[blocked] {
+        std::this_thread::sleep_for(std::chrono::milliseconds{100});
+        pthread_kill(blocked, SIGUSR1);
+    }};
+    std::string response;
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_FALSE(client.recv(response, std::chrono::seconds{30}));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds{10});
+    stopper.join();
+    EXPECT_FALSE(client.is_connected());
+
+    g_signal_client = nullptr;
+    sigaction(SIGUSR1, &previous, nullptr);
+}
+#endif
+
+TEST(blocked_mode_client, shutdown_aborts_blocked_connect)
+{
+    // a connector whose future never becomes ready simulates an unresponsive peer
+    const auto never_ready = std::make_shared<boost::promise<boost::asio::ip::tcp::socket>>();
+    epee::net_utils::blocked_mode_client client;
+    client.set_ssl(epee::net_utils::ssl_options_t{
+        epee::net_utils::ssl_support_t::e_ssl_support_disabled
+    });
+    client.set_connector([never_ready] (const std::string&, const std::string&, boost::asio::steady_timer&) {
+        return never_ready->get_future();
+    });
+
+    // a single shutdown aborts the blocked connect; sticky, so valid on every timing
+    std::thread stopper{[&client] {
+        std::this_thread::sleep_for(std::chrono::milliseconds{100});
+        EXPECT_TRUE(client.shutdown());
+    }};
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_FALSE(client.connect("127.0.0.1", "80", std::chrono::seconds{30}));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds{10});
+    stopper.join();
+}
+
+TEST(blocked_mode_client, shutdown_aborts_stalled_ssl_handshake)
+{
+    // the acceptor completes TCP connects in the kernel backlog but never
+    // answers the TLS handshake, so the handshake stalls until aborted
+    boost::asio::io_context server_io;
+    boost::asio::ip::tcp::acceptor acceptor{
+        server_io,
+        {boost::asio::ip::address_v4::loopback(), 0}
+    };
+
+    epee::net_utils::blocked_mode_client client;
+    client.set_ssl(epee::net_utils::ssl_options_t{
+        epee::net_utils::ssl_support_t::e_ssl_support_enabled
+    });
+    const std::string port = std::to_string(acceptor.local_endpoint().port());
+
+    std::thread stopper{[&client] {
+        std::this_thread::sleep_for(std::chrono::milliseconds{100});
+        EXPECT_TRUE(client.shutdown());
+    }};
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_FALSE(client.connect("127.0.0.1", port, std::chrono::seconds{30}));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds{10});
+    stopper.join();
+}
+
+TEST(blocked_mode_client, shutdown_is_permanent)
+{
+    boost::asio::io_context server_io;
+    boost::asio::ip::tcp::acceptor acceptor{
+        server_io,
+        {boost::asio::ip::address_v4::loopback(), 0}
+    };
+
+    epee::net_utils::blocked_mode_client client;
+    client.set_ssl(epee::net_utils::ssl_options_t{
+        epee::net_utils::ssl_support_t::e_ssl_support_disabled
+    });
+    const std::string port = std::to_string(acceptor.local_endpoint().port());
+    ASSERT_TRUE(client.connect("127.0.0.1", port, std::chrono::seconds{5}));
+
+    boost::system::error_code error;
+    boost::asio::ip::tcp::socket peer{server_io};
+    acceptor.accept(peer, error);
+    ASSERT_FALSE(error);
+
+    // the abort is sticky: a shutdown with nothing in flight still fails the next
+    // op promptly, so a request scheduled before it can never start a doomed call
+    EXPECT_TRUE(client.shutdown());
+    EXPECT_FALSE(client.is_connected());
+    std::string response;
+    const auto start = std::chrono::steady_clock::now();
+    EXPECT_FALSE(client.recv(response, std::chrono::seconds{30}));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds{10});
+
+    // the torn-down client never reconnects
+    EXPECT_FALSE(client.connect("127.0.0.1", port, std::chrono::seconds{5}));
 }
 
 TEST(tor_address, constants)

@@ -97,6 +97,7 @@ public:
   bool connect(const std::string&, int, std::chrono::milliseconds, bool = false, const std::string& = "0.0.0.0") { return true; }
   bool connect(const std::string&, const std::string&, std::chrono::milliseconds, bool = false, const std::string& = "0.0.0.0") { return true; }
   bool disconnect() { return true; }
+  bool shutdown() { return true; }
   bool send(const boost::string_ref, std::chrono::milliseconds) { return true; }
   bool send(const void*, size_t) { return true; }
   bool recv(std::string& buff, std::chrono::milliseconds)

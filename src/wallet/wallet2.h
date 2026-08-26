@@ -1083,7 +1083,8 @@ private:
     bool set_proxy(const std::string &address);
 
     void stop() { m_run.store(false, std::memory_order_relaxed); m_message_store.stop(); }
-    void shutdown() { m_stopped.store(true, std::memory_order_relaxed); stop(); }
+    // teardown-only: a permanent stop that also aborts an in-flight daemon request
+    void shutdown() { m_stopped.store(true, std::memory_order_relaxed); stop(); m_http_client->shutdown(); }
 
     i_wallet2_callback* callback() const { return m_callback; }
     void callback(i_wallet2_callback* callback) { m_callback = callback; }
