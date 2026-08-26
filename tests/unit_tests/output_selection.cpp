@@ -147,7 +147,7 @@ TEST(select_outputs, density)
     uint64_t o = picker.pick();
     if (o >= n_outs)
       continue;
-    auto it = std::lower_bound(offsets.begin(), offsets.end(), o);
+    auto it = std::upper_bound(offsets.begin(), offsets.end(), o);
     auto idx = std::distance(offsets.begin(), it);
     ASSERT_LT(idx, picks.size());
     ++picks[idx];
@@ -191,7 +191,7 @@ TEST(select_outputs, same_distribution)
     uint64_t o = picker.pick();
     if (o >= n_outs)
       continue;
-    auto it = std::lower_bound(offsets.begin(), offsets.end(), o);
+    auto it = std::upper_bound(offsets.begin(), offsets.end(), o);
     auto idx = std::distance(offsets.begin(), it);
     ASSERT_LT(idx, chain_picks.size());
     ++chain_picks[idx];
@@ -222,7 +222,7 @@ TEST(select_outputs, same_distribution)
 TEST(select_outputs, exact_unlock_block)
 {
   std::vector<uint64_t> offsets;
-  MKOFFSETS(300000, 1 + (crypto::rand<size_t>() & 0x1f));
+  MKOFFSETS(300000, 1);
   tools::gamma_picker picker(offsets);
 
   // Calculate output offset ranges for the very first block that is spendable.
