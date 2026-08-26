@@ -268,6 +268,18 @@ set_property(TARGET bulletproof_fuzz_tests
   PROPERTY
     FOLDER "tests")
 
+monero_add_minimal_executable(bulletproof-plus_fuzz_tests bulletproof-plus.cpp fuzzer.cpp)
+target_link_libraries(bulletproof-plus_fuzz_tests
+  PRIVATE
+    ringct
+    serialization
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET bulletproof-plus_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
+
 monero_add_minimal_executable(tx-extra_fuzz_tests tx-extra.cpp fuzzer.cpp)
 target_link_libraries(tx-extra_fuzz_tests
   PRIVATE
