@@ -996,6 +996,41 @@ TEST(node_server, bracketed_ipv6_bind_address)
   EXPECT_TRUE(server.deinit());
 }
 
+TEST(node_server, rejected_address_skips_dns_fallback)
+{
+  const path_t dir = create_temp_dir("rejected-address-%%%%%%%%%%%%%%%%");
+  ASSERT_FALSE(dir.empty());
+  const epee::scope_guard cleanup([&dir]{ remove_tree(dir); });
+
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+
+  const auto init = [&](const command_line::arg_descriptor<std::vector<std::string>>& arg, const std::string& value) -> bool {
+    Server server(cprotocol);
+    cprotocol.set_p2p_endpoint(&server);
+
+    auto vm = make_regtest_options(dir);
+    vm.find(arg.name)->second = boost::program_options::variable_value(std::vector<std::string>{value}, false);
+
+    const bool result = server.init(vm);
+    if (result)
+      server.deinit();
+    cprotocol.set_p2p_endpoint(nullptr);
+    return result;
+  };
+
+  constexpr char i2p_bad_port[] = "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopn.b32.i2p:900a";
+  // glibc resolves this to port 0, so it only passes if DNS is skipped
+  constexpr char ipv4_bad_port[] = "127.0.0.1:65536";
+
+  for (const auto* arg : {&nodetool::arg_p2p_add_exclusive_node, &nodetool::arg_p2p_add_priority_node, &nodetool::arg_p2p_seed_node})
+  {
+    EXPECT_TRUE(init(*arg, "127.0.0.1:18080")) << arg->name;
+    EXPECT_FALSE(init(*arg, i2p_bad_port)) << arg->name;
+    EXPECT_FALSE(init(*arg, ipv4_bad_port)) << arg->name;
+  }
+}
+
 TEST(cryptonote_protocol_handler, race_condition)
 {
   struct contexts {

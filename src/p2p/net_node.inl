@@ -2896,6 +2896,10 @@ namespace nodetool
         container.push_back(std::move(*adr));
         continue;
       }
+      CHECK_AND_ASSERT_MES(
+        adr == net::error::unsupported_address, false, "Bad address (\"" << pr_str << "\"): " << adr.error().message()
+      );
+
       std::vector<epee::net_utils::network_address> resolved_addrs;
       bool r = append_net_address(resolved_addrs, pr_str, default_port);
       CHECK_AND_ASSERT_MES(r, false, "Failed to parse or resolve address from string: " << pr_str);
