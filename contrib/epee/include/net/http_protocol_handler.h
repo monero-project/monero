@@ -142,6 +142,9 @@ namespace net_utils
 			bool slash_to_back_slash(std::string& str);
 			std::string get_file_mime_tipe(const std::string& path);
 			std::string get_response_header(const http_response_info& response);
+			bool is_any_origin_allowed() const;
+			bool is_origin_allowed(const std::string& origin) const;
+			bool is_request_allowed(const http::http_request_info& query_info) const;
 
 			//major function 
 			inline bool handle_request_and_send_response(const http::http_request_info& query_info);

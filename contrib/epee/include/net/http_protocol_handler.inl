@@ -591,6 +591,8 @@ namespace net_utils
 				body_info.m_user_agent = std::string(value.data(), value.size());
 			else if(boost::iequals(name, "Origin"))
 				body_info.m_origin = std::string(value.data(), value.size());
+			else if(boost::iequals(name, "Sec-Fetch-Site"))
+				body_info.m_sec_fetch_site = std::string(value.data(), value.size());
 			else
 				body_info.m_etc_fields.push_back(std::make_pair(std::string(name.data(), name.size()), std::string(value.data(), value.size())));
 		}
@@ -614,7 +616,15 @@ namespace net_utils
 		//CHECK_AND_ASSERT_MES(res, res, "handle_request(query_info, response) returned false" );
 		bool res = true;
 
-		if (query_info.m_http_method != http::http_method_options)
+		// CORS headers only tell a browser whether it may read the response, they do
+		// not prevent the request from being executed. Refuse disallowed origins.
+		if (!is_request_allowed(query_info))
+		{
+			response.m_response_code = 403;
+			response.m_response_comment = "Forbidden";
+			response.m_mime_tipe = "text/plain";
+		}
+		else if (query_info.m_http_method != http::http_method_options)
 		{
 			res = handle_request(query_info, response);
 			if (response.m_response_code == 500)
@@ -672,6 +682,34 @@ namespace net_utils
 	}
 	//-----------------------------------------------------------------------------------
   template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::is_any_origin_allowed() const
+	{
+		return std::binary_search(m_config.m_access_control_origins.begin(), m_config.m_access_control_origins.end(), "*");
+	}
+	//-----------------------------------------------------------------------------------
+  template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::is_origin_allowed(const std::string& origin) const
+	{
+		return is_any_origin_allowed()
+			|| std::binary_search(m_config.m_access_control_origins.begin(), m_config.m_access_control_origins.end(), origin);
+	}
+	//-----------------------------------------------------------------------------------
+  template<class t_connection_context>
+	bool simple_http_connection_handler<t_connection_context>::is_request_allowed(const http::http_request_info& query_info) const
+	{
+		if (!query_info.m_header_info.m_origin.empty())
+			return is_origin_allowed(query_info.m_header_info.m_origin);
+
+		// A cross origin GET or HEAD carries no Origin, so fall back to fetch metadata,
+		// which a browser always sends and no browser API can forge.
+		const std::string &site = query_info.m_header_info.m_sec_fetch_site;
+		if (site.empty() || boost::iequals(site, "none") || boost::iequals(site, "same-origin"))
+			return true;
+
+		return is_any_origin_allowed();
+	}
+	//-----------------------------------------------------------------------------------
+  template<class t_connection_context>
 	std::string simple_http_connection_handler<t_connection_context>::get_response_header(const http_response_info& response)
 	{
 		std::string buf = "HTTP/1.1 ";
@@ -708,7 +746,7 @@ namespace net_utils
 		// Cross-origin resource sharing
 		if(m_query_info.m_header_info.m_origin.size())
 		{
-			if (std::binary_search(m_config.m_access_control_origins.begin(), m_config.m_access_control_origins.end(), "*") || std::binary_search(m_config.m_access_control_origins.begin(), m_config.m_access_control_origins.end(), m_query_info.m_header_info.m_origin))
+			if (is_origin_allowed(m_query_info.m_header_info.m_origin))
 			{
 				buf += "Access-Control-Allow-Origin: ";
 				buf += m_query_info.m_header_info.m_origin;
