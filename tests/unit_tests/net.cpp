@@ -661,6 +661,19 @@ TEST(get_network_address, onion)
 
     address = net::get_network_address(std::string{v3_onion} + ":65536", 1000);
     EXPECT_EQ(net::error::invalid_port, address);
+
+    // dispatch to `tor_address::make` should not be case-sensitive, matching `canonicalize_host`
+    address = net::get_network_address(v3_onion_upper, 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::tor, address->get_type_id());
+    EXPECT_STREQ(v3_onion, address->host_str().c_str());
+    EXPECT_EQ(std::string{v3_onion} + ":1000", address->str());
+
+    address = net::get_network_address(std::string{v3_onion_upper} + ":2000", 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::tor, address->get_type_id());
+    EXPECT_STREQ(v3_onion, address->host_str().c_str());
+    EXPECT_EQ(std::string{v3_onion} + ":2000", address->str());
 }
 
 namespace
@@ -728,6 +741,13 @@ TEST(i2p_address, invalid)
     std::string i2p_standard{standard_i2p};
     i2p_standard.at(7) = 1;
     EXPECT_TRUE(net::i2p_address::make(i2p_standard).has_error());
+
+    // port syntax is validated even though it is not stored (see `i2p_address::port()`)
+    EXPECT_EQ(net::error::invalid_port, net::i2p_address::make(std::string{standard_i2p} + ":900a"));
+    EXPECT_EQ(net::error::invalid_port, net::i2p_address::make(std::string{standard_i2p} + ":65536"));
+    EXPECT_EQ(net::error::invalid_port, net::i2p_address::make(std::string{standard_i2p} + ":-1"));
+    EXPECT_EQ(net::error::invalid_port, net::i2p_address::make(std::string{b32_i2p} + ":kfsdhkfasd"));
+    EXPECT_TRUE(net::i2p_address::make(std::string{standard_i2p} + ":80").has_value());
 }
 
 TEST(i2p_address, unblockable_types)
@@ -1178,6 +1198,19 @@ TEST(get_network_address, i2p)
     EXPECT_EQ(std::string{standard_i2p}, address->str());
 
     address = net::get_network_address(std::string{standard_i2p} + ":2000", 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
+    EXPECT_STREQ(standard_i2p, address->host_str().c_str());
+    EXPECT_EQ(std::string{standard_i2p}, address->str());
+
+    // dispatch to `i2p_address::make` should not be case-sensitive, matching `canonicalize_host`
+    address = net::get_network_address(b32_i2p_upper, 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
+    EXPECT_STREQ(b32_i2p, address->host_str().c_str());
+    EXPECT_EQ(std::string{b32_i2p}, address->str());
+
+    address = net::get_network_address("TEST.I2P", 1000);
     ASSERT_TRUE(bool(address));
     EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
     EXPECT_STREQ(standard_i2p, address->host_str().c_str());
