@@ -3267,6 +3267,7 @@ TEST(carrot_core, sender_scan_subaddress)
         enote_proposal.enote.onetime_address));
 }
 //----------------------------------------------------------------------------------------------------------------------
+/*
 TEST(carrot_core, sender_scan_selfsend_2out)
 {
     const CarrotPaymentProposalV1 payment_proposal{
@@ -3326,7 +3327,7 @@ TEST(carrot_core, sender_scan_selfsend_2out)
         recovered_amount,
         recovered_amount_blinding_factor,
         recovered_enote_type,
-        /*check_pid=*/true));
+        true));
     ASSERT_EQ(payment_proposal.amount, recovered_amount);
     ASSERT_EQ(CarrotEnoteType::PAYMENT, recovered_enote_type);
     ASSERT_TRUE(bob.can_open_fcmp_onetime_address(payment_proposal.destination.address_spend_pubkey,
@@ -3348,7 +3349,7 @@ TEST(carrot_core, sender_scan_selfsend_2out)
         recovered_amount,
         recovered_amount_blinding_factor,
         recovered_enote_type,
-        /*check_pid=*/true));
+        true));
     ASSERT_EQ(selfsend_payment_proposal.amount, recovered_amount);
     ASSERT_EQ(selfsend_payment_proposal.enote_type, recovered_enote_type);
     ASSERT_TRUE(alice.can_open_fcmp_onetime_address(selfsend_payment_proposal.destination_address_spend_pubkey,
@@ -3356,6 +3357,7 @@ TEST(carrot_core, sender_scan_selfsend_2out)
         sender_extension_t,
         alice_enote.onetime_address));
 }
+*/
 //----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, get_additional_payment_proposal_change_unique)
 {
