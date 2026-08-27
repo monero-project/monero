@@ -912,21 +912,21 @@ struct JanusAttackProposalV1
     /// d_e = H_n(anchor_norm, input_context, K^j_s, pid)). It shouldn't make a difference to the attack either
     /// way, but we will test that below.
 
-    carrot::CarrotPaymentProposalV1 normal; // contains address (is_subaddress, K^j_s, K^j_v, pid)
+    CarrotPaymentProposalV1 normal; // contains address (is_subaddress, K^j_s, K^j_v, pid)
     crypto::public_key readjusted_opening_subaddress_spend_pubkey; // K^i_s
     bool use_readjusted_spend_pubkey_in_ephemeral_privkey_hash;
 };
 //----------------------------------------------------------------------------------------------------------------------
 static void get_output_proposal_janus_attack_v1(const JanusAttackProposalV1 &proposal,
     const crypto::key_image &tx_first_key_image,
-    carrot::RCTOutputEnoteProposal &output_enote_out,
-    carrot::encrypted_payment_id_t &encrypted_payment_id_out)
+    RCTOutputEnoteProposal &output_enote_out,
+    encrypted_payment_id_t &encrypted_payment_id_out)
 {
     // 1. sanity checks
-    CHECK_AND_ASSERT_THROW_MES(proposal.normal.randomness != carrot::janus_anchor_t{},
+    CHECK_AND_ASSERT_THROW_MES(proposal.normal.randomness != janus_anchor_t{},
         "jamtis payment proposal: invalid randomness for janus anchor (zero).");
 
-    const carrot::CarrotDestinationV1 &destination = proposal.normal.destination;
+    const CarrotDestinationV1 &destination = proposal.normal.destination;
 
     // 2. input context: input_context = "R" || KI_1
     const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
@@ -939,7 +939,7 @@ static void get_output_proposal_janus_attack_v1(const JanusAttackProposalV1 &pro
 
     // 4. d_e = H_n(anchor_norm, input_context, K^x_s, pid)
     crypto::secret_key enote_ephemeral_privkey;
-    carrot::make_carrot_enote_ephemeral_privkey(proposal.normal.randomness,
+    make_carrot_enote_ephemeral_privkey(proposal.normal.randomness,
         input_context,
         spend_pubkey_used_in_ephemeral_privkey_hash,
         destination.payment_id,
@@ -968,7 +968,7 @@ static void get_output_proposal_janus_attack_v1(const JanusAttackProposalV1 &pro
     make_carrot_amount_blinding_factor(s_sender_receiver_ctx,
         proposal.normal.amount,
         proposal.readjusted_opening_subaddress_spend_pubkey,
-        carrot::CarrotEnoteType::PAYMENT,
+        CarrotEnoteType::PAYMENT,
         output_enote_out.amount_blinding_factor);
 
     // 9. C_a = k_a G + a H
@@ -984,7 +984,7 @@ static void get_output_proposal_janus_attack_v1(const JanusAttackProposalV1 &pro
         "invalid readjusted opening subaddress spend pubkey");
 
     // 11. a_enc = a XOR m_a
-    output_enote_out.enote.amount_enc = carrot::encrypt_carrot_amount(proposal.normal.amount,
+    output_enote_out.enote.amount_enc = encrypt_carrot_amount(proposal.normal.amount,
         s_sender_receiver_ctx,
         output_enote_out.enote.onetime_address);
 
@@ -1022,22 +1022,22 @@ TEST(carrot_core, janus_protection_non_coinbase_main_sub_readjust_NOT_in_d_e)
     const rct::xmr_amount amount = rct::randXmrAmount(COIN);
 
     const JanusAttackProposalV1 proposal{
-        .normal = carrot::CarrotPaymentProposalV1{
+        .normal = CarrotPaymentProposalV1{
             .destination = bob_main,
             .amount = amount,
-            .randomness = carrot::gen_janus_anchor()
+            .randomness = gen_janus_anchor()
         },
         .readjusted_opening_subaddress_spend_pubkey = bob_subaddr.address_spend_pubkey,
         .use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = false,
     };
 
-    carrot::RCTOutputEnoteProposal output_enote;
-    carrot::encrypted_payment_id_t encrypted_payment_id;
+    RCTOutputEnoteProposal output_enote;
+    encrypted_payment_id_t encrypted_payment_id;
     get_output_proposal_janus_attack_v1(proposal, tx_first_key_image, output_enote, encrypted_payment_id);
 
     // s_sr = k_v D_e
     crypto::x25519_pubkey s_sender_receiver;
-    carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
+    try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
 
@@ -1046,10 +1046,10 @@ TEST(carrot_core, janus_protection_non_coinbase_main_sub_readjust_NOT_in_d_e)
     crypto::public_key nominal_address_spend_pubkey;
     rct::xmr_amount recovered_amount;
     crypto::secret_key recovered_amount_blinding_factor;
-    carrot::payment_id_t nominal_payment_id;
-    carrot::CarrotEnoteType recovered_enote_type;
-    carrot::janus_anchor_t nominal_janus_anchor;
-    const bool scanned = carrot::try_scan_carrot_enote_external_no_janus(output_enote.enote,
+    payment_id_t nominal_payment_id;
+    CarrotEnoteType recovered_enote_type;
+    janus_anchor_t nominal_janus_anchor;
+    const bool scanned = try_scan_carrot_enote_external_no_janus(output_enote.enote,
         encrypted_payment_id,
         s_sender_receiver,
         sender_extension_g,
@@ -1063,7 +1063,7 @@ TEST(carrot_core, janus_protection_non_coinbase_main_sub_readjust_NOT_in_d_e)
     ASSERT_TRUE(scanned);
     ASSERT_EQ(proposal.readjusted_opening_subaddress_spend_pubkey, nominal_address_spend_pubkey);
     ASSERT_EQ(amount, recovered_amount);
-    ASSERT_EQ(carrot::CarrotEnoteType::PAYMENT, recovered_enote_type);
+    ASSERT_EQ(CarrotEnoteType::PAYMENT, recovered_enote_type);
     ASSERT_EQ(output_enote.enote.amount_commitment, commit_carrot_amount(recovered_amount, recovered_amount_blinding_factor));
     ASSERT_TRUE(bob.can_open_fcmp_onetime_address(nominal_address_spend_pubkey,
         sender_extension_g,
@@ -1071,7 +1071,7 @@ TEST(carrot_core, janus_protection_non_coinbase_main_sub_readjust_NOT_in_d_e)
         output_enote.enote.onetime_address));
 
     EXPECT_FALSE(verify_carrot_normal_janus_protection(
-        carrot::make_carrot_input_context(tx_first_key_image),
+        make_carrot_input_context(tx_first_key_image),
         nominal_address_spend_pubkey,
         bob.cryptonote_address().address_spend_pubkey != nominal_address_spend_pubkey,
         output_enote.enote.enote_ephemeral_pubkey,
@@ -1112,22 +1112,22 @@ TEST(carrot_core, janus_protection_non_coinbase_main_sub_readjust_in_d_e)
     const rct::xmr_amount amount = rct::randXmrAmount(COIN);
 
     const JanusAttackProposalV1 proposal{
-        .normal = carrot::CarrotPaymentProposalV1{
+        .normal = CarrotPaymentProposalV1{
             .destination = bob_main,
             .amount = amount,
-            .randomness = carrot::gen_janus_anchor()
+            .randomness = gen_janus_anchor()
         },
         .readjusted_opening_subaddress_spend_pubkey = bob_subaddr.address_spend_pubkey,
         .use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = true,
     };
 
-    carrot::RCTOutputEnoteProposal output_enote;
-    carrot::encrypted_payment_id_t encrypted_payment_id;
+    RCTOutputEnoteProposal output_enote;
+    encrypted_payment_id_t encrypted_payment_id;
     get_output_proposal_janus_attack_v1(proposal, tx_first_key_image, output_enote, encrypted_payment_id);
 
     // s_sr = k_v D_e
     crypto::x25519_pubkey s_sender_receiver;
-    carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
+    try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
 
@@ -1136,10 +1136,10 @@ TEST(carrot_core, janus_protection_non_coinbase_main_sub_readjust_in_d_e)
     crypto::public_key nominal_address_spend_pubkey;
     rct::xmr_amount recovered_amount;
     crypto::secret_key recovered_amount_blinding_factor;
-    carrot::payment_id_t nominal_payment_id;
-    carrot::CarrotEnoteType recovered_enote_type;
-    carrot::janus_anchor_t nominal_janus_anchor;
-    const bool scanned = carrot::try_scan_carrot_enote_external_no_janus(output_enote.enote,
+    payment_id_t nominal_payment_id;
+    CarrotEnoteType recovered_enote_type;
+    janus_anchor_t nominal_janus_anchor;
+    const bool scanned = try_scan_carrot_enote_external_no_janus(output_enote.enote,
         encrypted_payment_id,
         s_sender_receiver,
         sender_extension_g,
@@ -1153,7 +1153,7 @@ TEST(carrot_core, janus_protection_non_coinbase_main_sub_readjust_in_d_e)
     ASSERT_TRUE(scanned);
     ASSERT_EQ(proposal.readjusted_opening_subaddress_spend_pubkey, nominal_address_spend_pubkey);
     ASSERT_EQ(amount, recovered_amount);
-    ASSERT_EQ(carrot::CarrotEnoteType::PAYMENT, recovered_enote_type);
+    ASSERT_EQ(CarrotEnoteType::PAYMENT, recovered_enote_type);
     ASSERT_EQ(output_enote.enote.amount_commitment, commit_carrot_amount(recovered_amount, recovered_amount_blinding_factor));
     ASSERT_TRUE(bob.can_open_fcmp_onetime_address(nominal_address_spend_pubkey,
         sender_extension_g,
@@ -1161,7 +1161,7 @@ TEST(carrot_core, janus_protection_non_coinbase_main_sub_readjust_in_d_e)
         output_enote.enote.onetime_address));
 
     EXPECT_FALSE(verify_carrot_normal_janus_protection(
-        carrot::make_carrot_input_context(tx_first_key_image),
+        make_carrot_input_context(tx_first_key_image),
         nominal_address_spend_pubkey,
         bob.cryptonote_address().address_spend_pubkey != nominal_address_spend_pubkey,
         output_enote.enote.enote_ephemeral_pubkey,
@@ -1202,22 +1202,22 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_main_readjust_NOT_in_d_e)
     const rct::xmr_amount amount = rct::randXmrAmount(COIN);
 
     const JanusAttackProposalV1 proposal{
-        .normal = carrot::CarrotPaymentProposalV1{
+        .normal = CarrotPaymentProposalV1{
             .destination = bob_subaddr,
             .amount = amount,
-            .randomness = carrot::gen_janus_anchor()
+            .randomness = gen_janus_anchor()
         },
         .readjusted_opening_subaddress_spend_pubkey = bob_main.address_spend_pubkey,
         .use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = false,
     };
 
-    carrot::RCTOutputEnoteProposal output_enote;
-    carrot::encrypted_payment_id_t encrypted_payment_id;
+    RCTOutputEnoteProposal output_enote;
+    encrypted_payment_id_t encrypted_payment_id;
     get_output_proposal_janus_attack_v1(proposal, tx_first_key_image, output_enote, encrypted_payment_id);
 
     // s_sr = k_v D_e
     crypto::x25519_pubkey s_sender_receiver;
-    carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
+    try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
 
@@ -1226,10 +1226,10 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_main_readjust_NOT_in_d_e)
     crypto::public_key nominal_address_spend_pubkey;
     rct::xmr_amount recovered_amount;
     crypto::secret_key recovered_amount_blinding_factor;
-    carrot::payment_id_t nominal_payment_id;
-    carrot::CarrotEnoteType recovered_enote_type;
-    carrot::janus_anchor_t nominal_janus_anchor;
-    const bool scanned = carrot::try_scan_carrot_enote_external_no_janus(output_enote.enote,
+    payment_id_t nominal_payment_id;
+    CarrotEnoteType recovered_enote_type;
+    janus_anchor_t nominal_janus_anchor;
+    const bool scanned = try_scan_carrot_enote_external_no_janus(output_enote.enote,
         encrypted_payment_id,
         s_sender_receiver,
         sender_extension_g,
@@ -1243,7 +1243,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_main_readjust_NOT_in_d_e)
     ASSERT_TRUE(scanned);
     ASSERT_EQ(proposal.readjusted_opening_subaddress_spend_pubkey, nominal_address_spend_pubkey);
     ASSERT_EQ(amount, recovered_amount);
-    ASSERT_EQ(carrot::CarrotEnoteType::PAYMENT, recovered_enote_type);
+    ASSERT_EQ(CarrotEnoteType::PAYMENT, recovered_enote_type);
     ASSERT_EQ(output_enote.enote.amount_commitment, commit_carrot_amount(recovered_amount, recovered_amount_blinding_factor));
     ASSERT_TRUE(bob.can_open_fcmp_onetime_address(nominal_address_spend_pubkey,
         sender_extension_g,
@@ -1251,7 +1251,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_main_readjust_NOT_in_d_e)
         output_enote.enote.onetime_address));
 
     EXPECT_FALSE(verify_carrot_normal_janus_protection(
-        carrot::make_carrot_input_context(tx_first_key_image),
+        make_carrot_input_context(tx_first_key_image),
         nominal_address_spend_pubkey,
         bob.cryptonote_address().address_spend_pubkey != nominal_address_spend_pubkey,
         output_enote.enote.enote_ephemeral_pubkey,
@@ -1292,22 +1292,22 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_main_readjust_in_d_e)
     const rct::xmr_amount amount = rct::randXmrAmount(COIN);
 
     const JanusAttackProposalV1 proposal{
-        .normal = carrot::CarrotPaymentProposalV1{
+        .normal = CarrotPaymentProposalV1{
             .destination = bob_subaddr,
             .amount = amount,
-            .randomness = carrot::gen_janus_anchor()
+            .randomness = gen_janus_anchor()
         },
         .readjusted_opening_subaddress_spend_pubkey = bob_main.address_spend_pubkey,
         .use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = true,
     };
 
-    carrot::RCTOutputEnoteProposal output_enote;
-    carrot::encrypted_payment_id_t encrypted_payment_id;
+    RCTOutputEnoteProposal output_enote;
+    encrypted_payment_id_t encrypted_payment_id;
     get_output_proposal_janus_attack_v1(proposal, tx_first_key_image, output_enote, encrypted_payment_id);
 
     // s_sr = k_v D_e
     crypto::x25519_pubkey s_sender_receiver;
-    carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
+    try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
 
@@ -1316,10 +1316,10 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_main_readjust_in_d_e)
     crypto::public_key nominal_address_spend_pubkey;
     rct::xmr_amount recovered_amount;
     crypto::secret_key recovered_amount_blinding_factor;
-    carrot::payment_id_t nominal_payment_id;
-    carrot::CarrotEnoteType recovered_enote_type;
-    carrot::janus_anchor_t nominal_janus_anchor;
-    const bool scanned = carrot::try_scan_carrot_enote_external_no_janus(output_enote.enote,
+    payment_id_t nominal_payment_id;
+    CarrotEnoteType recovered_enote_type;
+    janus_anchor_t nominal_janus_anchor;
+    const bool scanned = try_scan_carrot_enote_external_no_janus(output_enote.enote,
         encrypted_payment_id,
         s_sender_receiver,
         sender_extension_g,
@@ -1333,7 +1333,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_main_readjust_in_d_e)
     ASSERT_TRUE(scanned);
     ASSERT_EQ(proposal.readjusted_opening_subaddress_spend_pubkey, nominal_address_spend_pubkey);
     ASSERT_EQ(amount, recovered_amount);
-    ASSERT_EQ(carrot::CarrotEnoteType::PAYMENT, recovered_enote_type);
+    ASSERT_EQ(CarrotEnoteType::PAYMENT, recovered_enote_type);
     ASSERT_EQ(output_enote.enote.amount_commitment, commit_carrot_amount(recovered_amount, recovered_amount_blinding_factor));
     ASSERT_TRUE(bob.can_open_fcmp_onetime_address(nominal_address_spend_pubkey,
         sender_extension_g,
@@ -1341,7 +1341,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_main_readjust_in_d_e)
         output_enote.enote.onetime_address));
 
     EXPECT_FALSE(verify_carrot_normal_janus_protection(
-        carrot::make_carrot_input_context(tx_first_key_image),
+        make_carrot_input_context(tx_first_key_image),
         nominal_address_spend_pubkey,
         bob.cryptonote_address().address_spend_pubkey != nominal_address_spend_pubkey,
         output_enote.enote.enote_ephemeral_pubkey,
@@ -1382,22 +1382,22 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_NOT_in_d_e)
     const rct::xmr_amount amount = rct::randXmrAmount(COIN);
 
     const JanusAttackProposalV1 proposal{
-        .normal = carrot::CarrotPaymentProposalV1{
+        .normal = CarrotPaymentProposalV1{
             .destination = bob_subaddr1,
             .amount = amount,
-            .randomness = carrot::gen_janus_anchor()
+            .randomness = gen_janus_anchor()
         },
         .readjusted_opening_subaddress_spend_pubkey = bob_subaddr2.address_spend_pubkey,
         .use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = false,
     };
 
-    carrot::RCTOutputEnoteProposal output_enote;
-    carrot::encrypted_payment_id_t encrypted_payment_id;
+    RCTOutputEnoteProposal output_enote;
+    encrypted_payment_id_t encrypted_payment_id;
     get_output_proposal_janus_attack_v1(proposal, tx_first_key_image, output_enote, encrypted_payment_id);
 
     // s_sr = k_v D_e
     crypto::x25519_pubkey s_sender_receiver;
-    carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
+    try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
 
@@ -1406,10 +1406,10 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_NOT_in_d_e)
     crypto::public_key nominal_address_spend_pubkey;
     rct::xmr_amount recovered_amount;
     crypto::secret_key recovered_amount_blinding_factor;
-    carrot::payment_id_t nominal_payment_id;
-    carrot::CarrotEnoteType recovered_enote_type;
-    carrot::janus_anchor_t nominal_janus_anchor;
-    const bool scanned = carrot::try_scan_carrot_enote_external_no_janus(output_enote.enote,
+    payment_id_t nominal_payment_id;
+    CarrotEnoteType recovered_enote_type;
+    janus_anchor_t nominal_janus_anchor;
+    const bool scanned = try_scan_carrot_enote_external_no_janus(output_enote.enote,
         encrypted_payment_id,
         s_sender_receiver,
         sender_extension_g,
@@ -1423,7 +1423,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_NOT_in_d_e)
     ASSERT_TRUE(scanned);
     ASSERT_EQ(proposal.readjusted_opening_subaddress_spend_pubkey, nominal_address_spend_pubkey);
     ASSERT_EQ(amount, recovered_amount);
-    ASSERT_EQ(carrot::CarrotEnoteType::PAYMENT, recovered_enote_type);
+    ASSERT_EQ(CarrotEnoteType::PAYMENT, recovered_enote_type);
     ASSERT_EQ(output_enote.enote.amount_commitment, commit_carrot_amount(recovered_amount, recovered_amount_blinding_factor));
     ASSERT_TRUE(bob.can_open_fcmp_onetime_address(nominal_address_spend_pubkey,
         sender_extension_g,
@@ -1431,7 +1431,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_NOT_in_d_e)
         output_enote.enote.onetime_address));
 
     EXPECT_FALSE(verify_carrot_normal_janus_protection(
-        carrot::make_carrot_input_context(tx_first_key_image),
+        make_carrot_input_context(tx_first_key_image),
         nominal_address_spend_pubkey,
         bob.cryptonote_address().address_spend_pubkey != nominal_address_spend_pubkey,
         output_enote.enote.enote_ephemeral_pubkey,
@@ -1472,22 +1472,22 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_in_d_e)
     const rct::xmr_amount amount = rct::randXmrAmount(COIN);
 
     const JanusAttackProposalV1 proposal{
-        .normal = carrot::CarrotPaymentProposalV1{
+        .normal = CarrotPaymentProposalV1{
             .destination = bob_subaddr1,
             .amount = amount,
-            .randomness = carrot::gen_janus_anchor()
+            .randomness = gen_janus_anchor()
         },
         .readjusted_opening_subaddress_spend_pubkey = bob_subaddr2.address_spend_pubkey,
         .use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = true,
     };
 
-    carrot::RCTOutputEnoteProposal output_enote;
-    carrot::encrypted_payment_id_t encrypted_payment_id;
+    RCTOutputEnoteProposal output_enote;
+    encrypted_payment_id_t encrypted_payment_id;
     get_output_proposal_janus_attack_v1(proposal, tx_first_key_image, output_enote, encrypted_payment_id);
 
     // s_sr = k_v D_e
     crypto::x25519_pubkey s_sender_receiver;
-    carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
+    try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote.enote_ephemeral_pubkey,
         s_sender_receiver);
 
@@ -1496,10 +1496,10 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_in_d_e)
     crypto::public_key nominal_address_spend_pubkey;
     rct::xmr_amount recovered_amount;
     crypto::secret_key recovered_amount_blinding_factor;
-    carrot::payment_id_t nominal_payment_id;
-    carrot::CarrotEnoteType recovered_enote_type;
-    carrot::janus_anchor_t nominal_janus_anchor;
-    const bool scanned = carrot::try_scan_carrot_enote_external_no_janus(output_enote.enote,
+    payment_id_t nominal_payment_id;
+    CarrotEnoteType recovered_enote_type;
+    janus_anchor_t nominal_janus_anchor;
+    const bool scanned = try_scan_carrot_enote_external_no_janus(output_enote.enote,
         encrypted_payment_id,
         s_sender_receiver,
         sender_extension_g,
@@ -1513,7 +1513,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_in_d_e)
     ASSERT_TRUE(scanned);
     ASSERT_EQ(proposal.readjusted_opening_subaddress_spend_pubkey, nominal_address_spend_pubkey);
     ASSERT_EQ(amount, recovered_amount);
-    ASSERT_EQ(carrot::CarrotEnoteType::PAYMENT, recovered_enote_type);
+    ASSERT_EQ(CarrotEnoteType::PAYMENT, recovered_enote_type);
     ASSERT_EQ(output_enote.enote.amount_commitment, commit_carrot_amount(recovered_amount, recovered_amount_blinding_factor));
     ASSERT_TRUE(bob.can_open_fcmp_onetime_address(nominal_address_spend_pubkey,
         sender_extension_g,
@@ -1521,7 +1521,7 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_in_d_e)
         output_enote.enote.onetime_address));
 
     EXPECT_FALSE(verify_carrot_normal_janus_protection(
-        carrot::make_carrot_input_context(tx_first_key_image),
+        make_carrot_input_context(tx_first_key_image),
         nominal_address_spend_pubkey,
         bob.cryptonote_address().address_spend_pubkey != nominal_address_spend_pubkey,
         output_enote.enote.enote_ephemeral_pubkey,
@@ -1554,15 +1554,15 @@ TEST(carrot_core, janus_protection_non_coinbase_sub_sub_readjust_in_d_e)
 //----------------------------------------------------------------------------------------------------------------------
 static void get_coinbase_output_proposal_janus_attack_v1(const JanusAttackProposalV1 &proposal,
     const std::uint64_t block_index,
-    carrot::CarrotCoinbaseEnoteV1 &output_enote_out)
+    CarrotCoinbaseEnoteV1 &output_enote_out)
 {
     // 1. sanity checks
-    CHECK_AND_ASSERT_THROW_MES(proposal.normal.randomness != carrot::janus_anchor_t{},
+    CHECK_AND_ASSERT_THROW_MES(proposal.normal.randomness != janus_anchor_t{},
         "jamtis payment proposal: invalid randomness for janus anchor (zero).");
     CHECK_AND_ASSERT_THROW_MES(proposal.normal.destination.is_subaddress,
         "jamtis payment proposal: we need OG address to be a subaddress so we can make do ECDH against that");
 
-    const carrot::CarrotDestinationV1 &destination = proposal.normal.destination;
+    const CarrotDestinationV1 &destination = proposal.normal.destination;
 
     // 2. input context: input_context = "R" || KI_1
     const input_context_t input_context = make_carrot_input_context_coinbase(block_index);
@@ -1575,7 +1575,7 @@ static void get_coinbase_output_proposal_janus_attack_v1(const JanusAttackPropos
 
     // 4. d_e = H_n(anchor_norm, input_context, K^x_s, pid)
     crypto::secret_key enote_ephemeral_privkey;
-    carrot::make_carrot_enote_ephemeral_privkey(proposal.normal.randomness,
+    make_carrot_enote_ephemeral_privkey(proposal.normal.randomness,
         input_context,
         spend_pubkey_used_in_ephemeral_privkey_hash,
         destination.payment_id,
@@ -1637,29 +1637,29 @@ TEST(carrot_core, janus_protection_coinbase_main_sub_readjust_NOT_in_d_e)
     const rct::xmr_amount amount = rct::randXmrAmount(COIN);
 
     const JanusAttackProposalV1 proposal{
-        .normal = carrot::CarrotPaymentProposalV1{
+        .normal = CarrotPaymentProposalV1{
             .destination = bob_subaddr,
             .amount = amount,
-            .randomness = carrot::gen_janus_anchor()
+            .randomness = gen_janus_anchor()
         },
         .readjusted_opening_subaddress_spend_pubkey = bob_main.address_spend_pubkey,
         .use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = false,
     };
 
-    carrot::CarrotCoinbaseEnoteV1 output_enote;
+    CarrotCoinbaseEnoteV1 output_enote;
     get_coinbase_output_proposal_janus_attack_v1(proposal, block_index, output_enote);
 
     // s_sr = k_v D_e
     crypto::x25519_pubkey s_sender_receiver;
-    carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
+    try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote_ephemeral_pubkey,
         s_sender_receiver);
 
     crypto::secret_key sender_extension_g;
     crypto::secret_key sender_extension_t;
     crypto::public_key nominal_address_spend_pubkey;
-    carrot::janus_anchor_t nominal_janus_anchor;
-    const bool scanned = carrot::try_scan_carrot_coinbase_enote_no_janus(output_enote,
+    janus_anchor_t nominal_janus_anchor;
+    const bool scanned = try_scan_carrot_coinbase_enote_no_janus(output_enote,
         s_sender_receiver,
         {&bob.carrot_account_spend_pubkey, 1},
         sender_extension_g,
@@ -1673,7 +1673,7 @@ TEST(carrot_core, janus_protection_coinbase_main_sub_readjust_NOT_in_d_e)
         sender_extension_t,
         output_enote.onetime_address));
 
-    EXPECT_FALSE(carrot::verify_carrot_normal_janus_protection(nominal_janus_anchor,
+    EXPECT_FALSE(verify_carrot_normal_janus_protection(nominal_janus_anchor,
         make_carrot_input_context_coinbase(block_index),
         nominal_address_spend_pubkey,
         bob.cryptonote_address().address_spend_pubkey != nominal_address_spend_pubkey,
@@ -1704,29 +1704,29 @@ TEST(carrot_core, janus_protection_coinbase_main_sub_readjust_in_d_e)
     const rct::xmr_amount amount = rct::randXmrAmount(COIN);
 
     const JanusAttackProposalV1 proposal{
-        .normal = carrot::CarrotPaymentProposalV1{
+        .normal = CarrotPaymentProposalV1{
             .destination = bob_subaddr,
             .amount = amount,
-            .randomness = carrot::gen_janus_anchor()
+            .randomness = gen_janus_anchor()
         },
         .readjusted_opening_subaddress_spend_pubkey = bob_main.address_spend_pubkey,
         .use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = true,
     };
 
-    carrot::CarrotCoinbaseEnoteV1 output_enote;
+    CarrotCoinbaseEnoteV1 output_enote;
     get_coinbase_output_proposal_janus_attack_v1(proposal, block_index, output_enote);
 
     // s_sr = k_v D_e
     crypto::x25519_pubkey s_sender_receiver;
-    carrot::try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
+    try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
         output_enote.enote_ephemeral_pubkey,
         s_sender_receiver);
 
     crypto::secret_key sender_extension_g;
     crypto::secret_key sender_extension_t;
     crypto::public_key nominal_address_spend_pubkey;
-    carrot::janus_anchor_t nominal_janus_anchor;
-    const bool scanned = carrot::try_scan_carrot_coinbase_enote_no_janus(output_enote,
+    janus_anchor_t nominal_janus_anchor;
+    const bool scanned = try_scan_carrot_coinbase_enote_no_janus(output_enote,
         s_sender_receiver,
         {&bob.carrot_account_spend_pubkey, 1},
         sender_extension_g,
@@ -1740,7 +1740,7 @@ TEST(carrot_core, janus_protection_coinbase_main_sub_readjust_in_d_e)
         sender_extension_t,
         output_enote.onetime_address));
 
-    EXPECT_FALSE(carrot::verify_carrot_normal_janus_protection(nominal_janus_anchor,
+    EXPECT_FALSE(verify_carrot_normal_janus_protection(nominal_janus_anchor,
         make_carrot_input_context_coinbase(block_index),
         nominal_address_spend_pubkey,
         bob.cryptonote_address().address_spend_pubkey != nominal_address_spend_pubkey,
@@ -1771,10 +1771,10 @@ TEST(carrot_core, janus_protection_use_readjusted_spend_pubkey_in_ephemeral_priv
     const rct::xmr_amount amount = rct::randXmrAmount(COIN);
 
     const JanusAttackProposalV1 proposal1{
-        .normal = carrot::CarrotPaymentProposalV1{
+        .normal = CarrotPaymentProposalV1{
             .destination = bob_subaddr,
             .amount = amount,
-            .randomness = carrot::gen_janus_anchor()
+            .randomness = gen_janus_anchor()
         },
         .readjusted_opening_subaddress_spend_pubkey = bob_main.address_spend_pubkey,
         .use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = false,
@@ -1783,10 +1783,10 @@ TEST(carrot_core, janus_protection_use_readjusted_spend_pubkey_in_ephemeral_priv
     JanusAttackProposalV1 proposal2 = proposal1;
     proposal2.use_readjusted_spend_pubkey_in_ephemeral_privkey_hash = true;
 
-    carrot::CarrotCoinbaseEnoteV1 output_enote1;
+    CarrotCoinbaseEnoteV1 output_enote1;
     get_coinbase_output_proposal_janus_attack_v1(proposal1, block_index, output_enote1);
 
-    carrot::CarrotCoinbaseEnoteV1 output_enote2;
+    CarrotCoinbaseEnoteV1 output_enote2;
     get_coinbase_output_proposal_janus_attack_v1(proposal2, block_index, output_enote2);
 
     EXPECT_NE(0, memcmp(&output_enote1.enote_ephemeral_pubkey,
@@ -3163,5 +3163,240 @@ TEST(carrot_core, scan_binding_identity_De_identity_Kjs)
             recovered_payment_id,
             recovered_enote_type));
     }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, sender_scan_coinbase)
+{
+    const CarrotPaymentProposalV1 payment_proposal{
+        .destination = bob.cryptonote_address(),
+        .amount = COIN / 2,
+        .randomness = gen_janus_anchor()
+    };
+
+    const std::uint64_t block_index = mock::gen_block_index();
+    CarrotCoinbaseEnoteV1 enote;
+    get_coinbase_enote_v1(payment_proposal, block_index, enote);
+
+    crypto::secret_key sender_extension_g;
+    crypto::secret_key sender_extension_t;
+    ASSERT_TRUE(try_scan_carrot_coinbase_enote_sender(enote,
+        payment_proposal.destination,
+        payment_proposal.randomness,
+        sender_extension_g,
+        sender_extension_t));
+    ASSERT_EQ(payment_proposal.amount, enote.amount);
+    ASSERT_TRUE(bob.can_open_fcmp_onetime_address(payment_proposal.destination.address_spend_pubkey,
+        sender_extension_g,
+        sender_extension_t,
+        enote.onetime_address));
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, sender_scan_main_address)
+{
+    const CarrotPaymentProposalV1 payment_proposal{
+        .destination = bob.cryptonote_address(),
+        .amount = COIN / 2,
+        .randomness = gen_janus_anchor()
+    };
+    ASSERT_FALSE(payment_proposal.destination.is_subaddress);
+
+    const crypto::key_image tx_first_key_image = mock::gen_key_image();
+    RCTOutputEnoteProposal enote_proposal;
+    encrypted_payment_id_t encrypted_payment_id;
+    get_output_proposal_normal_v1(payment_proposal, tx_first_key_image, enote_proposal,
+        encrypted_payment_id);
+
+    crypto::secret_key sender_extension_g;
+    crypto::secret_key sender_extension_t;
+    xmr_amount recovered_amount;
+    crypto::secret_key recovered_amount_blinding_factor;
+    CarrotEnoteType recovered_enote_type;
+    ASSERT_TRUE(try_scan_carrot_enote_external_sender(enote_proposal.enote,
+        encrypted_payment_id,
+        payment_proposal.destination,
+        payment_proposal.randomness,
+        sender_extension_g,
+        sender_extension_t,
+        recovered_amount,
+        recovered_amount_blinding_factor,
+        recovered_enote_type,
+        /*check_pid=*/true));
+    ASSERT_EQ(payment_proposal.amount, recovered_amount);
+    ASSERT_EQ(CarrotEnoteType::PAYMENT, recovered_enote_type);
+    ASSERT_TRUE(bob.can_open_fcmp_onetime_address(payment_proposal.destination.address_spend_pubkey,
+        sender_extension_g,
+        sender_extension_t,
+        enote_proposal.enote.onetime_address));
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, sender_scan_subaddress)
+{
+    const CarrotPaymentProposalV1 payment_proposal{
+        .destination = bob.subaddress({mock::gen_subaddress_index()}),
+        .amount = COIN / 2,
+        .randomness = gen_janus_anchor()
+    };
+    ASSERT_TRUE(payment_proposal.destination.is_subaddress);
+
+    const crypto::key_image tx_first_key_image = mock::gen_key_image();
+    RCTOutputEnoteProposal enote_proposal;
+    encrypted_payment_id_t encrypted_payment_id;
+    get_output_proposal_normal_v1(payment_proposal, tx_first_key_image, enote_proposal,
+        encrypted_payment_id);
+
+    crypto::secret_key sender_extension_g;
+    crypto::secret_key sender_extension_t;
+    xmr_amount recovered_amount;
+    crypto::secret_key recovered_amount_blinding_factor;
+    CarrotEnoteType recovered_enote_type;
+    ASSERT_TRUE(try_scan_carrot_enote_external_sender(enote_proposal.enote,
+        encrypted_payment_id,
+        payment_proposal.destination,
+        payment_proposal.randomness,
+        sender_extension_g,
+        sender_extension_t,
+        recovered_amount,
+        recovered_amount_blinding_factor,
+        recovered_enote_type,
+        /*check_pid=*/true));
+    ASSERT_EQ(payment_proposal.amount, recovered_amount);
+    ASSERT_EQ(CarrotEnoteType::PAYMENT, recovered_enote_type);
+    ASSERT_TRUE(bob.can_open_fcmp_onetime_address(payment_proposal.destination.address_spend_pubkey,
+        sender_extension_g,
+        sender_extension_t,
+        enote_proposal.enote.onetime_address));
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, sender_scan_selfsend_2out)
+{
+    const CarrotPaymentProposalV1 payment_proposal{
+        .destination = bob.subaddress({mock::gen_subaddress_index()}),
+        .amount = COIN / 2,
+        .randomness = gen_janus_anchor()
+    };
+    const CarrotDestinationV1 alice_subaddress = alice.subaddress({mock::gen_subaddress_index()});
+    ASSERT_TRUE(alice_subaddress.is_subaddress);
+    const CarrotPaymentProposalSelfSendV1 selfsend_payment_proposal{
+        .destination_address_spend_pubkey = alice_subaddress.address_spend_pubkey,
+        .is_subaddress = true,
+        .amount = 21 * COIN,
+        .enote_type = CarrotEnoteType::CHANGE,
+        .enote_ephemeral_privkey = std::nullopt,
+        .internal_message = std::nullopt
+    };
+
+    const crypto::key_image tx_first_key_image = mock::gen_key_image();
+    std::vector<RCTOutputEnoteProposal> output_enote_proposals;
+    encrypted_payment_id_t encrypted_payment_id;
+    get_output_enote_proposals({payment_proposal}, {selfsend_payment_proposal}, gen_encrypted_payment_id(), nullptr,
+        &alice.k_view_incoming_dev, tx_first_key_image, output_enote_proposals, encrypted_payment_id);
+    ASSERT_EQ(2, output_enote_proposals.size());
+
+    std::vector<CarrotEnoteV1> enotes;
+    enotes.reserve(output_enote_proposals.size());
+    for (const auto &output_enote_proposal : output_enote_proposals)
+        enotes.push_back(output_enote_proposal.enote);
+
+    std::vector<mock::mock_scan_result_t> alice_scan_res;
+    mock::mock_scan_enote_set(enotes, encrypted_payment_id, alice, alice_scan_res);
+    ASSERT_EQ(1, alice_scan_res.size());
+    ASSERT_LT(alice_scan_res.at(0).output_index, output_enote_proposals.size());
+    const size_t alice_output_index = alice_scan_res.at(0).output_index;
+    const size_t bob_output_index = 1 - alice_output_index;
+    const CarrotEnoteV1 &alice_enote = enotes.at(alice_output_index);
+    const CarrotEnoteV1 &bob_enote = enotes.at(bob_output_index);
+
+    const crypto::secret_key enote_ephemeral_privkey
+        = get_enote_ephemeral_privkey(payment_proposal, make_carrot_input_context(tx_first_key_image));
+    ASSERT_EQ(enote_ephemeral_privkey,
+        get_enote_ephemeral_privkey(selfsend_payment_proposal, &payment_proposal, nullptr, tx_first_key_image));
+
+    // check bob sender scannability
+    crypto::secret_key sender_extension_g;
+    crypto::secret_key sender_extension_t;
+    xmr_amount recovered_amount;
+    crypto::secret_key recovered_amount_blinding_factor;
+    CarrotEnoteType recovered_enote_type;
+    ASSERT_TRUE(try_scan_carrot_enote_external_sender(bob_enote,
+        encrypted_payment_id,
+        payment_proposal.destination,
+        payment_proposal.randomness,
+        sender_extension_g,
+        sender_extension_t,
+        recovered_amount,
+        recovered_amount_blinding_factor,
+        recovered_enote_type,
+        /*check_pid=*/true));
+    ASSERT_EQ(payment_proposal.amount, recovered_amount);
+    ASSERT_EQ(CarrotEnoteType::PAYMENT, recovered_enote_type);
+    ASSERT_TRUE(bob.can_open_fcmp_onetime_address(payment_proposal.destination.address_spend_pubkey,
+        sender_extension_g,
+        sender_extension_t,
+        bob_enote.onetime_address));
+
+    crypto::x25519_pubkey alice_derivation;
+    ASSERT_TRUE(try_make_carrot_shared_key_receiver(alice.k_view_incoming_dev, alice_enote.enote_ephemeral_pubkey,
+        alice_derivation));
+
+    // check alice sender scannability
+    ASSERT_TRUE(try_scan_carrot_enote_external_sender(alice_enote,
+        encrypted_payment_id,
+        alice_subaddress,
+        alice_derivation,
+        sender_extension_g,
+        sender_extension_t,
+        recovered_amount,
+        recovered_amount_blinding_factor,
+        recovered_enote_type,
+        /*check_pid=*/true));
+    ASSERT_EQ(selfsend_payment_proposal.amount, recovered_amount);
+    ASSERT_EQ(selfsend_payment_proposal.enote_type, recovered_enote_type);
+    ASSERT_TRUE(alice.can_open_fcmp_onetime_address(selfsend_payment_proposal.destination_address_spend_pubkey,
+        sender_extension_g,
+        sender_extension_t,
+        alice_enote.onetime_address));
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, get_additional_payment_proposal_change_unique)
+{
+    const std::vector<CarrotPaymentProposalV1> normal_payment_proposals{
+        CarrotPaymentProposalV1{
+            .destination = bob.cryptonote_address(),
+            .amount = COIN,
+            .randomness = gen_janus_anchor()
+        },
+        CarrotPaymentProposalV1{
+            .destination = bob.subaddress(mock::gen_subaddress_index_extended()),
+            .amount = 3 * COIN,
+            .randomness = gen_janus_anchor()
+        }
+    };
+
+    std::vector<CarrotPaymentProposalSelfSendV1> selfsend_payment_proposals{};
+
+    const xmr_amount needed_change = 0;
+    const CarrotDestinationV1 alice_change_address = alice.subaddress(mock::gen_subaddress_index_extended());
+    const auto additional_payment_proposal = get_additional_payment_proposal(normal_payment_proposals.size(),
+        selfsend_payment_proposals.size(), 0, false,
+        alice_change_address.address_spend_pubkey, alice_change_address.is_subaddress);
+    const auto *additional_selfsend_payment_proposal
+        = std::get_if<CarrotPaymentProposalSelfSendV1>(&additional_payment_proposal);
+    ASSERT_TRUE(additional_selfsend_payment_proposal);
+    ASSERT_EQ(alice_change_address.address_spend_pubkey,
+        additional_selfsend_payment_proposal->destination_address_spend_pubkey);
+    ASSERT_TRUE(additional_selfsend_payment_proposal->is_subaddress);
+    ASSERT_EQ(needed_change, additional_selfsend_payment_proposal->amount);
+    ASSERT_EQ(CarrotEnoteType::CHANGE, additional_selfsend_payment_proposal->enote_type);
+    ASSERT_TRUE(additional_selfsend_payment_proposal->enote_ephemeral_privkey);
+    ASSERT_FALSE(additional_selfsend_payment_proposal->internal_message);
+
+    selfsend_payment_proposals.push_back(*additional_selfsend_payment_proposal);
+    const crypto::key_image tx_first_key_image = mock::gen_key_image();
+    std::vector<RCTOutputEnoteProposal> output_enote_proposal;
+    encrypted_payment_id_t encrypted_payment_id;
+    ASSERT_NO_THROW(get_output_enote_proposals(normal_payment_proposals, selfsend_payment_proposals,
+        gen_encrypted_payment_id(), &alice.s_view_balance_dev,
+        &alice.k_view_incoming_dev, tx_first_key_image, output_enote_proposal,
+        encrypted_payment_id));
 }
 //----------------------------------------------------------------------------------------------------------------------

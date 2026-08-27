@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -288,6 +288,9 @@ bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
     CarrotEnoteType &enote_type_out,
     const bool check_pid)
 {
+    const crypto::public_key &main_address_spend_pubkey = destination.is_subaddress
+        ? crypto::null_pkey : destination.address_spend_pubkey;
+
     crypto::public_key recovered_address_spend_pubkey;
     payment_id_t recovered_payment_id;
     CarrotEnoteType recovered_enote_type;
@@ -296,7 +299,7 @@ bool try_scan_carrot_enote_external_sender(const CarrotEnoteV1 &enote,
     if (!try_scan_carrot_enote_external_normal_checked(enote,
             encrypted_payment_id,
             s_sender_receiver,
-            {&destination.address_spend_pubkey, 1},
+            {&main_address_spend_pubkey, 1},
             sender_extension_g_out,
             sender_extension_t_out,
             recovered_address_spend_pubkey,

@@ -48,6 +48,14 @@ namespace carrot
 {
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+static crypto::secret_key genSk()
+{
+    crypto::secret_key k;
+    crypto::random32_unbiased(to_bytes(k));
+    return k;
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
 template <typename T>
 struct compare_memcmp{ bool operator()(const T &a, const T &b) const { return memcmp(&a, &b, sizeof(T)) < 0; } };
 template <typename T>
@@ -140,7 +148,7 @@ std::variant<CarrotPaymentProposalV1, CarrotPaymentProposalSelfSendV1, std::null
             .is_subaddress = change_address_is_subaddress,
             .amount = needed_change_amount,
             .enote_type = CarrotEnoteType::CHANGE,
-            .enote_ephemeral_privkey = std::nullopt
+            .enote_ephemeral_privkey = genSk()
         };
     case AdditionalOutputType::DUMMY:
         return CarrotPaymentProposalV1{

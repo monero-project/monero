@@ -546,24 +546,4 @@ void get_output_proposal_internal_v1(const CarrotPaymentProposalSelfSendV1 &prop
     output_enote_out.amount                       = proposal.amount;
 }
 //-------------------------------------------------------------------------------------------------------------------
-CarrotPaymentProposalV1 gen_carrot_payment_proposal_v1(const bool is_subaddress,
-    const bool has_payment_id,
-    const xmr_amount amount,
-    const std::size_t num_random_memo_elements)
-{
-    CarrotPaymentProposalV1 temp;
-
-    if (is_subaddress)
-        temp.destination = gen_carrot_subaddress_v1();
-    else if (has_payment_id)
-        temp.destination = gen_carrot_integrated_address_v1();
-    else
-        temp.destination = gen_carrot_main_address_v1();
-
-    temp.amount     = amount;
-    temp.randomness = gen_janus_anchor();
-
-    return temp;
-}
-//-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot

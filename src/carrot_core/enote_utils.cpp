@@ -194,7 +194,13 @@ bool try_make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key 
     const crypto::public_key &address_spend_pubkey,
     crypto::x25519_pubkey &enote_ephemeral_pubkey_out)
 {
-    // deserialize K^j_s
+    static constexpr crypto::public_key identity{{1}};
+
+    // if K^j_s == 0
+    if (address_spend_pubkey == identity)
+        return false;
+
+    // decompress K^j_s
     ge_p3 address_spend_pubkey_p3;
     if (0 != ge_frombytes_vartime(&address_spend_pubkey_p3, to_bytes(address_spend_pubkey)))
         return false;
@@ -205,6 +211,11 @@ bool try_make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key 
 
     // D_e = ConvertPointE(K_e)
     if (0 != ge_p3_to_x25519(enote_ephemeral_pubkey_out.data, &D_e_in_ed25519))
+        return false;
+
+    // If K^j_s not in main subgroup, ABORT
+    ge_scalarmult_p3(&D_e_in_ed25519, sc_l, &D_e_in_ed25519);
+    if (!ge_p3_is_point_at_infinity_vartime(&D_e_in_ed25519))
         return false;
 
     return true;

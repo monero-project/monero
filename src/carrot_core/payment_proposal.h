@@ -195,15 +195,5 @@ void get_output_proposal_internal_v1(const CarrotPaymentProposalSelfSendV1 &prop
     const CarrotPaymentProposalV1 *other_normal_payment_proposal,
     const CarrotPaymentProposalSelfSendV1 *other_self_send_proposal,
     RCTOutputEnoteProposal &output_enote_out);
-/**
- * @brief Generate a random payment proposal
- * @param is_subaddress whether to generate a proposal to subaddress
- * @param has_payment_id true to generate non-zero payment ID, false for null payment ID
- * @param amount -
- * @return a random proposal
- */
-CarrotPaymentProposalV1 gen_carrot_payment_proposal_v1(const bool is_subaddress,
-    const bool has_payment_id,
-    const xmr_amount amount);
 
 } //namespace carrot
