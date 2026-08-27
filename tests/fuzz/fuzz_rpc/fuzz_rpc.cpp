@@ -57,8 +57,11 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 
   // Initialise core and core_rpc_server
   auto core_env = initialise_rpc_core();
+  if (!core_env) {
+    return 0;
+  }
   auto& dummy_core = core_env->core;
-  auto rpc_handler = initialise_rpc_server(*dummy_core, provider, !is_safe_mode);
+  auto rpc_handler = initialise_rpc_server(*dummy_core, provider.ConsumeBool());
 
   // Generate random blocks/miners/transactions and push to the core blockchains
   if (!generate_random_blocks(*dummy_core, provider)) {
