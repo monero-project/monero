@@ -98,6 +98,18 @@ static void ge_double_scalarmult_base(ge_p1p1 *R, const unsigned char *x, const 
 }
 //-------------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------------
+static bool verify_point_is_in_main_subgroup(const crypto::ec_point &P, ge_p3 &P_p3_out)
+{
+    // valid point?
+    if (0 != ge_frombytes_vartime(&P_p3_out, to_bytes(P)))
+        return false;
+    // 0 ?= l * K^j_v
+    ge_p3 tmp1;
+    ge_scalarmult_p3(&tmp1, sc_l, &P_p3_out);
+    return ge_p3_is_point_at_infinity_vartime(&tmp1);
+}
+//-------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------
 /**
  * @brief calculate x G + y T
  */
@@ -200,9 +212,9 @@ bool try_make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key 
     if (address_spend_pubkey == identity)
         return false;
 
-    // decompress K^j_s
+    // decompress and check K^j_s
     ge_p3 address_spend_pubkey_p3;
-    if (0 != ge_frombytes_vartime(&address_spend_pubkey_p3, to_bytes(address_spend_pubkey)))
+    if (!verify_point_is_in_main_subgroup(address_spend_pubkey, address_spend_pubkey_p3))
         return false;
 
     // K_e = d_e K^j_s
@@ -211,11 +223,6 @@ bool try_make_carrot_enote_ephemeral_pubkey_subaddress(const crypto::secret_key 
 
     // D_e = ConvertPointE(K_e)
     if (0 != ge_p3_to_x25519(enote_ephemeral_pubkey_out.data, &D_e_in_ed25519))
-        return false;
-
-    // If K^j_s not in main subgroup, ABORT
-    ge_scalarmult_p3(&D_e_in_ed25519, sc_l, &D_e_in_ed25519);
-    if (!ge_p3_is_point_at_infinity_vartime(&D_e_in_ed25519))
         return false;
 
     return true;
@@ -682,19 +689,8 @@ bool verify_carrot_normal_janus_protection(const janus_anchor_t &nominal_anchor,
 //-------------------------------------------------------------------------------------------------------------------
 bool verify_point_is_in_main_subgroup(const crypto::ec_point &P)
 {
-    constexpr unsigned char curve_order[32] = {
-        0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58,
-        0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x10 };
-
-    // valid point?
-    ge_p3 p3;
-    if (0 != ge_frombytes_vartime(&p3, to_bytes(P)))
-        return false;
-    // 0 ?= l * K^j_v
-    ge_scalarmult_p3(&p3, curve_order, &p3);
-    return ge_p3_is_point_at_infinity_vartime(&p3);
+    ge_p3 P_p3;
+    return verify_point_is_in_main_subgroup(P, P_p3);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace carrot
