@@ -46,7 +46,7 @@ bool do_serialize(Archive<false> &ar, std::vector<crypto::signature> &v)
   v.clear();
 
   // very basic sanity check
-  if (ar.remaining_bytes() < cnt*sizeof(crypto::signature)) {
+  if (ar.remaining_bytes() / sizeof(crypto::signature) < cnt) {
     ar.set_fail();
     return false;
   }
