@@ -270,6 +270,22 @@ class TransferTest():
         assert res.txs[0].in_pool
         assert res.txs[0].relayed
 
+        print('Checking cached prunable hash against independently calculated value')
+        # while unconfirmed, prunable_hash comes from the pool's cache (populated
+        # when the tx was inserted/re-inserted into the pool)
+        pool_prunable_hash = res.txs[0].prunable_hash
+        assert len(pool_prunable_hash) == 64
+        assert pool_prunable_hash != '0' * 64
+
+        # once mined, prunable_hash is calculated independently from the
+        # confirmed blockchain data, not the pool's cache
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        res = daemon.get_transactions([txid])
+        assert len(res.txs) == 1
+        assert res.txs[0].tx_hash == txid
+        assert not res.txs[0].in_pool
+        assert res.txs[0].prunable_hash == pool_prunable_hash
+
         daemon.flush_txpool()
         self.check_empty_pool()
 
