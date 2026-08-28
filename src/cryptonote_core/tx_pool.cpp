@@ -118,6 +118,30 @@ namespace cryptonote
       if (candidate < next_check.load(std::memory_order_relaxed))
         next_check = candidate;
     }
+
+    // Computes the transaction's prunable hash once at pool-insertion time, so
+    // that RPC lookups don't need to recompute it on every call. Version 1
+    // transactions don't have a prunable part, so `null_hash` is correct for
+    // them as well.
+    void cache_prunable_hash(const transaction& tx, const cryptonote::blobdata& blob, txpool_tx_meta_t& meta)
+    {
+      if (tx.pruned)
+      {
+        meta.prunable_hash = crypto::null_hash;
+        meta.prunable_hash_valid = false;
+        return;
+      }
+      if (tx.version == 1)
+      {
+        meta.prunable_hash = crypto::null_hash;
+        meta.prunable_hash_valid = true;
+        return;
+      }
+      const cryptonote::blobdata_ref blob_ref{blob};
+      meta.prunable_hash_valid = calculate_transaction_prunable_hash(tx, &blob_ref, meta.prunable_hash);
+      if (!meta.prunable_hash_valid)
+        meta.prunable_hash = crypto::null_hash;
+    }
   }
   //---------------------------------------------------------------------------------
   //---------------------------------------------------------------------------------
@@ -246,6 +270,7 @@ namespace cryptonote
         meta.pruned = tx.pruned;
         meta.bf_padding = 0;
         memset(meta.padding, 0, sizeof(meta.padding));
+        cache_prunable_hash(tx, blob, meta);
         try
         {
           if (kept_by_block)
@@ -322,6 +347,8 @@ namespace cryptonote
           meta.pruned = tx.pruned;
           meta.bf_padding = 0;
           memset(meta.padding, 0, sizeof(meta.padding));
+          if (!meta.prunable_hash_valid)
+            cache_prunable_hash(tx, blob, meta);
 
           if (!insert_key_images(tx, id, tx_relay))
             return false;
@@ -629,6 +656,8 @@ namespace cryptonote
       td.relayed = meta.relayed;
       td.do_not_relay = meta.do_not_relay;
       td.double_spend_seen = meta.double_spend_seen;
+      td.prunable_hash = meta.prunable_hash;
+      td.prunable_hash_valid = meta.prunable_hash_valid;
     }
     catch (const std::exception &e)
     {

@@ -465,6 +465,9 @@ namespace cryptonote
       bool do_not_relay; //!< to avoid relay this transaction to the network
 
       bool double_spend_seen; //!< true iff another tx was seen double spending this one
+
+      crypto::hash prunable_hash; //!< cached prunable hash, valid iff `prunable_hash_valid`
+      bool prunable_hash_valid; //!< whether `prunable_hash` was cached at pool-insertion time
     };
 
     /**
