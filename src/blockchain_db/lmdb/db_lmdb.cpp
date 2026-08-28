@@ -617,18 +617,13 @@ bool BlockchainLMDB::need_resize(uint64_t threshold_size) const
   float resize_percent = RESIZE_PERCENT;
   MDEBUG(boost::format("Percent used: %.04f  Percent threshold: %.04f") % (100.*size_used/mei.me_mapsize) % (100.*resize_percent));
 
-  if (threshold_size > 0)
+  if (threshold_size > 0 && mei.me_mapsize - size_used <= threshold_size)
   {
-    if (mei.me_mapsize - size_used < threshold_size)
-    {
-      MINFO("Threshold met (size-based)");
-      return true;
-    }
-    else
-      return false;
+    MINFO("Threshold met (size-based)");
+    return true;
   }
 
-  if ((double)size_used / mei.me_mapsize  > resize_percent)
+  if ((double)size_used / mei.me_mapsize >= resize_percent)
   {
     MINFO("Threshold met (percent-based)");
     return true;
