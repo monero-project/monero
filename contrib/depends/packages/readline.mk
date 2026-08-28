@@ -1,8 +1,8 @@
 package=readline
-$(package)_version=8.0
+$(package)_version=8.3
 $(package)_download_path=https://ftp.gnu.org/gnu/readline
 $(package)_file_name=$(package)-$($(package)_version).tar.gz
-$(package)_sha256_hash=e339f51971478d369f8a053a330a190781acb9864cf4c541060f12078948e461
+$(package)_sha256_hash=fe5383204467828cd495ee8d1d3c037a7eba1389c22bc6a041f627976f9061cc
 $(package)_dependencies=ncurses
 
 define $(package)_set_vars
