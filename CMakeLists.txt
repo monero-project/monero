@@ -644,6 +644,11 @@ endfunction ()
 
 add_subdirectory(external)
 
+# Final setup for linenoise
+if(NOT WIN32)
+  include_directories(${CMAKE_SOURCE_DIR}/external/linenoise)
+endif()
+
 # Final setup for libunbound
 include_directories(${UNBOUND_INCLUDE_DIR})
 
@@ -977,25 +982,7 @@ endif()
 
 list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
 
-if(NOT OPENBSD)
-  option(USE_READLINE "Build with GNU readline support." ON)
-endif()
-if(USE_READLINE AND NOT DEPENDS)
-  find_package(Readline)
-  if(READLINE_FOUND AND GNU_READLINE_FOUND)
-    add_definitions(-DHAVE_READLINE)
-    include_directories(${Readline_INCLUDE_DIR})
-    message(STATUS "Found readline library at: ${Readline_ROOT_DIR}")
-    set(EPEE_READLINE epee_readline)
-  else()
-    message(STATUS "Could not find GNU readline library so building without readline support")
-  endif()
-elseif(USE_READLINE AND DEPENDS AND NOT MINGW)
-  find_path(Readline_INCLUDE_PATH readline/readline.h)
-  find_library(Readline_LIBRARY readline)
-  find_library(Terminfo_LIBRARY tinfo)
-  set(Readline_LIBRARY "${Readline_LIBRARY};${Terminfo_LIBRARY}")
-  set(GNU_READLINE_LIBRARY ${Readline_LIBRARY})
+if(NOT WIN32 AND NOT OPENBSD)
   add_definitions(-DHAVE_READLINE)
   set(EPEE_READLINE epee_readline)
 endif()

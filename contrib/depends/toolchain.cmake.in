@@ -18,11 +18,6 @@ SET(CMAKE_FIND_ROOT_PATH @prefix@ /usr)
 
 SET(ENV{PKG_CONFIG_PATH} @prefix@/lib/pkgconfig)
 
-SET(Readline_ROOT_DIR @prefix@)
-SET(Readline_INCLUDE_DIR @prefix@/include)
-SET(Readline_LIBRARY @prefix@/lib/libreadline.a)
-SET(Terminfo_LIBRARY @prefix@/lib/libtinfo.a)
-
 SET(LIBUSB-1.0_LIBRARY @prefix@/lib/libusb-1.0.a)
 SET(LIBUDEV_LIBRARY @prefix@/lib/libudev.a)
 

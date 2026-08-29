@@ -62,7 +62,6 @@ using namespace epee;
 #include "stack_trace.h"
 #include "memwipe.h"
 #include "net/http_client.h"                        // epee::net_utils::...
-#include "readline_buffer.h"
 
 #ifdef WIN32
   #include <windows.h>

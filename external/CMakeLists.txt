@@ -30,5 +30,8 @@
 
 add_subdirectory(db_drivers)
 add_subdirectory(easylogging++)
+if(NOT WIN32)
+  add_subdirectory(linenoise)
+endif()
 add_subdirectory(qrcodegen)
 add_subdirectory(randomx EXCLUDE_FROM_ALL)
