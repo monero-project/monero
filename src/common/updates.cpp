@@ -73,7 +73,7 @@ namespace tools
 
       bool alnum = true;
       for (auto c: fields[3])
-        if (!isalnum(c))
+        if (!isalnum(static_cast<unsigned char>(c)))
           alnum = false;
       if (fields[3].size() != 64 && !alnum)
       {
