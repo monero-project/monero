@@ -73,6 +73,7 @@ namespace cryptonote
     core_rpc_server(
         core& cr
       , nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& p2p
+      , bool restricted = false
       );
     ~core_rpc_server();
 
@@ -245,7 +246,6 @@ namespace cryptonote
     //-----------------------
 
 private:
-    bool check_core_busy();
     bool check_core_ready();
     bool add_host_fail(const connection_context *ctx, unsigned int score = 1);
     

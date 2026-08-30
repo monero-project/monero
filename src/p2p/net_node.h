@@ -364,13 +364,15 @@ namespace nodetool
 
     bool make_new_connection_from_anchor_peerlist(const std::vector<anchor_peerlist_entry>& anchor_peerlist);
     bool make_new_connection_from_peerlist(network_zone& zone, bool use_white_list);
+    bool connect_and_handshake_with_peer(network_zone& zone, const epee::net_utils::network_address& na, uint64_t last_seen_stamp, PeerType peer_type, bool just_take_peerlist, peerid_type& pi, boost::optional<p2p_connection_context>& con);
     bool try_to_connect_and_handshake_with_new_peer(const epee::net_utils::network_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, PeerType peer_type = white, uint64_t first_seen_stamp = 0);
     size_t get_random_index_with_fixed_probability(size_t max_index);
     bool is_peer_used(const peerlist_entry& peer);
     bool is_peer_used(const anchor_peerlist_entry& peer);
+    bool is_peer_used(const epee::net_utils::network_address& adr, peerid_type id);
     bool is_addr_connected(const epee::net_utils::network_address& peer);
     template<class t_callback>
-    bool try_ping(basic_node_data& node_data, p2p_connection_context& context, const t_callback &cb);
+    bool try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback &&cb);
     bool try_get_support_flags(const p2p_connection_context& context, std::function<void(p2p_connection_context&, const uint32_t&)> f);
     bool make_expected_connections_count(network_zone& zone, PeerType peer_type, size_t expected_connections);
     void record_addr_failed(const epee::net_utils::network_address& addr);

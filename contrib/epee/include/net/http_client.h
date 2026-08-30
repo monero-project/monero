@@ -154,6 +154,11 @@ namespace net_utils
 				return m_net_client.disconnect();
 			}
 			//---------------------------------------------------------------------------
+			bool shutdown() override
+			{
+				return m_net_client.shutdown(); // no m_lock; interrupts an invoke blocked while holding it
+			}
+			//---------------------------------------------------------------------------
 			bool is_connected(bool *ssl = NULL) override
 			{
 				CRITICAL_REGION_LOCAL(m_lock);

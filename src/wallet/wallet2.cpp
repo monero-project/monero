@@ -1208,6 +1208,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_http_client(http_client_factory->create()),
   m_upper_transaction_weight_limit(0),
   m_run(true),
+  m_stopped(false),
   m_callback(0),
   m_trusted_daemon(false),
   m_nettype(nettype),
@@ -3255,7 +3256,6 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   THROW_WALLET_EXCEPTION_IF(!m_blockchain.is_in_bounds(start_height), error::out_of_hashchain_bounds_error);
 
   tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
-  tools::threadpool::waiter waiter(tpool);
 
   size_t num_txes = 0;
   std::vector<tx_cache_data> tx_cache_data;
@@ -3265,6 +3265,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   size_t txidx = 0;
   crypto::hash prev_block_id;
   bool has_prev_block = m_blockchain.is_in_bounds(start_height - 1);
+  tools::threadpool::waiter cache_waiter(tpool);
   if (has_prev_block) {
     prev_block_id = m_blockchain[start_height - 1];
   }
@@ -3287,16 +3288,16 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
       continue;
     }
     if (m_refresh_type != RefreshNoCoinbase)
-      tpool.submit(&waiter, [&, i, txidx](){ cache_tx_data(parsed_blocks[i].block.miner_tx, get_transaction_hash(parsed_blocks[i].block.miner_tx), tx_cache_data[txidx]); });
+      tpool.submit(&cache_waiter, [&, i, txidx](){ cache_tx_data(parsed_blocks[i].block.miner_tx, get_transaction_hash(parsed_blocks[i].block.miner_tx), tx_cache_data[txidx]); });
     ++txidx;
     for (size_t idx = 0; idx < parsed_blocks[i].txes.size(); ++idx)
     {
-      tpool.submit(&waiter, [&, i, idx, txidx](){ cache_tx_data(parsed_blocks[i].txes[idx], parsed_blocks[i].block.tx_hashes[idx], tx_cache_data[txidx]); });
+      tpool.submit(&cache_waiter, [&, i, idx, txidx](){ cache_tx_data(parsed_blocks[i].txes[idx], parsed_blocks[i].block.tx_hashes[idx], tx_cache_data[txidx]); });
       ++txidx;
     }
   }
   THROW_WALLET_EXCEPTION_IF(txidx != num_txes, error::wallet_internal_error, "txidx does not match tx_cache_data size");
-  THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
+  THROW_WALLET_EXCEPTION_IF(!cache_waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
 
   hw::device &hwdev =  m_account.get_device();
   hw::reset_mode rst(hwdev);
@@ -3312,11 +3313,12 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
     }
   };
 
+  tools::threadpool::waiter derivation_waiter(tpool);
   for (size_t i = 0; i < tx_cache_data.size(); ++i)
   {
     if (tx_cache_data[i].empty())
       continue;
-    tpool.submit(&waiter, [&gender, &tx_cache_data, i]() {
+    tpool.submit(&derivation_waiter, [&gender, &tx_cache_data, i]() {
       auto &slot = tx_cache_data[i];
       for (auto &iod: slot.primary)
         gender(iod);
@@ -3324,7 +3326,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
         gender(iod);
     }, true);
   }
-  THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
+  THROW_WALLET_EXCEPTION_IF(!derivation_waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
 
   auto geniod = [&](const cryptonote::transaction &tx, size_t n_vouts, size_t txidx) {
     for (size_t k = 0; k < n_vouts; ++k)
@@ -3356,6 +3358,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   std::vector<geniod_params> geniods;
   geniods.reserve(num_txes);
 
+  tools::threadpool::waiter output_waiter(tpool);
   txidx = 0;
   uint8_t hf_version_view_tags = get_view_tag_fork();
   for (size_t i = 0; i < blocks.size(); ++i)
@@ -3376,7 +3379,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
         if (parsed_blocks[i].block.major_version >= hf_version_view_tags)
           geniods.push_back(geniod_params{ tx, n_vouts, txidx });
         else
-          tpool.submit(&waiter, [&, n_vouts, txidx](){ geniod(tx, n_vouts, txidx); }, true);
+          tpool.submit(&output_waiter, [&, n_vouts, txidx](){ geniod(tx, n_vouts, txidx); }, true);
       }
     }
     ++txidx;
@@ -3386,7 +3389,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
       if (parsed_blocks[i].block.major_version >= hf_version_view_tags)
         geniods.push_back(geniod_params{ parsed_blocks[i].txes[j], parsed_blocks[i].txes[j].vout.size(), txidx });
       else
-        tpool.submit(&waiter, [&, i, j, txidx](){ geniod(parsed_blocks[i].txes[j], parsed_blocks[i].txes[j].vout.size(), txidx); }, true);
+        tpool.submit(&output_waiter, [&, i, j, txidx](){ geniod(parsed_blocks[i].txes[j], parsed_blocks[i].txes[j].vout.size(), txidx); }, true);
       ++txidx;
     }
   }
@@ -3405,7 +3408,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
     {
       size_t batch_end = std::min(batch_start + GENIOD_BATCH_SIZE, geniods.size());
       THROW_WALLET_EXCEPTION_IF(batch_end < batch_start, error::wallet_internal_error, "Thread batch end overflow");
-      tpool.submit(&waiter, [&geniods, &geniod, batch_start, batch_end]() {
+      tpool.submit(&output_waiter, [&geniods, &geniod, batch_start, batch_end]() {
         for (size_t i = batch_start; i < batch_end; ++i)
         {
           const geniod_params &gp = geniods[i];
@@ -3417,7 +3420,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
     }
     THROW_WALLET_EXCEPTION_IF(num_batch_txes != geniods.size(), error::wallet_internal_error, "txes batched for thread pool did not reach expected value");
   }
-  THROW_WALLET_EXCEPTION_IF(!waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
+  THROW_WALLET_EXCEPTION_IF(!output_waiter.wait(), error::wallet_internal_error, "Exception in thread pool");
 
   hwdev.set_mode(hw::device::NONE);
 
@@ -3958,7 +3961,7 @@ bool wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
   }
 
   size_t current_index = m_blockchain.size();
-  while(m_run.load(std::memory_order_relaxed) && current_index < stop_height)
+  while(refresh_running() && current_index < stop_height)
   {
     if (max_pulls > 0 && num_pulls++ >= max_pulls)
       return false; // pull budget reached, caller may resume on a later call
@@ -4123,7 +4126,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   }
 
   // If stop() is called during fast refresh we don't need to continue
-  if(!m_run.load(std::memory_order_relaxed))
+  if(!refresh_running())
     return;
   // always reset start_height to 0 to force short_chain_ history to be used on
   // subsequent pulls in this refresh.
@@ -4146,7 +4149,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   // infer when we get an incoming output
 
   bool first = true, last = false;
-  while(m_run.load(std::memory_order_relaxed) && blocks_fetched < max_blocks)
+  while(refresh_running() && blocks_fetched < max_blocks)
   {
     uint64_t next_blocks_start_height;
     std::vector<cryptonote::block_complete_entry> next_blocks;
@@ -4177,6 +4180,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         }
         catch (const tools::error::out_of_hashchain_bounds_error&)
         {
+          waiter.wait();
           MINFO("Daemon claims next refresh block is out of hash chain bounds, resetting hash chain");
           uint64_t stop_height = m_blockchain.offset();
           std::vector<crypto::hash> tip(m_blockchain.size() - m_blockchain.offset());
@@ -4200,6 +4204,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         }
         catch (const std::exception &e)
         {
+          waiter.wait();
           MERROR("Error parsing blocks: " << e.what());
           exception = std::current_exception();
           error = true;
@@ -4287,7 +4292,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   try
   {
     // If stop() is called we don't need to check pending transactions
-    if (check_pool && m_run.load(std::memory_order_relaxed) && !process_pool_txs.empty())
+    if (check_pool && refresh_running() && !process_pool_txs.empty())
       process_pool_state(process_pool_txs);
   }
   catch (...)
@@ -8648,7 +8653,7 @@ fee_priority wallet2::adjust_priority(fee_priority priority)
       if (blocks.size() != 1)
       {
         MERROR("Bad estimated backlog array size");
-        return priority;
+        return fee_priority::Unimportant;
       }
       else if (blocks[0].first > 0)
       {
@@ -8660,7 +8665,7 @@ fee_priority wallet2::adjust_priority(fee_priority priority)
       uint64_t block_weight_limit = 0;
       const auto result = m_node_rpc_proxy.get_block_weight_limit(block_weight_limit);
       if (result)
-        return priority;
+        return fee_priority::Unimportant;
       const uint64_t full_reward_zone = block_weight_limit / 2;
 
       // get the last N block headers and sum the block sizes
@@ -8668,7 +8673,7 @@ fee_priority wallet2::adjust_priority(fee_priority priority)
       if (m_blockchain.size() < N)
       {
         MERROR("The blockchain is too short");
-        return priority;
+        return fee_priority::Unimportant;
       }
       cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::request getbh_req = AUTO_VAL_INIT(getbh_req);
       cryptonote::COMMAND_RPC_GET_BLOCK_HEADERS_RANGE::response getbh_res = AUTO_VAL_INIT(getbh_res);
@@ -8684,7 +8689,7 @@ fee_priority wallet2::adjust_priority(fee_priority priority)
       if (getbh_res.headers.size() != N)
       {
         MERROR("Bad blockheaders size");
-        return priority;
+        return fee_priority::Unimportant;
       }
       size_t block_weight_sum = 0;
       for (const cryptonote::block_header_response &i : getbh_res.headers)
@@ -8707,6 +8712,7 @@ fee_priority wallet2::adjust_priority(fee_priority priority)
     {
       MERROR(e.what());
     }
+    return fee_priority::Unimportant; // fall back to low priority on failure, matching get_base_fee's handling of Default
   }
   return priority;
 }
@@ -12576,6 +12582,8 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
   {
     THROW_WALLET_EXCEPTION_IF(!seen_key_images.insert(proof.key_image).second, error::wallet_internal_error, "Duplicate key image in reserve proof");
     THROW_WALLET_EXCEPTION_IF(!seen_outputs.emplace(proof.txid, proof.index_in_tx).second, error::wallet_internal_error, "Duplicate output in reserve proof");
+    THROW_WALLET_EXCEPTION_IF(rct::ki2rct(proof.key_image) == rct::identity() || !rct::isInMainSubgroup(rct::ki2rct(proof.key_image)),
+      error::wallet_internal_error, "Invalid key image in reserve proof");
   }
 
   THROW_WALLET_EXCEPTION_IF(subaddr_spendkeys.count(address.m_spend_public_key) == 0, error::wallet_internal_error,
@@ -13164,9 +13172,9 @@ std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>
     std::vector<const crypto::public_key*> key_ptrs;
     key_ptrs.push_back(&pkey);
 
-    crypto::generate_ring_signature((const crypto::hash&)td.m_key_image, td.m_key_image, key_ptrs, in_ephemeral.sec, 0, &signature);
+    crypto::generate_ring_signature((const crypto::hash&)ki, ki, key_ptrs, in_ephemeral.sec, 0, &signature);
 
-    ski.push_back(std::make_pair(td.m_key_image, signature));
+    ski.push_back(std::make_pair(ki, signature));
   }
   return std::make_pair(offset, ski);
 }

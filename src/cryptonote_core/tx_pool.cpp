@@ -157,20 +157,10 @@ namespace cryptonote
       return false;
     }
 
-    if (version != nic_verified_hf_version && !cryptonote::ver_non_input_consensus(tx, tvc, version))
-    {
-      LOG_PRINT_L1("transaction " << id << " failed non-input consensus rule checks");
-      tvc.m_verifivation_failed = true; // should already be set, but just in case
-      return false;
-    }
-
-    uint64_t fee;
+    const uint64_t fee = get_tx_fee(tx);
     bool fee_good = false;
     try
     {
-      // get_tx_fee() can throw. It shouldn't throw because we check preconditions in
-      // ver_non_input_consensus(), but let's put it in a try block just in case.
-      fee = get_tx_fee(tx);
       fee_good = kept_by_block || m_blockchain.check_fee(tx_weight, fee);
     }
     catch(...) {}
@@ -215,6 +205,14 @@ namespace cryptonote
         tvc.m_no_drop_offense = true;
         return false;
       }
+    }
+
+    // Do more expensive verification after plausible no-drop offenses
+    if (version != nic_verified_hf_version && !cryptonote::ver_non_input_consensus(tx, tvc, version))
+    {
+      LOG_PRINT_L1("transaction " << id << " failed non-input consensus rule checks");
+      tvc.m_verifivation_failed = true; // should already be set, but just in case
+      return false;
     }
 
     // assume failure during verification steps until success is certain
@@ -594,7 +592,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data, bool include_blob) const
+  bool tx_memory_pool::get_transaction_info(const crypto::hash &txid, tx_details &td, bool include_sensitive_data) const
   {
     PERF_TIMER(get_transaction_info);
     CRITICAL_REGION_LOCAL(m_transactions_lock);
@@ -614,22 +612,11 @@ namespace cryptonote
         // We don't want sensitive data && the tx is sensitive, so no need to return it
         return false;
       }
-      cryptonote::blobdata txblob = m_blockchain.get_txpool_tx_blob(txid, relay_category::all);
-      auto ci = m_parsed_tx_cache.find(txid);
-      if (ci != m_parsed_tx_cache.end())
-      {
-        td.tx = ci->second;
-      }
-      else if (!(meta.pruned ? parse_and_validate_tx_base_from_blob(txblob, td.tx) : parse_and_validate_tx_from_blob(txblob, td.tx)))
-      {
-        MERROR("Failed to parse tx from txpool");
-        return false;
-      }
-      else
-      {
-        td.tx.set_hash(txid);
-      }
-      td.blob_size = txblob.size();
+
+      // Fetch tx blob
+      td.tx_blob = m_blockchain.get_txpool_tx_blob(txid, relay_category::all);
+
+      // Fill in other details from meta entry
       td.weight = meta.weight;
       td.fee = meta.fee;
       td.max_used_block_id = meta.max_used_block_id;
@@ -642,8 +629,6 @@ namespace cryptonote
       td.relayed = meta.relayed;
       td.do_not_relay = meta.do_not_relay;
       td.double_spend_seen = meta.double_spend_seen;
-      if (include_blob)
-        td.tx_blob = std::move(txblob);
     }
     catch (const std::exception &e)
     {
@@ -670,7 +655,7 @@ namespace cryptonote
       {
         const crypto::hash &it{txids[i]};
         tx_details details;
-        const bool success = get_transaction_info(it, details, include_sensitive, true /*include_blob*/);
+        const bool success = get_transaction_info(it, details, include_sensitive);
         if (!success)
           continue;
 
@@ -1077,7 +1062,8 @@ namespace cryptonote
     const relay_category category = include_sensitive ? relay_category::all : relay_category::broadcasted;
     backlog.reserve(m_blockchain.get_txpool_tx_count(include_sensitive));
     m_blockchain.for_all_txpool_txes([&backlog, now](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *bd){
-      backlog.push_back({meta.weight, meta.fee, meta.receive_time - now});
+      const uint64_t age = now >= meta.receive_time ? now - meta.receive_time : 0;
+      backlog.push_back({meta.weight, meta.fee, age});
       return true;
     }, false, category);
   }
@@ -1403,7 +1389,9 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
     for(const auto& in: tx.vin)
     {
-      CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, true);//should never fail
+      if (in.type() != typeid(txin_to_key))
+        continue;
+      const auto &tokey_in = boost::get<txin_to_key>(in);
       if(have_tx_keyimg_as_spent(tokey_in.k_image, txid))
          return true;
     }

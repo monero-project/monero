@@ -6,7 +6,7 @@
 // Define templates for dummy protocol object
 template class nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core>>;
 
-struct DummyProtocol : public cryptonote::i_cryptonote_protocol {
+struct DummyProtocol final : public cryptonote::i_cryptonote_protocol {
 public:
   bool is_synchronized() const;
   bool relay_transactions(cryptonote::NOTIFY_NEW_TRANSACTIONS::request&, const boost::uuids::uuid&, epee::net_utils::zone, cryptonote::relay_method);
@@ -25,7 +25,7 @@ struct CoreEnv {
 };
 
 std::unique_ptr<CoreEnv> initialise_rpc_core();
-std::unique_ptr<RpcServerBundle> initialise_rpc_server(cryptonote::core&, FuzzedDataProvider&, bool);
+std::unique_ptr<RpcServerBundle> initialise_rpc_server(cryptonote::core&, bool);
 bool generate_random_blocks(cryptonote::core&, FuzzedDataProvider&);
 
 extern std::vector<crypto::hash> cached_tx_hashes;

@@ -1154,6 +1154,7 @@ bool simple_wallet::make_multisig_main(const std::vector<std::string> &args, boo
     fail_msg_writer() << tr("wallet is watch-only and cannot be made multisig");
     return false;
   }
+  CHECK_IF_BACKGROUND_SYNCING("cannot be made multisig");
 
   if(m_wallet->get_num_transfer_details())
   {
@@ -1262,6 +1263,8 @@ bool simple_wallet::exchange_multisig_keys_main(const std::vector<std::string> &
       fail_msg_writer() << tr("Your original password was incorrect.");
       return false;
     }
+
+    LOCK_IDLE_SCOPE();
 
     try
     {
@@ -4323,13 +4326,13 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
         {
           m_restore_height = m_wallet->get_blockchain_height_by_date(year, month, day);
           success_msg_writer() << tr("Restore height is: ") << m_restore_height;
+          m_wallet->explicit_refresh_from_block_height(true);
         }
         catch (const std::runtime_error& e)
         {
-          fail_msg_writer() << e.what();
-          return false;
+          message_writer(console_color_yellow, true) << tr("Could not connect to daemon to convert --restore-date into a restore height: ") << e.what();
+          message_writer(console_color_yellow, true) << tr("Restore height is: ") << m_restore_height;
         }
-        m_wallet->explicit_refresh_from_block_height(true);
       }
     }
     else
@@ -4559,8 +4562,9 @@ bool simple_wallet::try_connect_to_daemon(bool silent, uint32_t* version)
           "Please make sure the daemon is running the latest version or change the daemon address using the 'set_daemon' command.");
       else
         fail_msg_writer() << tr("wallet failed to connect to daemon: ") << m_wallet->get_daemon_address() << ". " <<
-          tr("Daemon either is not started or wrong port was passed. "
-          "Please make sure daemon is running or change the daemon address using the 'set_daemon' command.");
+          boost::format(tr("Daemon either is not started or the wrong port was passed. "
+          "Please make sure a %sdaemon is running or change the daemon address using the 'set_daemon' command."))
+            % (m_wallet->nettype() == TESTNET ? "testnet " : m_wallet->nettype() == STAGENET ? "stagenet " : "");
     }
     return false;
   }
@@ -4618,14 +4622,18 @@ std::string simple_wallet::get_mnemonic_language()
   return language_list_self[language_number];
 }
 //----------------------------------------------------------------------------------------------------
-boost::optional<tools::password_container> simple_wallet::get_and_verify_password() const
+boost::optional<tools::password_container> simple_wallet::get_and_verify_password(bool *read_failed) const
 {
+  if (read_failed) *read_failed = false;
   const bool verify = m_wallet_file.empty();
   auto pwd_container = (m_wallet->is_background_wallet() && m_wallet->background_sync_type() == tools::wallet2::BackgroundSyncCustomPassword)
     ? background_sync_cache_password_prompter(verify)
     : default_password_prompter(verify);
   if (!pwd_container)
+  {
+    if (read_failed) *read_failed = true;
     return boost::none;
+  }
 
   if (!m_wallet->verify_password(pwd_container->password()))
   {
@@ -6208,6 +6216,7 @@ bool simple_wallet::prompt_if_old(const std::vector<tools::wallet2::pending_tx> 
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::check_for_inactivity_lock(bool user)
 {
+  bool close_wallet = false;
   if (m_locked)
   {
 #ifdef HAVE_READLINE
@@ -6269,7 +6278,8 @@ void simple_wallet::check_for_inactivity_lock(bool user)
       }
       try
       {
-        const auto pwd_container = get_and_verify_password();
+        bool read_failed = false;
+        const auto pwd_container = get_and_verify_password(&read_failed);
         if (pwd_container)
         {
           if (started_background_sync)
@@ -6277,6 +6287,12 @@ void simple_wallet::check_for_inactivity_lock(bool user)
             LOCK_IDLE_SCOPE();
             m_wallet->stop_background_sync(pwd_container->password());
           }
+          break;
+        }
+        if (read_failed)
+        {
+          // Password read was interrupted; close the wallet instead of looping back to the prompt
+          close_wallet = true;
           break;
         }
       }
@@ -6297,6 +6313,7 @@ void simple_wallet::check_for_inactivity_lock(bool user)
     m_in_command = false;
     m_locked = false;
   }
+  if (close_wallet) stop();
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::on_command(bool (simple_wallet::*cmd)(const std::vector<std::string>&), const std::vector<std::string> &args)
@@ -10117,14 +10134,15 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       if (pd.m_unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
       {
         uint64_t bh = std::max(pd.m_unlock_time, pd.m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
+        const uint64_t confirmations = last_block_height > pd.m_block_height ? last_block_height - pd.m_block_height : 0;
         uint64_t last_block_reward = m_wallet->get_last_block_reward();
         uint64_t suggested_threshold = last_block_reward ? (pd.m_amount + last_block_reward - 1) / last_block_reward : 0;
         if (bh >= last_block_height)
           success_msg_writer() << "Locked: " << (bh - last_block_height) << " blocks to unlock";
         else if (suggested_threshold > 0)
-          success_msg_writer() << std::to_string(last_block_height - bh) << " confirmations (" << suggested_threshold << " suggested threshold)";
+          success_msg_writer() << std::to_string(confirmations) << " confirmations (" << suggested_threshold << " suggested threshold)";
         else
-          success_msg_writer() << std::to_string(last_block_height - bh) << " confirmations";
+          success_msg_writer() << std::to_string(confirmations) << " confirmations";
       }
       else
       {
