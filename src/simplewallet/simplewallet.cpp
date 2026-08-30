@@ -10139,8 +10139,8 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
         uint64_t suggested_threshold = last_block_reward ? (pd.m_amount + last_block_reward - 1) / last_block_reward : 0;
         if (bh >= last_block_height)
           success_msg_writer() << "Locked: " << (bh - last_block_height) << " blocks to unlock";
-        else if (suggested_threshold > 0)
-          success_msg_writer() << std::to_string(confirmations) << " confirmations (" << suggested_threshold << " suggested threshold)";
+        else if (confirmations < suggested_threshold)
+          success_msg_writer() << std::to_string(confirmations) << " confirmations (" << suggested_threshold << " suggested for this amount)";
         else
           success_msg_writer() << std::to_string(confirmations) << " confirmations";
       }
