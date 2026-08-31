@@ -1,0 +1,28 @@
+name: lint/github-actions
+
+on:
+  push:
+    paths:
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.10
+        run: |
+          archive="$RUNNER_TEMP/actionlint.tar.gz"
+          curl --fail --location --retry 3 --output "$archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_x86_64.tar.gz"
+          tar --extract --gzip --file "$archive" --directory "$RUNNER_TEMP"
+
+      - name: Lint workflow files
+        run: |
+          "$RUNNER_TEMP/actionlint" -color -shellcheck=
