@@ -51,7 +51,7 @@ WALLET_DIRECTORY = builddir + "/functional-tests-directory"
 FUNCTIONAL_TESTS_DIRECTORY = builddir + "/tests/functional_tests"
 DIFFICULTY = 10
 
-monerod_base = [builddir + "/bin/monerod", "--regtest", "--fixed-difficulty", str(DIFFICULTY), "--p2p-bind-port", "monerod_p2p_port", "--rpc-bind-port", "monerod_rpc_port", "--zmq-rpc-bind-port", "monerod_zmq_port", "--zmq-pub", "monerod_zmq_pub", "--non-interactive", "--disable-dns-checkpoints", "--check-updates", "disabled", "--rpc-ssl", "disabled", "--data-dir", "monerod_data_dir", "--log-level", "1", "--rpc-max-connections-per-private-ip", "100", "--rpc-max-connections", "100"]
+monerod_base = [builddir + "/bin/monerod", "--regtest", "--fixed-difficulty", str(DIFFICULTY), "--p2p-bind-port", "monerod_p2p_port", "--rpc-bind-port", "monerod_rpc_port", "--rpc-restricted-bind-port", "monerod_restricted_rpc_port", "--zmq-rpc-bind-port", "monerod_zmq_port", "--zmq-pub", "monerod_zmq_pub", "--non-interactive", "--disable-dns-checkpoints", "--check-updates", "disabled", "--rpc-ssl", "disabled", "--data-dir", "monerod_data_dir", "--log-level", "1", "--rpc-max-connections-per-private-ip", "100", "--rpc-max-connections", "100"]
 
 monerod_extra = [
   ["--offline"],
@@ -77,7 +77,7 @@ outputs = []
 ports = []
 
 for i in range(N_MONERODS):
-  command_lines.append([str(18180+i) if x == "monerod_rpc_port" else str(18280+i) if x == "monerod_p2p_port" else str(18380+i) if x == "monerod_zmq_port" else "tcp://127.0.0.1:" + str(18480+i) if x == "monerod_zmq_pub" else builddir + "/functional-tests-directory/monerod" + str(i) if x == "monerod_data_dir" else x for x in monerod_base])
+  command_lines.append([str(18180+i) if x == "monerod_rpc_port" else str(18580+i) if x == "monerod_restricted_rpc_port" else str(18280+i) if x == "monerod_p2p_port" else str(18380+i) if x == "monerod_zmq_port" else "tcp://127.0.0.1:" + str(18480+i) if x == "monerod_zmq_pub" else builddir + "/functional-tests-directory/monerod" + str(i) if x == "monerod_data_dir" else x for x in monerod_base])
   if i < len(monerod_extra):
     command_lines[-1] += monerod_extra[i]
   outputs.append(open(FUNCTIONAL_TESTS_DIRECTORY + '/monerod' + str(i) + '.log', 'a+'))
