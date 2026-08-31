@@ -1780,9 +1780,10 @@ namespace cryptonote
     const uint32_t max_nonce = restricted ? 16384 : 65535;
     bool collision = true;
     std::vector<uint32_t> slots(aux_pow.size());
+    std::vector<bool> slot_seen(aux_pow.size(), false);
     for (nonce = 0; nonce <= max_nonce; ++nonce)
     {
-      std::vector<bool> slot_seen(aux_pow.size(), false);
+      slot_seen.assign(aux_pow.size(), false);
       collision = false;
       for (size_t idx = 0; idx < aux_pow.size(); ++idx)
         slots[idx] = 0xffffffff;
