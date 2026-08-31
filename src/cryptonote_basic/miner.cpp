@@ -782,12 +782,13 @@ namespace cryptonote
           previous_process_time = current_process_time;
 
           // adjust the miner extra sleep variable
-          int64_t miner_extra_sleep_change = (-1 * (get_mining_target() - process_percentage) );
-          int64_t new_miner_extra_sleep = m_miner_extra_sleep + miner_extra_sleep_change;
-          // if you start the miner with few threads on a multicore system, this could
-          // fall below zero because all the time functions aggregate across all processors.
-          // I'm just hard limiting to 5 millis min sleep here, other options?
-          m_miner_extra_sleep = std::max( new_miner_extra_sleep , (int64_t)5 );
+          const int64_t miner_extra_sleep_change =
+            int64_t{process_percentage} - int64_t{get_mining_target()};
+          const int64_t new_miner_extra_sleep =
+            static_cast<int64_t>(m_miner_extra_sleep.load()) + miner_extra_sleep_change;
+          // A target above the available mining threads' capacity can drive this
+          // below zero because the time functions aggregate across all processors.
+          m_miner_extra_sleep = std::max(new_miner_extra_sleep, int64_t{0});
           MDEBUG("m_miner_extra_sleep " << m_miner_extra_sleep);
         }
         
