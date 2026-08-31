@@ -207,7 +207,7 @@ ringdb::ringdb(std::string filename, const std::string &genesis):
   tools::create_directories_if_necessary(filename);
 
   dbr = mdb_env_create(&env);
-  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create LDMB environment: " + std::string(mdb_strerror(dbr)));
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create LMDB environment: " + std::string(mdb_strerror(dbr)));
   dbr = mdb_env_set_maxdbs(env, 2);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set max env dbs: " + std::string(mdb_strerror(dbr)));
   const std::string actual_filename = get_rings_filename(filename); 
