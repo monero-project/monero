@@ -387,6 +387,19 @@ TEST(Serialization, deserializes_vector_reserve)
   ASSERT_LT(v.capacity(), 100); // could fail if lib allocates more in reserve call
 }
 
+TEST(Serialization, deserializes_varint_vector_reserve)
+{
+  std::vector<uint64_t> v;
+  string blob;
+
+  tools::write_varint(std::back_inserter(blob), unsigned(2));
+  blob.push_back(0);
+
+  ASSERT_FALSE(serialization::parse_binary(blob, v));
+  ASSERT_EQ(1, v.size());
+  ASSERT_LE(v.capacity(), 1);
+}
+
 
 namespace
 {

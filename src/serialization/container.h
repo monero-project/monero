@@ -84,6 +84,9 @@ namespace serialization
     {
       using T = typename C::value_type;
 
+      if (use_container_varint<T>())
+        return c.reserve(std::min(N, std::max(std::size_t(1), B)));
+
       static constexpr std::size_t max_compression_ratio =
         is_blob_type<T>::type::value ? 1 :
         use_container_varint<T>() ? sizeof(T) :
