@@ -18,6 +18,10 @@ on:
       - '.github/workflows/guix.yml'
       - '**/Cargo.lock'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   cache-sources:
     runs-on: ubuntu-24.04

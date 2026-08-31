@@ -10,6 +10,10 @@ on:
       - 'docs/**'
       - '**/README.md'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   APT_SET_CONF: |
     tee -a /etc/apt/apt.conf.d/80-custom << EOF

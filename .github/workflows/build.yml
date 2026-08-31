@@ -10,6 +10,10 @@ on:
       - 'docs/**'
       - '**/README.md'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # The below variables reduce repetitions across similar targets
 env:
   REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
