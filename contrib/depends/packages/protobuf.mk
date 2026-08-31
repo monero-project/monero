@@ -5,6 +5,7 @@ $(package)_download_path=$(native_$(package)_download_path)
 $(package)_file_name=$(native_$(package)_file_name)
 $(package)_sha256_hash=$(native_$(package)_sha256_hash)
 $(package)_dependencies=native_$(package)
+$(package)_patches=no-android-logging.patch
 
 define $(package)_set_vars
   $(package)_config_opts=--disable-shared --with-protoc=$(build_prefix)/bin/protoc
@@ -13,6 +14,10 @@ endef
 
 define $(package)_config_cmds
   $($(package)_autoconf) AR_FLAGS=$($(package)_arflags)
+endef
+
+define $(package)_preprocess_cmds
+  patch -p1 < $($(package)_patch_dir)/no-android-logging.patch
 endef
 
 define $(package)_build_cmds
