@@ -76,6 +76,12 @@ bool UnsignedTransactionImpl::sign(const std::string &signedFileName)
      m_status = Status_Error;
      return false;
   }
+  if(m_wallet.m_wallet->key_on_device())
+  {
+     m_errorString = tr("Command not supported by hardware wallet");
+     m_status = Status_Error;
+     return false;
+  }
   std::vector<tools::wallet2::pending_tx> ptx;
   try
   {
