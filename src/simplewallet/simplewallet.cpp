@@ -278,7 +278,7 @@ namespace
     PAUSE_READLINE();
     std::cout << prompt;
     if (yesno)
-      std::cout << "  [y/N]";
+      std::cout << " [y/N]";
     std::cout << ": " << std::flush;
 
     std::string buf;
