@@ -279,6 +279,7 @@ namespace
   const char* USAGE_WELCOME("welcome");
   const char* USAGE_SHOW_QR_CODE("show_qr_code [<subaddress_index>]");
   const char* USAGE_VERSION("version");
+  const char* USAGE_CLEAR("clear");
   const char* USAGE_HELP("help [<command> | all]");
   const char* USAGE_APROPOS("apropos <keyword> [<keyword> ...]");
   const char* USAGE_SCAN_TX("scan_tx <txid> [<txid> ...]");
@@ -829,13 +830,16 @@ bool simple_wallet::viewkey(const std::vector<std::string> &args/* = std::vector
 {
   // don't log
   PAUSE_READLINE();
-  if (m_wallet->key_on_device()) {
-    std::cout << "secret: On device. Not available" << std::endl;
-  } else {
-    SCOPED_WALLET_UNLOCK();
+  SCOPED_WALLET_UNLOCK();
+  crypto::secret_key viewkey = m_wallet->get_account().get_keys().m_view_secret_key;
+  bool available = viewkey != crypto::null_skey;
+  if (!available && m_wallet->key_on_device()) available = m_wallet->get_account().get_device().get_cached_view_key(viewkey);
+  if (available) {
     printf("secret: ");
-    print_secret_key(m_wallet->get_account().get_keys().m_view_secret_key);
+    print_secret_key(viewkey);
     putchar('\n');
+  } else {
+    std::cout << "secret: On device. Not available" << std::endl;
   }
   std::cout << "public: " << string_tools::pod_to_hex(m_wallet->get_account().get_keys().m_account_address.m_view_public_key) << std::endl;
 
@@ -2145,6 +2149,13 @@ bool simple_wallet::welcome(const std::vector<std::string> &args)
 bool simple_wallet::version(const std::vector<std::string> &args)
 {
   message_writer() << "Monero '" << MONERO_RELEASE_NAME << "' (v" << MONERO_VERSION_FULL << ")";
+  return true;
+}
+
+bool simple_wallet::clear(const std::vector<std::string> &args)
+{
+  PAUSE_READLINE();
+  tools::clear_screen();
   return true;
 }
 
@@ -3516,6 +3527,10 @@ simple_wallet::simple_wallet()
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::version, _1),
                            tr(USAGE_VERSION),
                            tr("Returns version information"));
+  m_cmd_binder.set_handler("clear",
+                           boost::bind(&simple_wallet::on_command, this, &simple_wallet::clear, _1),
+                           tr(USAGE_CLEAR),
+                           tr("Clear the console screen"));
   m_cmd_binder.set_handler("show_qr_code",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::show_qr_code, _1),
                            tr(USAGE_SHOW_QR_CODE),
@@ -4288,8 +4303,8 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
       CHECK_AND_ASSERT_MES(r, false, tr("account creation failed"));
       password = *r;
       welcome = true;
-      // if no block_height is specified, assume its a new account and start it "now"
-      if (command_line::is_arg_defaulted(vm, arg_restore_height)) {
+      // if no block_height or date is specified, assume it's a new account and start it "now"
+      if (command_line::is_arg_defaulted(vm, arg_restore_height) && command_line::is_arg_defaulted(vm, arg_restore_date)) {
         {
           tools::scoped_message_writer wrt = tools::msg_writer();
           wrt << tr("No restore height is specified.") << " ";
@@ -4297,12 +4312,35 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
           wrt << tr("Use --restore-height or --restore-date if you want to restore an already setup account from a specific height.");
         }
         std::string confirm = input_line(tr("Is this okay?"), true);
-        if (std::cin.eof() || !command_line::is_yes(confirm))
-          CHECK_AND_ASSERT_MES(false, false, tr("account creation aborted"));
+        if (std::cin.eof()) CHECK_AND_ASSERT_MES(false, false, tr("account creation aborted"));
 
-        m_wallet->set_refresh_from_block_height(m_wallet->estimate_blockchain_height() > 0 ? m_wallet->estimate_blockchain_height() - 1 : 0);
-        m_wallet->explicit_refresh_from_block_height(true);
-        m_restore_height = m_wallet->get_refresh_from_block_height();
+        if (command_line::is_yes(confirm))
+        {
+          m_wallet->set_refresh_from_block_height(m_wallet->estimate_blockchain_height() > 0 ? m_wallet->estimate_blockchain_height() - 1 : 0);
+          m_wallet->explicit_refresh_from_block_height(true);
+          m_restore_height = m_wallet->get_refresh_from_block_height();
+        }
+        else
+        {
+          m_wallet->explicit_refresh_from_block_height(false);
+        }
+      }
+      else if (command_line::is_arg_defaulted(vm, arg_restore_height) && !command_line::is_arg_defaulted(vm, arg_restore_date))
+      {
+        uint16_t year;
+        uint8_t month, day;
+        if (!datestr_to_int(m_restore_date, year, month, day)) return false;
+        try
+        {
+          m_restore_height = m_wallet->get_blockchain_height_by_date(year, month, day);
+          success_msg_writer() << tr("Restore height is: ") << m_restore_height;
+          m_wallet->explicit_refresh_from_block_height(true);
+        }
+        catch (const std::runtime_error& e)
+        {
+          message_writer(console_color_yellow, true) << tr("Could not connect to daemon to convert --restore-date into a restore height: ") << e.what();
+          message_writer(console_color_yellow, true) << tr("Restore height is: ") << m_restore_height;
+        }
       }
     }
     else
@@ -4591,14 +4629,18 @@ std::string simple_wallet::get_mnemonic_language()
   return language_list_self[language_number];
 }
 //----------------------------------------------------------------------------------------------------
-boost::optional<tools::password_container> simple_wallet::get_and_verify_password() const
+boost::optional<tools::password_container> simple_wallet::get_and_verify_password(bool *read_failed) const
 {
+  if (read_failed) *read_failed = false;
   const bool verify = m_wallet_file.empty();
   auto pwd_container = (m_wallet->is_background_wallet() && m_wallet->background_sync_type() == tools::wallet2::BackgroundSyncCustomPassword)
     ? background_sync_cache_password_prompter(verify)
     : default_password_prompter(verify);
   if (!pwd_container)
+  {
+    if (read_failed) *read_failed = true;
     return boost::none;
+  }
 
   if (!m_wallet->verify_password(pwd_container->password()))
   {
@@ -5508,7 +5550,7 @@ boost::optional<epee::wipeable_string> simple_wallet::on_get_password(const char
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::on_device_button_request(uint64_t code)
 {
-  message_writer(console_color_white, false) << tr("Device requires attention");
+  message_writer(console_color_white, false) << tr("Device requests confirmation");
 }
 //----------------------------------------------------------------------------------------------------
 boost::optional<epee::wipeable_string> simple_wallet::on_device_pin_request()
@@ -6181,6 +6223,7 @@ bool simple_wallet::prompt_if_old(const std::vector<tools::wallet2::pending_tx> 
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::check_for_inactivity_lock(bool user)
 {
+  bool close_wallet = false;
   if (m_locked)
   {
 #ifdef HAVE_READLINE
@@ -6242,7 +6285,8 @@ void simple_wallet::check_for_inactivity_lock(bool user)
       }
       try
       {
-        const auto pwd_container = get_and_verify_password();
+        bool read_failed = false;
+        const auto pwd_container = get_and_verify_password(&read_failed);
         if (pwd_container)
         {
           if (started_background_sync)
@@ -6252,6 +6296,12 @@ void simple_wallet::check_for_inactivity_lock(bool user)
           }
           break;
         }
+        if (read_failed)
+        {
+          // Password read was interrupted; close the wallet instead of looping back to the prompt
+          close_wallet = true;
+          break;
+        }
       }
       catch (...) { /* do nothing, just let the loop loop */ }
     }
@@ -6259,6 +6309,7 @@ void simple_wallet::check_for_inactivity_lock(bool user)
     m_in_command = false;
     m_locked = false;
   }
+  if (close_wallet) stop();
 }
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::on_command(bool (simple_wallet::*cmd)(const std::vector<std::string>&), const std::vector<std::string> &args)
@@ -7569,7 +7620,8 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
   std::string change_string;
   if (change > 0)
   {
-    std::string address = get_account_address_as_str(m_wallet->nettype(), get_tx(0).subaddr_account > 0, get_tx(0).change_dts.addr);
+    const tools::wallet2::tx_construction_data &cd = get_tx(first_known_non_zero_change_index);
+    std::string address = get_account_address_as_str(m_wallet->nettype(), cd.subaddr_account > 0, cd.change_dts.addr);
     change_string += (boost::format(tr("%s change to %s")) % print_money(change) % address).str();
   }
   else
@@ -10075,14 +10127,15 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       if (pd.m_unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
       {
         uint64_t bh = std::max(pd.m_unlock_time, pd.m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
+        const uint64_t confirmations = last_block_height > pd.m_block_height ? last_block_height - pd.m_block_height : 0;
         uint64_t last_block_reward = m_wallet->get_last_block_reward();
         uint64_t suggested_threshold = last_block_reward ? (pd.m_amount + last_block_reward - 1) / last_block_reward : 0;
         if (bh >= last_block_height)
           success_msg_writer() << "Locked: " << (bh - last_block_height) << " blocks to unlock";
         else if (suggested_threshold > 0)
-          success_msg_writer() << std::to_string(last_block_height - bh) << " confirmations (" << suggested_threshold << " suggested threshold)";
+          success_msg_writer() << std::to_string(confirmations) << " confirmations (" << suggested_threshold << " suggested threshold)";
         else
-          success_msg_writer() << std::to_string(last_block_height - bh) << " confirmations";
+          success_msg_writer() << std::to_string(confirmations) << " confirmations";
       }
       else
       {

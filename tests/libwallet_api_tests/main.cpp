@@ -1124,6 +1124,8 @@ TEST_F(WalletTest2, WalletCallBackRefreshedAsync)
     ASSERT_TRUE(wallet_src_listener->refresh_triggered);
     ASSERT_TRUE(wallet_src->connected());
     std::cerr << "TEST: closing wallet...\n";
+    wallet_src->pauseRefresh();
+    wallet_src->stop();
     wmgr->closeWallet(wallet_src);
 }
 
@@ -1165,6 +1167,10 @@ TEST_F(WalletTest2, WalletCallbackSent)
     ASSERT_TRUE(wallet_src_listener->update_triggered);
     std::cout << "** Balance: " << wallet_src->displayAmount(wallet_src->balance(0)) <<  std::endl;
     ASSERT_TRUE(wallet_src->balance(0) < balance);
+    wallet_src->pauseRefresh();
+    wallet_src->stop();
+    ASSERT_TRUE(wallet_src_listener->cv_refresh.wait_for(lock, wait_for,
+        [wallet_src_listener] { return wallet_src_listener->refresh_triggered; }));
     wmgr->closeWallet(wallet_src);
     wmgr->closeWallet(wallet_dst);
 }
@@ -1212,6 +1218,10 @@ TEST_F(WalletTest2, WalletCallbackReceived)
 
     ASSERT_TRUE(wallet_dst->balance(0) > balance);
 
+    wallet_dst->pauseRefresh();
+    wallet_dst->stop();
+    ASSERT_TRUE(wallet_dst_listener->cv_refresh.wait_for(lock, wait_for,
+        [&wallet_dst_listener] { return wallet_dst_listener->refresh_triggered; }));
     wmgr->closeWallet(wallet_src);
     wmgr->closeWallet(wallet_dst);
 }
@@ -1241,6 +1251,10 @@ TEST_F(WalletTest2, WalletCallbackNewBlock)
     uint64_t bc2 = wallet_src->blockChainHeight();
     std::cout << "** Block height: " << bc2 << std::endl;
     ASSERT_TRUE(bc2 > bc1);
+    wallet_src->pauseRefresh();
+    wallet_src->stop();
+    ASSERT_TRUE(wallet_listener->cv_refresh.wait_for(lock, wait_for,
+        [&wallet_listener] { return wallet_listener->refresh_triggered; }));
     wmgr->closeWallet(wallet_src);
 
 }

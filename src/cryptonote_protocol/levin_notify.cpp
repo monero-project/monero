@@ -148,7 +148,9 @@ namespace levin
          of waiting in here. */
 
       p2p.foreach_connection([&outs, blockchain_height] (detail::p2p_context& context) {
-        if (!context.m_is_income && context.m_remote_blockchain_height >= blockchain_height)
+        // Give a +2 allowable window for candidate peers, since we may not have updated the peer's
+        // known sync height yet (e.g. if we haven't received or finished processing their new block(s) yet)
+        if (!context.m_is_income && (context.m_remote_blockchain_height + 2) >= blockchain_height)
           outs.emplace_back(context.m_connection_id);
         return true;
       });

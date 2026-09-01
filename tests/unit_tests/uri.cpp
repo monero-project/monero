@@ -213,3 +213,19 @@ TEST(uri, url_encoded_once)
   ASSERT_EQ(description, "foo 20");
 }
 
+TEST(uri, make_uri_encodes_equals)
+{
+  tools::wallet2 w(cryptonote::TESTNET);
+  std::string error;
+  const std::string uri = w.make_uri(TEST_ADDRESS, "", 0, "key=value", "name=value", error);
+
+  ASSERT_TRUE(error.empty());
+  ASSERT_EQ(uri, "monero:" TEST_ADDRESS"?recipient_name=name%3Dvalue&tx_description=key%3Dvalue");
+
+  std::string address, payment_id, recipient_name, description;
+  uint64_t amount;
+  std::vector<std::string> unknown_parameters;
+  ASSERT_TRUE(w.parse_uri(uri, address, payment_id, amount, description, recipient_name, unknown_parameters, error));
+  EXPECT_EQ(recipient_name, "name=value");
+  EXPECT_EQ(description, "key=value");
+}

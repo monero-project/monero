@@ -1660,8 +1660,8 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   }
   b.timestamp = time(NULL);
 
-  uint64_t median_ts;
-  if (!check_block_timestamp(b, median_ts))
+  uint64_t median_ts{};
+  if (!check_block_timestamp_main_chain(b, &median_ts))
   {
     b.timestamp = median_ts;
   }
@@ -2084,13 +2084,13 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     bei.block_cumulative_weight = cryptonote::get_transaction_weight(b.miner_tx);
     for (const crypto::hash &txid: b.tx_hashes)
     {
-      cryptonote::tx_memory_pool::tx_details td;
       cryptonote::blobdata blob;
       if (m_tx_pool.have_tx(txid, relay_category::legacy))
       {
-        if (m_tx_pool.get_transaction_info(txid, td, true/*include_sensitive_data*/))
+        cryptonote::txpool_tx_meta_t tx_meta;
+        if (this->get_txpool_tx_meta(txid, tx_meta))
         {
-          bei.block_cumulative_weight += td.weight;
+          bei.block_cumulative_weight += tx_meta.weight;
         }
         else
         {
@@ -3812,11 +3812,29 @@ uint64_t Blockchain::get_adjusted_time(uint64_t height) const
   return (adjusted_current_block_ts < median_ts ? adjusted_current_block_ts : median_ts);
 }
 //------------------------------------------------------------------
-//TODO: revisit, has changed a bit on upstream
-bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b, uint64_t& median_ts) const
+bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b, uint64_t* median_ts_out)
 {
+  if (median_ts_out)
+    *median_ts_out = 0;
+
   LOG_PRINT_L3("Blockchain::" << __func__);
-  median_ts = epee::misc_utils::median(timestamps);
+
+  if(b.timestamp > (uint64_t)time(NULL) + CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT)
+  {
+    MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", "
+      << b.timestamp << ", bigger than local time + 2 hours");
+    return false;
+  }
+
+  // if not enough blocks, no proper median yet, return true
+  if(timestamps.size() < BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW)
+  {
+    return true;
+  }
+
+  const uint64_t median_ts = epee::misc_utils::median(timestamps);
+  if (median_ts_out)
+    *median_ts_out = median_ts;
 
   if(b.timestamp < median_ts)
   {
@@ -3834,34 +3852,24 @@ bool Blockchain::check_block_timestamp(std::vector<uint64_t>& timestamps, const 
 //   true if the block's timestamp is not less than the timestamp of the
 //       median of the selected blocks
 //   false otherwise
-bool Blockchain::check_block_timestamp(const block& b, uint64_t& median_ts) const
+bool Blockchain::check_block_timestamp_main_chain(const block& b, uint64_t* median_ts_out) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
-  if(b.timestamp > (uint64_t)time(NULL) + CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT)
-  {
-    MERROR_VER("Timestamp of block with id: " << get_block_hash(b) << ", " << b.timestamp << ", bigger than local time + 2 hours");
-    return false;
-  }
 
   const auto h = m_db->height();
-
-  // if not enough blocks, no proper median yet, return true
-  if(h < BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW)
-  {
-    return true;
-  }
 
   std::vector<uint64_t> timestamps;
 
   // need most recent 60 blocks, get index of first of those
-  size_t offset = h - BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW;
+  size_t offset = (h >= BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW) ? (h - BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW) : 0;
+  assert(offset <= h);
   timestamps.reserve(h - offset);
   for(;offset < h; ++offset)
   {
     timestamps.push_back(m_db->get_block_timestamp(offset));
   }
 
-  return check_block_timestamp(timestamps, b, median_ts);
+  return check_block_timestamp(timestamps, b, median_ts_out);
 }
 //------------------------------------------------------------------
 bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
@@ -3940,7 +3948,7 @@ leave:
 
   // make sure block timestamp is not less than the median timestamp
   // of a set number of the most recent blocks.
-  if(!check_block_timestamp(bl))
+  if(!check_block_timestamp_main_chain(bl))
   {
     MERROR_VER("Block with id: " << id << std::endl << "has invalid timestamp: " << bl.timestamp);
     bvc.m_verifivation_failed = true;
@@ -4520,10 +4528,13 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
   CRITICAL_REGION_LOCAL(m_tx_pool);//to avoid deadlock lets lock tx_pool for whole add/reorganize process
   CRITICAL_REGION_LOCAL1(m_blockchain_lock);
   db_rtxn_guard rtxn_guard(m_db);
-  if(have_block(id))
+  int where = 0;
+  if(have_block(id, &where))
   {
     LOG_PRINT_L3("block with id = " << id << " already exists");
     bvc.m_already_exists = true;
+    if (where == HAVE_BLOCK_INVALID)
+      bvc.m_verifivation_failed = true;
     return false;
   }
 
@@ -5078,7 +5089,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       crypto::hash &tx_prefix_hash = txes[tx_index].second;
       ++tx_index;
 
-      if (!parse_and_validate_tx_base_from_blob(tx_blob.blob, tx))
+      if (!parse_and_validate_tx_base_from_blob(tx_blob.blob, tx, true))
         SCAN_TABLE_QUIT("Could not parse tx from incoming blocks.");
       cryptonote::get_transaction_prefix_hash(tx, tx_prefix_hash);
 

@@ -562,7 +562,9 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
   if (increase_size > 0)
     new_mapsize = mei.me_mapsize + increase_size;
 
-  new_mapsize += (new_mapsize % mst.ms_psize);
+  const uint64_t remainder = new_mapsize % mst.ms_psize;
+  if (remainder)
+    new_mapsize += mst.ms_psize - remainder;
 
   mdb_txn_safe::prevent_new_txns();
 
@@ -737,7 +739,7 @@ estim:
   MDEBUG("estimated average block size for batch: " << avg_block_size);
 
   // bigger safety margin on smaller block sizes
-  if (batch_fudge_factor < 5000.0)
+  if (!batch_bytes && batch_fudge_factor < 5000.0)
     batch_fudge_factor = 5000.0;
   threshold_size = avg_block_size * db_expand_factor * batch_fudge_factor;
   return threshold_size;
