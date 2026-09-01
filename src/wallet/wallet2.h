@@ -1607,9 +1607,9 @@ private:
      */
     void set_account_tag_description(const std::string& tag, const std::string& description);
 
-    enum message_signature_type_t { sign_with_spend_key, sign_with_view_key };
+    enum message_signature_type_t { sign_with_spend_key, sign_with_view_key, sign_with_invalid_key };
     std::string sign(const std::string &data, message_signature_type_t signature_type, cryptonote::subaddress_index index = {0, 0}) const;
-    struct message_signature_result_t { bool valid; unsigned version; bool old; message_signature_type_t type; };
+    struct message_signature_result_t { bool valid = false; unsigned version = 0; bool old = false; message_signature_type_t type = sign_with_invalid_key; };
     message_signature_result_t verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const;
 
     /*!
