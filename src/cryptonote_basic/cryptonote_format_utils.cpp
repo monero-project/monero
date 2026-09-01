@@ -1508,7 +1508,10 @@ namespace cryptonote
     if (t.rct_signatures.type == rct::RCTTypeNull)
       hashes[2] = crypto::null_hash;
     else
+    {
       hashes[2] = pruned_data_hash;
+      t.set_prunable_hash(pruned_data_hash);
+    }
 
     // the tx hash is the hash of the 3 hashes
     res = cn_fast_hash(hashes, sizeof(hashes));
