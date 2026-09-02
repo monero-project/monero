@@ -27,17 +27,39 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "include_base_utils.h"
-#include "file_io_utils.h"
-#include "cryptonote_basic/blobdatatype.h"
-#include "cryptonote_basic/cryptonote_basic.h"
-#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "fuzzer.h"
+#include "ringct/bulletproofs.h"
+#include "serialization/binary_utils.h"
+
+#include <string>
+#include <utility>
+
+namespace
+{
+  struct fuzz_input
+  {
+    rct::keyV commitments;
+    rct::Bulletproof proof;
+
+    BEGIN_SERIALIZE_OBJECT()
+      FIELD(commitments)
+      FIELD(proof)
+    END_SERIALIZE()
+  };
+}
 
 BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
-  binary_archive<false> ba{{buf, len}};
-  rct::Bulletproof proof{};
-  ::serialization::serialize(ba, proof);
+  if (len > 4096)
+    return 0;
+
+  fuzz_input input;
+  const std::string blob{reinterpret_cast<const char*>(buf), len};
+  if (!serialization::parse_binary(blob, input))
+    return 0;
+
+  input.proof.V = std::move(input.commitments);
+  rct::bulletproof_VERIFY(input.proof);
 END_SIMPLE_FUZZER()
