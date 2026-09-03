@@ -827,6 +827,7 @@ try_again:
             CHECK_AND_ASSERT_MES(is_reduced(proof.d1), false, "Input scalar not in range");
 
             CHECK_AND_ASSERT_MES(proof.V.size() >= 1, false, "V does not have at least one element");
+            CHECK_AND_ASSERT_MES(proof.V.size() <= maxM, false, "V has too many elements");
             CHECK_AND_ASSERT_MES(proof.L.size() == proof.R.size(), false, "Mismatched L and R sizes");
             CHECK_AND_ASSERT_MES(proof.L.size() > 0, false, "Empty proof");
 
