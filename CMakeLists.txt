@@ -977,6 +977,12 @@ endif()
 
 list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
 
+# GCC 8.x and earlier require explicit linking for std::filesystem
+# See: https://gitlab.kitware.com/cmake/cmake/-/work_items/17834
+if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") AND (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0))
+  list(APPEND EXTRA_LIBRARIES "stdc++fs")
+endif()
+
 if(NOT OPENBSD)
   option(USE_READLINE "Build with GNU readline support." ON)
 endif()
