@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <vector>
+#include <thread>
 #include "time_helper.h"
 #include "perf_timer.h"
 
@@ -72,12 +73,21 @@ namespace tools
 #endif
 
 #ifdef __x86_64__
-  uint64_t ticks_per_ns = get_ticks_per_ns();
+  namespace
+  {
+    bool calibrate_ticks_per_ns_async()
+    {
+      std::thread([]{ ticks_to_ns(0); }).detach();
+      return true;
+    }
+    const bool ticks_per_ns_calibration_started = calibrate_ticks_per_ns_async();
+  }
 #endif
 
   uint64_t ticks_to_ns(uint64_t ticks)
   {
 #if defined(__x86_64__)
+    static const uint64_t ticks_per_ns = get_ticks_per_ns();
     return 256 * ticks / ticks_per_ns;
 #else
     return ticks;
