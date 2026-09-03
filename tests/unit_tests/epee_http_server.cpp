@@ -28,6 +28,7 @@
 // 
 
 #include <atomic>
+#include <cstdint>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/beast/core.hpp>
@@ -60,6 +61,27 @@ namespace
     };
   };
 
+  struct json_rpc_dummy
+  {
+    struct request
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(value)
+      END_KV_SERIALIZE_MAP()
+
+      std::uint64_t value;
+    };
+
+    struct response
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(value)
+      END_KV_SERIALIZE_MAP()
+
+      std::uint64_t value;
+    };
+  };
+
   std::string make_payload()
   {
     dummy::request body{};
@@ -76,13 +98,19 @@ namespace
 
     http_server()
       : epee::http_server_impl_base<http_server>(),
-        dummy_size(payload_size)
+        dummy_size(payload_size),
+        json_rpc_calls(0)
     {}
 
     CHAIN_HTTP_TO_MAP2(connection_context); //forward http requests to uri map
 
     BEGIN_URI_MAP2()
       MAP_URI_AUTO_BIN2("/dummy", on_dummy, dummy)
+      BEGIN_JSON_RPC_MAP("/json_rpc")
+        MAP_JON_RPC("echo", on_echo, json_rpc_dummy)
+        MAP_JON_RPC("fail", on_fail, json_rpc_dummy)
+        MAP_JON_RPC_WE("fail_with_error", on_fail_with_error, json_rpc_dummy)
+      END_JSON_RPC_MAP()
     END_URI_MAP2()
 
     bool on_dummy(const dummy::request&, dummy::response& res, const connection_context *ctx = NULL)
@@ -91,9 +119,106 @@ namespace
       return true;
     }
 
+    bool on_echo(
+        const json_rpc_dummy::request& req,
+        json_rpc_dummy::response& res,
+        const connection_context *ctx = NULL)
+    {
+      ++json_rpc_calls;
+      res.value = req.value;
+      return true;
+    }
+
+    bool on_fail(const json_rpc_dummy::request&, json_rpc_dummy::response&, const connection_context *ctx = NULL)
+    {
+      ++json_rpc_calls;
+      return false;
+    }
+
+    bool on_fail_with_error(
+        const json_rpc_dummy::request&,
+        json_rpc_dummy::response&,
+        epee::json_rpc::error&,
+        const connection_context *ctx = NULL)
+    {
+      ++json_rpc_calls;
+      return false;
+    }
+
     std::atomic<std::size_t> dummy_size;
+    std::atomic<std::size_t> json_rpc_calls;
   };
+
+  epee::net_utils::http::http_response_info invoke_json_rpc(http_server& server, const char* body)
+  {
+    epee::net_utils::http::http_request_info request{};
+    request.m_URI = "/json_rpc";
+    request.m_body = body;
+
+    epee::net_utils::http::http_response_info response{};
+    http_server::connection_context context{};
+    EXPECT_TRUE(server.handle_http_request(request, response, context));
+    return response;
+  }
 } // anonymous
+
+TEST(http_server, json_rpc_notifications)
+{
+  http_server server{};
+
+  const auto notification = invoke_json_rpc(
+      server, R"({"jsonrpc":"2.0","method":"echo","params":{"value":42}})");
+  EXPECT_EQ(200, notification.m_response_code);
+  EXPECT_TRUE(notification.m_body.empty());
+  EXPECT_EQ(1, server.json_rpc_calls);
+
+  const auto failed_notification = invoke_json_rpc(
+      server, R"({"jsonrpc":"2.0","method":"fail","params":{"value":42}})");
+  EXPECT_EQ(200, failed_notification.m_response_code);
+  EXPECT_TRUE(failed_notification.m_body.empty());
+  EXPECT_EQ(2, server.json_rpc_calls);
+
+  const auto failed_with_error_notification = invoke_json_rpc(
+      server, R"({"jsonrpc":"2.0","method":"fail_with_error","params":{"value":42}})");
+  EXPECT_EQ(200, failed_with_error_notification.m_response_code);
+  EXPECT_TRUE(failed_with_error_notification.m_body.empty());
+  EXPECT_EQ(3, server.json_rpc_calls);
+
+  const auto unknown_notification = invoke_json_rpc(
+      server, R"({"jsonrpc":"2.0","method":"unknown","params":{}})");
+  EXPECT_EQ(200, unknown_notification.m_response_code);
+  EXPECT_TRUE(unknown_notification.m_body.empty());
+  EXPECT_EQ(3, server.json_rpc_calls);
+
+  const auto invalid_notification = invoke_json_rpc(
+      server, R"({"jsonrpc":"2.0","method":"echo","params":{"value":"invalid"}})");
+  EXPECT_EQ(200, invalid_notification.m_response_code);
+  EXPECT_TRUE(invalid_notification.m_body.empty());
+  EXPECT_EQ(3, server.json_rpc_calls);
+
+  const auto request = invoke_json_rpc(
+      server, R"({"jsonrpc":"2.0","id":7,"method":"echo","params":{"value":42}})");
+  EXPECT_EQ(200, request.m_response_code);
+  EXPECT_FALSE(request.m_body.empty());
+  EXPECT_EQ(4, server.json_rpc_calls);
+
+  epee::serialization::portable_storage response{};
+  ASSERT_TRUE(response.load_from_json(request.m_body));
+  std::uint64_t response_id = 0;
+  ASSERT_TRUE(response.get_value("id", response_id, nullptr));
+  EXPECT_EQ(7, response_id);
+  const auto result = response.open_section("result", nullptr);
+  ASSERT_NE(nullptr, result);
+  std::uint64_t response_value = 0;
+  ASSERT_TRUE(response.get_value("value", response_value, result));
+  EXPECT_EQ(42, response_value);
+
+  const auto null_id = invoke_json_rpc(
+      server, R"({"jsonrpc":"2.0","id":null,"method":"echo","params":{"value":42}})");
+  EXPECT_EQ(200, null_id.m_response_code);
+  EXPECT_FALSE(null_id.m_body.empty());
+  EXPECT_EQ(5, server.json_rpc_calls);
+}
 
 TEST(http_server, response_soft_limit)
 {
