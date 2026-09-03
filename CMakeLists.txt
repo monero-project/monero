@@ -757,6 +757,18 @@ include(CheckTrezor)
   set(C_WARNINGS "-Waggregate-return -Wnested-externs -Wold-style-definition -Wstrict-prototypes")
   set(CXX_WARNINGS "-Wno-reorder -Wno-missing-field-initializers")
 
+  add_c_flag_if_supported(-Wimplicit-fallthrough C_WARNINGS)
+  add_cxx_flag_if_supported(-Wimplicit-fallthrough-per-function CXX_WARNINGS)
+  add_c_flag_if_supported(-Wredundant-decls C_WARNINGS)
+  add_cxx_flag_if_supported(-Wredundant-decls CXX_WARNINGS)
+
+  add_c_flag_if_supported(-Wduplicated-branches C_WARNINGS)
+  add_cxx_flag_if_supported(-Wduplicated-branches CXX_WARNINGS)
+  add_c_flag_if_supported(-Wduplicated-cond C_WARNINGS)
+  add_cxx_flag_if_supported(-Wduplicated-cond CXX_WARNINGS)
+
+  add_cxx_flag_if_supported(-Woverloaded-virtual CXX_WARNINGS)
+
   monero_enable_coverage()
   # With GCC 6.1.1 the compiled binary malfunctions due to aliasing. Until that
   # is fixed in the code (Issue #847), force compiler to be conservative.
@@ -765,15 +777,18 @@ include(CheckTrezor)
 
   # if those don't work for your compiler, single it out where appropriate
   if(CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT OPENBSD)
-    set(C_SECURITY_FLAGS "${C_SECURITY_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1")
-    set(CXX_SECURITY_FLAGS "${CXX_SECURITY_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1")
+    set(C_SECURITY_FLAGS "${C_SECURITY_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2")
+    set(CXX_SECURITY_FLAGS "${CXX_SECURITY_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2")
   endif()
 
   # warnings
   add_c_flag_if_supported(-Wformat C_SECURITY_FLAGS)
   add_cxx_flag_if_supported(-Wformat CXX_SECURITY_FLAGS)
-  add_c_flag_if_supported(-Wformat-security C_SECURITY_FLAGS)
-  add_cxx_flag_if_supported(-Wformat-security CXX_SECURITY_FLAGS)
+  add_c_flag_if_supported("-Wformat -Wformat-security" C_SECURITY_FLAGS)
+  add_cxx_flag_if_supported("-Wformat -Wformat-security" CXX_SECURITY_FLAGS)
+
+  add_c_flag_if_supported(-Wbidi-chars=any C_SECURITY_FLAGS)
+  add_cxx_flag_if_supported(-Wbidi-chars=any CXX_SECURITY_FLAGS)
 
   # -fstack-protector
   if (NOT OPENBSD AND NOT (WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1)))
@@ -835,6 +850,8 @@ include(CheckTrezor)
   add_cxx_flag_if_supported(-Werror=switch      CXX_SECURITY_FLAGS)
   add_c_flag_if_supported(  -Werror=return-type C_SECURITY_FLAGS)
   add_cxx_flag_if_supported(-Werror=return-type CXX_SECURITY_FLAGS)
+  add_c_flag_if_supported(  "-Wformat -Werror=format-security" C_SECURITY_FLAGS)
+  add_cxx_flag_if_supported("-Wformat -Werror=format-security" CXX_SECURITY_FLAGS)
 
   # A missing WinAPI prototype (e.g. TryAcquireSRWLock*) must fail the build
   if(MINGW)
