@@ -801,10 +801,10 @@ size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs, size_t extra
   size += 1 + 6;
 
   // vin
-  size += n_inputs * (1+6+(mixin+1)*2+32);
+  size += (size_t)n_inputs * (1+6+((size_t)mixin+1)*2+32);
 
   // vout
-  size += n_outputs * (6+32);
+  size += (size_t)n_outputs * (6+32);
 
   // extra
   size += extra_size;
@@ -818,31 +818,31 @@ size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs, size_t extra
   if (bulletproof || bulletproof_plus)
   {
     size_t log_padded_outputs = 0;
-    while ((1<<log_padded_outputs) < n_outputs)
+    while ((UINT64_C(1) << log_padded_outputs) < (uint64_t)n_outputs)
       ++log_padded_outputs;
     size += (2 * (6 + log_padded_outputs) + (bulletproof_plus ? 6 : (4 + 5))) * 32 + 3;
   }
   else
-    size += (2*64*32+32+64*32) * n_outputs;
+    size += (size_t)(2*64*32+32+64*32) * n_outputs;
 
   // MGs/CLSAGs
   if (clsag)
-    size += n_inputs * (32 * (mixin+1) + 64);
+    size += (size_t)n_inputs * (32 * ((size_t)mixin+1) + 64);
   else
-    size += n_inputs * (64 * (mixin+1) + 32);
+    size += (size_t)n_inputs * (64 * ((size_t)mixin+1) + 32);
 
   if (use_view_tags)
-    size += n_outputs * sizeof(crypto::view_tag);
+    size += (size_t)n_outputs * sizeof(crypto::view_tag);
 
   // mixRing - not serialized, can be reconstructed
   /* size += 2 * 32 * (mixin+1) * n_inputs; */
 
   // pseudoOuts
-  size += 32 * n_inputs;
+  size += (size_t)32 * n_inputs;
   // ecdhInfo
-  size += 8 * n_outputs;
+  size += (size_t)8 * n_outputs;
   // outPk - only commitment is saved
-  size += 32 * n_outputs;
+  size += (size_t)32 * n_outputs;
   // txnFee
   size += 4;
 
@@ -855,7 +855,7 @@ size_t estimate_tx_size(bool use_rct, int n_inputs, int mixin, int n_outputs, si
   if (use_rct)
     return estimate_rct_tx_size(n_inputs, mixin, n_outputs, extra_size, bulletproof, clsag, bulletproof_plus, use_view_tags);
   else
-    return n_inputs * (mixin+1) * APPROXIMATE_INPUT_BYTES + extra_size + (use_view_tags ? (n_outputs * sizeof(crypto::view_tag)) : 0);
+    return (size_t)n_inputs * ((size_t)mixin+1) * APPROXIMATE_INPUT_BYTES + extra_size + (use_view_tags ? ((size_t)n_outputs * sizeof(crypto::view_tag)) : 0);
 }
 
 uint64_t estimate_tx_weight(bool use_rct, int n_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, bool clsag, bool bulletproof_plus, bool use_view_tags)
@@ -865,11 +865,11 @@ uint64_t estimate_tx_weight(bool use_rct, int n_inputs, int mixin, int n_outputs
   {
     const uint64_t bp_base = (32 * ((bulletproof_plus ? 6 : 9) + 7 * 2)) / 2; // notional size of a 2 output proof, normalized to 1 proof (ie, divided by 2)
     size_t log_padded_outputs = 2;
-    while ((1<<log_padded_outputs) < n_outputs)
+    while ((UINT64_C(1) << log_padded_outputs) < (uint64_t)n_outputs)
       ++log_padded_outputs;
     uint64_t nlr = 2 * (6 + log_padded_outputs);
     const uint64_t bp_size = 32 * ((bulletproof_plus ? 6 : 9) + nlr);
-    const uint64_t bp_clawback = (bp_base * (1<<log_padded_outputs) - bp_size) * 4 / 5;
+    const uint64_t bp_clawback = (bp_base * (UINT64_C(1) << log_padded_outputs) - bp_size) * 4 / 5;
     MDEBUG("clawback on size " << size << ": " << bp_clawback);
     size += bp_clawback;
   }
