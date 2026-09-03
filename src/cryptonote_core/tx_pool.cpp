@@ -596,11 +596,10 @@ namespace cryptonote
   {
     PERF_TIMER(get_transaction_info);
     CRITICAL_REGION_LOCAL(m_transactions_lock);
-    CRITICAL_REGION_LOCAL1(m_blockchain);
 
     try
     {
-      LockedTXN lock(m_blockchain.get_db());
+      db_rtxn_guard lock(&m_blockchain.get_db());
       txpool_tx_meta_t meta;
       if (!m_blockchain.get_txpool_tx_meta(txid, meta))
       {
@@ -642,7 +641,7 @@ namespace cryptonote
   bool tx_memory_pool::get_transactions_info(const epee::span<const crypto::hash> txids, std::vector<std::pair<crypto::hash, tx_details>>& txs, bool include_sensitive, size_t max_tx_count) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
-    CRITICAL_REGION_LOCAL1(m_blockchain);
+    db_rtxn_guard lock(&m_blockchain.get_db());
 
     txs.clear();
 
