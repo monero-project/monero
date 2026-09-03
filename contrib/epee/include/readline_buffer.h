@@ -17,7 +17,7 @@ namespace rdln
     {
       return m_cout_buf != NULL;
     }
-    linestatus get_line(std::string& line) const;
+    linestatus get_line(std::string& line);
     void set_prompt(const std::string& prompt);
     static void add_completion(const std::string& command);
     static const std::vector<std::string>& get_completions();
@@ -27,7 +27,6 @@ namespace rdln
 
   private:
     std::streambuf* m_cout_buf;
-    size_t m_prompt_length;
     static std::vector<std::string>& completion_commands();
   };
   
@@ -43,4 +42,3 @@ namespace rdln
 
   void clear_screen();
 }
-

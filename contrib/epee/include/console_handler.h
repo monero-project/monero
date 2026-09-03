@@ -342,10 +342,10 @@ eof:
       if (!prompt.empty())
       {
 #ifdef HAVE_READLINE
-        std::string color_prompt = "\001\033[1;33m\002" + prompt;
+        std::string color_prompt = "\033[1;33m" + prompt;
         if (' ' != prompt.back())
           color_prompt += " ";
-        color_prompt += "\001\033[0m\002";
+        color_prompt += "\033[0m";
         m_stdin_reader.get_readline_buffer().set_prompt(color_prompt);
 #else
         epee::set_console_color(epee::console_color_yellow, true);
