@@ -277,6 +277,7 @@ private:
     std::atomic<bool> m_refreshThreadDone;
     std::atomic<int>  m_refreshIntervalMillis;
     std::atomic<bool> m_refreshShouldRescan;
+    std::atomic<unsigned> m_storeRequests{0};
     // synchronizing  refresh loop;
     boost::mutex        m_refreshMutex;
 

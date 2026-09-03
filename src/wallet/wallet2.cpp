@@ -1209,6 +1209,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_upper_transaction_weight_limit(0),
   m_run(true),
   m_stopped(false),
+  m_refresh_suspended(false),
   m_callback(0),
   m_trusted_daemon(false),
   m_nettype(nettype),
