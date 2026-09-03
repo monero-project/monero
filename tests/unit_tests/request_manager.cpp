@@ -31,6 +31,8 @@
 #include "cryptonote_protocol/request_manager.h"
 
 #include <boost/uuid/uuid.hpp>
+#include <chrono>
+#include <thread>
 
 static boost::uuids::uuid uuid_from_char(char a)
 {
@@ -110,7 +112,7 @@ TEST(request_manager, multiple_peers)
 
     // 3. Sleep to let requests timeout
     MINFO("Sleeping for 20ms to let requests timeout");
-    usleep(TIMEOUT_MS * 1000 * 2);
+    std::this_thread::sleep_for(std::chrono::milliseconds{TIMEOUT_MS * 2});
 
     // 4. Re-add the same ones for each peer, but in reverse. The hashes
     //    should get queued for each peer
@@ -158,7 +160,7 @@ TEST(request_manager, drop_peers)
 
     // 2. Sleep to let requests timeout
     MINFO("Sleeping for 20ms to let requests timeout");
-    usleep(TIMEOUT_MS * 1000 * 2);
+    std::this_thread::sleep_for(std::chrono::milliseconds{TIMEOUT_MS * 2});
 
     // 3. Remove stale requests
     const auto drop_peers = req_manager.remove_stale_requests();
