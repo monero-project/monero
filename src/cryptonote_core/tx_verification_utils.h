@@ -28,12 +28,41 @@
 
 #pragma once
 
+#include <functional>
+#include <unordered_map>
+
 #include "cryptonote_basic/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/verification_context.h"
 
 namespace cryptonote
 {
+
+/**
+ * @brief Calculate all commitments for any transparent amounts passed in
+ *
+ * The container passed in may have some commitments already calculated.
+ * This function won't erase from it, it'll just add to the collection
+ * if the commitment hasn't been calculated yet.
+ *
+ * @param miner_tx the miner tx included in a block
+ * @param tx_pairs the txs included in a block
+ * @param transparent_amount_commitments_inout the collection passed in and returned by ref
+ * @return all passed in txs reference wrappers
+ */
+std::vector<std::reference_wrapper<const transaction>> collect_transparent_amount_commitments(
+    const transaction &miner_tx,
+    const std::vector<std::pair<transaction, blobdata>> &tx_pairs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout);
+
+std::vector<std::reference_wrapper<const transaction>> collect_transparent_amount_commitments(
+    const transaction &miner_tx,
+    const std::vector<transaction> &txs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout);
+
+std::vector<std::reference_wrapper<const transaction>> collect_transparent_amount_commitments(
+    const std::unordered_map<crypto::hash, std::pair<transaction, blobdata>> &txs_by_txid,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout);
 
 /**
  * @brief Get the maximum transaction weight for a given hardfork
