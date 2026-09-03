@@ -290,3 +290,114 @@ TEST(uri, make_uri_encodes_equals)
   EXPECT_EQ(recipient_name, "name=value");
   EXPECT_EQ(description, "key=value");
 }
+
+TEST(uri, make_multi_destination)
+{
+  tools::wallet2 w(cryptonote::TESTNET);
+  std::string error;
+  std::vector<tools::wallet2::uri_destination> destinations;
+  destinations.push_back({TEST_ADDRESS, 1500000000000});
+  destinations.push_back({TEST_ADDRESS, 2000000000000});
+  const std::string uri = w.make_uri(destinations, "desc", "names", error);
+  ASSERT_TRUE(error.empty());
+  ASSERT_EQ(uri, "monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_amount=1.500000000000;2.000000000000&recipient_name=names&tx_description=desc");
+}
+
+TEST(uri, make_multi_destination_no_amounts)
+{
+  tools::wallet2 w(cryptonote::TESTNET);
+  std::string error;
+  std::vector<tools::wallet2::uri_destination> destinations;
+  destinations.push_back({TEST_ADDRESS, 0});
+  destinations.push_back({TEST_ADDRESS, 0});
+  const std::string uri = w.make_uri(destinations, "", "", error);
+  ASSERT_TRUE(error.empty());
+  ASSERT_EQ(uri, "monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_amount=0.000000000000;0.000000000000");
+}
+
+TEST(uri, make_multi_destination_rejects_two_integrated)
+{
+  tools::wallet2 w(cryptonote::TESTNET);
+  std::string error;
+  std::vector<tools::wallet2::uri_destination> destinations;
+  destinations.push_back({TEST_INTEGRATED_ADDRESS, 1});
+  destinations.push_back({TEST_INTEGRATED_ADDRESS, 2});
+  ASSERT_TRUE(w.make_uri(destinations, "", "", error).empty());
+  ASSERT_FALSE(error.empty());
+}
+
+TEST(uri, parse_multi_destination)
+{
+  tools::wallet2 w(cryptonote::TESTNET);
+  std::vector<tools::wallet2::uri_destination> destinations;
+  std::string payment_id, description, recipient_names, error;
+  std::vector<std::string> unknown_parameters;
+  ASSERT_TRUE(w.parse_uri("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_amount=1.5;2", destinations, payment_id, description, recipient_names, unknown_parameters, error));
+  ASSERT_EQ(destinations.size(), 2);
+  EXPECT_EQ(destinations[0].address, TEST_ADDRESS);
+  EXPECT_EQ(destinations[0].amount, 1500000000000);
+  EXPECT_EQ(destinations[1].address, TEST_ADDRESS);
+  EXPECT_EQ(destinations[1].amount, 2000000000000);
+  EXPECT_TRUE(payment_id.empty());
+  EXPECT_TRUE(description.empty());
+  EXPECT_TRUE(recipient_names.empty());
+}
+
+TEST(uri, parse_multi_destination_round_trip)
+{
+  tools::wallet2 w(cryptonote::TESTNET);
+  std::string error;
+  std::vector<tools::wallet2::uri_destination> made;
+  made.push_back({TEST_ADDRESS, 1000000000000});
+  made.push_back({TEST_ADDRESS, 200000000000});
+  const std::string uri = w.make_uri(made, "some desc", "a name", error);
+  ASSERT_TRUE(error.empty());
+
+  std::vector<tools::wallet2::uri_destination> parsed;
+  std::string payment_id, description, recipient_names;
+  std::vector<std::string> unknown_parameters;
+  ASSERT_TRUE(w.parse_uri(uri, parsed, payment_id, description, recipient_names, unknown_parameters, error));
+  ASSERT_EQ(parsed.size(), made.size());
+  for (size_t i = 0; i < parsed.size(); ++i)
+  {
+    EXPECT_EQ(parsed[i].address, made[i].address);
+    EXPECT_EQ(parsed[i].amount, made[i].amount);
+  }
+  EXPECT_EQ(description, "some desc");
+  EXPECT_EQ(recipient_names, "a name");
+}
+
+TEST(uri, parse_multi_destination_amount_mismatch)
+{
+  tools::wallet2 w(cryptonote::TESTNET);
+  std::vector<tools::wallet2::uri_destination> destinations;
+  std::string payment_id, description, recipient_names, error;
+  std::vector<std::string> unknown_parameters;
+  ASSERT_FALSE(w.parse_uri("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_amount=1", destinations, payment_id, description, recipient_names, unknown_parameters, error));
+  ASSERT_FALSE(w.parse_uri("monero:" TEST_ADDRESS ";?tx_amount=1;2", destinations, payment_id, description, recipient_names, unknown_parameters, error));
+}
+
+TEST(uri, parse_multi_destination_single_destination_rejects)
+{
+  // the deprecated single-destination parser refuses multi-destination URIs
+  tools::wallet2 w(cryptonote::TESTNET);
+  std::string address, payment_id, recipient_name, description, error;
+  uint64_t amount;
+  std::vector<std::string> unknown_parameters;
+  ASSERT_FALSE(w.parse_uri("monero:" TEST_ADDRESS ";" TEST_ADDRESS, address, payment_id, amount, description, recipient_name, unknown_parameters, error));
+}
+
+TEST(uri, multi_destination_with_payment_id)
+{
+  // a payment id is accepted, but only if no destination uses an integrated address,
+  // and it is exposed to callers which choose to reject it
+  tools::wallet2 w(cryptonote::TESTNET);
+  std::vector<tools::wallet2::uri_destination> destinations;
+  std::string payment_id, description, recipient_names, error;
+  std::vector<std::string> unknown_parameters;
+  ASSERT_TRUE(w.parse_uri("monero:" TEST_ADDRESS ";" TEST_ADDRESS "?tx_payment_id=1234567890123456789012345678901234567890123456789012345678901234", destinations, payment_id, description, recipient_names, unknown_parameters, error));
+  ASSERT_EQ(destinations.size(), 2);
+  ASSERT_FALSE(payment_id.empty());
+
+  ASSERT_FALSE(w.parse_uri("monero:" TEST_INTEGRATED_ADDRESS ";" TEST_ADDRESS "?tx_payment_id=1234567890123456789012345678901234567890123456789012345678901234", destinations, payment_id, description, recipient_names, unknown_parameters, error));
+}

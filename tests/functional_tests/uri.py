@@ -43,6 +43,7 @@ class URITest():
     def run_test(self):
       self.create()
       self.test_monero_uri()
+      self.test_multi_destination_uri()
 
     def create(self):
         print('Creating wallet')
@@ -222,6 +223,38 @@ class URITest():
         assert res.uri.address == address
         assert res.uri.amount == 239390140000000
         assert res.unknown_parameters == [u'unknown=' + quoted_utf8string[0]], res
+
+
+    def test_multi_destination_uri(self):
+        print('Testing multi-destination URIs')
+        wallet = Wallet()
+        address1 = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        address2 = '8AsN91rznfkBGTY8psSNkJBg9SZgxxGGRUhGwRptBhgr5XSQ1XzmA9m8QAnoxydecSh5aLJXdrgXwTDMMZ1AuXsN1EX5Mtm'
+
+        res = wallet.make_uri(destinations = [{'address': address1, 'amount': 1000000000000}, {'address': address2, 'amount': 2000000000000}], tx_description = 'split payment')
+        assert res.uri == 'monero:' + address1 + ';' + address2 + '?tx_amount=1.000000000000;2.000000000000&tx_description=split%20payment', res.uri
+        res = wallet.parse_uri(uri = res.uri)
+        assert len(res.destinations) == 2, res
+        assert res.destinations[0].address == address1
+        assert res.destinations[0].amount == 1000000000000
+        assert res.destinations[1].address == address2
+        assert res.destinations[1].amount == 2000000000000
+        # the single-destination fields mirror the first destination
+        assert res.uri.address == address1
+        assert res.uri.amount == 1000000000000
+        assert res.uri.tx_description == 'split payment'
+
+        # the number of amounts must match the number of destinations
+        ok = False
+        try: wallet.parse_uri(uri = 'monero:' + address1 + ';' + address2 + '?tx_amount=1')
+        except: ok = True
+        assert ok
+
+        # a single-destination request with a destinations list set must not set the single fields
+        ok = False
+        try: wallet.make_uri(address = address1, destinations = [{'address': address2, 'amount': 1}])
+        except: ok = True
+        assert ok
 
 
 
