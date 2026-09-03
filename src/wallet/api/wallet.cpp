@@ -39,6 +39,7 @@
 #include "common_defines.h"
 #include "common/util.h"
 #include "multisig/multisig_account.h"
+#include "ssl_options.h"
 
 #include "mnemonics/electrum-words.h"
 #include "mnemonics/english.h"
@@ -2526,7 +2527,9 @@ void WalletImpl::pendingTxPostProcess(PendingTransactionImpl * pending)
 
 bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_address, uint64_t upper_transaction_size_limit, bool ssl)
 {
-    if (!m_wallet->init(daemon_address, m_daemon_login, proxy_address, upper_transaction_size_limit))
+    const bool trusted_daemon = Utils::isAddressLocal(daemon_address);
+
+    if (!m_wallet->init(daemon_address, m_daemon_login, proxy_address, upper_transaction_size_limit, trusted_daemon, Utils::sslOptionsForDaemon(daemon_address, ssl)))
        return false;
 
     // in case new wallet, this will force fast-refresh (pulling hashes instead of blocks)
@@ -2539,13 +2542,8 @@ bool WalletImpl::doInit(const string &daemon_address, const std::string &proxy_a
     if (m_rebuildWalletCache)
       LOG_PRINT_L2(__FUNCTION__ << ": Rebuilding wallet cache, fast refresh until block " << m_wallet->get_refresh_from_block_height());
 
-    if (Utils::isAddressLocal(daemon_address)) {
-        this->setTrustedDaemon(true);
-        m_refreshIntervalMillis = DEFAULT_REFRESH_INTERVAL_MILLIS;
-    } else {
-        this->setTrustedDaemon(false);
-        m_refreshIntervalMillis = DEFAULT_REMOTE_NODE_REFRESH_INTERVAL_MILLIS;
-    }
+    m_refreshIntervalMillis = trusted_daemon ? DEFAULT_REFRESH_INTERVAL_MILLIS
+                                             : DEFAULT_REMOTE_NODE_REFRESH_INTERVAL_MILLIS;
     return true;
 }
 
