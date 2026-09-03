@@ -14191,6 +14191,9 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
   else if (num_outputs < m_transfers.size())
     m_transfers.resize(num_outputs);
 
+  static constexpr size_t IMPORT_OUTPUTS_MAX_TOTAL_VOUT_ENTRIES = 1 << 20;
+  size_t total_vout_entries = 0;
+
   for (size_t i = 0; i < output_array.size(); ++i)
   {
     exported_transfer_details etd = output_array[i];
@@ -14231,6 +14234,9 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
     td.m_tx = {};
 
     THROW_WALLET_EXCEPTION_IF(etd.m_internal_output_index >= 65536, error::wallet_internal_error, "internal output index seems outrageously high, rejecting");
+    total_vout_entries += etd.m_internal_output_index + 1;
+    THROW_WALLET_EXCEPTION_IF(total_vout_entries > IMPORT_OUTPUTS_MAX_TOTAL_VOUT_ENTRIES, error::wallet_internal_error,
+        "Import file requires allocating too many synthetic outputs, rejecting");
     td.m_internal_output_index = etd.m_internal_output_index;
     cryptonote::txout_to_key tk;
     tk.key = etd.m_pubkey;
