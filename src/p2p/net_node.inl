@@ -1616,14 +1616,14 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::is_addr_recently_failed(const epee::net_utils::network_address& addr)
+  bool node_server<t_payload_net_handler>::is_addr_recently_failed(const epee::net_utils::network_address& addr, time_t forget_seconds)
   {
     CRITICAL_REGION_LOCAL(m_conn_fails_cache_lock);
     auto it = m_conn_fails_cache.find(addr.host_str());
     if(it == m_conn_fails_cache.end())
       return false;
 
-    if(time(NULL) - it->second > P2P_FAILED_ADDR_FORGET_SECONDS)
+    if(time(NULL) - it->second > forget_seconds)
       return false;
     else
       return true;
@@ -1961,7 +1961,7 @@ namespace nodetool
         pe_seed.adr = server.m_seed_nodes[current_index];
         if (is_peer_used(pe_seed))
           is_connected_to_at_least_one_seed_node = true;
-        else if (try_to_connect_and_handshake_with_new_peer(server.m_seed_nodes[current_index], true))
+        else if (!is_addr_recently_failed(pe_seed.adr, P2P_FAILED_SEED_ADDR_FORGET_SECONDS) && try_to_connect_and_handshake_with_new_peer(pe_seed.adr, true))
           break;
         if(++try_count > server.m_seed_nodes.size())
         {
