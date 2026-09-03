@@ -6443,8 +6443,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
   vector<cryptonote::tx_destination_entry> dsts;
   for (size_t i = 0; i < local_args.size(); )
   {
-    dsts_info.emplace_back();
-    cryptonote::address_parse_info & info = dsts_info.back();
+    cryptonote::address_parse_info info;
     cryptonote::tx_destination_entry de;
     bool r = true;
 
@@ -6452,9 +6451,56 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
     std::string address_uri, payment_id_uri, tx_description, recipient_name, error;
     std::vector<std::string> unknown_parameters;
     uint64_t amount = 0;
-    bool has_uri = m_wallet->parse_uri(local_args[i], address_uri, payment_id_uri, amount, tx_description, recipient_name, unknown_parameters, error);
+    std::vector<tools::wallet2::uri_destination> uri_destinations;
+    bool has_uri = m_wallet->parse_uri(local_args[i], uri_destinations, payment_id_uri, tx_description, recipient_name, unknown_parameters, error);
+    if (has_uri && uri_destinations.size() > 1)
+    {
+      // multi-destination URI: expand into one destination per address
+      if (!payment_id_uri.empty())
+      {
+        fail_msg_writer() << tr("a multi-destination URI cannot specify a payment id");
+        return false;
+      }
+      for (const tools::wallet2::uri_destination &urid: uri_destinations)
+      {
+        cryptonote::address_parse_info ur_info;
+        if (!cryptonote::get_account_address_from_str_or_url(ur_info, m_wallet->nettype(), urid.address, m_wallet->is_dns_enabled(), oa_prompter))
+        {
+          fail_msg_writer() << tr("failed to parse address");
+          return false;
+        }
+        cryptonote::tx_destination_entry ur_de;
+        ur_de.addr = ur_info.address;
+        ur_de.is_subaddress = ur_info.is_subaddress;
+        ur_de.is_integrated = ur_info.has_payment_id;
+        ur_de.amount = urid.amount;
+        ur_de.original = local_args[i];
+        if (ur_info.has_payment_id)
+        {
+          if (payment_id_seen)
+          {
+            fail_msg_writer() << tr("a single transaction cannot use more than one payment id");
+            return false;
+          }
+          std::string extra_nonce;
+          set_encrypted_payment_id_to_tx_extra_nonce(extra_nonce, ur_info.payment_id);
+          if (!add_extra_nonce_to_tx_extra(extra, extra_nonce))
+          {
+            fail_msg_writer() << tr("failed to set up payment id, though it was decoded correctly");
+            return false;
+          }
+          payment_id_seen = true;
+        }
+        dsts_info.push_back(ur_info);
+        dsts.push_back(ur_de);
+      }
+      ++i;
+      continue;
+    }
     if (has_uri)
     {
+      address_uri = uri_destinations[0].address;
+      amount = uri_destinations[0].amount;
       r = cryptonote::get_account_address_from_str_or_url(info, m_wallet->nettype(), address_uri, m_wallet->is_dns_enabled(), oa_prompter);
       if (payment_id_uri.size() == 16)
       {
@@ -6532,6 +6578,7 @@ bool simple_wallet::transfer_main(const std::vector<std::string> &args_, bool ca
       payment_id_seen = true;
     }
 
+    dsts_info.push_back(info);
     dsts.push_back(de);
   }
 

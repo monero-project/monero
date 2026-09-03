@@ -3241,7 +3241,27 @@ namespace tools
   {
     if (!m_wallet) return not_open(er);
     std::string error;
-    std::string uri = m_wallet->make_uri(req.address, req.payment_id, req.amount, req.tx_description, req.recipient_name, error);
+    std::string uri;
+    if (!req.destinations.empty())
+    {
+      if (!req.address.empty() || req.amount != 0)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+        er.message = "Cannot make URI: supplying both a single address and a list of destinations is not allowed";
+        return false;
+      }
+      std::vector<tools::wallet2::uri_destination> destinations;
+      for (const wallet_rpc::uri_destination_spec &spec: req.destinations)
+      {
+        tools::wallet2::uri_destination d;
+        d.address = spec.address;
+        d.amount = spec.amount;
+        destinations.push_back(std::move(d));
+      }
+      uri = m_wallet->make_uri(destinations, req.tx_description, req.recipient_name, error);
+    }
+    else
+      uri = m_wallet->make_uri(req.address, req.payment_id, req.amount, req.tx_description, req.recipient_name, error);
     if (uri.empty())
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
@@ -3257,12 +3277,24 @@ namespace tools
   {
     if (!m_wallet) return not_open(er);
     std::string error;
-    if (!m_wallet->parse_uri(req.uri, res.uri.address, res.uri.payment_id, res.uri.amount, res.uri.tx_description, res.uri.recipient_name, res.unknown_parameters, error))
+    std::vector<tools::wallet2::uri_destination> destinations;
+    if (!m_wallet->parse_uri(req.uri, destinations, res.uri.payment_id, res.uri.tx_description, res.uri.recipient_name, res.unknown_parameters, error))
     {
       er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
       er.message = "Error parsing URI: " + error;
       return false;
     }
+    for (const tools::wallet2::uri_destination &d: destinations)
+    {
+      wallet_rpc::uri_destination_spec spec;
+      spec.address = d.address;
+      spec.amount = d.amount;
+      res.destinations.push_back(std::move(spec));
+    }
+    // the single-destination fields describe the first destination, and are kept for
+    // clients which do not know about the destinations list
+    res.uri.address = destinations.at(0).address;
+    res.uri.amount = destinations.at(0).amount;
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

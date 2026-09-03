@@ -1871,6 +1871,17 @@ namespace wallet_rpc
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  struct uri_destination_spec
+  {
+    std::string address;
+    uint64_t amount;
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(address)
+      KV_SERIALIZE(amount)
+    END_KV_SERIALIZE_MAP()
+  };
+
   struct uri_spec
   {
     std::string address;
@@ -1892,6 +1903,12 @@ namespace wallet_rpc
   {
     struct request_t: public uri_spec
     {
+      std::vector<uri_destination_spec> destinations;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_PARENT(uri_spec)
+        KV_SERIALIZE(destinations)
+      END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
 
@@ -1921,10 +1938,12 @@ namespace wallet_rpc
     struct response_t
     {
       uri_spec uri;
+      std::vector<uri_destination_spec> destinations;
       std::vector<std::string> unknown_parameters;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(uri)
+        KV_SERIALIZE(destinations)
         KV_SERIALIZE(unknown_parameters)
       END_KV_SERIALIZE_MAP()
     };
