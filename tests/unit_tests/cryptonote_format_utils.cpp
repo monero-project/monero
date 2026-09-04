@@ -447,3 +447,63 @@ TEST(cn_format_utils, generate_key_image_helper_additional_derivations_stay_alig
     ASSERT_TRUE(cryptonote::generate_key_image_helper(keys, subaddresses, out_key, tx_pub_key,
         additional_tx_pub_keys, 1, in_ephemeral, ki, hwdev));
 }
+
+namespace
+{
+cryptonote::transaction make_prunable_weight_tx(uint8_t type, size_t inputs, size_t outputs, size_t ring_size)
+{
+    cryptonote::transaction tx;
+    tx.version = 2;
+    tx.unlock_time = 0;
+    tx.vin.resize(inputs, cryptonote::txin_to_key{0, std::vector<uint64_t>(ring_size), crypto::key_image{}});
+    tx.vout.resize(outputs, cryptonote::tx_out{0, cryptonote::txout_to_key{}});
+
+    rct::rctSig &rv = tx.rct_signatures;
+    rv.type = type;
+    rv.ecdhInfo.resize(outputs);
+    rv.outPk.resize(outputs);
+
+    if (rct::is_rct_borromean(type))
+        rv.p.rangeSigs.resize(outputs);
+    else
+    {
+        size_t nrl = 6;
+        for (size_t padded_outputs = 1; padded_outputs < outputs; padded_outputs <<= 1)
+            ++nrl;
+        rv.p.bulletproofs.resize(1);
+        rv.p.bulletproofs[0].V.resize(outputs);
+        rv.p.bulletproofs[0].L.resize(nrl);
+        rv.p.bulletproofs[0].R.resize(nrl);
+        rv.p.pseudoOuts.resize(inputs);
+    }
+
+    if (type == rct::RCTTypeSimple)
+        rv.pseudoOuts.resize(inputs);
+
+    const size_t mg_count = type == rct::RCTTypeFull ? 1 : inputs;
+    rv.p.MGs.resize(mg_count);
+    for (rct::mgSig &mg: rv.p.MGs)
+        mg.ss.resize(ring_size, rct::keyV(type == rct::RCTTypeFull ? inputs + 1 : 2));
+
+    return tx;
+}
+
+void assert_pruned_weight_matches(cryptonote::transaction tx)
+{
+    const cryptonote::blobdata blob = cryptonote::tx_to_blob(tx);
+    ASSERT_FALSE(blob.empty());
+    const uint64_t full_weight = cryptonote::get_transaction_weight(tx, blob.size());
+
+    cryptonote::transaction pruned_tx;
+    ASSERT_TRUE(cryptonote::parse_and_validate_tx_base_from_blob(blob, pruned_tx));
+    ASSERT_TRUE(pruned_tx.pruned);
+    ASSERT_EQ(full_weight, cryptonote::get_pruned_transaction_weight(pruned_tx));
+}
+} // anonymous namespace
+
+TEST(cn_format_utils, pruned_old_rct_weight)
+{
+    assert_pruned_weight_matches(make_prunable_weight_tx(rct::RCTTypeFull, 3, 2, 5));
+    assert_pruned_weight_matches(make_prunable_weight_tx(rct::RCTTypeSimple, 3, 2, 7));
+    assert_pruned_weight_matches(make_prunable_weight_tx(rct::RCTTypeBulletproof, 2, 3, 11));
+}
