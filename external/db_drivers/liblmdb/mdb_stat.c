@@ -1,6 +1,6 @@
 /* mdb_stat.c - memory-mapped database status tool */
 /*
- * Copyright 2011-2018 Howard Chu, Symas Corp.
+ * Copyright 2011-2021 Howard Chu, Symas Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
 	 * -V: print version and exit
 	 * (default) print stat of only the main DB
 	 */
-	while ((i = getopt(argc, argv, "Vaefnrs:")) != EOF) {
+	while ((i = getopt(argc, argv, "Vaefnrs:v")) != EOF) {
 		switch(i) {
 		case 'V':
 			printf("%s\n", MDB_VERSION_STRING);
