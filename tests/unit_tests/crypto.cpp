@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <cstdint>
+#include <cstring>
 #include <gtest/gtest.h>
 #include <memory>
 #include <sstream>
@@ -100,6 +101,26 @@ TEST(Crypto, null_keys)
   memset(zero, 0, 32);
   ASSERT_EQ(memcmp(crypto::null_skey.data, zero, 32), 0);
   ASSERT_EQ(memcmp(crypto::null_pkey.data, zero, 32), 0);
+}
+
+TEST(Crypto, groestl_unaligned_input)
+{
+  constexpr std::size_t input_size = 128;
+  alignas(std::uint32_t) std::uint8_t aligned[input_size];
+  alignas(std::uint32_t) std::uint8_t input[input_size + alignof(std::uint32_t)];
+  char expected[crypto::HASH_SIZE];
+  char actual[crypto::HASH_SIZE];
+
+  for (std::size_t i = 0; i < input_size; ++i)
+    aligned[i] = static_cast<std::uint8_t>(i);
+  crypto::hash_extra_groestl(aligned, input_size, expected);
+
+  for (std::size_t offset = 0; offset < alignof(std::uint32_t); ++offset)
+  {
+    std::memcpy(input + offset, aligned, input_size);
+    crypto::hash_extra_groestl(input + offset, input_size, actual);
+    EXPECT_EQ(0, std::memcmp(expected, actual, sizeof(expected)));
+  }
 }
 
 TEST(Crypto, verify_32)
