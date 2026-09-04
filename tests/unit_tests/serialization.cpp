@@ -414,7 +414,9 @@ TEST(Serialization, serializes_transacion_signatures_correctly)
   tx.set_null();
   ASSERT_TRUE(serialization::dump_binary(tx, blob));
   ASSERT_EQ(5, blob.size()); // 5 bytes + 0 bytes extra + 0 bytes signatures
-  ASSERT_FALSE(serialization::parse_binary(blob, tx1));
+  ASSERT_TRUE(serialization::parse_binary(blob, tx1));
+  ASSERT_EQ(tx, tx1);
+  ASSERT_EQ(linearize_vector2(tx.signatures), linearize_vector2(tx1.signatures));
 
   // Miner tx without signatures
   txin_gen txin_gen1;
