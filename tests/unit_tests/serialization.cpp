@@ -414,9 +414,7 @@ TEST(Serialization, serializes_transacion_signatures_correctly)
   tx.set_null();
   ASSERT_TRUE(serialization::dump_binary(tx, blob));
   ASSERT_EQ(5, blob.size()); // 5 bytes + 0 bytes extra + 0 bytes signatures
-  ASSERT_TRUE(serialization::parse_binary(blob, tx1));
-  ASSERT_EQ(tx, tx1);
-  ASSERT_EQ(linearize_vector2(tx.signatures), linearize_vector2(tx1.signatures));
+  ASSERT_FALSE(serialization::parse_binary(blob, tx1));
 
   // Miner tx without signatures
   txin_gen txin_gen1;
@@ -461,9 +459,7 @@ TEST(Serialization, serializes_transacion_signatures_correctly)
   tx.invalidate_hashes();
   ASSERT_TRUE(serialization::dump_binary(tx, blob));
   ASSERT_EQ(9, blob.size()); // 5 bytes + 2 * 2 bytes vins + 0 bytes extra + 0 bytes signatures
-  ASSERT_TRUE(serialization::parse_binary(blob, tx1));
-  ASSERT_EQ(tx, tx1);
-  ASSERT_EQ(linearize_vector2(tx.signatures), linearize_vector2(tx1.signatures));
+  ASSERT_FALSE(serialization::parse_binary(blob, tx1));
 
   // Two txin_gen, signatures vector contains only one empty element
   tx.signatures.resize(1);
@@ -475,9 +471,7 @@ TEST(Serialization, serializes_transacion_signatures_correctly)
   tx.invalidate_hashes();
   ASSERT_TRUE(serialization::dump_binary(tx, blob));
   ASSERT_EQ(9, blob.size()); // 5 bytes + 2 * 2 bytes vins + 0 bytes extra + 0 bytes signatures
-  ASSERT_TRUE(serialization::parse_binary(blob, tx1));
-  ASSERT_EQ(tx, tx1);
-  ASSERT_EQ(linearize_vector2(tx.signatures), linearize_vector2(tx1.signatures));
+  ASSERT_FALSE(serialization::parse_binary(blob, tx1));
 
   // Two txin_gen, signatures vector contains three empty elements
   tx.signatures.resize(3);

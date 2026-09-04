@@ -293,6 +293,16 @@ inline auto do_serialize(Archive &ar, T &v, Args&&... args)
     if (!ar.good()) return false;		\
   } while(0);
 
+/*! \macro CONTAINER_FIELD_CAPPED(f, c)
+ *
+ * \brief tags the field with the variable name and then serializes it
+ */
+#define CONTAINER_FIELD_CAPPED(f, c)					\
+  do {							\
+    ar.tag(#f);						\
+    bool r = do_serialize(ar, f, c);			\
+    if (!r || !ar.good()) return false;			\
+  } while(0);
 
 namespace serialization {
   /*! \namespace detail
