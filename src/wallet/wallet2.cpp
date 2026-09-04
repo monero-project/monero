@@ -1750,7 +1750,7 @@ void wallet2::sort_scan_tx_entries(std::vector<process_tx_entry_t> &unsorted_tx_
   COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::response res;
   for (const auto & tx_info : unsorted_tx_entries)
   {
-    if (!tx_info.tx_entry.in_pool && !cryptonote::is_coinbase(tx_info.tx))
+    if (!tx_info.tx_entry.in_pool && !tx_info.tx.is_coinbase())
     {
       const uint64_t height = tx_info.tx_entry.block_height;
       if (entry_heights.find(height) == entry_heights.end())
@@ -1796,9 +1796,9 @@ void wallet2::sort_scan_tx_entries(std::vector<process_tx_entry_t> &unsorted_tx_
     else // l.tx_entry.block_height == r.tx_entry.block_height
     {
       // coinbase tx is the first tx in a block
-      if (cryptonote::is_coinbase(r.tx))
+      if (r.tx.is_coinbase())
         return false;
-      if (cryptonote::is_coinbase(l.tx))
+      if (l.tx.is_coinbase())
         return true;
 
       // in case std::sort is comparing elem to itself
@@ -1849,7 +1849,7 @@ void wallet2::process_scan_txs(const tx_entry_data &txs_to_scan, const tx_entry_
       tx_entry.block_height,
       0,
       tx_entry.block_timestamp,
-      cryptonote::is_coinbase(tx_info.tx),
+      tx_info.tx.is_coinbase(),
       tx_entry.in_pool,
       tx_entry.double_spend_seen,
       {}, {}, // unused caches
@@ -13423,7 +13423,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
         THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key derivation");
       }
       size_t output_index = 0;
-      bool miner_tx = cryptonote::is_coinbase(spent_tx);
+      bool miner_tx = spent_tx.is_coinbase();
       for (const cryptonote::tx_out& out : spent_tx.vout)
       {
         tx_scan_info_t tx_scan_info;
@@ -13664,7 +13664,7 @@ void wallet2::process_background_cache(const background_sync_data_t &background_
     MDEBUG("Processing background synced tx " << bgs_tx.first);
 
     process_new_transaction(bgs_tx.first, bgs_tx.second.tx, bgs_tx.second.output_indices, bgs_tx.second.height, 0, bgs_tx.second.block_timestamp,
-        cryptonote::is_coinbase(bgs_tx.second.tx), false/*pool*/, bgs_tx.second.double_spend_seen, {}, {}, true/*ignore_callbacks*/);
+        bgs_tx.second.tx.is_coinbase(), false/*pool*/, bgs_tx.second.double_spend_seen, {}, {}, true/*ignore_callbacks*/);
 
     // Re-set destination addresses if they were previously set
     if (m_confirmed_txs.find(bgs_tx.first) != m_confirmed_txs.end() &&
