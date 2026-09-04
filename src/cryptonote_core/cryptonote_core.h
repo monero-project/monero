@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -678,13 +678,6 @@ namespace cryptonote
       * @return what it says above
       */
      uint8_t get_ideal_hard_fork_version(uint64_t height) const;
-
-     /**
-      * @brief return the hard fork version for a given block height
-      *
-      * @return what it says above
-      */
-     uint8_t get_hard_fork_version(uint64_t height) const;
 
      /**
       * @brief return the earliest block a given version may activate
