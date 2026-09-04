@@ -52,7 +52,9 @@ size_t tree_hash_cnt(size_t count) {
 	// is not a sane upper limit for a block, so there will be tighter limits in other parts of the code
 
 	assert( count >= 3 ); // cases for 0,1,2 are handled elsewhere
-	assert( count <= 0x10000000 ); // sanity limit to 2^28, MSB=1 will cause an inf loop
+
+	const size_t MAX_COUNT = SIZE_MAX >> 1; // all 1s except for MSB
+	assert( count <= MAX_COUNT ); // sanity limit since MSB=1 will cause an inf loop
 
 	size_t pow = 2;
 	while(pow < count) pow <<= 1;
