@@ -34,6 +34,23 @@
 
 namespace
 {
+  TEST(memcpy_swap64, handles_unaligned_buffers)
+  {
+    const uint64_t words[] = {0x0123456789abcdef, 0xfedcba9876543210};
+    alignas(uint64_t) uint8_t source[sizeof(words) + sizeof(uint64_t) - 1];
+    alignas(uint64_t) uint8_t destination[sizeof(words) + sizeof(uint64_t) - 1];
+    uint64_t result[2];
+
+    for (size_t offset = 1; offset < sizeof(uint64_t); ++offset)
+    {
+      memcpy(source + offset, words, sizeof(words));
+      memcpy_swap64(destination + offset, source + offset, 2);
+      memcpy(result, destination + offset, sizeof(result));
+      ASSERT_EQ(swap64(words[0]), result[0]);
+      ASSERT_EQ(swap64(words[1]), result[1]);
+    }
+  }
+
   TEST(mul128, handles_zero)
   {
     uint64_t hi, lo;
