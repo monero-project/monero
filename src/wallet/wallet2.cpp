@@ -1704,6 +1704,7 @@ wallet2::tx_entry_data wallet2::get_tx_entries(const std::unordered_set<crypto::
     req.prune = true;
 
     size_t ntxes = slice + SLICE_SIZE > txids.size() ? txids.size() - slice : SLICE_SIZE;
+    const auto expected_txid_begin = it;
     for (size_t i = slice; i < slice + ntxes; ++i)
     {
       req.txs_hashes.push_back(epee::string_tools::pod_to_hex(*it));
@@ -1717,6 +1718,7 @@ wallet2::tx_entry_data wallet2::get_tx_entries(const std::unordered_set<crypto::
       THROW_WALLET_EXCEPTION_IF(res.txs.size() != req.txs_hashes.size(), error::wallet_internal_error, "Failed to get transaction from daemon");
     }
 
+    auto expected_txid = expected_txid_begin;
     for (auto& tx_info : res.txs)
     {
       if (!tx_info.in_pool)
@@ -1728,6 +1730,8 @@ wallet2::tx_entry_data wallet2::get_tx_entries(const std::unordered_set<crypto::
       cryptonote::transaction tx;
       crypto::hash tx_hash;
       THROW_WALLET_EXCEPTION_IF(!get_pruned_tx(tx_info, tx, tx_hash), error::wallet_internal_error, "Failed to get transaction from daemon");
+      THROW_WALLET_EXCEPTION_IF(tx_hash != *expected_txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
+      ++expected_txid;
       tx_entries.tx_entries.emplace_back(process_tx_entry_t{ std::move(tx_info), std::move(tx), std::move(tx_hash) });
     }
   }
