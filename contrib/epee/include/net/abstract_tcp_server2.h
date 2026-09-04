@@ -56,6 +56,7 @@
 #include <boost/optional.hpp>
 #include "byte_slice.h"
 #include "net_utils_base.h"
+#include "scope_guard.h"
 #include "syncobj.h"
 #include "connection_basic.hpp"
 #include "network_throttle-detail.hpp"
@@ -495,10 +496,16 @@ namespace net_utils
     bool global_timer_handler(/*const boost::system::error_code& err, */std::shared_ptr<idle_callback_conext<t_handler>> ptr)
     {
       //if handler return false - he don't want to be called anymore
+      epee::unique_scope_guard rearm_timer = [this, &ptr]() {
+        ptr->m_timer.expires_after(ptr->m_period);
+        ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler<t_handler>, this, ptr));
+      };
       if(!ptr->call_handler())
+      {
+        rearm_timer.release();
         return true;
-      ptr->m_timer.expires_after(ptr->m_period);
-      ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler<t_handler>, this, ptr));
+      }
+      rearm_timer.reset();
       return true;
     }
 
