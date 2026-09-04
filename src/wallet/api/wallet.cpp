@@ -2547,6 +2547,9 @@ void WalletImpl::pendingTxPostProcess(PendingTransactionImpl * pending)
   tools::wallet2::signed_tx_set exported_txs;
   std::vector<cryptonote::address_parse_info> dsts_info;
 
+  // NOTE: We expect `cold_sign_tx` to validate `pending->m_pending_tx` with `sanity_check_pending_tx`.
+  // It is not possible to pre-validate here because the pending tx may be 'half-formed' at this point (e.g.
+  // trezor makes a tx proposal with no key images and the cold wallet has to supply those).
   m_wallet->cold_sign_tx(pending->m_pending_tx, exported_txs, dsts_info, pending->m_tx_device_aux);
   pending->m_key_images = exported_txs.key_images;
   pending->m_pending_tx = exported_txs.ptx;
