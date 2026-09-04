@@ -195,8 +195,16 @@ namespace cryptonote
       else
       {
         // De-serializing...
-        if (!this->deserialize_vin(ar)) return false;
-        if (!this->deserialize_vout(ar)) return false;
+        // vin
+        if (!this->deserialize_vin(ar))
+        {
+          ar.set_fail();
+          return false;
+        }
+
+        // vout
+        const size_t MAX_VOUT_COUNT = this->is_coinbase() ? MAX_COINBASE_VOUT_COUNT : MAX_NON_COINBASE_VOUT_COUNT;
+        CONTAINER_FIELD_CAPPED(vout, MAX_VOUT_COUNT)
       }
       FIELD(extra)
     END_SERIALIZE()
@@ -216,10 +224,10 @@ namespace cryptonote
   private:
     // Do some validation on vin before doing allocations and reading the archive:
     // 1. Can't exceed MAX_VIN_COUNT.
-    // 2. Non-empty (see check_tx_semantic for non-coinbase, and prevalidate_miner_transaction for coinbase).
-    // 3. If coinbase, only 1 txin_gen.
-    // 4. If not coinbase: type txin_to_key (see check_inputs_types_supported).
-    // 5. If not coinbase: key offsets don't exceed max allowed for whole tx.
+    // 2. If coinbase, only 1 txin_gen.
+    // 3. If not coinbase: type txin_to_key (see check_inputs_types_supported).
+    // 4. If not coinbase: key offsets don't exceed max allowed for whole tx.
+    // Note: can't enforce non-empty because wallets may store empty vin.
     template<template <bool> class Archive>
     bool deserialize_vin(Archive<false> &ar)
     {
@@ -236,9 +244,6 @@ namespace cryptonote
       // 1. Can't exceed MAX_VIN_COUNT.
       if (cnt > MAX_VIN_COUNT)
         return false;
-      // 2. Non-empty.
-      if (cnt == 0)
-        return false;
 
       ::serialization::detail::do_reserve(v, cnt, ar.remaining_bytes());
 
@@ -251,7 +256,7 @@ namespace cryptonote
         if (!ar.good())
           return false;
 
-        // 3. If coinbase, only 1 txin_gen.
+        // 2. If coinbase, only 1 txin_gen.
         const auto &in = v.back();
         const bool coinbase = i == 0 && in.type() == typeid(txin_gen);
         if (coinbase && cnt > COINBASE_VIN_COUNT)
@@ -259,65 +264,17 @@ namespace cryptonote
         if (coinbase)
           break;
 
-        // 4. If not coinbase: type txin_to_key (see check_inputs_types_supported).
+        // 3. If not coinbase: type txin_to_key (see check_inputs_types_supported).
         if (in.type() != typeid(txin_to_key))
           return false;
 
-        // 5. If not coinbase: key offsets don't exceed max allowed for whole tx.
+        // 4. If not coinbase: key offsets don't exceed max allowed for whole tx.
         const std::size_t next_toal_key_offsets = total_key_offsets + boost::get<cryptonote::txin_to_key>(in).key_offsets.size();
         if (next_toal_key_offsets < total_key_offsets)
           return false; // overflow
         if (next_toal_key_offsets >= MAX_TOTAL_KEY_OFFSETS)
           return false;
         total_key_offsets = next_toal_key_offsets;
-      }
-      ar.end_array();
-      v.shrink_to_fit();
-
-      return ar.good();
-    }
-
-    // Do some validation on vout before doing allocations and reading the archive:
-    // 1. Can't exceed MAX_VOUT_COUNT.
-    // 2. Output type is either txout_to_key or txout_to_tagged_key (see check_output_types).
-    // Note: consensus has no explicit enforcement of non-empty vout.
-    template<template <bool> class Archive>
-    bool deserialize_vout(Archive<false> &ar)
-    {
-      // Assumes deserialize_vin has already executed
-      const size_t MAX_VOUT_COUNT = this->is_coinbase() ? MAX_COINBASE_VOUT_COUNT : MAX_NON_COINBASE_VOUT_COUNT;
-
-      auto &v = vout;
-      size_t cnt = 0;
-      ar.begin_array(cnt);
-      if (!ar.good())
-        return false;
-      v.clear();
-
-      if (ar.remaining_bytes() < cnt)
-        return false;
-
-      // 1. Can't exceed MAX_VOUT_COUNT.
-      if (cnt > MAX_VOUT_COUNT)
-        return false;
-
-      ::serialization::detail::do_reserve(v, cnt, ar.remaining_bytes());
-
-      for (size_t i = 0; i < cnt; ++i) {
-        if (i > 0)
-          ar.delimit_array();
-        if (!::serialization::detail::serialize_container_element(ar, v.emplace_back()))
-          return false;
-        if (!ar.good())
-          return false;
-
-        // 2. Output type is either txout_to_key or txout_to_tagged_key (see check_output_types).
-        const auto &out = v.back().target;
-        if (out.type() == typeid(txout_to_key))
-          continue;
-        if (out.type() == typeid(txout_to_tagged_key))
-          continue;
-        return false;
       }
       ar.end_array();
       v.shrink_to_fit();
