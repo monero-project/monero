@@ -115,6 +115,8 @@ namespace
 
     bool compare_tx_to_json_tx(const cryptonote::transaction &tx, const std::string &tx_json)
     {
+        static_assert(MAX_HF_VERSION == 16, "Update to compare FCMP++ tx JSON representations");
+
         using namespace epee::string_tools; // for pod_to_hex()
 
         const crypto::hash txid = get_transaction_hash(tx);
