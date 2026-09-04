@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -1609,11 +1609,6 @@ namespace cryptonote
   uint8_t core::get_ideal_hard_fork_version(uint64_t height) const
   {
     return get_blockchain_storage().get_ideal_hard_fork_version(height);
-  }
-  //-----------------------------------------------------------------------------------------------
-  uint8_t core::get_hard_fork_version(uint64_t height) const
-  {
-    return get_blockchain_storage().get_hard_fork_version(height);
   }
   //-----------------------------------------------------------------------------------------------
   uint64_t core::get_earliest_ideal_height_for_version(uint8_t version) const
