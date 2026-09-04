@@ -117,6 +117,7 @@ namespace net_utils
 			std::string m_cookie;			//"Cookie:"
 			std::string m_user_agent;	//"User-Agent:"
 			std::string m_origin;           //"Origin:"
+			std::string m_sec_fetch_site;   //"Sec-Fetch-Site:"
 			fields_list m_etc_fields;
 
 			void clear()
@@ -131,6 +132,7 @@ namespace net_utils
 				m_cookie.clear();
 				m_user_agent.clear();
 				m_origin.clear();
+				m_sec_fetch_site.clear();
 				m_etc_fields.clear();
 			}
 		};
