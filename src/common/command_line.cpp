@@ -31,6 +31,7 @@
 #include "command_line.h"
 #include <boost/algorithm/string/compare.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <stdexcept>
 #include "common/i18n.h"
 
 namespace command_line
@@ -69,6 +70,30 @@ namespace command_line
       return true;
 
     return false;
+  }
+
+  void check_string_swallowed_option(const boost::program_options::options_description& desc, const boost::program_options::parsed_options& parsed)
+  {
+    for (const auto& option : parsed.options)
+    {
+      if (option.original_tokens.size() < 2 || option.value.empty())
+        continue;
+
+      const std::string& value = option.value.front();
+      if (value.size() < 3 || value[0] != '-' || value[1] != '-')
+        continue;
+
+      const std::string::size_type eq = value.find('=');
+      const std::string candidate = value.substr(2, eq == std::string::npos ? std::string::npos : eq - 2);
+      if (candidate.empty()) continue;
+
+      if (desc.find_nothrow(candidate, false) != nullptr)
+      {
+        throw std::runtime_error(
+          "required argument for --" + option.string_key + " is missing; " +
+          "it looks like it consumed --" + candidate + " as its value instead");
+      }
+    }
   }
 
   const arg_descriptor<bool> arg_help = {"help", "Produce help message"};
