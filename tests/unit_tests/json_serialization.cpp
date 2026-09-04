@@ -232,7 +232,7 @@ namespace
             CHECK_AND_ASSERT_MES(tx_document.HasMember("signatures"), false, "compare_tx_to_json_tx: missing signatures");
             CHECK_AND_ASSERT_MES(tx_document["signatures"].IsArray(), false, "compare_tx_to_json_tx: signatures is not array");
 
-            if (!cryptonote::is_coinbase(tx))
+            if (!tx.is_coinbase())
             {
                 CHECK_AND_ASSERT_MES(tx_document["signatures"].Size() == tx.signatures.size(), false, "compare_tx_to_json_tx: signatures wrong size");
                 for (size_t i = 0; i < tx.signatures.size(); ++i)
@@ -259,7 +259,7 @@ namespace
             CHECK_AND_ASSERT_MES(jrv["type"].IsUint(), false, "compare_tx_to_json_tx: rct_signatures type is not int");
             CHECK_AND_ASSERT_MES(jrv["type"].GetUint() == tx.rct_signatures.type, false, "compare_tx_to_json_tx: rct_signatures wrong type");
 
-            if (!cryptonote::is_coinbase(tx))
+            if (!tx.is_coinbase())
             {
                 // txnFee
                 CHECK_AND_ASSERT_MES(jrv.HasMember("txnFee"), false, "compare_tx_to_json_tx: rct_signatures has no fee");
