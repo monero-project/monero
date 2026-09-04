@@ -275,6 +275,88 @@ TEST(blocked_mode_client, shutdown_is_permanent)
     EXPECT_FALSE(client.connect("127.0.0.1", port, std::chrono::seconds{5}));
 }
 
+TEST(blocked_mode_client, eof_marks_disconnected_and_allows_reconnect)
+{
+    boost::asio::io_context server_io;
+    boost::asio::ip::tcp::acceptor acceptor{
+        server_io,
+        {boost::asio::ip::address_v4::loopback(), 0}
+    };
+
+    epee::net_utils::blocked_mode_client client;
+    client.set_ssl(epee::net_utils::ssl_options_t{
+        epee::net_utils::ssl_support_t::e_ssl_support_disabled
+    });
+    const std::string port = std::to_string(acceptor.local_endpoint().port());
+    ASSERT_TRUE(client.connect("127.0.0.1", port, std::chrono::seconds{5}));
+
+    boost::system::error_code error;
+    boost::asio::ip::tcp::socket first_peer{server_io};
+    acceptor.accept(first_peer, error);
+    ASSERT_FALSE(error);
+    boost::asio::write(first_peer, boost::asio::buffer("x", 1), error);
+    ASSERT_FALSE(error);
+    first_peer.shutdown(boost::asio::ip::tcp::socket::shutdown_send, error);
+    ASSERT_FALSE(error);
+
+    std::string response;
+    ASSERT_TRUE(client.recv(response, std::chrono::seconds{5}));
+    EXPECT_EQ("x", response);
+
+    ASSERT_TRUE(client.recv(response, std::chrono::seconds{5}));
+    EXPECT_TRUE(response.empty());
+    EXPECT_FALSE(client.is_connected());
+
+    ASSERT_TRUE(client.connect("127.0.0.1", port, std::chrono::seconds{5}));
+    boost::asio::ip::tcp::socket second_peer{server_io};
+    acceptor.accept(second_peer, error);
+    ASSERT_FALSE(error);
+    boost::asio::write(second_peer, boost::asio::buffer("y", 1), error);
+    ASSERT_FALSE(error);
+    ASSERT_TRUE(client.recv(response, std::chrono::seconds{5}));
+    EXPECT_EQ("y", response);
+}
+
+TEST(blocked_mode_client, peer_eof_detected_before_reuse)
+{
+    boost::asio::io_context server_io;
+    boost::asio::ip::tcp::acceptor acceptor{
+        server_io,
+        {boost::asio::ip::address_v4::loopback(), 0}
+    };
+
+    epee::net_utils::blocked_mode_client client;
+    client.set_ssl(epee::net_utils::ssl_options_t{
+        epee::net_utils::ssl_support_t::e_ssl_support_disabled
+    });
+    const std::string port = std::to_string(acceptor.local_endpoint().port());
+    ASSERT_TRUE(client.connect("127.0.0.1", port, std::chrono::seconds{5}));
+
+    boost::system::error_code error;
+    boost::asio::ip::tcp::socket peer{server_io};
+    acceptor.accept(peer, error);
+    ASSERT_FALSE(error);
+    EXPECT_TRUE(client.is_connected());
+
+    // close the idle connection from the peer; is_connected must observe the EOF without a request failing first
+    peer.shutdown(boost::asio::ip::tcp::socket::shutdown_send, error);
+    ASSERT_FALSE(error);
+    bool disconnected = false;
+    for (int i = 0; i < 500 && !disconnected; ++i)
+    {
+        disconnected = !client.is_connected();
+        if (!disconnected)
+            std::this_thread::sleep_for(std::chrono::milliseconds{10});
+    }
+    EXPECT_TRUE(disconnected);
+
+    ASSERT_TRUE(client.connect("127.0.0.1", port, std::chrono::seconds{5}));
+    boost::asio::ip::tcp::socket second_peer{server_io};
+    acceptor.accept(second_peer, error);
+    ASSERT_FALSE(error);
+    EXPECT_TRUE(client.is_connected());
+}
+
 TEST(tor_address, constants)
 {
     static_assert(!net::tor_address::is_local(), "bad is_local() response");
