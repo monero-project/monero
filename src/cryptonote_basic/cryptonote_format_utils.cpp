@@ -122,6 +122,7 @@ namespace cryptonote
     const uint64_t bp_clawback = (bp_base * n_padded_outputs - bp_size) * 4 / 5;
     return bp_clawback;
   }
+
   //---------------------------------------------------------------
 }
 
@@ -143,7 +144,7 @@ namespace cryptonote
   
   bool expand_transaction_1(transaction &tx, bool base_only)
   {
-    if (tx.version >= 2 && !is_coinbase(tx))
+    if (tx.version >= 2 && !tx.is_coinbase())
     {
       rct::rctSig &rv = tx.rct_signatures;
       if (rv.type == rct::RCTTypeNull)
