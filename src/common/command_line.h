@@ -280,6 +280,12 @@ namespace command_line
     return get_arg(vm, arg);
   }
 
+  /**
+   * @brief Detects cases in which a command-line option with a required value
+   * is not given one, causing `boost::program_options` to falsely consume the
+   * following option's "--name" token as its value instead of raising an error.
+   */
+  void check_string_swallowed_option(const boost::program_options::options_description& desc, const boost::program_options::variables_map& vm);
 
   extern const arg_descriptor<bool> arg_help;
   extern const arg_descriptor<bool> arg_version;

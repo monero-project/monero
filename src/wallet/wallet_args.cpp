@@ -139,6 +139,7 @@ namespace wallet_args
     {
       auto parser = po::command_line_parser(argc, argv).options(desc_all).positional(positional_options);
       po::store(parser.run(), vm);
+      command_line::check_string_swallowed_option(desc_all, vm);
 
       if (command_line::get_arg(vm, command_line::arg_help))
       {
