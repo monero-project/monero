@@ -85,7 +85,7 @@ DISABLE_VS_WARNINGS(4267)
 
 //------------------------------------------------------------------
 Blockchain::Blockchain(tx_memory_pool& tx_pool) :
-  m_db(), m_tx_pool(tx_pool), m_hardfork(NULL), m_timestamps_and_difficulties_height(0), m_reset_timestamps_and_difficulties_height(true), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
+  m_db(), m_tx_pool(tx_pool), m_timestamps_and_difficulties_height(0), m_reset_timestamps_and_difficulties_height(true), m_current_block_cumul_weight_limit(0), m_current_block_cumul_weight_median(0),
   m_enforce_dns_checkpoints(false), m_max_prepare_blocks_threads(4), m_db_sync_on_blocks(true), m_db_sync_threshold(1), m_db_sync_mode(db_async), m_db_default_sync(false), m_fast_sync(true), m_show_time_stats(false), m_sync_counter(0), m_bytes_to_sync(0), m_cancel(false),
   m_long_term_block_weights_window(CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE),
   m_long_term_effective_median_block_weight(0),
@@ -299,14 +299,13 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   m_nettype = test_options != NULL ? FAKECHAIN : nettype;
   m_offline = offline;
   m_fixed_difficulty = fixed_difficulty;
-  if (m_hardfork == nullptr)
   {
     if (m_nettype ==  FAKECHAIN || m_nettype == STAGENET)
-      m_hardfork = new HardFork(*db, 1, 0);
+      m_hardfork.emplace(1, 0);
     else if (m_nettype == TESTNET)
-      m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
+      m_hardfork.emplace(1, testnet_hard_fork_version_1_till);
     else
-      m_hardfork = new HardFork(*db, 1, mainnet_hard_fork_version_1_till);
+      m_hardfork.emplace(1, mainnet_hard_fork_version_1_till);
   }
   if (m_nettype == FAKECHAIN)
   {
@@ -329,8 +328,6 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
       m_hardfork->add_fork(mainnet_hard_forks[n].version, mainnet_hard_forks[n].height, mainnet_hard_forks[n].threshold, mainnet_hard_forks[n].time);
   }
   m_hardfork->init();
-
-  m_db->set_hard_fork(m_hardfork);
 
   // if the blockchain is new, add the genesis block
   // this feels kinda kludgy to do it this way, but can be looked at later.
@@ -426,7 +423,6 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   {
     m_timestamps_and_difficulties_height = 0;
     m_reset_timestamps_and_difficulties_height = true;
-    m_hardfork->reorganize_from_chain_height(get_current_blockchain_height());
     uint64_t top_block_height;
     crypto::hash top_block_hash = get_tail_id(top_block_height);
     m_tx_pool.on_blockchain_dec(top_block_height, top_block_hash);
@@ -453,7 +449,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
       return false;
   }
 
-  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  if (get_current_hard_fork_version() >= RX_BLOCK_VERSION)
   {
     const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(m_db->height()));
     if (seedhash != crypto::null_hash)
@@ -524,8 +520,7 @@ bool Blockchain::deinit()
     LOG_ERROR("There was an issue closing/storing the blockchain, shutting down now to prevent issues!");
   }
 
-  delete m_hardfork;
-  m_hardfork = NULL;
+  m_hardfork.reset();
   delete m_db;
   m_db = NULL;
   return true;
@@ -565,7 +560,7 @@ void Blockchain::pop_blocks(uint64_t nblocks, const bool keep_txs)
   if (stop_batch)
     m_db->batch_stop();
 
-  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  if (get_current_hard_fork_version() >= RX_BLOCK_VERSION)
   {
     const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(m_db->height()));
     rx_set_main_seedhash(seedhash.data, tools::get_max_concurrency());
@@ -605,9 +600,6 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
     LOG_ERROR("Error popping block from blockchain, throwing!");
     throw;
   }
-
-  // make sure the hard fork object updates its current version
-  m_hardfork->on_block_popped(1);
 
   // return transactions from popped block to the tx_pool
   size_t pruned = 0;
@@ -1106,9 +1098,6 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
   }
   CHECK_AND_ASSERT_THROW_MES(update_next_cumulative_weight_limit(), "Error updating next cumulative weight limit");
 
-  // make sure the hard fork object updates its current version
-  m_hardfork->reorganize_from_chain_height(rollback_height);
-
   //return back original chain
   for (auto& bl : original_chain)
   {
@@ -1116,8 +1105,6 @@ bool Blockchain::rollback_blockchain_switching(std::list<block>& original_chain,
     bool r = handle_block_to_main_chain(bl, bvc);
     CHECK_AND_ASSERT_MES(r && bvc.m_added_to_main_chain, false, "PANIC! failed to add (again) block while chain switching during the rollback!");
   }
-
-  m_hardfork->reorganize_from_chain_height(rollback_height);
 
   MINFO("Rollback to height " << rollback_height << " was successful.");
   if (!original_chain.empty())
@@ -1218,8 +1205,6 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
     m_db->remove_alt_block(cryptonote::get_block_hash(bei.bl));
   }
 
-  m_hardfork->reorganize_from_chain_height(split_height);
-
   std::shared_ptr<tools::Notify> reorg_notify = m_reorg_notify;
   if (reorg_notify)
     reorg_notify->notify("%s", std::to_string(split_height).c_str(), "%h", std::to_string(m_db->height()).c_str(),
@@ -1244,7 +1229,7 @@ bool Blockchain::switch_to_alternative_blockchain(std::list<block_extended_info>
     }
   }
 
-  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  if (get_current_hard_fork_version() >= RX_BLOCK_VERSION)
     rx_set_main_seedhash(seedhash.data, tools::get_max_concurrency());
 
   MGINFO_GREEN("REORGANIZE SUCCESS! on height: " << split_height << ", new blockchain size: " << m_db->height());
@@ -1579,7 +1564,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
       CHECK_AND_ASSERT_MES(get_block_by_hash(*from_block, prev_block), false, "From block not found"); // TODO
       uint64_t from_block_height = cryptonote::get_block_height(prev_block);
       height = from_block_height + 1;
-      if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+      if (get_current_hard_fork_version() >= RX_BLOCK_VERSION)
       {
         uint64_t next_height;
         crypto::rx_seedheights(height, &seed_height, &next_height);
@@ -1635,13 +1620,13 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   else
   {
     height = m_db->height();
-    b.major_version = m_hardfork->get_current_version();
+    b.major_version = get_current_hard_fork_version();
     b.minor_version = m_hardfork->get_ideal_version();
     b.prev_id = get_tail_id();
     median_weight = m_current_block_cumul_weight_limit / 2;
     diffic = get_difficulty_for_next_block();
     already_generated_coins = m_db->get_block_already_generated_coins(height - 1);
-    if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+    if (get_current_hard_fork_version() >= RX_BLOCK_VERSION)
     {
       uint64_t next_height;
       crypto::rx_seedheights(height, &seed_height, &next_height);
@@ -1799,7 +1784,7 @@ bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto
   major_version = m_hardfork->get_ideal_version(height);
 
   seed_hash = crypto::null_hash;
-  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  if (get_current_hard_fork_version() >= RX_BLOCK_VERSION)
   {
     uint64_t seed_height, next_height;
     crypto::rx_seedheights(height, &seed_height, &next_height);
@@ -2341,7 +2326,7 @@ bool Blockchain::get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMA
       MERROR("Unexpected output data size: expected " << req.outputs.size() << ", got " << data.size());
       return false;
     }
-    const uint8_t hf_version = m_hardfork->get_current_version();
+    const uint8_t hf_version = get_current_hard_fork_version();
     for (const auto &t: data)
       res.outs.push_back({t.pubkey, t.commitment, is_tx_spendtime_unlocked(t.unlock_time, hf_version), t.height, crypto::null_hash});
 
@@ -2367,7 +2352,7 @@ void Blockchain::get_output_key_mask_unlocked(const uint64_t& amount, const uint
   key = o_data.pubkey;
   mask = o_data.commitment;
   tx_out_index toi = m_db->get_output_tx_and_index(amount, index);
-  const uint8_t hf_version = m_hardfork->get_current_version();
+  const uint8_t hf_version = get_current_hard_fork_version();
   unlocked = is_tx_spendtime_unlocked(m_db->get_tx_unlock_time(toi.first), hf_version);
 }
 //------------------------------------------------------------------
@@ -3310,7 +3295,7 @@ bool Blockchain::check_tx_inputs(transaction& tx,
 
   crypto::hash tx_prefix_hash = get_transaction_prefix_hash(tx);
 
-  const uint8_t hf_version = m_hardfork->get_current_version();
+  const uint8_t hf_version = get_current_hard_fork_version();
 
   if (hf_version >= HF_VERSION_MIN_2_OUTPUTS)
   {
@@ -3916,7 +3901,7 @@ leave:
 
   // this is a cheap test
   const uint8_t hf_version = get_current_hard_fork_version();
-  if (!m_hardfork->check(bl))
+  if (!m_hardfork->check_for_height(bl, blockchain_height))
   {
     MERROR_VER("Block with id: " << id << std::endl << "has old version: " << (unsigned)bl.major_version << std::endl << "current: " << (unsigned)hf_version);
     bvc.m_verifivation_failed = true;
@@ -4256,7 +4241,7 @@ leave:
   TIME_MEASURE_START(vmt);
   uint64_t base_reward = 0;
   uint64_t already_generated_coins = blockchain_height ? m_db->get_block_already_generated_coins(blockchain_height - 1) : 0;
-  if(!validate_miner_transaction(bl, cumulative_block_weight, fee_summary, base_reward, already_generated_coins, bvc.m_partial_block_reward, m_hardfork->get_current_version()))
+  if(!validate_miner_transaction(bl, cumulative_block_weight, fee_summary, base_reward, already_generated_coins, bvc.m_partial_block_reward, get_current_hard_fork_version()))
   {
     MERROR_VER("Block with id: " << id << " has incorrect miner transaction");
     bvc.m_verifivation_failed = true;
@@ -4370,7 +4355,7 @@ leave:
   for (const auto& notifier: m_block_notifiers)
     notifier(new_height - 1, {std::addressof(bl), 1});
 
-  if (m_hardfork->get_current_version() >= RX_BLOCK_VERSION)
+  if (get_current_hard_fork_version() >= RX_BLOCK_VERSION)
     rx_set_main_seedhash(seedhash.data, tools::get_max_concurrency());
 
   return true;
@@ -5345,9 +5330,39 @@ HardFork::State Blockchain::get_hard_fork_state() const
   return m_hardfork->get_state();
 }
 
+uint8_t Blockchain::get_current_hard_fork_version() const
+{
+  return m_hardfork->get_ideal_version(m_db->height());
+}
+
+uint8_t Blockchain::get_hard_fork_version(uint64_t height) const
+{
+  const std::uint64_t db_height = m_db->height();
+  if (height > db_height)
+  {
+    return 255;
+  }
+  else if (height == db_height)
+  {
+    return m_hardfork->get_ideal_version(db_height);
+  }
+  else
+  {
+    return m_db->get_hard_fork_version(height);
+  }
+}
+
 bool Blockchain::get_hard_fork_voting_info(uint8_t version, uint32_t &window, uint32_t &votes, uint32_t &threshold, uint64_t &earliest_height, uint8_t &voting) const
 {
-  return m_hardfork->get_voting_info(version, window, votes, threshold, earliest_height, voting);
+  const uint64_t db_height = m_db->height();
+  const uint8_t current_hf_version = get_current_blockchain_height();
+  window = std::min(HardFork::DEFAULT_WINDOW_SIZE, db_height);
+  // assumed threshold (see actual fork tables):
+  threshold = 0;
+  earliest_height = m_hardfork->get_earliest_ideal_height_for_version(version);
+  // fake vote count based on ideal conditions:
+  votes = (db_height >= earliest_height) ? std::min<uint32_t>(db_height - earliest_height, window) : 0;
+  return current_hf_version >= version;
 }
 
 uint64_t Blockchain::get_difficulty_target() const

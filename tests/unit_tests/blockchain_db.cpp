@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -30,8 +30,6 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <cstdio>
 #include <iostream>
-#include <chrono>
-#include <thread>
 
 #include "gtest/gtest.h"
 
@@ -153,7 +151,7 @@ template <typename T>
 class BlockchainDBTest : public testing::Test
 {
 protected:
-  BlockchainDBTest() : m_db(new T()), m_hardfork(*m_db, 1, 0)
+  BlockchainDBTest() : m_db(new T())
   {
     for (auto& i : t_blocks)
     {
@@ -182,17 +180,10 @@ protected:
   }
 
   BlockchainDB* m_db;
-  HardFork m_hardfork;
   std::string m_prefix;
   std::vector<std::pair<block, blobdata>> m_blocks;
   std::vector<std::vector<std::pair<transaction, blobdata>>> m_txs;
   std::vector<std::string> m_filenames;
-
-  void init_hard_fork()
-  {
-    m_hardfork.init();
-    m_db->set_hard_fork(&m_hardfork);
-  }
 
   void get_filenames()
   {
@@ -262,7 +253,6 @@ TYPED_TEST(BlockchainDBTest, AddBlock)
   // make sure open does not throw
   ASSERT_NO_THROW(this->m_db->open(dirPath));
   this->get_filenames();
-  this->init_hard_fork();
 
   db_wtxn_guard guard(this->m_db);
 
@@ -310,7 +300,6 @@ TYPED_TEST(BlockchainDBTest, RetrieveBlockData)
   // make sure open does not throw
   ASSERT_NO_THROW(this->m_db->open(dirPath));
   this->get_filenames();
-  this->init_hard_fork();
 
   db_wtxn_guard guard(this->m_db);
 
