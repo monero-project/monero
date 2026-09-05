@@ -1,0 +1,40 @@
+name: XUNIA Unified Platform
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: xunia-platform-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/xunia/validate_platform.py
+      - name: Verify defensive health fallback
+        run: |
+          python3 scripts/xunia/node_health.py > health.json
+          python3 scripts/xunia/diagnose.py < health.json > diagnosis.json
+          python3 -c 'import json; d=json.load(open("diagnosis.json")); assert d["humanApprovalRequired"] is True'
+  combined-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Materialize pinned GUI workspace
+        run: bash scripts/xunia/bootstrap_workspace.sh
+      - name: Verify one-core layout
+        run: |
+          test -L apps/xuniaxmr/monero
+          test "$(readlink apps/xuniaxmr/monero)" = "../.."
+          test "$(git -C apps/xuniaxmr rev-parse HEAD)" = "$(python3 -c 'import json; print(json.load(open("xunia-platform.json"))["components"]["gui"]["lockedCommit"])')"
+      - name: Upload platform manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: xunia-platform-manifest
+          path: |
+            xunia-platform.json
+            platform/ontology/xunia-core.ontology.json
