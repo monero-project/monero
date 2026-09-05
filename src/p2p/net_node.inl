@@ -204,6 +204,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_add_exclusive_node);
     command_line::add_arg(desc, arg_p2p_seed_node);
     command_line::add_arg(desc, arg_tx_proxy);
+    command_line::add_arg(desc, arg_tor_stream_isolation);
     command_line::add_arg(desc, arg_anonymous_inbound);
     command_line::add_arg(desc, arg_ban_list);
     command_line::add_arg(desc, arg_p2p_hide_my_port);
@@ -1032,10 +1033,13 @@ namespace nodetool
   {
     bool res = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
+    const bool tor_stream_isolation = command_line::get_arg(vm, arg_tor_stream_isolation);
     if (proxy.size())
     {
-      const auto endpoint = net::socks::endpoint::get(proxy);
+      auto endpoint = net::socks::endpoint::get(proxy);
       CHECK_AND_ASSERT_MES(endpoint, false, "Failed to parse proxy: " << proxy << " - " << endpoint.error().message());
+      if (tor_stream_isolation && !set_tor_stream_isolation(*endpoint, "proxy"))
+        return false;
       network_zone& public_zone = m_network_zones[epee::net_utils::zone::public_];
       public_zone.m_connect = &socks_connect;
       public_zone.m_proxy_address = *endpoint;
