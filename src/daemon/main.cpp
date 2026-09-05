@@ -185,6 +185,7 @@ int main(int argc, char const * argv[])
           .options(all_options).positional(positional_options).run()
       , vm
       );
+      command_line::check_string_swallowed_option(all_options, vm);
 
       return true;
     });
