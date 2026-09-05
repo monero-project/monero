@@ -1,0 +1,132 @@
+{
+  "schemaVersion": "1.0.0",
+  "ontology": {
+    "apiName": "xuniaXmrPlatform",
+    "displayName": "XUNIA XMR Unified Platform",
+    "classification": "internal-operational"
+  },
+  "prohibitedProperties": [
+    "walletSeed",
+    "privateKey",
+    "spendKey",
+    "viewKey",
+    "mnemonic",
+    "accessToken",
+    "clientSecret",
+    "rawTransaction"
+  ],
+  "objectTypes": [
+    {
+      "apiName": "xuniaCoreCommit",
+      "primaryKey": "commitSha",
+      "properties": {
+        "commitSha": "string",
+        "branch": "string",
+        "buildStatus": "string",
+        "observedAt": "timestamp"
+      }
+    },
+    {
+      "apiName": "xuniaGuiCommit",
+      "primaryKey": "commitSha",
+      "properties": {
+        "commitSha": "string",
+        "coreCommitSha": "string",
+        "buildStatus": "string",
+        "observedAt": "timestamp"
+      }
+    },
+    {
+      "apiName": "xuniaNodeObservation",
+      "primaryKey": "observationId",
+      "properties": {
+        "observationId": "string",
+        "nodeAlias": "string",
+        "network": "string",
+        "height": "long",
+        "targetHeight": "long",
+        "peerCount": "integer",
+        "status": "string",
+        "observedAt": "timestamp"
+      }
+    },
+    {
+      "apiName": "xuniaCombinedRelease",
+      "primaryKey": "releaseId",
+      "properties": {
+        "releaseId": "string",
+        "coreCommitSha": "string",
+        "guiCommitSha": "string",
+        "version": "string",
+        "status": "string",
+        "approvedBy": "string",
+        "publishedAt": "timestamp"
+      }
+    },
+    {
+      "apiName": "xuniaAgentDiagnosis",
+      "primaryKey": "diagnosisId",
+      "properties": {
+        "diagnosisId": "string",
+        "observationId": "string",
+        "decision": "string",
+        "summary": "string",
+        "recommendedAction": "string",
+        "humanApproved": "boolean",
+        "observedAt": "timestamp"
+      }
+    }
+  ],
+  "links": [
+    {
+      "apiName": "guiUsesCore",
+      "from": "xuniaGuiCommit",
+      "to": "xuniaCoreCommit",
+      "fromProperty": "coreCommitSha",
+      "toProperty": "commitSha"
+    },
+    {
+      "apiName": "releaseUsesCore",
+      "from": "xuniaCombinedRelease",
+      "to": "xuniaCoreCommit",
+      "fromProperty": "coreCommitSha",
+      "toProperty": "commitSha"
+    },
+    {
+      "apiName": "releaseUsesGui",
+      "from": "xuniaCombinedRelease",
+      "to": "xuniaGuiCommit",
+      "fromProperty": "guiCommitSha",
+      "toProperty": "commitSha"
+    },
+    {
+      "apiName": "diagnosisExplainsObservation",
+      "from": "xuniaAgentDiagnosis",
+      "to": "xuniaNodeObservation",
+      "fromProperty": "observationId",
+      "toProperty": "observationId"
+    }
+  ],
+  "actions": [
+    {
+      "apiName": "recordNodeObservation",
+      "target": "xuniaNodeObservation",
+      "approval": "AUTOMATED_MONITOR"
+    },
+    {
+      "apiName": "recordAgentDiagnosis",
+      "target": "xuniaAgentDiagnosis",
+      "approval": "AUTOMATED_AGENT"
+    },
+    {
+      "apiName": "approveAgentDiagnosis",
+      "target": "xuniaAgentDiagnosis",
+      "approval": "HUMAN_REQUIRED"
+    },
+    {
+      "apiName": "promoteCombinedRelease",
+      "target": "xuniaCombinedRelease",
+      "approval": "HUMAN_REQUIRED"
+    }
+  ]
+}
