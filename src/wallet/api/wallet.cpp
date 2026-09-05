@@ -698,7 +698,7 @@ bool WalletImpl::recoverFromDevice(const std::string &path, const std::string &p
         LOG_PRINT_L1("Generated new wallet from device: " + device_name);
     }
     catch (const std::exception& e) {
-        setStatusError(string(tr("failed to generate new wallet: ")) + e.what());
+        setStatusCritical(string(tr("failed to generate new wallet: ")) + e.what());
         return false;
     }
     m_password = password;
