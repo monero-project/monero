@@ -98,6 +98,9 @@ namespace nodetool
   boost::optional<std::vector<proxy>> get_proxies(const boost::program_options::variables_map& vm);
   boost::optional<std::vector<anonymous_inbound>> get_anonymous_inbounds(const boost::program_options::variables_map& vm);
 
+  //! Validate a proxy for Tor stream isolation and assign its per-zone isolation token.
+  bool set_tor_stream_isolation(net::socks::endpoint& proxy, const char* option);
+
   //! \return True if `command` is filtered (ignored/dropped) for `address`
   bool is_filtered_command(epee::net_utils::network_address const& address, int command);
 
@@ -505,6 +508,7 @@ namespace nodetool
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_exclusive_node;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_tx_proxy;
+    extern const command_line::arg_descriptor<bool> arg_tor_stream_isolation;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_anonymous_inbound;
     extern const command_line::arg_descriptor<std::string> arg_ban_list;
     extern const command_line::arg_descriptor<bool> arg_p2p_hide_my_port;
@@ -526,4 +530,3 @@ namespace nodetool
 }
 
 POP_WARNINGS
-
