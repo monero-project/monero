@@ -157,6 +157,7 @@ The following table summarizes the tools and libraries required to build. A few 
 | libusb       | ?             | NO       | `libusb-1.0-0-dev`   | `libusb`     | `libusb-devel`     | `libusb1-devel`     | YES      | Hardware wallet |
 | libprotobuf  | ?             | NO       | `libprotobuf-dev`    | `protobuf`   | `protobuf-devel`   | `protobuf-devel`    | YES      | Hardware wallet |
 | protoc       | ?             | NO       | `protobuf-compiler`  | `protobuf`   | `protobuf`         | `protobuf-compiler` | YES      | Hardware wallet |
+| Rust         | 1.93.0        | NO       | `rustc`, `cargo`     | `rust`       | `rust`             | `rust`, `cargo`     | NO       | FCMP++ crypto   |
 
 Install all dependencies at once on Debian/Ubuntu:
 
@@ -166,18 +167,18 @@ sudo apt update && sudo apt install build-essential cmake pkg-config libssl-dev 
 
 Install all dependencies at once on Arch:
 ```
-sudo pacman -Syu --needed base-devel cmake boost boost-libs openssl zeromq unbound libsodium libunwind readline python ccache doxygen graphviz hidapi libusb protobuf
+sudo pacman -Syu --needed base-devel cmake boost boost-libs openssl zeromq unbound libsodium libunwind readline python ccache doxygen graphviz hidapi libusb protobuf rust
 ```
 
 Install all dependencies at once on Fedora:
 ```
-sudo dnf install gcc gcc-c++ cmake pkgconf boost-devel openssl-devel zeromq-devel unbound-devel libsodium-devel libunwind-devel readline-devel ccache doxygen graphviz hidapi-devel libusb1-devel protobuf-devel protobuf-compiler
+sudo dnf install gcc gcc-c++ cmake pkgconf boost-devel openssl-devel zeromq-devel unbound-devel libsodium-devel libunwind-devel readline-devel ccache doxygen graphviz hidapi-devel libusb1-devel protobuf-devel protobuf-compiler rust cargo
 ```
 
 Install all dependencies at once on openSUSE:
 
 ```
-sudo zypper ref && sudo zypper in cppzmq-devel libboost_chrono-devel libboost_date_time-devel libboost_filesystem-devel libboost_locale-devel libboost_program_options-devel libboost_regex-devel libboost_serialization-devel libboost_system-devel libboost_thread-devel libsodium-devel libunwind-devel unbound-devel cmake doxygen ccache fdupes gcc-c++ libevent-devel libopenssl-devel pkgconf-pkg-config readline-devel patterns-devel-C-C++-devel_C_C++
+sudo zypper ref && sudo zypper in cppzmq-devel libboost_chrono-devel libboost_date_time-devel libboost_filesystem-devel libboost_locale-devel libboost_program_options-devel libboost_regex-devel libboost_serialization-devel libboost_system-devel libboost_thread-devel libsodium-devel libunwind-devel unbound-devel cmake doxygen ccache fdupes gcc-c++ libevent-devel libopenssl-devel pkgconf-pkg-config readline-devel patterns-devel-C-C++-devel_C_C++ rust cargo
 ```
 
 Install all dependencies at once on macOS with the provided Brewfile:
@@ -189,7 +190,7 @@ brew update && brew bundle --file=contrib/brew/Brewfile
 FreeBSD one-liner required to build dependencies:
 
 ```
-pkg install git gmake cmake pkgconf boost-libs libzmq4 libsodium unbound
+pkg install git gmake cmake pkgconf boost-libs libzmq4 libsodium unbound rust
 ```
 
 ### Cloning the repository
