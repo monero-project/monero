@@ -3959,6 +3959,12 @@ namespace tools
         return false;
       }
     }
+    if (!req.language.empty() && !crypto::ElectrumWords::is_valid_language(req.language))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "The specified seed language is invalid.";
+      return false;
+    }
 
     {
       po::options_description desc("dummy");
@@ -4069,12 +4075,6 @@ namespace tools
 
     if (!req.language.empty())
     {
-      if (!crypto::ElectrumWords::is_valid_language(req.language))
-      {
-        er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-        er.message = "The specified seed language is invalid.";
-        return false;
-      }
       wal->set_seed_language(req.language);
     }
 
