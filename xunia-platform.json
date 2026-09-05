@@ -1,0 +1,27 @@
+{
+  "schemaVersion": "1.0.0",
+  "name": "XUNIA XMR Unified Platform",
+  "canonicalRepository": "sonoxo/xmRXuniA",
+  "components": {
+    "core": {
+      "path": ".",
+      "role": "Monero core, daemon, wallet RPC and libraries"
+    },
+    "gui": {
+      "path": "apps/xuniaxmr",
+      "repository": "https://github.com/sonoxo/xuniaxmr.git",
+      "lockedCommit": "7691273c6303de9b128c447fb29c437a814e62e6",
+      "role": "Desktop GUI"
+    },
+    "operations": {
+      "path": "platform",
+      "role": "Health, ontology, GPT-Doug diagnostics and release control"
+    }
+  },
+  "invariants": [
+    "No consensus-rule modification by platform automation",
+    "No wallet seeds, private keys, mnemonics or raw transactions in telemetry",
+    "Consequential actions require human approval",
+    "Core and GUI release artifacts must reference the same core commit"
+  ]
+}
