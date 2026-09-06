@@ -13116,6 +13116,7 @@ const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& w
 
 void wallet2::set_account_tag(const std::set<uint32_t> &account_indices, const std::string& tag)
 {
+  get_account_tags();
   for (uint32_t account_index : account_indices)
   {
     THROW_WALLET_EXCEPTION_IF(account_index >= get_num_subaddress_accounts(), error::wallet_internal_error, "Account index out of bound");
