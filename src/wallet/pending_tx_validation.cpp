@@ -160,7 +160,7 @@ static void validate_tx_outs(
 
         // - encoded amount
         rct::ecdhTuple amnt_data{};
-        memcpy(amnt_data.amount.bytes, &dest.amount, sizeof(dest.amount));
+        amnt_data.amount = rct::d2h(dest.amount);
         rct::ecdhDecode(amnt_data, amount_keys.at(i), true); //v2, decode gives mask
         CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.ecdhInfo.at(i).amount == amnt_data.amount,
             "validate_tx_outs: failed reproducing encoded amount");
