@@ -8343,6 +8343,16 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
       const crypto::hash txid = get_transaction_hash(ptx.tx);
       if (store_tx_info())
       {
+        // SPECIAL CONDITION: before saving any info about the tx we should fully validate it. This
+        // requires knowing the key images. parse_multisig_tx_from_str() is allowed to treat the
+        // tx as informational, which permits unknown key images, but here we enforce it.
+        for (const auto idx : ptx.construction_data.selected_transfers)
+        {
+          if (idx >= m_transfers.size() || !m_transfers[idx].m_key_image_known)
+            THROW_WALLET_EXCEPTION(error::multisig_import_needed);
+        }
+        this->sanity_check_pending_tx(ptx, false, true, std::nullopt, true);
+
         m_tx_keys[txid] = ptx.tx_key;
         m_additional_tx_keys[txid] = ptx.additional_tx_keys;
       }
@@ -8562,14 +8572,8 @@ bool wallet2::sign_multisig_tx_to_file(multisig_tx_set &exported_txs, const std:
 bool wallet2::sign_multisig_tx_from_file(const std::string &filename, std::vector<crypto::hash> &txids, std::function<bool(const multisig_tx_set&)> accept_func)
 {
   multisig_tx_set exported_txs;
-  if(!load_multisig_tx_from_file(filename, exported_txs))
+  if(!load_multisig_tx_from_file(filename, exported_txs, accept_func))
     return false;
-
-  if (accept_func && !accept_func(exported_txs))
-  {
-    LOG_PRINT_L1("Transactions rejected by callback");
-    return false;
-  }
   return sign_multisig_tx_to_file(exported_txs, filename, txids);
 }
 //----------------------------------------------------------------------------------------------------
