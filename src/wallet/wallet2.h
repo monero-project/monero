@@ -937,6 +937,7 @@ private:
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::pool_payment_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void sanity_check_pending_tx(const wallet2::pending_tx &ptx, const bool redacted, const bool expect_imported_key_images, std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver, const bool allow_read_only) const;
+    void sanity_check_pending_tx_set(const std::vector<pending_tx> &ptxs, const bool redacted, const bool expect_imported_key_images, std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver, const bool allow_read_only) const;
 
     uint64_t get_blockchain_current_height() const { return m_blockchain.size(); }
     void rescan_spent();
