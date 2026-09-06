@@ -14061,6 +14061,7 @@ std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_det
     etd.m_additional_tx_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
     etd.m_subaddr_index_major = td.m_subaddr_index.major;
     etd.m_subaddr_index_minor = td.m_subaddr_index.minor;
+    etd.m_txid = td.m_txid;
 
     outs.push_back(etd);
   }
@@ -14198,7 +14199,7 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
 
     // setup td with "cheap" loaded data
     td.m_block_height = 0;
-    td.m_txid = crypto::null_hash;
+    td.m_txid = etd.m_txid;
     td.m_global_output_index = etd.m_global_output_index;
     td.m_spent = etd.m_flags.m_spent;
     td.m_frozen = etd.m_flags.m_frozen;
