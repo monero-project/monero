@@ -35,6 +35,7 @@
 #include "wallet2_types.h"
 
 //third party headers
+#include <boost/archive/archive_exception.hpp>
 #include <boost/serialization/deque.hpp>
 #include <boost/serialization/set.hpp>
 #include <boost/serialization/vector.hpp>
@@ -71,6 +72,8 @@ template <class Archive>
 std::enable_if_t<Archive::is_loading::value>
 initialize_transfer_details(Archive &a, wallet2_basic::transfer_details &x, const unsigned int ver)
 {
+    if (ver < 4 && x.m_internal_output_index >= x.m_tx.vout.size())
+        throw boost::archive::archive_exception(boost::archive::archive_exception::other_exception, "Invalid transfer output index");
     if (ver < 1)
     {
         x.m_mask = rct::identity();
