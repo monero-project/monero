@@ -67,7 +67,7 @@ fi
 echo "Starting monerod..."
 HOSTNAME=$(cat "$HOSTNAMEFILE")
 "$monerod" \
-  --anonymous-inbound "$HOSTNAME":18083,127.0.0.1:18083,25 --tx-proxy tor,127.0.0.1:9050,10 \
+  --anonymous-inbound "$HOSTNAME":18083,127.0.0.1:18083,25 --tx-proxy tor,socks5://127.0.0.1:9050,10 \
   --detach
 ready=0
 for i in `seq 10`
