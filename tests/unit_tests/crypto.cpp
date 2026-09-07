@@ -574,3 +574,20 @@ TEST(Crypto, fe_constants)
   ASSERT_TRUE(memcmp(a_inv_3_bytes, A_INV_3_PAPER, 32) == 0);
   ASSERT_TRUE(memcmp(fe_c_bytes,    FE_C_PAPER,    32) == 0);
 }
+
+TEST(Crypto, double_scalarmult_p3_zero_scalars)
+{
+  static const unsigned char zero[32] = {0};
+  const ge_p3 &G = crypto::get_G_p3();
+  ge_dsmp Gi;
+  ge_dsm_precomp(Gi, &G);
+
+  ge_p3 r3;
+  memset(&r3, 0x01, sizeof(r3));
+  ge_double_scalarmult_base_vartime_p3(&r3, zero, &G, zero);
+  EXPECT_TRUE(ge_p3_is_point_at_infinity_vartime(&r3));
+
+  memset(&r3, 0x01, sizeof(r3));
+  ge_double_scalarmult_precomp_vartime2_p3(&r3, zero, Gi, zero, Gi);
+  EXPECT_TRUE(ge_p3_is_point_at_infinity_vartime(&r3));
+}
