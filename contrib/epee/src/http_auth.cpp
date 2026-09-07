@@ -42,6 +42,7 @@
 #include <boost/range/algorithm/find_if.hpp>
 #include <boost/range/iterator_range_core.hpp>
 #include <boost/range/join.hpp>
+#include <boost/optional/optional.hpp>
 #include <boost/spirit/include/karma_generate.hpp>
 #include <boost/spirit/include/karma_uint.hpp>
 #include <boost/spirit/include/qi_alternative.hpp>
@@ -112,40 +113,52 @@ namespace
     struct update
     {
       template<typename T>
-      void operator()(const T& arg) const
+      bool operator()(const T& arg) const
       {
         const boost::iterator_range<const char*> data(boost::as_literal(arg));
-        EVP_DigestUpdate(
+        return EVP_DigestUpdate(
           ctx,
           reinterpret_cast<const std::uint8_t*>(data.begin()),
           data.size()
-        );
+        ) == 1;
       }
-      void operator()(const std::string& arg) const
+      bool operator()(const std::string& arg) const
       {
-        (*this)(boost::string_ref(arg));
+        return (*this)(boost::string_ref(arg));
       }
-      void operator()(const epee::wipeable_string& arg) const
+      bool operator()(const epee::wipeable_string& arg) const
       {
-        EVP_DigestUpdate(
+        return EVP_DigestUpdate(
           ctx,
           reinterpret_cast<const std::uint8_t*>(arg.data()),
           arg.size()
-        );
+        ) == 1;
       }
 
       EVP_MD_CTX *ctx;
     };
 
     template<typename... T>
-    std::array<char, 32> operator()(const T&... args) const
-    {      
+    boost::optional<std::array<char, 32>> operator()(const T&... args) const
+    {
       std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> ctx(EVP_MD_CTX_new(), &EVP_MD_CTX_free);
-      EVP_DigestInit(ctx.get(), EVP_md5());
-      boost::fusion::for_each(std::tie(args...), update{ctx.get()});
+      if (!ctx)
+        return boost::none;
+
+      if (EVP_DigestInit_ex(ctx.get(), EVP_md5(), nullptr) != 1)
+        return boost::none;
+
+      bool ok = true;
+      boost::fusion::for_each(std::tie(args...), [&] (const auto& arg) {
+        ok = ok && update{ctx.get()}(arg);
+      });
+
+      if (!ok)
+        return boost::none;
 
       std::array<std::uint8_t, 16> digest{{}};
-      EVP_DigestFinal(ctx.get(), digest.data(), NULL);
+      if (EVP_DigestFinal_ex(ctx.get(), digest.data(), nullptr) != 1)
+        return boost::none;
       return epee::to_hex::array(digest);
     }
   };
@@ -254,12 +267,21 @@ namespace
     std::string operator()(const http::http_client_auth::session& user,
       const boost::string_ref method, const boost::string_ref uri) const
     {
-      const auto response = digest(
-        generate_a1(digest, user), u8":", user.server.nonce, u8":", digest(method, u8":", uri)
-      );
+      const auto a1 = generate_a1(digest, user);
+      if (!a1)
+        return {};
+
+      const auto a2 = digest(method, u8":", uri);
+      if (!a2)
+        return {};
+
+      const auto response = digest(*a1, u8":", user.server.nonce, u8":", *a2);
+      if (!response)
+        return {};
+
       std::string out{};
       out.reserve(client_reserve_size);
-      init_client_value(out, Digest::name, user, uri, response);
+      init_client_value(out, Digest::name, user, uri, *response);
       return out;
     }
   private:
@@ -301,12 +323,24 @@ namespace
         return {};
 
       const std::string cnonce = epee::string_encoding::base64_encode(rbuf.data(), rbuf.size());
+
+      const auto a1 = generate_a1(digest, user);
+      if (!a1)
+        return {};
+
+      const auto a2 = digest(method, u8":", uri);
+      if (!a2)
+        return {};
+
       const auto response = digest(
-        generate_a1(digest, user), u8":", user.server.nonce, u8":", nc, u8":", cnonce, u8":auth:", digest(method, u8":", uri)
+        *a1, u8":", user.server.nonce, u8":", nc, u8":", cnonce, u8":auth:", *a2
       );
 
+      if (!response)
+        return {};
+
       out.clear();
-      init_client_value(out, Digest::name, user, uri, response);
+      init_client_value(out, Digest::name, user, uri, *response);
       add_field(out, u8"qop", ceref(u8"auth"));
       add_field(out, u8"nc", nc);
       add_field(out, u8"cnonce", quoted_(cnonce));
@@ -517,13 +551,13 @@ namespace
     struct has_valid_response
     {
       template<typename Digest, typename Result>
-      Result generate_old_response(Digest digest, const Result& key, const Result& auth) const
+      boost::optional<Result> generate_old_response(Digest digest, const Result& key, const Result& auth) const
       {
         return digest(key, u8":", request.nonce, u8":", auth);
       }
 
       template<typename Digest, typename Result>
-      Result generate_new_response(Digest digest, const Result& key, const Result& auth) const
+      boost::optional<Result> generate_new_response(Digest digest, const Result& key, const Result& auth) const
       {
         return digest(
           key, u8":", request.nonce, u8":", request.nc, u8":", request.cnonce, u8":", request.qop, u8":", auth
@@ -543,19 +577,27 @@ namespace
             (request.algorithm.empty() && std::is_same<md5_, Digest>::value))
         {
           auto key = generate_a1(digest, user.credentials, auth_realm);
+          if (!key)
+            return false;
           if (boost::ends_with(request.algorithm, sess_algo, ascii_iequal))
           {
-            key = digest(key, u8":", request.nonce, u8":", request.cnonce);
+            key = digest(*key, u8":", request.nonce, u8":", request.cnonce);
+            if (!key)
+              return false;
           }
 
           auto auth = digest(method, u8":", request.uri);
+          if (!auth)
+            return false;
           if (request.qop.empty())
           {
-            return check(generate_old_response(std::move(digest), std::move(key), std::move(auth)));
+            const auto response = generate_old_response(std::move(digest), std::move(*key), std::move(*auth));
+            return response && check(*response);
           }
           else if (boost::equals(ceref(u8"auth"), request.qop, ascii_iequal))
           {
-            return check(generate_new_response(std::move(digest), std::move(key), std::move(auth)));
+            const auto response = generate_new_response(std::move(digest), std::move(*key), std::move(*auth));
+            return response && check(*response);
           }
         }
         return false;
@@ -777,7 +819,11 @@ namespace epee
         if (user->server.generator)
         {
           ++(user->counter);
-          return std::make_pair(std::string(client_auth_field), user->server.generator(*user, method, uri));
+          std::string auth = user->server.generator(*user, method, uri);
+          if (auth.empty())
+            return boost::none;
+
+          return std::make_pair(std::string(client_auth_field), std::move(auth));
         }
         return boost::none;
       }

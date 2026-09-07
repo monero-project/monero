@@ -39,6 +39,7 @@ public:
   bool connect(const std::string& addr, int port, std::chrono::milliseconds timeout, bool ssl = false, const std::string& bind_ip = "0.0.0.0") { return true; }
   bool connect(const std::string& addr, const std::string& port, std::chrono::milliseconds timeout, bool ssl = false, const std::string& bind_ip = "0.0.0.0") { return true; }
   bool disconnect() { return true; }
+  bool shutdown() { return true; }
   bool send(const boost::string_ref buff, std::chrono::milliseconds timeout) { return true; }
   bool send(const void* data, size_t sz) { return true; }
   bool is_connected() { return true; }

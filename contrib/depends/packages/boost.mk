@@ -18,7 +18,7 @@ $(package)_config_opts_mingw32=binary-format=pe target-os=windows threadapi=win3
 $(package)_config_opts_x86_64_mingw32=address-model=64
 $(package)_config_opts_i686_mingw32=address-model=32
 $(package)_config_opts_i686_linux=address-model=32 architecture=x86
-$(package)_toolset_$(host_os)=gcc
+$(package)_toolset_$(host_os)=$(build_CC)
 $(package)_archiver_$(host_os)=$($(package)_ar)
 $(package)_config_libraries_$(host_os)="chrono,filesystem,program_options,thread,test,serialization"
 $(package)_config_libraries_mingw32="chrono,filesystem,program_options,thread,test,serialization,locale"
@@ -29,11 +29,11 @@ endef
 
 define $(package)_preprocess_cmds
   patch -p1 < $($(package)_patch_dir)/no-embed-absolute.patch && \
-  echo "using $(boost_toolset_$(host_os)) : : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"$(boost_archiver_$(host_os))\" <arflags>\"$($(package)_arflags)\" <striper>\"$(host_STRIP)\"  <ranlib>\"$(host_RANLIB)\" <rc>\"$(host_WINDRES)\" : ;" > user-config.jam
+  echo "using $(boost_toolset_$(host_os)) : : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"$(boost_archiver_$(host_os))\" <arflags>\"$($(package)_arflags)\" <striper>\"$(host_STRIP)\"  <ranlib>\"$(host_RANLIB)\" <rc>\"$(host_WINDRES)\" <triple>\"$(host)\" : ;" > user-config.jam
 endef
 
 define $(package)_config_cmds
-  ./bootstrap.sh --without-icu --with-libraries=$(boost_config_libraries_$(host_os))
+  ./bootstrap.sh --with-toolset=$(build_CC) --without-icu --with-libraries=$(boost_config_libraries_$(host_os))
 endef
 
 define $(package)_build_cmds

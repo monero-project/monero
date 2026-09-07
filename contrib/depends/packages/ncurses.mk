@@ -10,7 +10,7 @@ define $(package)_set_vars
   $(package)_config_env=cf_cv_ar_flags=""
   $(package)_config_opts=--prefix=$(host_prefix)
   $(package)_config_opts+=--disable-shared
-  $(package)_config_opts+=--with-build-cc=gcc
+  $(package)_config_opts+=--with-build-cc=$(build_CC)
   $(package)_config_opts+=--without-debug
   $(package)_config_opts+=--without-ada
   $(package)_config_opts+=--without-cxx-binding

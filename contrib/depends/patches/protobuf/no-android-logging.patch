@@ -1,0 +1,22 @@
+diff --git a/src/google/protobuf/stubs/common.cc b/src/google/protobuf/stubs/common.cc
+index e0a807f..7f2e7e7 100644
+--- a/src/google/protobuf/stubs/common.cc
++++ b/src/google/protobuf/stubs/common.cc
+@@ -45,7 +45,7 @@
+ #include <windows.h>
+ #define snprintf _snprintf    // see comment in strutil.cc
+ #endif
+-#if defined(__ANDROID__)
++#if 0
+ #include <android/log.h>
+ #endif
+ 
+@@ -121,7 +121,7 @@ std::string VersionString(int version) {
+ 
+ namespace internal {
+ 
+-#if defined(__ANDROID__)
++#if 0
+ inline void DefaultLogHandler(LogLevel level, const char* filename, int line,
+                               const std::string& message) {
+   if (level < GOOGLE_PROTOBUF_MIN_LOG_LEVEL) {

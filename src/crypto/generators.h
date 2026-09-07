@@ -37,20 +37,20 @@ extern "C"
 namespace crypto
 {
 
-public_key get_G();
-public_key get_H();
-public_key get_T();
-public_key get_U();
-public_key get_V();
-ge_p3 get_G_p3();
-ge_p3 get_H_p3();
-ge_p3 get_T_p3();
-ge_p3 get_U_p3();
-ge_p3 get_V_p3();
-ge_cached get_G_cached();
-ge_cached get_H_cached();
-ge_cached get_T_cached();
-ge_cached get_U_cached();
-ge_cached get_V_cached();
+const public_key &get_G();
+const public_key &get_H();
+const public_key &get_T();
+const public_key &get_U();
+const public_key &get_V();
+const ge_p3 &get_G_p3();
+const ge_p3 &get_H_p3();
+const ge_p3 &get_T_p3();
+const ge_p3 &get_U_p3();
+const ge_p3 &get_V_p3();
+const ge_cached &get_G_cached();
+const ge_cached &get_H_cached();
+const ge_cached &get_T_cached();
+const ge_cached &get_U_cached();
+const ge_cached &get_V_cached();
 
 } //namespace crypto

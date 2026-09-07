@@ -2074,13 +2074,13 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
     bei.block_cumulative_weight = cryptonote::get_transaction_weight(b.miner_tx);
     for (const crypto::hash &txid: b.tx_hashes)
     {
-      cryptonote::tx_memory_pool::tx_details td;
       cryptonote::blobdata blob;
       if (m_tx_pool.have_tx(txid, relay_category::legacy))
       {
-        if (m_tx_pool.get_transaction_info(txid, td, true/*include_sensitive_data*/))
+        cryptonote::txpool_tx_meta_t tx_meta;
+        if (this->get_txpool_tx_meta(txid, tx_meta))
         {
-          bei.block_cumulative_weight += td.weight;
+          bei.block_cumulative_weight += tx_meta.weight;
         }
         else
         {
@@ -3736,6 +3736,7 @@ bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, cons
   };
 
   output_keys.clear();
+  output_keys.reserve(txin.key_offsets.size());
 
   // collect output keys
   outputs_visitor vi(output_keys, *this, hf_version);
@@ -4291,7 +4292,7 @@ leave:
     {
       uint64_t long_term_block_weight = get_next_long_term_block_weight(block_weight);
       cryptonote::blobdata bd = cryptonote::block_to_blob(bl);
-      new_height = m_db->add_block(std::make_pair(std::move(bl), std::move(bd)), block_weight, long_term_block_weight, cumulative_difficulty, already_generated_coins, txs);
+      new_height = m_db->add_block(std::make_pair(bl, std::move(bd)), block_weight, long_term_block_weight, cumulative_difficulty, already_generated_coins, txs);
     }
     catch (const KEY_IMAGE_EXISTS& e)
     {

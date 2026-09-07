@@ -33,7 +33,6 @@
 #include "account.h"
 #include "cryptonote_boost_serialization.h"
 
-//namespace cryptonote {
 namespace boost
 {
   namespace serialization

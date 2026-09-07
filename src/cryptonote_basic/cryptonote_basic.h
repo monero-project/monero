@@ -158,7 +158,6 @@ namespace cryptonote
 
   typedef boost::variant<txout_to_script, txout_to_scripthash, txout_to_key, txout_to_tagged_key> txout_target_v;
 
-  //typedef std::pair<uint64_t, txout> out_t;
   struct tx_out
   {
     uint64_t amount;

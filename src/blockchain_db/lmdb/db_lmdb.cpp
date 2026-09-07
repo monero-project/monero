@@ -739,7 +739,7 @@ estim:
   MDEBUG("estimated average block size for batch: " << avg_block_size);
 
   // bigger safety margin on smaller block sizes
-  if (batch_fudge_factor < 5000.0)
+  if (!batch_bytes && batch_fudge_factor < 5000.0)
     batch_fudge_factor = 5000.0;
   threshold_size = avg_block_size * db_expand_factor * batch_fudge_factor;
   return threshold_size;

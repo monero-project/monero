@@ -80,45 +80,6 @@ else()
     message(STATUS "Trezor: support disabled by USE_DEVICE_TREZOR")
 endif()
 
-# Protobuf compilation test
-if(Protobuf_FOUND AND USE_DEVICE_TREZOR)
-    execute_process(COMMAND ${Protobuf_PROTOC_EXECUTABLE} -I "${CMAKE_CURRENT_LIST_DIR}" -I "${Protobuf_INCLUDE_DIR}" "${CMAKE_CURRENT_LIST_DIR}/test-protobuf.proto" --cpp_out ${CMAKE_BINARY_DIR} RESULT_VARIABLE RET OUTPUT_VARIABLE OUT ERROR_VARIABLE ERR)
-    if(RET)
-        trezor_fatal_msg("Trezor: Protobuf test generation failed: ${OUT} ${ERR}")
-    endif()
-
-    if(ANDROID)
-        set(CMAKE_TRY_COMPILE_LINKER_FLAGS "${CMAKE_TRY_COMPILE_LINKER_FLAGS} -llog")
-        set(CMAKE_TRY_COMPILE_LINK_LIBRARIES "${CMAKE_TRY_COMPILE_LINK_LIBRARIES} log")
-    endif()
-
-    if(USE_DEVICE_TREZOR_PROTOBUF_TEST)
-        if(PROTOBUF_LDFLAGS)
-            set(PROTOBUF_TRYCOMPILE_LINKER "${PROTOBUF_LDFLAGS}")
-        else()
-            set(PROTOBUF_TRYCOMPILE_LINKER "${Protobuf_LIBRARY}")
-        endif()
-        
-        try_compile(Protobuf_COMPILE_TEST_PASSED
-            "${CMAKE_BINARY_DIR}"
-            SOURCES
-            "${CMAKE_BINARY_DIR}/test-protobuf.pb.cc"
-            "${CMAKE_CURRENT_LIST_DIR}/test-protobuf.cpp"
-            CMAKE_FLAGS
-            CMAKE_EXE_LINKER_FLAGS ${CMAKE_TRY_COMPILE_LINKER_FLAGS}
-            "-DINCLUDE_DIRECTORIES=${Protobuf_INCLUDE_DIR};${CMAKE_BINARY_DIR}"
-            "-DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}"
-            LINK_LIBRARIES "${PROTOBUF_TRYCOMPILE_LINKER}" ${CMAKE_TRY_COMPILE_LINK_LIBRARIES}
-            OUTPUT_VARIABLE OUTPUT
-        )
-        if(NOT Protobuf_COMPILE_TEST_PASSED)
-            trezor_fatal_msg("Trezor: Protobuf Compilation test failed: ${OUTPUT}.")
-        endif()
-    else ()
-        message(STATUS "Trezor: Protobuf Compilation test skipped, build may fail later")
-    endif()
-endif()
-
 # Try to build protobuf messages
 if(Protobuf_FOUND AND USE_DEVICE_TREZOR)
     # .proto files to compile

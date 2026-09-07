@@ -47,17 +47,17 @@ namespace epee
   namespace net_utils
   {
     template<class t_result, class t_arg, class callback_t, class t_transport>
-    bool async_invoke_remote_command2(const epee::net_utils::connection_context_base &context, int command, const t_arg& out_struct, t_transport& transport, const callback_t &cb, const std::chrono::milliseconds inv_timeout = levin::LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
+    bool async_invoke_remote_command2(const epee::net_utils::connection_context_base &context, int command, const t_arg& out_struct, t_transport& transport, callback_t &&cb, const std::chrono::milliseconds inv_timeout = levin::LEVIN_DEFAULT_TIMEOUT_PRECONFIGURED)
     {
       const boost::uuids::uuid &conn_id = context.m_connection_id;
       levin::message_writer to_send{16 * 1024};
       if (std::error_code error = wire::epee_bin::to_bytes(to_send.buffer, out_struct))
       {
-	LOG_ERROR("Failed to convert to epee in async_invoke " << command << ": " << error.message());
-	return false;
+        LOG_ERROR("Failed to convert to epee in async_invoke " << command << ": " << error.message());
+        return false;
       }
 
-      int res = transport.invoke_async(command, std::move(to_send), conn_id, [cb, command](int code, const epee::span<const uint8_t> buff, typename t_transport::connection_context& context)->bool
+      int res = transport.invoke_async(command, std::move(to_send), conn_id, [cb = std::forward<callback_t>(cb), command](int code, const epee::span<const uint8_t> buff, typename t_transport::connection_context& context)->bool
       {
         t_result result_struct{};
         if( code <=0 )

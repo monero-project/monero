@@ -51,10 +51,6 @@ using namespace crypto;
 
 static std::atomic<unsigned int> default_decimal_point(CRYPTONOTE_DISPLAY_DECIMAL_POINT);
 
-static std::atomic<uint64_t> tx_hashes_calculated_count(0);
-static std::atomic<uint64_t> tx_hashes_cached_count(0);
-static std::atomic<uint64_t> block_hashes_calculated_count(0);
-static std::atomic<uint64_t> block_hashes_cached_count(0);
 
 #define CHECK_AND_ASSERT_THROW_MES_L1(expr, message) {if(!(expr)) {MWARNING(message); throw std::runtime_error(message);}}
 
@@ -283,6 +279,17 @@ namespace cryptonote
     get_transaction_prefix_hash(tx, tx_prefix_hash);
     return true;
   }
+  //------------------------------------------------------------------
+  size_t get_tx_version(const blobdata_ref tx_blob)
+  {
+    size_t version;
+    const char* begin = reinterpret_cast<const char*>(tx_blob.data());
+    const char* end = begin + tx_blob.size();
+    int read = tools::read_varint(begin, end, version);
+    if (read <= 0)
+      throw std::runtime_error("Internal error getting transaction version");
+    return version;
+  }
   //---------------------------------------------------------------
   bool is_v1_tx(const blobdata_ref& tx_blob)
   {
@@ -298,6 +305,126 @@ namespace cryptonote
   bool is_v1_tx(const blobdata& tx_blob)
   {
     return is_v1_tx(blobdata_ref{tx_blob.data(), tx_blob.size()});
+  }
+  //---------------------------------------------------------------
+  bool get_transaction_unprunable_summary(const blobdata_ref tx_blob, unprunable_summary_t &summary_out)
+  {
+    //! @TODO: update for FCMP++:
+    //!    * Allow rct::RctTypeFcmpPlusPlus
+    //!    * Set output length for txout_to_carrot_v1
+
+    const unsigned char *p = reinterpret_cast<const unsigned char*>(tx_blob.data());
+    const unsigned char *end = reinterpret_cast<const unsigned char*>(tx_blob.data() + tx_blob.size());
+
+    #define READ_VARINT(v) if (tools::read_varint(p, end, v) <= 0) return false
+    #define READ_BYTE(v) if (end <= p ) { return false; } else { v = *p; ++p; }
+    #define SKIP(n) if (end - p < static_cast<std::ptrdiff_t>(n)) { return false; } else { p += (n); }
+
+    // read and validate tx version
+    READ_VARINT(summary_out.version);
+    if (summary_out.version < 1 || summary_out.version > 2)
+      return false;
+
+    // skip unlock_time
+    std::uint64_t dummy;
+    READ_VARINT(dummy);
+
+    // read number of inputs
+    READ_VARINT(summary_out.n_inputs);
+
+    // skip n_inputs inputs, checking for coinbase inputs
+    summary_out.is_coinbase = false;
+    for (std::size_t i = 0; i < summary_out.n_inputs; ++i)
+    {
+      std::size_t input_tag = 0;
+      READ_BYTE(input_tag);
+      switch (input_tag)
+      {
+      case 0xff: //txin_gen
+        summary_out.is_coinbase = true;
+        READ_VARINT(dummy); //height
+        break;
+      case 0x02: //txin_to_key
+        READ_VARINT(dummy); //amount
+        READ_VARINT(input_tag); //key_offsets.size()
+        for (;input_tag-->0;)
+          READ_VARINT(dummy);
+        SKIP(32); //k_image
+        break;
+      default:
+        return false;
+      }
+    }
+
+    // read number of outputs
+    READ_VARINT(summary_out.n_outputs);
+
+    // skip n_outputs outputs
+    for (std::size_t i = 0; i < summary_out.n_outputs; ++i)
+    {
+      READ_VARINT(dummy); //amount
+      std::size_t output_tag = 0;
+      READ_BYTE(output_tag); //target variant tag
+      std::ptrdiff_t output_length = 0;
+      switch (output_tag)
+      {
+      case 0x02: //txout_to_key
+        output_length = 32;
+        break;
+      case 0x03: //txout_to_tagged_key
+        output_length = 32 + 1;
+        break;
+      default:
+        return false;
+      }
+      SKIP(output_length);
+    }
+
+    // read extra length and skip that
+    READ_VARINT(summary_out.extra_len);
+    if (summary_out.extra_len > CRYPTONOTE_MAX_TX_SIZE)
+      return false;
+    SKIP(summary_out.extra_len);
+
+    // now `p` is at end of tx prefix...
+    summary_out.prefix_size = reinterpret_cast<const char*>(p) - tx_blob.data();
+
+    if (2 == summary_out.version)
+    {
+      // read RingCT type
+      std::uint8_t rct_type = std::numeric_limits<std::uint8_t>::max();
+      READ_BYTE(rct_type);
+      if (rct_type > rct::RCTTypeBulletproofPlus)
+        return false;
+
+      // skip unprunable RingCT fields
+      if (rct_type != rct::RCTTypeNull)
+      {
+        // skip txnFee
+        READ_VARINT(dummy);
+
+        // if RCTTypeSimple, skip pseudoOutputs
+        if (rct_type == rct::RCTTypeSimple)
+        {
+          SKIP(32 * summary_out.n_inputs);
+        }
+
+        // skip ECDH info and amount commitments
+        const bool short_amount = rct_type >= rct::RCTTypeBulletproof2;
+        const std::ptrdiff_t ecdh_tuple_len = short_amount ? 8 : 64;
+        const std::ptrdiff_t output_stuff_len = summary_out.n_outputs * (ecdh_tuple_len + 32);
+        SKIP(output_stuff_len);
+      }
+    }
+
+    #undef READ_VARINT
+    #undef READ_BYTE
+    #undef SKIP
+
+    // now `p` is at end of unprunable part of v2 tx...
+    summary_out.unprunable_size = reinterpret_cast<const char*>(p) - tx_blob.data();
+
+    return true;
   }
   //---------------------------------------------------------------
   bool generate_key_image_helper(const account_keys& ack, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, const crypto::public_key& out_key, const crypto::public_key& tx_public_key, const std::vector<crypto::public_key>& additional_tx_public_keys, size_t real_output_index, keypair& in_ephemeral, crypto::key_image& ki, hw::device &hwdev)
@@ -533,6 +660,19 @@ namespace cryptonote
     CHECK_AND_ASSERT_THROW_MES(tx.is_blob_size_valid(), "BUG: blob size valid not set");
 
     return tx.blob_size;
+  }
+  //---------------------------------------------------------------
+  bool prune_transaction_blob(cryptonote::blobdata &tx_blob)
+  {
+    // Deserialize unprunable part to retrieve size
+    unprunable_summary_t desc;
+    if (!get_transaction_unprunable_summary(tx_blob, desc))
+      return false;
+
+    CHECK_AND_ASSERT_MES(desc.unprunable_size <= tx_blob.size(), false, "Unprunable size is larger than tx blob");
+    tx_blob.resize(desc.unprunable_size);
+
+    return true;
   }
   //---------------------------------------------------------------
   bool get_tx_fee(const transaction& tx, uint64_t & fee)
@@ -955,14 +1095,6 @@ namespace cryptonote
       : boost::optional<crypto::view_tag>();
   }
   //---------------------------------------------------------------
-  std::string short_hash_str(const crypto::hash& h)
-  {
-    std::string res = string_tools::pod_to_hex(h);
-    CHECK_AND_ASSERT_MES(res.size() == 64, res, "wrong hash256 with string_tools::pod_to_hex conversion");
-    auto erased_pos = res.erase(8, 48);
-    res.insert(8, "....");
-    return res;
-  }
   //---------------------------------------------------------------
   void set_tx_out(const uint64_t amount, const crypto::public_key& output_public_key, const bool use_view_tags, const crypto::view_tag& view_tag, tx_out& out)
   {
@@ -1293,6 +1425,18 @@ namespace cryptonote
     return get_transaction_hash(t, res, NULL);
   }
   //---------------------------------------------------------------
+  bool calculate_transaction_prunable_hash(const std::size_t tx_version, const blobdata_ref prunable_tx_blob, crypto::hash &res)
+  {
+    switch (tx_version)
+    {
+    case 2:
+      cryptonote::get_blob_hash(prunable_tx_blob, res);
+      return true;
+    default:
+      return false;
+    }
+  }
+  //---------------------------------------------------------------
   bool calculate_transaction_prunable_hash(const transaction& t, const cryptonote::blobdata_ref *blob, crypto::hash& res)
   {
     if (t.version == 1)
@@ -1301,7 +1445,8 @@ namespace cryptonote
     if (blob && unprunable_size)
     {
       CHECK_AND_ASSERT_MES(unprunable_size <= blob->size(), false, "Inconsistent transaction unprunable and blob sizes");
-      cryptonote::get_blob_hash(blobdata_ref(blob->data() + unprunable_size, blob->size() - unprunable_size), res);
+      return calculate_transaction_prunable_hash(t.version,
+        blobdata_ref(blob->data() + unprunable_size, blob->size() - unprunable_size), res);
     }
     else
     {
@@ -1327,11 +1472,9 @@ namespace cryptonote
       CHECK_AND_ASSERT_THROW_MES(!calculate_transaction_prunable_hash(t, blobdata, res) || t.hash == res, "tx hash cash integrity failure");
 #endif
       res = t.prunable_hash;
-      ++tx_hashes_cached_count;
       return res;
     }
 
-    ++tx_hashes_calculated_count;
     CHECK_AND_ASSERT_THROW_MES(calculate_transaction_prunable_hash(t, blobdata, res), "Failed to calculate tx prunable hash");
     t.set_prunable_hash(res);
     return res;
@@ -1441,10 +1584,8 @@ namespace cryptonote
         }
         *blob_size = t.blob_size;
       }
-      ++tx_hashes_cached_count;
       return true;
     }
-    ++tx_hashes_calculated_count;
     bool ret = calculate_transaction_hash(t, res, blob_size);
     if (!ret)
       return false;
@@ -1523,10 +1664,8 @@ namespace cryptonote
       CHECK_AND_ASSERT_THROW_MES(!calculate_block_hash(b, res) || b.hash == res, "block hash cash integrity failure");
 #endif
       res = b.hash;
-      ++block_hashes_cached_count;
       return true;
     }
-    ++block_hashes_calculated_count;
     bool ret = calculate_block_hash(b, res);
     if (!ret)
       return false;
@@ -1571,7 +1710,6 @@ namespace cryptonote
     if (block_hash)
     {
       calculate_block_hash(b, *block_hash, &b_blob);
-      ++block_hashes_calculated_count;
       b.set_hash(*block_hash);
     }
     return true;
@@ -1693,14 +1831,6 @@ namespace cryptonote
       amount /= 10;
 
     return amount < 10; // are we left with 1 leading digit?
-  }
-  //---------------------------------------------------------------
-  void get_hash_stats(uint64_t &tx_hashes_calculated, uint64_t &tx_hashes_cached, uint64_t &block_hashes_calculated, uint64_t & block_hashes_cached)
-  {
-    tx_hashes_calculated = tx_hashes_calculated_count;
-    tx_hashes_cached = tx_hashes_cached_count;
-    block_hashes_calculated = block_hashes_calculated_count;
-    block_hashes_cached = block_hashes_cached_count;
   }
   //---------------------------------------------------------------
   crypto::secret_key encrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase)
