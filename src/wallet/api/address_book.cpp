@@ -70,6 +70,31 @@ bool AddressBookImpl::addRow(const std::string &dst_addr , const std::string &pa
   return r;
 }
 
+bool AddressBookImpl::setAddress(std::size_t index, const std::string &address)
+{
+    clearStatus();
+
+    const auto ab = m_wallet->m_wallet->get_address_book();
+    if (index >= ab.size()){
+        return false;
+    }
+
+    cryptonote::address_parse_info info;
+    if (!cryptonote::get_account_address_from_str(info, m_wallet->m_wallet->nettype(), address)) {
+      m_errorString = tr("Invalid destination address");
+      m_errorCode = Invalid_Address;
+      return false;
+    }
+
+    tools::wallet2::address_book_row entry = ab[index];
+    bool r =  m_wallet->m_wallet->set_address_book_row(index, info.address, info.has_payment_id ? &info.payment_id : nullptr, entry.m_description, info.is_subaddress);
+    if (r)
+        refresh();
+    else
+        m_errorCode = General_Error;
+    return r;
+}
+
 bool AddressBookImpl::setDescription(std::size_t index, const std::string &description)
 {
     clearStatus();
