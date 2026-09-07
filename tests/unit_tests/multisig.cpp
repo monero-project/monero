@@ -548,18 +548,24 @@ TEST(multisig, import_multisig_validation)
   crypto::key_image valid_pki;
   ASSERT_TRUE(generate_multisig_key_image(wallets[1].get_account().get_keys(), 0, fake_out_key, valid_pki));
 
-  tools::wallet2::multisig_info::LR valid_lr;
-  {
-    const crypto::secret_key k = rct::rct2sk(rct::skGen());
-    crypto::public_key L, R;
-    generate_multisig_LR(fake_out_key, k, L, R);
-    valid_lr.m_L = rct::pk2rct(L);
-    valid_lr.m_R = rct::pk2rct(R);
-  }
+  // each LR pair should come from its own independently drawn nonce: a real export never repeats
+  // one, since two signing attempts sharing a nonce would risk leaking the secret key
+  const auto make_lr =
+    [&]() -> tools::wallet2::multisig_info::LR
+    {
+      tools::wallet2::multisig_info::LR lr;
+      const crypto::secret_key k = rct::rct2sk(rct::skGen());
+      crypto::public_key L, R;
+      generate_multisig_LR(fake_out_key, k, L, R);
+      lr.m_L = rct::pk2rct(L);
+      lr.m_R = rct::pk2rct(R);
+      return lr;
+    };
+  const tools::wallet2::multisig_info::LR valid_lr = make_lr();
 
   tools::wallet2::multisig_info valid_entry;
   valid_entry.m_signer = other_signer;
-  valid_entry.m_LR = {valid_lr, valid_lr};
+  valid_entry.m_LR = {valid_lr, make_lr()};
   valid_entry.m_partial_key_images = {valid_pki};
 
   // builds a raw multisig-info import blob (same wire format as wallet2::export_multisig()) for a single
@@ -604,4 +610,70 @@ TEST(multisig, import_multisig_validation)
     bad_entry.m_signer = wallets[0].get_multisig_signer_public_key();
     EXPECT_ANY_THROW(wallets[0].import_multisig({build_blob(other_signer, bad_entry)}, false));
   }
+}
+
+TEST(multisig, composite_key_image_rejects_wrong_content)
+{
+  using namespace multisig;
+
+  // same 2-of-2 shape as 'import_multisig_validation': each signer holds exactly 1 multisig
+  // private key, and a composite needs combinations_count(N-M+1, N) = combinations_count(1, 2) = 2
+  // distinct key image components (1 from each signer) to be considered complete
+  const std::uint32_t M = 2, N = 2;
+  std::vector<tools::wallet2> wallets(N);
+
+  std::vector<std::string> initial_infos(wallets.size());
+  for (size_t i = 0; i < wallets.size(); ++i)
+  {
+    make_wallet(i, wallets[i]);
+    wallets[i].decrypt_keys("");
+    initial_infos[i] = wallets[i].get_multisig_first_kex_msg();
+    wallets[i].encrypt_keys("");
+  }
+
+  std::vector<std::string> intermediate_infos(wallets.size());
+  for (size_t i = 0; i < wallets.size(); ++i)
+    intermediate_infos[i] = wallets[i].make_multisig("", initial_infos, M);
+
+  multisig_account_status ms_status{wallets[0].get_multisig_status()};
+  while (!ms_status.is_ready)
+  {
+    intermediate_infos = exchange_round(wallets, intermediate_infos);
+    ms_status = wallets[0].get_multisig_status();
+  }
+
+  wallets[0].decrypt_keys("");
+  wallets[1].decrypt_keys("");
+
+  // a real one-time output address for the multisig account's main subaddress index, since
+  // (unlike generate_multisig_key_image/generate_multisig_LR) generate_multisig_composite_key_image
+  // first derives the output's base key image and requires it to actually belong to the account
+  const crypto::secret_key tx_sk = rct::rct2sk(rct::skGen());
+  crypto::public_key tx_pub_key;
+  ASSERT_TRUE(crypto::secret_key_to_public_key(tx_sk, tx_pub_key));
+  const cryptonote::account_public_address &addr = wallets[0].get_account().get_keys().m_account_address;
+  crypto::key_derivation derivation;
+  ASSERT_TRUE(crypto::generate_key_derivation(addr.m_view_public_key, tx_sk, derivation));
+  crypto::public_key out_key;
+  ASSERT_TRUE(crypto::derive_public_key(derivation, 0, addr.m_spend_public_key, out_key));
+
+  std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+  subaddresses[addr.m_spend_public_key] = {0, 0};
+
+  // a genuine, distinct component from the other signer lets the composite complete
+  crypto::key_image other_component;
+  ASSERT_TRUE(generate_multisig_key_image(wallets[1].get_account().get_keys(), 0, out_key, other_component));
+
+  crypto::key_image ki_good;
+  EXPECT_TRUE(generate_multisig_composite_key_image(wallets[0].get_account().get_keys(), subaddresses, out_key,
+    tx_pub_key, {}, 0, {other_component}, N, M, ki_good));
+
+  // right count, wrong content: a duplicate of the local component instead of the other signer's.
+  // proves the count check catches this collision, not wrong-but-distinct content in general.
+  crypto::key_image local_component;
+  ASSERT_TRUE(generate_multisig_key_image(wallets[0].get_account().get_keys(), 0, out_key, local_component));
+
+  crypto::key_image ki_bad;
+  EXPECT_FALSE(generate_multisig_composite_key_image(wallets[0].get_account().get_keys(), subaddresses, out_key,
+    tx_pub_key, {}, 0, {local_component}, N, M, ki_bad));
 }
