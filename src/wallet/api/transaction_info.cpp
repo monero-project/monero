@@ -48,6 +48,7 @@ TransactionInfoImpl::TransactionInfoImpl()
       , m_coinbase(false)
       , m_amount(0)
       , m_fee(0)
+      , m_change_amount(0)
       , m_blockheight(0)
       , m_subaddrAccount(0)
       , m_timestamp(0)
@@ -83,6 +84,11 @@ bool TransactionInfoImpl::isCoinbase() const
     return m_coinbase;
 }
 
+bool TransactionInfoImpl::isUnlocked() const
+{
+    return m_is_unlocked;
+}
+
 uint64_t TransactionInfoImpl::amount() const
 {
     return m_amount;
@@ -91,6 +97,11 @@ uint64_t TransactionInfoImpl::amount() const
 uint64_t TransactionInfoImpl::fee() const
 {
     return m_fee;
+}
+
+uint64_t TransactionInfoImpl::changeAmount() const
+{
+    return m_change_amount;
 }
 
 uint64_t TransactionInfoImpl::blockHeight() const
@@ -147,6 +158,21 @@ uint64_t TransactionInfoImpl::confirmations() const
 uint64_t TransactionInfoImpl::unlockTime() const
 {
     return m_unlock_time;
+}
+
+std::uint64_t TransactionInfoImpl::receivedChangeAmount() const
+{
+    return m_change;
+}
+
+TransactionInfo::TxState TransactionInfoImpl::txState() const
+{
+    return m_tx_state;
+}
+
+bool TransactionInfoImpl::isDoubleSpendSeen() const
+{
+    return m_double_spend_seen;
 }
 
 } // namespace

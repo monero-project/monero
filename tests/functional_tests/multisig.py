@@ -256,7 +256,7 @@ class MultisigTest():
 
         # Now restore w/ old multisig seed and check against original
         self.wallet[i].close_wallet()
-        self.wallet[i].restore_deterministic_wallet(seed=old_multisig_seed, enable_multisig_experimental=True)
+        self.wallet[i].restore_deterministic_wallet(restore_height=1, seed=old_multisig_seed, enable_multisig_experimental=True)
         new_viewkey = self.wallet[i].query_key('view_key').key
         new_spendkey = self.wallet[i].query_key('spend_key').key
         new_multisig_seed = self.wallet[i].query_key('mnemonic').key

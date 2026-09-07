@@ -30,11 +30,14 @@
 
 
 #include "wallet_manager.h"
+#include "misc_language.h"
+#include "rpc/core_rpc_server_commands_defs.h"
 #include "wallet.h"
 #include "common_defines.h"
 #include "common/dns_utils.h"
 #include "common/util.h"
 #include "common/updates.h"
+#include "crypto/crypto.h"
 #include "version.h"
 #include "net/http_client.h"
 #include <boost/filesystem.hpp>
@@ -42,6 +45,23 @@
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "WalletAPI"
+
+namespace {
+inline std::string interpret_rpc_response(bool ok, const std::string& status)
+{
+    std::string err;
+    if (ok)
+    {
+        if (status == CORE_RPC_STATUS_BUSY)
+            err = tr("daemon is busy. Please try again later.");
+        else if (status != CORE_RPC_STATUS_OK)
+            err = status;
+    }
+    else
+        err = tr("possibly lost connection to daemon");
+    return err;
+}
+} // namespace
 
 namespace Monero {
 
@@ -51,16 +71,31 @@ WalletManagerImpl::WalletManagerImpl()
 }
 
 Wallet *WalletManagerImpl::createWallet(const std::string &path, const std::string &password,
-                                    const std::string &language, NetworkType nettype, uint64_t kdf_rounds)
+                                    const std::string &language, NetworkType nettype, uint64_t kdf_rounds,
+                                    const bool create_address_file /* = false */,
+                                    const bool non_deterministic /* = false */,
+                                    const bool unattended /* = true */,
+                                    const std::string extra_entropy_file /* = "" */)
 {
-    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
-    wallet->create(path, password, language);
-    return wallet;
+    std::unique_ptr<WalletImpl> wallet {new WalletImpl(nettype, kdf_rounds, unattended)};
+    if (!extra_entropy_file.empty())
+    {
+        std::string data;
+        if (!epee::file_io_utils::load_file_to_string(extra_entropy_file, data))
+        {
+            m_errorString = tr("failed to load extra entropy from ") + extra_entropy_file;
+            return nullptr;
+        }
+        crypto::add_extra_entropy_thread_safe(data.data(), data.size());
+    }
+
+    wallet->create(path, password, language, create_address_file, non_deterministic);
+    return wallet.release();
 }
 
-Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds, WalletListener * listener)
+Wallet *WalletManagerImpl::openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds, WalletListener * listener, const bool unattended /* = true */)
 {
-    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
+    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds, unattended);
     wallet->setListener(listener);
     if (listener){
         listener->onSetWallet(wallet);
@@ -95,13 +130,15 @@ Wallet *WalletManagerImpl::recoveryWallet(const std::string &path,
                                                 NetworkType nettype,
                                                 uint64_t restoreHeight,
                                                 uint64_t kdf_rounds,
-                                                const std::string &seed_offset/* = {}*/)
+                                                const std::string &seed_offset/* = {}*/,
+                                                const bool create_address_file /* = false */,
+                                                const bool unattended /* = true */)
 {
-    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
+    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds, unattended);
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
     }
-    wallet->recover(path, password, mnemonic, seed_offset);
+    wallet->recover(path, password, mnemonic, seed_offset, create_address_file);
     return wallet;
 }
 
@@ -113,13 +150,44 @@ Wallet *WalletManagerImpl::createWalletFromKeys(const std::string &path,
                                                 const std::string &addressString,
                                                 const std::string &viewKeyString,
                                                 const std::string &spendKeyString,
-                                                uint64_t kdf_rounds)
+                                                uint64_t kdf_rounds,
+                                                const bool create_address_file /* = false */,
+                                                const bool unattended /* = true */)
 {
-    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
+    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds, unattended);
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
     }
-    wallet->recoverFromKeysWithPassword(path, password, language, addressString, viewKeyString, spendKeyString);
+    wallet->recoverFromKeysWithPassword(path, password, language, addressString, viewKeyString, spendKeyString, create_address_file);
+    return wallet;
+}
+
+Wallet *WalletManagerImpl::createWalletFromJson(const std::string &json_file_path,
+                                                NetworkType nettype,
+                                                std::string &pw_out,
+                                                uint64_t kdf_rounds /* = 1 */,
+                                                const bool unattended /* = true */)
+{
+    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds, unattended);
+    wallet->createFromJson(json_file_path, pw_out);
+    return wallet;
+}
+Wallet *WalletManagerImpl::createWalletFromMultisigSeed(const std::string &path,
+                                                        const std::string &password,
+                                                        const std::string &language,
+                                                        NetworkType nettype,
+                                                        uint64_t restoreHeight,
+                                                        const std::string &multisig_seed,
+                                                        const std::string seed_pass /* = "" */,
+                                                        uint64_t kdf_rounds /* = 1 */,
+                                                        const bool create_address_file /* = false */,
+                                                        const bool unattended /* = true */)
+{
+    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds, unattended);
+    if(restoreHeight > 0){
+        wallet->setRefreshFromBlockHeight(restoreHeight);
+    }
+    wallet->recoverFromMultisigSeed(path, password, language, multisig_seed, seed_pass, create_address_file);
     return wallet;
 }
 
@@ -130,13 +198,19 @@ Wallet *WalletManagerImpl::createWalletFromDevice(const std::string &path,
                                                   uint64_t restoreHeight,
                                                   const std::string &subaddressLookahead,
                                                   uint64_t kdf_rounds,
-                                                  WalletListener * listener)
+                                                  WalletListener * listener,
+                                                  const std::string device_derivation_path /* = "" */,
+                                                  const bool create_address_file /* = false */,
+                                                  const bool unattended /* = true */)
 {
-    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds);
+    WalletImpl * wallet = new WalletImpl(nettype, kdf_rounds, unattended);
     wallet->setListener(listener);
     if (listener){
         listener->onSetWallet(wallet);
     }
+
+    if (!device_derivation_path.empty())
+        wallet->setDeviceDerivationPath(device_derivation_path);
 
     if(restoreHeight > 0){
         wallet->setRefreshFromBlockHeight(restoreHeight);
@@ -148,11 +222,11 @@ Wallet *WalletManagerImpl::createWalletFromDevice(const std::string &path,
     {
         wallet->setSubaddressLookahead(lookahead->first, lookahead->second);
     }
-    wallet->recoverFromDevice(path, password, deviceName);
+    wallet->recoverFromDevice(path, password, deviceName, create_address_file);
     return wallet;
 }
 
-bool WalletManagerImpl::closeWallet(Wallet *wallet, bool store)
+bool WalletManagerImpl::closeWallet(Wallet *wallet, bool store /* = true */, bool do_delete_pointer /* = true */)
 {
     WalletImpl * wallet_ = dynamic_cast<WalletImpl*>(wallet);
     if (!wallet_)
@@ -160,7 +234,7 @@ bool WalletManagerImpl::closeWallet(Wallet *wallet, bool store)
     bool result = wallet_->close(store);
     if (!result) {
         m_errorString = wallet_->errorString();
-    } else {
+    } else if (do_delete_pointer) {
         delete wallet_;
     }
     return result;
@@ -227,9 +301,83 @@ std::string WalletManagerImpl::errorString() const
     return m_errorString;
 }
 
-void WalletManagerImpl::setDaemonAddress(const std::string &address)
+bool WalletManagerImpl::setDaemon(Wallet *wallet,
+        const std::string &daemon_address,
+        const std::string &daemon_username /* = "" */,
+        const std::string &daemon_password /* = "" */,
+        bool trusted_daemon /* = false */,
+        Wallet::SSLSupport ssl_support /* = Wallet::SSLSupport::SSLSupport_Autodetect */,
+        const std::string &ssl_private_key_path /* = "" */,
+        const std::string &ssl_certificate_path /* = "" */,
+        const std::string &ssl_ca_file_path /* = "" */,
+        const std::vector<std::string> &ssl_allowed_fingerprints_str /* = {} */,
+        bool ssl_allow_any_cert /* = false */)
 {
-    m_http_client.set_server(address, boost::none);
+    m_errorString = "";
+
+    // SSL allowed fingerprints
+    std::vector<std::vector<uint8_t>> ssl_allowed_fingerprints{ ssl_allowed_fingerprints_str.size() };
+    std::transform(ssl_allowed_fingerprints_str.begin(), ssl_allowed_fingerprints_str.end(), ssl_allowed_fingerprints.begin(), epee::from_hex_locale::to_vector);
+    for (const auto &fpr: ssl_allowed_fingerprints)
+    {
+        if (fpr.size() != SSL_FINGERPRINT_SIZE)
+        {
+            m_errorString = tr("SHA-256 fingerprint should be " BOOST_PP_STRINGIZE(SSL_FINGERPRINT_SIZE) " bytes long.");
+            return false;
+        }
+    }
+
+    // SSL options
+    epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
+    if (ssl_allow_any_cert)
+        ssl_options.verification = epee::net_utils::ssl_verification_t::none;
+    else if (!ssl_allowed_fingerprints.empty() || !ssl_ca_file_path.empty())
+        ssl_options = epee::net_utils::ssl_options_t{std::move(ssl_allowed_fingerprints), ssl_ca_file_path};
+
+    ssl_options.support = static_cast<epee::net_utils::ssl_support_t>(ssl_support);
+
+    ssl_options.auth = epee::net_utils::ssl_authentication_t{
+        std::move(ssl_private_key_path), std::move(ssl_certificate_path)
+    };
+
+    const bool verification_required =
+        ssl_options.verification != epee::net_utils::ssl_verification_t::none &&
+        ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled;
+
+    if (verification_required && !ssl_options.has_strong_verification(boost::string_ref{}))
+    {
+        m_errorString = tr("SSL is enabled but no user certificate or fingerprints were provided");
+        return false;
+    }
+
+    // daemon login
+    boost::optional<epee::net_utils::http::login> daemon_login{boost::none};
+    if (!daemon_username.empty())
+        daemon_login.emplace(daemon_username, daemon_password);
+
+    // set daemon
+    bool r = wallet ? dynamic_cast<WalletImpl *>(wallet)->m_wallet->set_daemon(daemon_address, daemon_login, trusted_daemon, ssl_options) : true;
+    try
+    {
+        if (r)
+            r = m_http_client.set_server(daemon_address, daemon_login, ssl_options);
+    }
+    catch (const std::exception &e)
+    {
+        m_errorString = std::string(tr("Failed to set daemon: ")) + e.what();
+        return false;
+    }
+    if (!r)
+        m_errorString = tr("Failed to set daemon");
+    return r;
+}
+
+void WalletManagerImpl::setDaemonAddress(const std::string &address, std::pair<std::string, std::string> *daemon_username_password /* = nullptr */)
+{
+    boost::optional<epee::net_utils::http::login> daemon_login{boost::none};
+    if (daemon_username_password)
+        daemon_login.emplace(daemon_username_password->first, daemon_username_password->second);
+    m_http_client.set_server(address, daemon_login);
 }
 
 bool WalletManagerImpl::connected(uint32_t *version)
@@ -252,7 +400,9 @@ uint64_t WalletManagerImpl::blockchainHeight()
     cryptonote::COMMAND_RPC_GET_INFO::request ireq;
     cryptonote::COMMAND_RPC_GET_INFO::response ires;
 
-    if (!epee::net_utils::invoke_http_json("/getinfo", ireq, ires, m_http_client))
+    bool r = epee::net_utils::invoke_http_json("/getinfo", ireq, ires, m_http_client);
+    m_errorString = interpret_rpc_response(r, ires.status);
+    if (!r)
       return 0;
     return ires.height;
 }
@@ -262,7 +412,9 @@ uint64_t WalletManagerImpl::blockchainTargetHeight()
     cryptonote::COMMAND_RPC_GET_INFO::request ireq;
     cryptonote::COMMAND_RPC_GET_INFO::response ires;
 
-    if (!epee::net_utils::invoke_http_json("/getinfo", ireq, ires, m_http_client))
+    bool r = epee::net_utils::invoke_http_json("/getinfo", ireq, ires, m_http_client);
+    m_errorString = interpret_rpc_response(r, ires.status);
+    if (!r)
       return 0;
     return ires.target_height >= ires.height ? ires.target_height : ires.height;
 }
@@ -272,7 +424,9 @@ uint64_t WalletManagerImpl::networkDifficulty()
     cryptonote::COMMAND_RPC_GET_INFO::request ireq;
     cryptonote::COMMAND_RPC_GET_INFO::response ires;
 
-    if (!epee::net_utils::invoke_http_json("/getinfo", ireq, ires, m_http_client))
+    bool r = epee::net_utils::invoke_http_json("/getinfo", ireq, ires, m_http_client);
+    m_errorString = interpret_rpc_response(r, ires.status);
+    if (!r)
       return 0;
     return ires.difficulty;
 }
@@ -282,8 +436,9 @@ double WalletManagerImpl::miningHashRate()
     cryptonote::COMMAND_RPC_MINING_STATUS::request mreq;
     cryptonote::COMMAND_RPC_MINING_STATUS::response mres;
 
-    epee::net_utils::http::http_simple_client http_client;
-    if (!epee::net_utils::invoke_http_json("/mining_status", mreq, mres, m_http_client))
+    bool r = epee::net_utils::invoke_http_json("/mining_status", mreq, mres, m_http_client);
+    m_errorString = interpret_rpc_response(r, mres.status);
+    if (!r)
       return 0.0;
     if (!mres.active)
       return 0.0;
@@ -295,9 +450,23 @@ uint64_t WalletManagerImpl::blockTarget()
     cryptonote::COMMAND_RPC_GET_INFO::request ireq;
     cryptonote::COMMAND_RPC_GET_INFO::response ires;
 
-    if (!epee::net_utils::invoke_http_json("/getinfo", ireq, ires, m_http_client))
+    bool r = epee::net_utils::invoke_http_json("/getinfo", ireq, ires, m_http_client);
+    m_errorString = interpret_rpc_response(r, ires.status);
+    if (!r)
         return 0;
     return ires.target;
+}
+
+bool WalletManagerImpl::isBackgroundMiningEnabled()
+{
+    cryptonote::COMMAND_RPC_MINING_STATUS::request mreq;
+    cryptonote::COMMAND_RPC_MINING_STATUS::response mres;
+
+    bool r = epee::net_utils::invoke_http_json("/mining_status", mreq, mres, m_http_client);
+    m_errorString = interpret_rpc_response(r, mres.status);
+    if (!r)
+      return false;
+    return mres.is_background_mining_enabled;
 }
 
 bool WalletManagerImpl::isMining()
@@ -305,7 +474,9 @@ bool WalletManagerImpl::isMining()
     cryptonote::COMMAND_RPC_MINING_STATUS::request mreq;
     cryptonote::COMMAND_RPC_MINING_STATUS::response mres;
 
-    if (!epee::net_utils::invoke_http_json("/mining_status", mreq, mres, m_http_client))
+    bool r = epee::net_utils::invoke_http_json("/mining_status", mreq, mres, m_http_client);
+    m_errorString = interpret_rpc_response(r, mres.status);
+    if (!r)
       return false;
     return mres.active;
 }
@@ -320,7 +491,9 @@ bool WalletManagerImpl::startMining(const std::string &address, uint32_t threads
     mreq.ignore_battery = ignore_battery;
     mreq.do_background_mining = background_mining;
 
-    if (!epee::net_utils::invoke_http_json("/start_mining", mreq, mres, m_http_client))
+    bool r = epee::net_utils::invoke_http_json("/start_mining", mreq, mres, m_http_client);
+    m_errorString = interpret_rpc_response(r, mres.status);
+    if (!r)
       return false;
     return mres.status == CORE_RPC_STATUS_OK;
 }
@@ -330,9 +503,56 @@ bool WalletManagerImpl::stopMining()
     cryptonote::COMMAND_RPC_STOP_MINING::request mreq;
     cryptonote::COMMAND_RPC_STOP_MINING::response mres;
 
-    if (!epee::net_utils::invoke_http_json("/stop_mining", mreq, mres, m_http_client))
+    bool r = epee::net_utils::invoke_http_json("/stop_mining", mreq, mres, m_http_client);
+    m_errorString = interpret_rpc_response(r, mres.status);
+    if (!r)
       return false;
     return mres.status == CORE_RPC_STATUS_OK;
+}
+
+bool WalletManagerImpl::saveBlockchain()
+{
+    cryptonote::COMMAND_RPC_SAVE_BC::request mreq;
+    cryptonote::COMMAND_RPC_SAVE_BC::response mres;
+
+    bool r = epee::net_utils::invoke_http_json("/save_bc", mreq, mres, m_http_client);
+    m_errorString = interpret_rpc_response(r, mres.status);
+    if (!r)
+        return false;
+    return mres.status == CORE_RPC_STATUS_OK;
+}
+
+bool WalletManagerImpl::getOutsBin(const std::vector<std::pair<std::uint64_t, std::uint64_t>> &output_amount_index,
+                                   const bool do_get_txid,
+                                   std::vector<std::string>   &enote_public_key_out,
+                                   std::vector<std::string>   &rct_key_mask_out,
+                                   std::vector<bool>          &unlocked_out,
+                                   std::vector<std::uint64_t> &height_out,
+                                   std::vector<std::string>   &tx_id_out)
+{
+    cryptonote::COMMAND_RPC_GET_OUTPUTS_BIN::request mreq = AUTO_VAL_INIT(mreq);
+    cryptonote::COMMAND_RPC_GET_OUTPUTS_BIN::response mres = AUTO_VAL_INIT(mres);
+
+    mreq.outputs.resize(output_amount_index.size());
+    for (size_t i = 0; i < output_amount_index.size(); ++i)
+    {
+        mreq.outputs[i].amount = output_amount_index[i].first;
+        mreq.outputs[i].index = output_amount_index[i].second;
+    }
+    mreq.get_txid = do_get_txid;
+    bool r = epee::net_utils::invoke_http_bin("/get_outs.bin", mreq, mres, m_http_client);
+    m_errorString = interpret_rpc_response(r, mres.status);
+    if (!r || mres.status != CORE_RPC_STATUS_OK)
+        return false;
+    for (const auto &out : mres.outs)
+    {
+        enote_public_key_out.push_back(epee::string_tools::pod_to_hex(out.key));
+        rct_key_mask_out.push_back(epee::string_tools::pod_to_hex(out.mask));
+        unlocked_out.push_back(out.unlocked);
+        height_out.push_back(out.height);
+        tx_id_out.push_back(epee::string_tools::pod_to_hex(out.txid));
+    }
+    return true;
 }
 
 std::string WalletManagerImpl::resolveOpenAlias(const std::string &address, bool &dnssec_valid) const
@@ -376,8 +596,10 @@ std::tuple<bool, std::string, std::string, std::string, std::string> WalletManag
     return std::make_tuple(false, "", "", "", "");
 }
 
-bool WalletManagerImpl::setProxy(const std::string &address)
+bool WalletManagerImpl::setProxy(const std::string &address, Wallet *wallet /* = nullptr */)
 {
+    if (wallet)
+        dynamic_cast<WalletImpl *>(wallet)->m_wallet->set_proxy(address);
     return m_http_client.set_proxy(address);
 }
 
