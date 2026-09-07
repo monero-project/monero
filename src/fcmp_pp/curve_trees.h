@@ -163,10 +163,12 @@ public:
         const LastHashes &existing_last_hashes,
         std::vector<std::vector<UnifiedOutput>> &&new_outputs) const;
 
-    // Calculate the number of elems in each layer of the tree based on the number of leaf tuples
+    // Calculate the number of elems in each layer of the tree based on the number of leaf tuples.
+    // Doesn't include the leaf layer.
     std::vector<uint64_t> n_elems_per_layer(const uint64_t n_leaf_tuples) const;
 
-    // Calculate how many layers in the tree there are based on the number of leaf tuples
+    // Calculate how many layers in the tree there are based on the number of leaf tuples.
+    // Doesn't include the leaf layer.
     std::size_t n_layers(const uint64_t n_leaf_tuples) const;
 
 private:
@@ -180,7 +182,7 @@ private:
     //   layer of the leaf layer
     GrowLayerInstructions set_next_layer_extension(
         const GrowLayerInstructions &prev_layer_instructions,
-        const bool parent_is_c1,
+        const bool parent_is_c2,
         const LastHashes &last_hashes,
         std::size_t &c1_last_idx_inout,
         std::size_t &c2_last_idx_inout,

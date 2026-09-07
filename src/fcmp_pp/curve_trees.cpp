@@ -164,8 +164,8 @@ static std::vector<typename C_PARENT::Scalar> next_child_scalars_from_children(c
     std::vector<typename C_PARENT::Scalar> child_scalars_out;
     child_scalars_out.reserve(1 + children.hashes.size());
 
-    // If we're creating a *new* root at the existing root layer, we may need to include the *existing* root when
-    // hashing the *existing* root layer
+    // If the existing root layer will become a middle layer, then we need to include the existing root as a normal
+    // layer node and hash it.
     if (last_root != nullptr)
     {
         // If the children don't already include the existing root, then we need to include it to be hashed
@@ -202,6 +202,8 @@ static void hash_first_chunk(const std::unique_ptr<C> &curve,
         ? *old_last_child
         : curve->zero_scalar();
 
+    CHECK_AND_ASSERT_THROW_MES(chunk_size <= new_child_scalars.size(),
+        "hash_first_chunk: chunk size is larger than expected");
     const auto chunk_start = new_child_scalars.data();
     const typename C::Chunk chunk{chunk_start, chunk_size};
 
@@ -232,6 +234,8 @@ static void hash_next_chunk(const std::unique_ptr<C> &curve,
     const std::size_t chunk_size,
     typename C::Point &hash_out)
 {
+    CHECK_AND_ASSERT_THROW_MES((chunk_start_idx + chunk_size) <= new_child_scalars.size(),
+        "hash_next_chunk: chunk size is larger than expected");
     const auto chunk_start = new_child_scalars.data() + chunk_start_idx;
     const typename C::Chunk chunk{chunk_start, chunk_size};
 
@@ -449,6 +453,8 @@ static GrowLayerInstructions get_leaf_layer_grow_instructions(const uint64_t old
     const std::size_t leaf_tuple_size,
     const std::size_t leaf_layer_chunk_width)
 {
+    CHECK_AND_ASSERT_THROW_MES(leaf_layer_chunk_width % leaf_tuple_size == 0, "unexpected leaf layer chunk width");
+
     // The leaf layer can never be the root layer
     const bool setting_next_layer_after_old_root = false;
 
@@ -515,25 +521,25 @@ static LayerExtension<C_PARENT> get_next_layer_extension(const std::unique_ptr<C
     const GrowLayerInstructions &grow_layer_instructions,
     const std::vector<typename C_CHILD::Point> &child_last_hashes,
     const std::vector<typename C_PARENT::Point> &parent_last_hashes,
-    const std::vector<LayerExtension<C_CHILD>> child_layer_extensions,
-    const std::size_t last_updated_child_idx,
-    const std::size_t last_updated_parent_idx)
+    const std::vector<LayerExtension<C_CHILD>> &child_layer_extensions,
+    const std::size_t active_child_idx,
+    const std::size_t active_parent_idx)
 {
-    const auto *child_last_hash = (last_updated_child_idx >= child_last_hashes.size())
+    const auto *child_last_hash = (active_child_idx >= child_last_hashes.size())
         ? nullptr
-        : &child_last_hashes[last_updated_child_idx];
+        : &child_last_hashes[active_child_idx];
 
-    const auto *parent_last_hash = (last_updated_parent_idx >= parent_last_hashes.size())
+    const auto *parent_last_hash = (active_parent_idx >= parent_last_hashes.size())
         ? nullptr
-        : &parent_last_hashes[last_updated_parent_idx];
+        : &parent_last_hashes[active_parent_idx];
 
     // Pre-conditions
-    CHECK_AND_ASSERT_THROW_MES(last_updated_child_idx < child_layer_extensions.size(), "missing child layer");
-    const auto &child_extension = child_layer_extensions[last_updated_child_idx];
+    CHECK_AND_ASSERT_THROW_MES(active_child_idx < child_layer_extensions.size(), "missing child layer");
+    const auto &child_extension = child_layer_extensions[active_child_idx];
 
     if (grow_layer_instructions.setting_next_layer_after_old_root)
     {
-        CHECK_AND_ASSERT_THROW_MES((last_updated_child_idx + 1) == child_last_hashes.size(),
+        CHECK_AND_ASSERT_THROW_MES((active_child_idx + 1) == child_last_hashes.size(),
             "unexpected last updated child idx");
         CHECK_AND_ASSERT_THROW_MES(child_last_hash != nullptr, "missing last child when setting layer after old root");
     }
@@ -675,6 +681,9 @@ typename CurveTrees<C1, C2>::TreeExtension CurveTrees<C1, C2>::get_tree_extensio
 {
     TreeExtension tree_extension;
     tree_extension.leaves.start_idx = old_n_leaf_tuples;
+
+    CHECK_AND_ASSERT_THROW_MES((existing_last_hashes.c1_last_hashes.size() + existing_last_hashes.c2_last_hashes.size())
+        == this->n_layers(old_n_leaf_tuples), "unexpected number of last hashes");
 
     if (new_outputs.empty())
         return tree_extension;

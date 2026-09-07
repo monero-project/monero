@@ -32,8 +32,6 @@
 #include "fcmp_pp/fcmp_pp_types.h"
 #include "fcmp_pp/tower_cycle.h"
 
-#include <set>
-
 using Selene       = fcmp_pp::curve_trees::Selene;
 using Helios       = fcmp_pp::curve_trees::Helios;
 using CurveTreesV1 = fcmp_pp::curve_trees::CurveTreesV1;
@@ -44,8 +42,8 @@ namespace test
 const std::vector<fcmp_pp::UnifiedOutput> generate_random_outputs(const std::size_t old_n_leaf_tuples,
     const std::size_t new_n_leaf_tuples);
 
-std::shared_ptr<CurveTreesV1> init_curve_trees_test(const std::size_t helios_chunk_width,
-    const std::size_t selene_chunk_width,
+std::shared_ptr<CurveTreesV1> init_curve_trees_test(const std::size_t selene_chunk_width,
+    const std::size_t helios_chunk_width,
     const std::size_t tree_depth,
     uint64_t &n_leaves_out);
 }//namespace test
@@ -84,9 +82,6 @@ public:
 
     // Validate the in-memory tree by re-hashing every layer, starting from root and working down to leaf layer
     bool audit_tree(const std::size_t expected_n_leaf_tuples) const;
-
-    // get all leaf indices with given output pair
-    std::set<std::size_t> get_leaf_idxs_with_output_pair(const fcmp_pp::OutputPair &output_pair) const;
 
 private:
     // Use the tree extension to extend the in-memory tree
