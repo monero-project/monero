@@ -186,7 +186,7 @@ namespace wire
   {
     rapidjson::MemoryStream stream{reinterpret_cast<const char*>(remaining_.data()), remaining_.size()};
     rapidjson::EncodedInputStream<rapidjson::UTF8<>, rapidjson::MemoryStream> istream{stream};
-    if (!reader_.Parse<rapidjson::kParseStopWhenDoneFlag>(istream, handler))
+    if (!reader_.Parse<rapidjson::kParseStopWhenDoneFlag | rapidjson::kParseIterativeFlag>(istream, handler))
       throw_json_error(remaining_, reader_, handler.expected_);
     remaining_.remove_prefix(istream.Tell());
   }

@@ -1019,7 +1019,10 @@ namespace rpc
 
     expect<epee::byte_slice> response = matched_handler->call(*this, parsed.id, epee::to_span(request));
     if (!response)
-      return response;
+    {
+      MERROR("Invalid request (" << parsed.method << "): " << response.error()); 
+      return BAD_JSON_REQUEST(parsed.method, parsed.id); 
+    }
 
     const boost::string_ref response_view{reinterpret_cast<const char*>(response->data()), response->size()};
     MDEBUG("Returning RPC response: " << response_view);

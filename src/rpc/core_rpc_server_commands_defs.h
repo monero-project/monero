@@ -248,6 +248,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE_OPT(daemon_time, (uint64_t) 0)
         KV_SERIALIZE_OPT(pool_info_extent, (uint8_t) 0)
         KV_SERIALIZE_ARRAY(added_pool_txs, min_pool_tx_info) // optional if empty
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(remaining_added_pool_txids)
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(removed_pool_txids) // optional if empty
       END_KV_SERIALIZE_MAP()
     };
@@ -405,8 +406,6 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
   //-----------------------------------------------
   struct COMMAND_RPC_IS_KEY_IMAGE_SPENT
   {
-    using max_request_size = wire::max_element_count<4096>;
-    
     enum STATUS {
       UNSPENT = 0,
       SPENT_IN_BLOCKCHAIN = 1,
@@ -415,11 +414,12 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct request_t: public rpc_access_request_base
     {
+      using min_key_image = wire::min_element_sizeof<crypto::key_image>;
       std::vector<std::string> key_images;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
-        KV_SERIALIZE_ARRAY(key_images, max_request_size)
+        KV_SERIALIZE_ARRAY(key_images, min_key_image)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -427,11 +427,14 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 
     struct response_t: public rpc_access_response_base
     {
+      /* the below breaks with a bit-packing format,
+       which we are unlikely to support. */
+      using min_spent = wire::min_element_size<1>;
       std::vector<int> spent_status;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_response_base)
-        KV_SERIALIZE_ARRAY(spent_status, max_request_size)
+        KV_SERIALIZE_ARRAY(spent_status, min_spent)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
