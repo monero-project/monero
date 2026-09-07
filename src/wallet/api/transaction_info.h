@@ -47,9 +47,11 @@ public:
     virtual bool isPending() const override;
     virtual bool isFailed() const override;
     virtual bool isCoinbase() const override;
+    virtual bool isUnlocked() const override;
     virtual uint64_t amount() const override;
     //! always 0 for incoming txes
     virtual uint64_t fee() const override;
+    virtual uint64_t changeAmount() const override;
     virtual uint64_t blockHeight() const override;
     virtual std::string description() const override;
     virtual std::set<uint32_t> subaddrIndex() const override;
@@ -63,13 +65,19 @@ public:
     virtual uint64_t confirmations() const override;
     virtual uint64_t unlockTime() const override;
 
+    std::uint64_t receivedChangeAmount() const override;
+    TxState txState() const override;
+    bool isDoubleSpendSeen() const override;
+
 private:
     int         m_direction;
     bool        m_pending;
     bool        m_failed;
     bool        m_coinbase;
+    bool        m_is_unlocked;
     uint64_t    m_amount;
     uint64_t    m_fee;
+    uint64_t    m_change_amount;
     uint64_t    m_blockheight;
     std::string m_description;
     std::set<uint32_t> m_subaddrIndex;        // always unique index for incoming transfers; can be multiple indices for outgoing transfers
@@ -81,6 +89,12 @@ private:
     std::vector<Transfer> m_transfers;
     uint64_t    m_confirmations;
     uint64_t    m_unlock_time;
+    // received change amount from outgoing transaction
+    std::uint64_t m_change;
+    // tx state : TxState_Pending / TxState_PendingInPool / TxState_Failed / TxState_Confirmed
+    TxState m_tx_state;
+    // is double spend seen
+    bool m_double_spend_seen;
 
     friend class TransactionHistoryImpl;
 
