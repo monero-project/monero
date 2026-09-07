@@ -39,6 +39,7 @@
 #include <utility>
 
 #include "common/command_line.h"
+#include "crypto/crypto.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "net_node.h"
@@ -140,7 +141,10 @@ namespace nodetool
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_exclusive_node   = {"add-exclusive-node", "Specify list of peers to connect to only."
                                                                                                   " If this option is given the options add-priority-node and seed-node are ignored"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
-    const command_line::arg_descriptor<std::vector<std::string> > arg_tx_proxy = {"tx-proxy", "Send local txes through proxy: <network-type>,[socks5://[user:pass@]]<socks-ip:port>[,max_connections][,disable_noise] i.e. \"tor,127.0.0.1:9050,100,disable_noise\""};
+    const command_line::arg_descriptor<std::vector<std::string> > arg_tx_proxy = {"tx-proxy", "Send local txes through proxy: <network-type>,[socks5://[user:pass@]]<socks-ip:port>[,max_connections][,disable_noise] i.e. \"tor,socks5://127.0.0.1:9050,100,disable_noise\""};
+    const command_line::arg_descriptor<bool> arg_tor_stream_isolation = {
+      "tor-stream-isolation", "Generate Tor SOCKS5 isolation credentials for --proxy; Tor --tx-proxy traffic is always isolated", false
+    };
     const command_line::arg_descriptor<std::vector<std::string> > arg_anonymous_inbound = {"anonymous-inbound", "<hidden-service-address>,<[bind-ip:]port>[,max_connections] i.e. \"x.onion,127.0.0.1:18083,100\""};
     const command_line::arg_descriptor<std::string> arg_ban_list = {"ban-list", "Specify ban list file, one IP address per line"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
@@ -163,6 +167,28 @@ namespace nodetool
       "pad-transactions", "Pad relayed transactions to help defend against traffic volume analysis", false
     };
     const command_line::arg_descriptor<uint32_t> arg_max_connections_per_ip = {"max-connections-per-ip", "Maximum number of inbound p2p connections allowed from the same IPv4 address or shared across a public IPv6 /64 subnet", 1};
+
+    //generate the credential for socks authentication isolation
+    bool set_tor_stream_isolation(net::socks::endpoint& endpoint)
+    {
+        if (endpoint.ver != net::socks::version::v5)
+        {
+            MERROR(arg_tor_stream_isolation.name << " requires --proxy or --tx-proxy to use SOCKS5. For example, socks5://127.0.0.1:9050");
+            return false;
+        }
+        if (!endpoint.userinfo.user.empty() || !endpoint.userinfo.pass.empty())
+        {
+            MERROR(arg_tor_stream_isolation.name << " cannot be combined with proxy has user-provided credentials. Remove the credentials so monerod can generate a Tor isolation credential");
+            return false;
+        }
+
+        // Tor SOCKS authentication extension, format 0: the password is the
+        // isolation token. Reusing it within a zone permits circuit sharing
+        // there, while a different token prevents sharing between zones.
+        endpoint.userinfo.user = "<torS0X>0";
+        endpoint.userinfo.pass = epee::string_tools::pod_to_hex(crypto::rand<crypto::hash>());
+        return true;
+    }
 
     boost::optional<std::vector<proxy>> get_proxies(boost::program_options::variables_map const& vm)
     {
@@ -226,6 +252,9 @@ namespace nodetool
                 MERROR("Invalid --" << arg_tx_proxy.name << " value: " << endpoint.error().message());
                 return boost::none;
             }
+
+            if (proxies.back().zone == epee::net_utils::zone::tor && !set_tor_stream_isolation(*endpoint))
+                return boost::none;
 
             proxies.back().address = std::move(*endpoint);
         }
