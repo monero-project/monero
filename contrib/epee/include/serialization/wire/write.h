@@ -28,6 +28,7 @@
 #pragma once
 
 #include <boost/range/size.hpp>
+#include <cstddef>
 #include <cstdint>
 #include <iterator>
 #include <string_view>
@@ -66,6 +67,8 @@ namespace wire
     //! By default, insist on retrieving array size before writing array
     static constexpr std::true_type need_array_size() noexcept { return{}; }
 
+    virtual void null_value() = 0;
+
     virtual void boolean(bool) = 0;
 
     virtual void integer(std::intmax_t) = 0;
@@ -90,6 +93,10 @@ namespace wire
     writer& operator=(const writer&) = default;
     writer& operator=(writer&&) = default;
   };
+
+  template<typename W>
+  inline void write_bytes(W& dest, std::nullptr_t)
+  { dest.null_value(); }
 
   template<typename W>
   inline void write_arithmetic(W& dest, const bool source)

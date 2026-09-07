@@ -29,8 +29,11 @@
 
 #include <string>
 #include "serialization/wire/json/base.h"
+#include "serialization/wire/json/error.h"
 #include "serialization/wire/json/fwd.h"
+#include "serialization/wire/json/read.h"
 #include "serialization/wire/json/write.h"
+#include "serialization/wire/read.h"
 #include "serialization/wire/write.h"
 #include "span.h"
 

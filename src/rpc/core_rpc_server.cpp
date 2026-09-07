@@ -103,6 +103,11 @@ namespace
 
 namespace cryptonote
 {
+  using http_mode = core_rpc_server::invoke_http_mode;
+
+  constexpr const http_mode::constant<http_mode::mode::JON> http_mode::JON;
+  constexpr const http_mode::constant<http_mode::mode::BIN> http_mode::BIN;
+  constexpr const http_mode::constant<http_mode::mode::JON_RPC> http_mode::JON_RPC;
 
   //-----------------------------------------------------------------------------------
   void core_rpc_server::init_options(boost::program_options::options_description& desc)

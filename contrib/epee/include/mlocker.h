@@ -31,6 +31,7 @@
 
 #include <map>
 #include <boost/thread/mutex.hpp>
+#include "serialization/wire/fwd.h"
 
 namespace epee
 {
@@ -82,6 +83,14 @@ namespace epee
 
   template<typename T>
   const T& unwrap(mlocked<T> const& src) { return src; }
+
+  template<typename R, typename T>
+  void read_bytes(R& source, mlocked<T>& dest)
+  { wire_read::bytes(source, unwrap(dest)); }
+
+  template<typename W, typename T>
+  void write_bytes(W& dest, const mlocked<T>& source)
+  { wire_write::bytes(dest, unwrap(source)); }
 
   template <class T, size_t N>
   using mlocked_arr = mlocked<std::array<T, N>>;

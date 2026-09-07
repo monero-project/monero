@@ -30,15 +30,13 @@
 #include "zmq_pub.h"
 
 #include <algorithm>
+#include <boost/core/demangle.hpp>
 #include <boost/range/adaptor/filtered.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/thread/locks.hpp>
 #include <cassert>
 #include <cstdint>
 #include <cstring>
-#include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -49,7 +47,10 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_basic/events.h"
 #include "misc_log_ex.h"
-#include "serialization/json_object.h"
+#include "serialization/wire/adapted/vector.h"
+#include "serialization/wire/json.h"
+#include "serialization/wire/wrapper/array.h"
+#include "serialization/wire/wrappers_impl.h"
 #include "ringct/rctTypes.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
 #include "serialization/wire.h"
@@ -155,17 +156,17 @@ namespace
   void write_header(epee::byte_stream& buf, const boost::string_ref name)
   {
     buf.write(name.data(), name.size());
-    buf.put(':');
+    buf.push_back(':');
   }
 
   //! \return `name:...` where `...` is JSON and `name` is directly copied (no quotes - not JSON).
   template<typename T>
-  std::error_code json_pub(epee::byte_stream& buf, const T value)
+  bool json_pub(epee::byte_stream& buf, const T& value)
   {
-    rapidjson::Writer<epee::byte_stream> dest{buf};
-    using cryptonote::json::toJsonValue;
-    toJsonValue(dest, value);
-    return {};
+    const std::error_code error = wire::json::to_bytes(buf, value);
+    if (error)
+      MERROR("Failed serializing " + boost::core::demangle(typeid(T).name()) + " to JSON: " << error.message());
+    return !error;
   }
 
   //! Object for "minimal" block serialization
@@ -236,6 +237,7 @@ namespace
     uint64_t weight;
     uint64_t fee;
   };
+
   void write_bytes(wire::writer& dest, const minimal_txpool& self)
   {
     wire::object(dest,
@@ -246,9 +248,10 @@ namespace
     );
   }
 
-  std::error_code json_full_chain(epee::byte_stream& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
+  template<typename F>
+  std::error_code full_chain_format(epee::byte_stream& buf, const std::uint64_t height, const epee::span<const cryptonote::block> blocks)
   {
-    return json_pub(buf, blocks);
+    return F::to_bytes(buf, wire::range(blocks));
   }
 
   template<typename F>
@@ -266,15 +269,17 @@ namespace
   // boost::adaptors are in place "views" - no copy/move takes place
   // moving transactions (via sort, etc.), is expensive!
 
-  std::error_code json_full_txpool(epee::byte_stream& buf, epee::span<const cryptonote::txpool_event> txes)
+  template<typename F>
+  std::error_code full_txpool_format(epee::byte_stream& buf, epee::span<const cryptonote::txpool_event> txes)
   {
     namespace adapt = boost::adaptors;
-    const auto to_full_tx = [](const cryptonote::txpool_event& event)
+    const auto to_full_tx = [](const cryptonote::txpool_event& event) -> const cryptonote::transaction&
     {
       return event.tx;
     };
-    return json_pub(buf, (txes | adapt::filtered(is_valid{}) | adapt::transformed(to_full_tx)));
+    return F::to_bytes(buf, wire::range(txes | adapt::filtered(is_valid{}) | adapt::transformed(to_full_tx)));
   }
+
 
   template<typename F>
   std::error_code minimal_txpool_format(epee::byte_stream& buf, epee::span<const cryptonote::txpool_event> txes)
@@ -290,7 +295,7 @@ namespace
 
   constexpr const std::array<context<chain_writer>, 2> chain_contexts =
   {{
-    {u8"json-full-chain_main", json_full_chain},
+    {u8"json-full-chain_main", full_chain_format<wire::json>},
     {u8"json-minimal-chain_main", minimal_chain_format<wire::json>}
   }};
 
@@ -301,7 +306,7 @@ namespace
 
   constexpr const std::array<context<txpool_writer>, 2> txpool_contexts =
   {{
-    {u8"json-full-txpool_add", json_full_txpool},
+    {u8"json-full-txpool_add", full_txpool_format<wire::json>},
     {u8"json-minimal-txpool_add", minimal_txpool_format<wire::json>}
   }};
 
@@ -363,6 +368,7 @@ namespace
           MERROR("Failed to serialize " << contexts[i].name << ": " << error.message());
           return out;
         }
+
         offsets[i] = buf.size() - last_offset;
         last_offset = buf.size();
       }

@@ -182,7 +182,7 @@ void ZmqServer::serve()
           if (message == net::zmq::make_error_code(EMSGSIZE))
           {
             MERROR("ZMQ-RPC request exceeds maximum message size");
-            MONERO_UNWRAP(net::zmq::send(REQUEST_TOO_LARGE(), rep.get()));
+            MONERO_UNWRAP(net::zmq::send(MONERO_UNWRAP(REQUEST_TOO_LARGE()), rep.get()));
           }
           else if (message == net::zmq::make_error_code(ETERM))
             MONERO_THROW(message.error(), "ZMQ-RPC context terminated");
@@ -195,8 +195,8 @@ void ZmqServer::serve()
             MDEBUG("Received RPC request");
           else
             MDEBUG("Received RPC request: \"" << *message << "\"");
-          epee::byte_slice response = handler.handle(std::move(*message));
 
+          epee::byte_slice response = MONERO_UNWRAP(handler.handle(std::move(*message)));
           const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
           MDEBUG("Sending RPC reply: \"" << response_view << "\"");
           MONERO_UNWRAP(net::zmq::send(std::move(response), rep.get()));

@@ -64,7 +64,6 @@ namespace wire
       return source.template to_bytes<output_type>(dest);
     }
 
-
     // Parameters packs have lower precedence; above functions are preferred.
 
     template<typename... T>
@@ -79,14 +78,14 @@ namespace wire
       return convert_to_json(dest, source...); // ADL (searches every associated namespace)
     }
 
-    template<typename T>
-    static std::error_code to_bytes(epee::byte_stream& dest, const T& source)
-    {
-      std::string buf{};
-      const std::error_code error = to_bytes(buf, source);
-      if (!error)
-        dest.write(epee::to_span(buf));
-      return error;
+    template<typename... T>                                                        
+    static std::error_code to_bytes(epee::byte_stream& dest, const T&... source)
+    { 
+      std::string buf{}; 
+      const std::error_code error = to_bytes(buf, source...);
+      if (!error) 
+        dest.write(epee::to_span(buf)); 
+      return error; 
     }
   };
 }

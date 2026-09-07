@@ -26,9 +26,8 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-set(wire_sources error.cpp write.cpp)
+set(wire_sources asio.cpp basic_value.cpp error.cpp read.cpp variant.cpp write.cpp)
 
-add_library(wire ${wire_sources})
-target_link_libraries(wire epee)
-
+monero_add_library(wire ${wire_sources})
+add_subdirectory(epee)
 add_subdirectory(json)

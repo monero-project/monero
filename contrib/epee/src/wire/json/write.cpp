@@ -83,6 +83,12 @@ namespace wire
     return buf;
   }
 
+  void json_writer::null_value()
+  {
+    formatter_.Null();
+    check_flush();
+  }
+
   void json_writer::boolean(const bool source)
   {
     formatter_.Bool(source);

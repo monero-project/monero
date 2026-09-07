@@ -31,6 +31,7 @@
 #pragma  once 
 
 #include <memory>
+#include <type_traits>
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/variables_map.hpp>
@@ -69,6 +70,17 @@ namespace cryptonote
     static const command_line::arg_descriptor<std::size_t> arg_rpc_response_soft_limit;
 
     typedef epee::net_utils::connection_context_base connection_context;
+
+    struct invoke_http_mode
+    {
+      enum class mode { JON, BIN, JON_RPC };
+
+      template<mode value>
+      using constant = std::integral_constant<mode, value>;
+      static constexpr const constant<mode::JON> JON{};
+      static constexpr const constant<mode::BIN> BIN{};
+      static constexpr const constant<mode::JON_RPC> JON_RPC{};
+    };
 
     core_rpc_server(
         core& cr

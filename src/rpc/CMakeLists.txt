@@ -32,12 +32,14 @@ set(rpc_base_sources
 
 set(rpc_sources
   core_rpc_server.cpp
+  core_rpc_server_commands_defs.cpp
   rpc_version_str.cpp
   instantiations.cpp)
 
 set(daemon_messages_sources
   message.cpp
-  daemon_messages.cpp)
+  daemon_messages.cpp
+  message_data_structs.cpp)
 
 set(rpc_pub_sources zmq_pub.cpp)
 
@@ -128,6 +130,7 @@ target_link_libraries(rpc
     common
     cryptonote_core
     cryptonote_protocol
+    wire-json
     net
     version
     ${Boost_REGEX_LIBRARY}
@@ -141,7 +144,6 @@ target_link_libraries(rpc_pub
     net
     cryptonote_basic
     cryptonote_core
-    serialization
     wire-json
     ${Boost_THREAD_LIBRARY})
 
@@ -150,7 +152,6 @@ target_link_libraries(daemon_messages
     cryptonote_core
     cryptonote_protocol
     version
-    serialization
     ${EXTRA_LIBRARIES})
 
 target_link_libraries(daemon_rpc_server
@@ -161,8 +162,8 @@ target_link_libraries(daemon_rpc_server
     cryptonote_protocol
     version
     daemon_messages
-    serialization
     wire-json
+    ${Boost_CHRONO_LIBRARY}
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}

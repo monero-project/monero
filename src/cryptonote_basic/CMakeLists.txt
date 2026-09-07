@@ -42,11 +42,13 @@ monero_add_library(cryptonote_format_utils_basic
 target_link_libraries(cryptonote_format_utils_basic
   PUBLIC
   cncrypto
+  wire-json
 )
 
 set(cryptonote_basic_sources
   account.cpp
   connection_context.cpp
+  cryptonote_basic.cpp
   cryptonote_basic_impl.cpp
   cryptonote_format_utils.cpp
   difficulty.cpp
