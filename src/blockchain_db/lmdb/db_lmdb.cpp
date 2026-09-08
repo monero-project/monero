@@ -4303,13 +4303,33 @@ std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> BlockchainLMDB::get
   }
 
   if (unlocked || recent_cutoff > 0) {
-    const uint64_t blockchain_height = height();
+    MDB_stat db_stats;
+    if (auto result = mdb_stat(m_txn, m_blocks, &db_stats))
+      throw0(DB_ERROR(lmdb_error("Failed to query m_blocks: ", result).c_str()));
+    const uint64_t blockchain_height = db_stats.ms_entries;
+
+    const auto get_output_height = [&](uint64_t amount, uint64_t index) {
+      MDB_val_set(key, amount);
+      MDB_val_set(value, index);
+      const int result = mdb_cursor_get(m_cur_output_amounts, &key, &value, MDB_GET_BOTH);
+      if (result == MDB_NOTFOUND)
+        throw1(OUTPUT_DNE("Attempting to get output by index, but key does not exist"));
+      if (result)
+        throw0(DB_ERROR(lmdb_error("Error attempting to retrieve an output from the db: ", result).c_str()));
+      return amount == 0 ? ((const outkey *)value.mv_data)->data.height
+                         : ((const pre_rct_outkey *)value.mv_data)->data.height;
+    };
+
+    if (recent_cutoff > 0)
+    {
+      RCURSOR(block_info);
+    }
+
     for (std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>>::iterator i = histogram.begin(); i != histogram.end(); ++i) {
       uint64_t amount = i->first;
       uint64_t num_elems = std::get<0>(i->second);
       while (num_elems > 0) {
-        const tx_out_index toi = get_output_tx_and_index(amount, num_elems - 1);
-        const uint64_t height = get_tx_block_height(toi.first);
+        const uint64_t height = get_output_height(amount, num_elems - 1);
         if (height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE <= blockchain_height)
           break;
         --num_elems;
@@ -4321,9 +4341,14 @@ std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> BlockchainLMDB::get
       {
         uint64_t recent = 0;
         while (num_elems > 0) {
-          const tx_out_index toi = get_output_tx_and_index(amount, num_elems - 1);
-          const uint64_t height = get_tx_block_height(toi.first);
-          const uint64_t ts = get_block_timestamp(height);
+          const uint64_t height = get_output_height(amount, num_elems - 1);
+          MDB_val_set(value, height);
+          const int result = mdb_cursor_get(m_cur_block_info, (MDB_val *)&zerokval, &value, MDB_GET_BOTH);
+          if (result == MDB_NOTFOUND)
+            throw0(BLOCK_DNE("Attempt to get timestamp from height failed -- timestamp not in db"));
+          if (result)
+            throw0(DB_ERROR(lmdb_error("Error attempting to retrieve a timestamp from the db: ", result).c_str()));
+          const uint64_t ts = ((const mdb_block_info *)value.mv_data)->bi_timestamp;
           if (ts < recent_cutoff)
             break;
           --num_elems;
