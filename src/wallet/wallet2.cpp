@@ -12873,6 +12873,10 @@ void wallet2::set_account_tag(const std::set<uint32_t> &account_indices, const s
   for (uint32_t account_index : account_indices)
   {
     THROW_WALLET_EXCEPTION_IF(account_index >= get_num_subaddress_accounts(), error::wallet_internal_error, "Account index out of bound");
+  }
+
+  for (uint32_t account_index : account_indices)
+  {
     if (m_account_tags.second[account_index] == tag)
       MDEBUG("This tag is already assigned to this account");
     else

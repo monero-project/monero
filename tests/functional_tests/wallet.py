@@ -236,6 +236,26 @@ class WalletTest():
         assert res.account_tags[0].tag == 'tagB'
         assert res.account_tags[0].label == ''
         assert res.account_tags[0].accounts == [0, 1]
+        ok = False
+        try: wallet.tag_accounts('tagC', [0, 3])
+        except Exception as e:
+            assert 'Account index out of bound' in str(e)
+            ok = True
+        assert ok
+        res = wallet.get_account_tags()
+        assert len(res.account_tags) == 1
+        assert res.account_tags[0].tag == 'tagB'
+        assert res.account_tags[0].accounts == [0, 1]
+        ok = False
+        try: wallet.untag_accounts([0, 3])
+        except Exception as e:
+            assert 'Account index out of bound' in str(e)
+            ok = True
+        assert ok
+        res = wallet.get_account_tags()
+        assert len(res.account_tags) == 1
+        assert res.account_tags[0].tag == 'tagB'
+        assert res.account_tags[0].accounts == [0, 1]
         wallet.set_account_tag_description('tagB', 'tag B')
         res = wallet.get_account_tags()
         assert len(res.account_tags) == 1
