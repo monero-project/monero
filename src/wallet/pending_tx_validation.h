@@ -48,6 +48,11 @@ namespace tools
 {
 namespace wallet
 {
+// Checks that duplicate destination addresses across a tx set have the same normal/subaddress
+// designations.
+bool has_consistent_destination_types(const std::vector<wallet2::tx_construction_data> &txes);
+bool has_consistent_destination_types(const std::vector<wallet2::pending_tx> &txes);
+
 /**
  * brief: sanity_check_pending_tx - validate `pending_tx` consistency with itself and with with `transfer_details`
  *        Assumes `ptx` version is >= v16.
@@ -70,6 +75,16 @@ namespace wallet
  * param: allow_read_only - if `true` then `ptx` transfers may be already-spent or frozen
  */
 void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
+    const cryptonote::network_type nettype,
+    const cryptonote::account_keys &account_keys,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses,
+    const std::vector<wallet2_basic::transfer_details> &transfers,
+    const bool redacted,
+    const std::optional<std::function<const crypto::key_image(const size_t)>> &transfer_ki_resolver,
+    const bool allow_read_only);
+
+// Checks destination type consistency across the set, then validates each pending transaction.
+void sanity_check_pending_tx_set(const std::vector<wallet2::pending_tx> &ptxs,
     const cryptonote::network_type nettype,
     const cryptonote::account_keys &account_keys,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses,

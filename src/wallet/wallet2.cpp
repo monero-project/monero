@@ -7263,11 +7263,10 @@ void wallet2::get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2:
 //----------------------------------------------------------------------------------------------------
 // `expect_imported_key_images = false` overlaps with `transfer_ki_resolver = std::nullopt` but
 // we include both to reduce callsite complexity. (lack of useful enums in C++)
-void wallet2::sanity_check_pending_tx(const wallet2::pending_tx &ptx,
-  const bool redacted,
+static std::optional<std::function<const crypto::key_image(const size_t)>> make_transfer_ki_resolver(
+  const wallet2::transfer_container &transfers,
   const bool expect_imported_key_images,
-  std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver,
-  const bool allow_read_only) const
+  std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver)
 {
   if (expect_imported_key_images)
   {
@@ -7276,19 +7275,47 @@ void wallet2::sanity_check_pending_tx(const wallet2::pending_tx &ptx,
       "sanity_check_pending_tx (wallet2): expected imported key images but a ki resolver was provided");
 
     const std::function<const crypto::key_image(const size_t)> temp =
-      [this](const size_t i)
+      [&transfers](const size_t i)
       {
-        CHECK_AND_ASSERT_THROW_MES(i < m_transfers.size(),
+        CHECK_AND_ASSERT_THROW_MES(i < transfers.size(),
           "sanity_check_pending_tx (wallet2): transfer - selected transfer idx out of known transfers");
-        const auto &transfer = m_transfers.at(i);
+        const auto &transfer = transfers.at(i);
         CHECK_AND_ASSERT_THROW_MES(transfer.m_key_image_known,
           "sanity_check_pending_tx (wallet2): transfer - KI is expected but unknown");
         return transfer.m_key_image;
       };
     transfer_ki_resolver = temp;
   }
+  return transfer_ki_resolver;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::sanity_check_pending_tx(const wallet2::pending_tx &ptx,
+  const bool redacted,
+  const bool expect_imported_key_images,
+  std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver,
+  const bool allow_read_only) const
+{
+  transfer_ki_resolver = make_transfer_ki_resolver(m_transfers, expect_imported_key_images, std::move(transfer_ki_resolver));
 
   wallet::sanity_check_pending_tx(ptx,
+    this->nettype(),
+    m_account.get_keys(),
+    m_subaddresses,
+    m_transfers,
+    redacted,
+    transfer_ki_resolver,
+    allow_read_only);
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::sanity_check_pending_tx_set(const std::vector<pending_tx> &ptxs,
+  const bool redacted,
+  const bool expect_imported_key_images,
+  std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver,
+  const bool allow_read_only) const
+{
+  transfer_ki_resolver = make_transfer_ki_resolver(m_transfers, expect_imported_key_images, std::move(transfer_ki_resolver));
+
+  wallet::sanity_check_pending_tx_set(ptxs,
     this->nettype(),
     m_account.get_keys(),
     m_subaddresses,
@@ -7833,6 +7860,8 @@ bool wallet2::parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsi
     LOG_PRINT_L0("Unsupported version in unsigned tx");
     return false;
   }
+  CHECK_AND_ASSERT_MES(wallet::has_consistent_destination_types(exported_txs.txes), false,
+    "Conflicting destination address types in transaction set");
   LOG_PRINT_L1("Loaded tx unsigned data from binary: " << exported_txs.txes.size() << " transactions");
 
   return true;
@@ -7854,6 +7883,9 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
 //----------------------------------------------------------------------------------------------------
 bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pending_tx> &txs, signed_tx_set &signed_txes)
 {
+  THROW_WALLET_EXCEPTION_IF(!wallet::has_consistent_destination_types(exported_txs.txes), error::wallet_internal_error,
+    "Conflicting destination address types in transaction set");
+
   if (!std::get<2>(exported_txs.new_transfers).empty())
     import_outputs(exported_txs.new_transfers);
   else if (!std::get<2>(exported_txs.transfers).empty())
@@ -7988,8 +8020,8 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
         "Cold wallet signing: No record of output " + std::to_string(idx) + " in this wallet, run "
         "`export_outputs all` on the online wallet and `import_outputs` here.");
     }
-    this->sanity_check_pending_tx(ptx, false, true, std::nullopt, false);
   }
+  this->sanity_check_pending_tx_set(txs, false, true, std::nullopt, false);
 
   return true;
 }
@@ -8128,23 +8160,20 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
   {
     // validate before mutating state or displaying to user
     // - Verify with the assumption signed txs are redacted.
-    for (const auto &ptx : signed_txs.ptx)
-    {
-      // Manually check `signed_txs.key_images` so local state is not mutated before we validate.
-      // We inject the key image checker because `ptx` internal sorting ambiguity makes it cumbersome to
-      // directly validate key images here.
-      // NOTE: These txs may be READ-ONLY, which means spent/frozen inputs are allowed.
-      const auto &kis = signed_txs.key_images;
-      this->sanity_check_pending_tx(ptx,
-        true,
-        false,
-        { [&kis](const size_t i) {
-          CHECK_AND_ASSERT_THROW_MES(i < kis.size(), "failed loading signed tx: ptx selected transfer "
-            "is outside the bounds of imported key images");
-          return kis.at(i);
-        } },
-        true);
-    }
+    // Manually check `signed_txs.key_images` so local state is not mutated before we validate.
+    // We inject the key image checker because `ptx` internal sorting ambiguity makes it cumbersome to
+    // directly validate key images here.
+    // NOTE: These txs may be READ-ONLY, which means spent/frozen inputs are allowed.
+    const auto &kis = signed_txs.key_images;
+    this->sanity_check_pending_tx_set(signed_txs.ptx,
+      true,
+      false,
+      { [&kis](const size_t i) {
+        CHECK_AND_ASSERT_THROW_MES(i < kis.size(), "failed loading signed tx: ptx selected transfer "
+          "is outside the bounds of imported key images");
+        return kis.at(i);
+      } },
+      true);
   }
   catch (const std::exception &e)
   {
@@ -8236,8 +8265,7 @@ bool wallet2::save_multisig_tx(const multisig_tx_set &txs, const std::string &fi
 //----------------------------------------------------------------------------------------------------
 wallet2::multisig_tx_set wallet2::make_multisig_tx_set(const std::vector<pending_tx>& ptx_vector) const
 {
-  for (const auto &ptx : ptx_vector)
-    this->sanity_check_pending_tx(ptx, false, true, std::nullopt, false);
+  this->sanity_check_pending_tx_set(ptx_vector, false, true, std::nullopt, false);
 
   multisig_tx_set txs;
   txs.m_ptx = ptx_vector;
@@ -8301,13 +8329,10 @@ bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx
   try
   {
     // sanity checks
-    for (const auto &ptx: exported_txs.m_ptx)
-    {
-      // If key images have not been imported then this could fail if we check key images. We'd rather fail elsewhere
-      // with a better error message.
-      // Note: These may be READ-ONLY, so spent/frozen inputs are allowed.
-      this->sanity_check_pending_tx(ptx, false, false, std::nullopt, true);
-    }
+    // If key images have not been imported then this could fail if we check key images. We'd rather fail elsewhere
+    // with a better error message.
+    // Note: These may be READ-ONLY, so spent/frozen inputs are allowed.
+    this->sanity_check_pending_tx_set(exported_txs.m_ptx, false, false, std::nullopt, true);
   }
   catch (const std::exception &e)
   {
@@ -8388,6 +8413,9 @@ bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_t
 //----------------------------------------------------------------------------------------------------
 bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<crypto::hash> &txids)
 {
+  THROW_WALLET_EXCEPTION_IF(!wallet::has_consistent_destination_types(exported_txs_inout.m_ptx), error::wallet_internal_error,
+    "Conflicting destination address types in transaction set");
+
   multisig_tx_set exported_txs = exported_txs_inout;
   std::vector<crypto::hash> signed_txids;
   std::vector<std::pair<crypto::hash, size_t>> signed_tx_key_indices;
@@ -11492,6 +11520,9 @@ void wallet2::cold_tx_aux_import(const std::vector<pending_tx> & ptx, const std:
 //----------------------------------------------------------------------------------------------------
 void wallet2::cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::vector<std::string> & tx_device_aux)
 {
+  THROW_WALLET_EXCEPTION_IF(!wallet::has_consistent_destination_types(ptx_vector), error::wallet_internal_error,
+    "Conflicting destination address types in transaction set");
+
   auto & hwdev = get_account().get_device();
   if (!hwdev.has_tx_cold_sign()){
     throw std::invalid_argument("Device does not support cold sign protocol");
@@ -11525,8 +11556,7 @@ void wallet2::cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_
   // For robustness it would be better for both devices to distrust each other. Note that all redacted
   // info is left in plaintext in the `pending_tx` construction data, so it's unclear *why* anything
   // is redacted in the first place.
-  for (const auto &ptx : exported_txs.ptx)
-    this->sanity_check_pending_tx(ptx, true, false, std::nullopt, false);
+  this->sanity_check_pending_tx_set(exported_txs.ptx, true, false, std::nullopt, false);
 
   // Print
   for (auto &c_ptx: exported_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(c_ptx.tx));

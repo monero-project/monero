@@ -55,6 +55,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -64,6 +65,37 @@ namespace tools
 {
 namespace wallet
 {
+//-------------------------------------------------------------------------------------------------------------------
+static const std::vector<cryptonote::tx_destination_entry>& get_tx_destinations(const wallet2::tx_construction_data &tx)
+{
+    return tx.splitted_dsts;
+}
+//-------------------------------------------------------------------------------------------------------------------
+static const std::vector<cryptonote::tx_destination_entry>& get_tx_destinations(const wallet2::pending_tx &tx)
+{
+    return tx.construction_data.splitted_dsts;
+}
+//-------------------------------------------------------------------------------------------------------------------
+template<typename T>
+static bool has_consistent_destination_types_impl(const std::vector<T> &txes)
+{
+    // Keep the address type consistent across transactions, including zero-amount
+    // outputs and change, independently of how the summary subtracts change.
+    // We only care about normal vs subaddress consistency, not integrated address consistency.
+    // Keep the address type consistent across transactions, including zero-amount
+    // outputs and change.
+    // We only care about normal vs subaddress consistency, not integrated address consistency.
+    for (const auto &tx: txes)
+    {
+        for (const auto &dest: get_tx_destinations(tx))
+        {
+            const auto result = destination_types.emplace(dest.addr, dest.is_subaddress);
+            if (!result.second && result.first->second != dest.is_subaddress)
+                return false;
+        }
+    }
+    return true;
+}
 //-------------------------------------------------------------------------------------------------------------------
 static void validate_tx_outs(
     const wallet2::pending_tx &ptx,
@@ -764,6 +796,32 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
             "sanity_check_pending_tx: output amount > 2^64 - 1");
     CHECK_AND_ASSERT_THROW_MES(output_amnt == input_amnt,
             "sanity_check_pending_tx: output amount != input amount");
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool has_consistent_destination_types(const std::vector<wallet2::tx_construction_data> &txes)
+{
+    return has_consistent_destination_types_impl(txes);
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool has_consistent_destination_types(const std::vector<wallet2::pending_tx> &txes)
+{
+    return has_consistent_destination_types_impl(txes);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void sanity_check_pending_tx_set(const std::vector<wallet2::pending_tx> &ptxs,
+    const cryptonote::network_type nettype,
+    const cryptonote::account_keys &account_keys,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses,
+    const std::vector<wallet2_basic::transfer_details> &transfers,
+    const bool redacted,
+    const std::optional<std::function<const crypto::key_image(const size_t)>> &transfer_ki_resolver,
+    const bool allow_read_only)
+{
+    CHECK_AND_ASSERT_THROW_MES(has_consistent_destination_types(ptxs),
+        "sanity_check_pending_tx_set - conflicting destination address types in transaction set");
+    for (const auto &ptx: ptxs)
+        sanity_check_pending_tx(ptx, nettype, account_keys, subaddresses, transfers,
+            redacted, transfer_ki_resolver, allow_read_only);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace wallet
