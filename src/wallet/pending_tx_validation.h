@@ -52,7 +52,6 @@ namespace wallet
 // designations.
 bool has_consistent_destination_types(const std::vector<wallet2::tx_construction_data> &txes);
 bool has_consistent_destination_types(const std::vector<wallet2::pending_tx> &txes);
-
 /**
  * brief: sanity_check_pending_tx - validate `pending_tx` consistency with itself and with with `transfer_details`
  *        Assumes `ptx` version is >= v16.
@@ -82,7 +81,6 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     const bool redacted,
     const std::optional<std::function<const crypto::key_image(const size_t)>> &transfer_ki_resolver,
     const bool allow_read_only);
-
 // Checks destination type consistency across the set, then validates each pending transaction.
 void sanity_check_pending_tx_set(const std::vector<wallet2::pending_tx> &ptxs,
     const cryptonote::network_type nettype,
