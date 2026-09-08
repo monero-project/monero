@@ -7739,6 +7739,37 @@ bool wallet2::load_unsigned_tx(const std::string &unsigned_filename, unsigned_tx
   return parse_unsigned_tx_from_str(s, exported_txs);
 }
 //----------------------------------------------------------------------------------------------------
+namespace
+{
+  const std::vector<cryptonote::tx_destination_entry>& get_tx_destinations(const tools::wallet2::tx_construction_data &tx)
+  {
+    return tx.splitted_dsts;
+  }
+
+  const std::vector<cryptonote::tx_destination_entry>& get_tx_destinations(const tools::wallet2::pending_tx &tx)
+  {
+    return tx.construction_data.splitted_dsts;
+  }
+
+  template<typename T>
+  bool has_consistent_destination_types(const std::vector<T> &txes)
+  {
+    // Approval summaries group destinations by public address across the entire set.
+    // Keep the address type consistent across transactions.
+    std::unordered_map<cryptonote::account_public_address, bool> destination_types;
+    for (const auto &tx: txes)
+    {
+      for (const auto &dest: get_tx_destinations(tx))
+      {
+        const auto result = destination_types.emplace(dest.addr, dest.is_subaddress);
+        if (!result.second && result.first->second != dest.is_subaddress)
+          return false;
+      }
+    }
+    return true;
+  }
+}
+//----------------------------------------------------------------------------------------------------
 bool wallet2::parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsigned_tx_set &exported_txs) const
 {
   std::string s = unsigned_tx_st;
@@ -7822,6 +7853,9 @@ bool wallet2::parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsi
     LOG_PRINT_L0("Unsupported version in unsigned tx");
     return false;
   }
+  CHECK_AND_ASSERT_MES(has_consistent_destination_types(exported_txs.txes), false,
+    "Conflicting destination address types in transaction set");
+
   LOG_PRINT_L1("Loaded tx unsigned data from binary: " << exported_txs.txes.size() << " transactions");
 
   return true;
@@ -7843,6 +7877,9 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
 //----------------------------------------------------------------------------------------------------
 bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pending_tx> &txs, signed_tx_set &signed_txes)
 {
+  THROW_WALLET_EXCEPTION_IF(!has_consistent_destination_types(exported_txs.txes), error::wallet_internal_error,
+    "Conflicting destination address types in transaction set");
+
   if (!std::get<2>(exported_txs.new_transfers).empty())
     import_outputs(exported_txs.new_transfers);
   else if (!std::get<2>(exported_txs.transfers).empty())
@@ -8139,6 +8176,9 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
     LOG_PRINT_L0("Unsupported version in signed transaction");
     return false;
   }
+  CHECK_AND_ASSERT_MES(has_consistent_destination_types(signed_txs.ptx), false,
+    "Conflicting destination address types in transaction set");
+
   LOG_PRINT_L0("Loaded signed tx data from binary: " << signed_txs.ptx.size() << " transactions");
   for (auto &c_ptx: signed_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(c_ptx.tx));
 
@@ -8280,6 +8320,9 @@ bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx
     return false;
   }
 
+  CHECK_AND_ASSERT_MES(has_consistent_destination_types(exported_txs.m_ptx), false,
+    "Conflicting destination address types in transaction set");
+
   // sanity checks
   for (const auto &ptx: exported_txs.m_ptx)
   {
@@ -8357,6 +8400,9 @@ bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_t
 //----------------------------------------------------------------------------------------------------
 bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<crypto::hash> &txids)
 {
+  THROW_WALLET_EXCEPTION_IF(!has_consistent_destination_types(exported_txs_inout.m_ptx), error::wallet_internal_error,
+    "Conflicting destination address types in transaction set");
+
   multisig_tx_set exported_txs = exported_txs_inout;
   std::vector<crypto::hash> signed_txids;
   std::vector<std::pair<crypto::hash, size_t>> signed_tx_key_indices;
@@ -12156,6 +12202,9 @@ void wallet2::cold_tx_aux_import(const std::vector<pending_tx> & ptx, const std:
 //----------------------------------------------------------------------------------------------------
 void wallet2::cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_set &exported_txs, std::vector<cryptonote::address_parse_info> &dsts_info, std::vector<std::string> & tx_device_aux)
 {
+  THROW_WALLET_EXCEPTION_IF(!has_consistent_destination_types(ptx_vector), error::wallet_internal_error,
+    "Conflicting destination address types in transaction set");
+
   auto & hwdev = get_account().get_device();
   if (!hwdev.has_tx_cold_sign()){
     throw std::invalid_argument("Device does not support cold sign protocol");
