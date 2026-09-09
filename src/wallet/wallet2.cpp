@@ -8076,6 +8076,22 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
   LOG_PRINT_L0("Loaded signed tx data from binary: " << signed_txs.ptx.size() << " transactions");
   for (auto &c_ptx: signed_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(c_ptx.tx));
 
+  // sanity checks
+  for (const auto &ptx: signed_txs.ptx)
+  {
+    CHECK_AND_ASSERT_MES(ptx.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched selected_transfers/vin sizes");
+    std::set<size_t> selected_transfers_set{ptx.selected_transfers.begin(), ptx.selected_transfers.end()};
+    CHECK_AND_ASSERT_MES(ptx.selected_transfers.size() == selected_transfers_set.size(), false, "Transfer has duplicate indices");
+    for (size_t idx: ptx.selected_transfers)
+      CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
+    CHECK_AND_ASSERT_MES(ptx.construction_data.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched cd selected_transfers/vin sizes");
+    for (size_t idx: ptx.construction_data.selected_transfers)
+      CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
+    CHECK_AND_ASSERT_MES(ptx.construction_data.sources.size() == ptx.tx.vin.size(), false, "Mismatched sources/vin sizes");
+    CHECK_AND_ASSERT_MES(!ptx.tx.vin.empty(), false, "Tx has no inputs");
+    CHECK_AND_ASSERT_MES(!ptx.construction_data.sources.empty(), false, "Tx has no sources");
+  }
+
   if (accept_func && !accept_func(signed_txs))
   {
     LOG_PRINT_L1("Transactions rejected by callback");
@@ -8207,6 +8223,8 @@ bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx
   for (const auto &ptx: exported_txs.m_ptx)
   {
     CHECK_AND_ASSERT_MES(ptx.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched selected_transfers/vin sizes");
+    std::set<size_t> selected_transfers_set{ptx.selected_transfers.begin(), ptx.selected_transfers.end()};
+    CHECK_AND_ASSERT_MES(ptx.selected_transfers.size() == selected_transfers_set.size(), false, "Transfer has duplicate indices");
     for (size_t idx: ptx.selected_transfers)
       CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
     CHECK_AND_ASSERT_MES(ptx.construction_data.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched cd selected_transfers/vin sizes");
