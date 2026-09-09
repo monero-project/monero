@@ -6868,9 +6868,9 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   // 4. store new cache file
   // 5. remove old cache file
 
-  // handle if we want just store wallet state to current files (ex store() replacement);
-  bool same_file = had_old_wallet_files && path.empty();
-  if (had_old_wallet_files && !path.empty())
+  // Avoid canonicalizing paths when explicitly saving to the current wallet file.
+  bool same_file = had_old_wallet_files && (path.empty() || path == m_wallet_file);
+  if (had_old_wallet_files && !same_file)
   {
     const std::string canonical_old_path = boost::filesystem::canonical(m_wallet_file).string();
     const std::string canonical_new_path = boost::filesystem::weakly_canonical(path).string();
