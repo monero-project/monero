@@ -64,6 +64,7 @@
 #include "checkpoints/checkpoints.h"
 #include "cryptonote_basic/hardfork.h"
 #include "blockchain_db/blockchain_db.h"
+#include "common/recursive_shared_mutex.h"
 
 namespace tools { class Notify; }
 
@@ -1172,7 +1173,7 @@ namespace cryptonote
 
     tx_memory_pool& m_tx_pool;
 
-    mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
+    mutable tools::recursive_shared_mutex m_blockchain_lock;
 
     // main chain
     size_t m_current_block_cumul_weight_limit;

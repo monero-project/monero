@@ -37,6 +37,8 @@
 #include <boost/thread/recursive_mutex.hpp>
 #include <boost/thread/thread.hpp>
 
+#include "scope_guard.h"
+
 namespace epee
 {
 
@@ -83,6 +85,14 @@ namespace epee
 #define  CRITICAL_REGION_LOCAL1(x) { boost::this_thread::sleep_for(boost::chrono::milliseconds(epee::debug::g_test_dbg_lock_sleep()));} boost::unique_lock critical_region_var1(x)
 
 #define  CRITICAL_REGION_END() }
+
+#define RWLOCK(m_lock)                                                        \
+  m_lock.lock();                                                              \
+  const epee::scope_guard scope_exit_handler##m_lock([&](){ m_lock.unlock(); });
+
+#define RLOCK(m_lock)                                                         \
+  m_lock.lock_shared();                                                       \
+  const epee::scope_guard scope_exit_handler##m_lock([&](){ m_lock.unlock_shared(); });
 
 }
 
