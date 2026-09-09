@@ -320,7 +320,7 @@ namespace cryptonote
     res.mainnet = net_type == MAINNET;
     res.testnet = net_type == TESTNET;
     res.stagenet = net_type == STAGENET;
-    res.nettype = net_type == MAINNET ? "mainnet" : net_type == TESTNET ? "testnet" : net_type == STAGENET ? "stagenet" : "fakechain";
+    res.nettype = get_network_type_name(net_type);
     store_difficulty(m_core.get_blockchain_storage().get_db().get_block_cumulative_difficulty(res.height - 1),
         res.cumulative_difficulty, res.wide_cumulative_difficulty, res.cumulative_difficulty_top64);
     res.block_size_limit = res.block_weight_limit = m_core.get_blockchain_storage().get_current_cumulative_block_weight_limit();
@@ -2536,6 +2536,7 @@ namespace cryptonote
     res.target_height = m_p2p.get_payload_object().is_synchronized() ? 0 : m_core.get_target_blockchain_height();
     for (const auto &hf : m_core.get_blockchain_storage().get_hardforks())
        res.hard_forks.push_back({hf.version, hf.height});
+    res.nettype = get_network_type_name(nettype());
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
