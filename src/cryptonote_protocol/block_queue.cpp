@@ -62,11 +62,11 @@ void block_queue::add_blocks(uint64_t height, std::vector<cryptonote::block_comp
   }
 }
 
-void block_queue::add_blocks(uint64_t height, uint64_t nblocks, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, boost::posix_time::ptime time)
+bool block_queue::add_blocks(uint64_t height, uint64_t nblocks, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, boost::posix_time::ptime time)
 {
   CHECK_AND_ASSERT_THROW_MES(nblocks > 0, "Empty span");
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  blocks.insert(span(height, nblocks, connection_id, addr, time));
+  return blocks.insert(span(height, nblocks, connection_id, addr, time)).second;
 }
 
 void block_queue::flush_spans(const boost::uuids::uuid &connection_id, bool all)
@@ -314,8 +314,12 @@ std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_hei
     MDEBUG("span_length 0, cannot reserve");
     return std::make_pair(0, 0);
   }
+  if (!add_blocks(span_start_height, span_length, connection_id, addr, time))
+  {
+    MDEBUG("Span already starts at height " << span_start_height << ", cannot reserve");
+    return std::make_pair(0, 0);
+  }
   MDEBUG("Reserving span " << span_start_height << " - " << (span_start_height + span_length - 1) << " for " << connection_id);
-  add_blocks(span_start_height, span_length, connection_id, addr, time);
   set_span_hashes(span_start_height, connection_id, hashes);
   return std::make_pair(span_start_height, span_length);
 }
