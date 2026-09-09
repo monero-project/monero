@@ -71,7 +71,8 @@ protected:
   boost::iostreams::stream<boost::iostreams::back_insert_device<buffer_type>>* m_output_stream;
 
   // open export file for write
-  bool open_writer(const boost::filesystem::path& file_path, uint64_t start_block, uint64_t stop_block);
+  bool open_writer(const boost::filesystem::path& file_path, uint64_t start_block,
+      uint64_t stop_block, uint64_t& next_block);
   bool initialize_file(uint64_t start_block, uint64_t stop_block);
   bool close();
   void write_block(cryptonote::block& block);
@@ -79,7 +80,9 @@ protected:
 
 private:
 
-  uint64_t m_height;
+  uint64_t count_bytes(std::ifstream& import_file, const uint64_t* file_size,
+      uint64_t& file_offset, uint64_t blocks, uint64_t& h, bool& quit);
+
   uint64_t m_cur_height; // tracks current height during export
   uint32_t m_max_chunk;
 };
