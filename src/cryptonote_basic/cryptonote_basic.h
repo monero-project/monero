@@ -258,7 +258,7 @@ namespace cryptonote
 
         ar.tag("signatures");
         ar.begin_array();
-        PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures);
+        PREPARE_CUSTOM_VECTOR_SERIALIZATION(vin.size(), signatures, 0);
         bool signatures_not_expected = signatures.empty();
         if (!signatures_not_expected && vin.size() != signatures.size())
           return false;
@@ -274,7 +274,7 @@ namespace cryptonote
               return false;
           }
 
-          PREPARE_CUSTOM_VECTOR_SERIALIZATION(signature_size, signatures[i]);
+          PREPARE_CUSTOM_VECTOR_SERIALIZATION(signature_size, signatures[i], sizeof(crypto::signature));
           if (signature_size != signatures[i].size())
             return false;
 
