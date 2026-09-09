@@ -76,21 +76,44 @@ static const std::vector<cryptonote::tx_destination_entry>& get_tx_destinations(
     return tx.construction_data.splitted_dsts;
 }
 //-------------------------------------------------------------------------------------------------------------------
-template<typename T>
-static bool has_consistent_destination_types_impl(const std::vector<T> &txes)
+static const std::vector<cryptonote::tx_source_entry>& get_tx_sources(const wallet2::tx_construction_data &tx)
 {
-    // We only care about normal vs subaddress consistency, not integrated address consistency.
-    // Keep the address type consistent across transactions, including zero-amount
-    // outputs and change.
-    // We only care about normal vs subaddress consistency, not integrated address consistency.
+    return tx.sources;
+}
+//-------------------------------------------------------------------------------------------------------------------
+static const std::vector<cryptonote::tx_source_entry>& get_tx_sources(const wallet2::pending_tx &tx)
+{
+    return tx.construction_data.sources;
+}
+//-------------------------------------------------------------------------------------------------------------------
+template<typename T>
+static bool check_consistent_ins_outs_impl(const std::vector<T> &txes)
+{
+    std::unordered_set<rct::key> seen_ins;
     std::unordered_map<cryptonote::account_public_address, bool> destination_types{};
     for (const auto &tx: txes)
     {
+        // Inputs
+        for (const auto &src: get_tx_sources(tx))
+        {
+            CHECK_AND_ASSERT_THROW_MES(src.real_output < src.outputs.size(),
+                "has_consistent_ins_outs: ring sig index " << src.real_output << " out of input set size "
+                << src.outputs.size());
+            const auto &dest = src.outputs[src.real_output].second.dest;
+            const auto result = seen_ins.emplace(dest);
+            CHECK_AND_ASSERT_THROW_MES(result.second,
+                "has_consistent_ins_outs: duplicate input pubkey");
+        }
+
+        // Outputs
+        // Keep the address type consistent across transactions, including zero-amount
+        // outputs and change.
+        // We only care about normal vs subaddress consistency, not integrated address consistency.
         for (const auto &dest: get_tx_destinations(tx))
         {
             const auto result = destination_types.emplace(dest.addr, dest.is_subaddress);
-            if (!result.second && result.first->second != dest.is_subaddress)
-                return false;
+            CHECK_AND_ASSERT_THROW_MES(result.second && result.first->second == dest.is_subaddress,
+                "has_consistent_ins_outs: duplicate input pubkey");
         }
     }
     return true;
@@ -426,7 +449,7 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
         }
         // We check for duplicate onetime addr instead of selected_transfer in case of transfers with
         // the same destination. Note that we assume `transfers` is sanitized of non-canonical pubkey representations.
-        CHECK_AND_ASSERT_THROW_MES(seen_ins.count(transfer_pkey) != 0,
+        CHECK_AND_ASSERT_THROW_MES(seen_ins.count(transfer_pkey) == 0,
             "sanity_check_pending_tx: duplicate input pubkey");
         seen_ins.insert(transfer_pkey);
     }
@@ -804,14 +827,14 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
             "sanity_check_pending_tx: output amount != input amount");
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool has_consistent_destination_types(const std::vector<wallet2::tx_construction_data> &txes)
+void check_consistent_ins_outs(const std::vector<wallet2::tx_construction_data> &txes)
 {
-    return has_consistent_destination_types_impl(txes);
+    check_consistent_ins_outs_impl(txes);
 }
 //-------------------------------------------------------------------------------------------------------------------
-bool has_consistent_destination_types(const std::vector<wallet2::pending_tx> &txes)
+void check_consistent_ins_outs(const std::vector<wallet2::pending_tx> &txes)
 {
-    return has_consistent_destination_types_impl(txes);
+    check_consistent_ins_outs_impl(txes);
 }
 //-------------------------------------------------------------------------------------------------------------------
 void sanity_check_pending_tx_set(const std::vector<wallet2::pending_tx> &ptxs,
@@ -823,11 +846,13 @@ void sanity_check_pending_tx_set(const std::vector<wallet2::pending_tx> &ptxs,
     const std::optional<std::function<const crypto::key_image(const size_t)>> &transfer_ki_resolver,
     const bool allow_read_only)
 {
-    CHECK_AND_ASSERT_THROW_MES(has_consistent_destination_types(ptxs),
-        "sanity_check_pending_tx_set - conflicting destination address types in transaction set");
+    check_consistent_ins_outs(ptxs);
+
     for (const auto &ptx: ptxs)
+    {
         sanity_check_pending_tx(ptx, nettype, account_keys, subaddresses, transfers,
             redacted, transfer_ki_resolver, allow_read_only);
+    }
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace wallet
