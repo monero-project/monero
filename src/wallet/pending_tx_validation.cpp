@@ -402,11 +402,13 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     // - For SOME REASON, construction data sources are not always in the same order as inputs, so we need to fix that
     auto sources_ordered = construct.sources;
     std::vector<size_t> ins_order;
+    std::unordered_set<crypto::public_key> seen_ins;
     for (const size_t selected_transfer : ptx.selected_transfers)
     {
         CHECK_AND_ASSERT_THROW_MES(selected_transfer < transfers.size(),
             "sanity_check_pending_tx: invalid transfers index");
         const auto &transfer = transfers.at(selected_transfer);
+        const auto transfer_pkey = transfer.get_public_key();
         for (size_t i = 0; i < sources_ordered.size(); ++i)
         {
             const auto &src = sources_ordered.at(i);
@@ -417,11 +419,16 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
             // 'index in global array of same-amount outputs'.
             if (src.outputs[src.real_output].first != transfer.m_global_output_index
                 || src.amount != transfer.m_amount
-                || src.outputs[src.real_output].second.dest != rct::pk2rct(transfer.get_public_key()))
+                || src.outputs[src.real_output].second.dest != rct::pk2rct(transfer_pkey))
                 continue;
             ins_order.push_back(i);
             break;
         }
+        // We check for duplicate onetime addr instead of selected_transfer in case of transfers with
+        // the same destination. Note that we assume `transfers` is sanitized of non-canonical pubkey representations.
+        CHECK_AND_ASSERT_THROW_MES(seen_ins.count(transfer_pkey) != 0,
+            "sanity_check_pending_tx: duplicate input pubkey");
+        seen_ins.insert(transfer_pkey);
     }
     CHECK_AND_ASSERT_THROW_MES(ins_order.size() == sources_ordered.size(),
         "sanity_check_pending_tx: global index mismatch between sources and tx");
