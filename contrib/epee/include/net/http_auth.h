@@ -30,8 +30,12 @@
 #include <boost/optional/optional.hpp>
 #include <boost/utility/string_ref.hpp>
 #include <cstdint>
+#include <ctime>
 #include <functional>
+#include <list>
+#include <mutex>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include "wipeable_string.h"
 #include "http_base.h"
@@ -62,13 +66,33 @@ namespace net_utils
     public:
       struct session
       {
+        struct nonce_state
+        {
+          nonce_state() : counter(0), created(0), created_order(), cache_order(), used(false) {}
+          nonce_state(
+            std::time_t created_,
+            std::list<std::string>::iterator created_order_,
+            std::list<std::string>::iterator cache_order_
+          )
+            : counter(0), created(created_), created_order(created_order_), cache_order(cache_order_), used(false)
+          {}
+
+          std::uint32_t counter;
+          std::time_t created;
+          std::list<std::string>::iterator created_order;
+          std::list<std::string>::iterator cache_order;
+          bool used;
+        };
+
         session(login credentials_)
-          : credentials(std::move(credentials_)), nonce(), counter(0)
+          : credentials(std::move(credentials_)), nonces(), created_nonce_order(), unused_nonce_order(), used_nonce_order()
         {}
 
         login credentials;
-        std::string nonce;
-        std::uint32_t counter;
+        std::unordered_map<std::string, nonce_state> nonces;
+        std::list<std::string> created_nonce_order;
+        std::list<std::string> unused_nonce_order;
+        std::list<std::string> used_nonce_order;
       };
 
       http_server_auth() : user(), rng() {}
@@ -88,6 +112,7 @@ namespace net_utils
       boost::optional<session> user;
 
       std::function<void(size_t, uint8_t*)> rng;
+      std::mutex mutex;
     };
 
     //! Implements RFC 2617 digest auth. Digests from RFC 7616 can be added.
