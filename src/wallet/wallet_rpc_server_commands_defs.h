@@ -212,11 +212,13 @@ namespace wallet_rpc
       uint32_t    account_index;
       uint32_t    count;
       std::string label;
+      bool        flush;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
         KV_SERIALIZE_OPT(count, 1U)
         KV_SERIALIZE(label)
+        KV_SERIALIZE_OPT(flush, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

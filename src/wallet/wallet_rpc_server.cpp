@@ -766,6 +766,8 @@ namespace tools
     CHECK_IF_RESTRICTED_BACKGROUND_SYNCING();
     try
     {
+      if (!m_wallet) return not_open(er);
+
       if (req.count < 1 || req.count > 65536) {
         er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
         er.message = "Count must be between 1 and 65536.";
@@ -789,6 +791,9 @@ namespace tools
       res.address_index = address_indices[0];
       res.addresses = addresses;
       res.address_indices = address_indices;
+
+      if (req.flush)
+        m_wallet->store();
     }
     catch (const std::exception& e)
     {

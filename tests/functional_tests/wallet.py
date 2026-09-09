@@ -52,6 +52,7 @@ class WalletTest():
       self.languages()
       self.change_password()
       self.store()
+      self.create_address_flush();
 
     def reset(self):
         print('Resetting blockchain')
@@ -385,6 +386,48 @@ class WalletTest():
 
         util_resources.remove_wallet_files('test1')
 
+    def create_address_flush(self):
+        print('Testing create_address durability (flush parameter)')
+        wallet = Wallet()
+
+        try: wallet.close_wallet()
+        except: pass
+
+        util_resources.remove_wallet_files('test_flush')
+
+        seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
+        wallet.restore_deterministic_wallet(seed = seed, filename = 'test_flush')
+
+        res = wallet.get_address(0)
+        baseline = len(res.addresses)
+
+        # 1) create_address WITHOUT flush: the new index must NOT survive
+        #    a close that explicitly skips the autosave.
+        res = wallet.create_address(0, "no_flush")
+        assert res.address_index == baseline, res
+
+        wallet.close_wallet(autosave_current = False)
+        wallet.open_wallet(filename = 'test_flush', password = '')
+
+        res = wallet.get_address(0)
+        assert len(res.addresses) == baseline, \
+            "unflushed create_address should not persist across a discard-on-close"
+
+        # 2) create_address WITH flush=True: the new index MUST survive
+        #    the same discard-on-close.
+        res = wallet.create_address(0, "flushed", flush = True)
+        assert res.address_index == baseline, res
+
+        wallet.close_wallet(autosave_current = False)
+        wallet.open_wallet(filename = 'test_flush', password = '')
+
+        res = wallet.get_address(0)
+        assert len(res.addresses) == baseline + 1, \
+            "flush=True create_address must be durable across a discard-on-close"
+        assert res.addresses[baseline].label == "flushed", res
+
+        wallet.close_wallet()
+        util_resources.remove_wallet_files('test_flush')
 
 if __name__ == '__main__':
     WalletTest().run_test()
