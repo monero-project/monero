@@ -248,7 +248,7 @@ boost::asio::ssl::context ssl_options_t::create_context() const
       break;
     case ssl_verification_t::user_certificates:
       ssl_context.set_verify_depth(0);
-      /* fallthrough */
+      [[fallthrough]];
     case ssl_verification_t::user_ca:
       if (!ca_path.empty())
       {

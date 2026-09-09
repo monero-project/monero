@@ -12973,10 +12973,9 @@ std::string wallet2::sign(const std::string &data, message_signature_type_t sign
 
 tools::wallet2::message_signature_result_t wallet2::verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const
 {
-  static const size_t v1_header_len = strlen("SigV1");
-  static const size_t v2_header_len = strlen("SigV2");
-  const bool v1 = signature.size() >= v1_header_len && signature.substr(0, v1_header_len) == "SigV1";
-  const bool v2 = signature.size() >= v2_header_len && signature.substr(0, v2_header_len) == "SigV2";
+  static const size_t header_len = strlen("SigV1");
+  const bool v1 = signature.size() >= header_len && signature.substr(0, header_len) == "SigV1";
+  const bool v2 = signature.size() >= header_len && signature.substr(0, header_len) == "SigV2";
   if (!v1 && !v2)
   {
     LOG_PRINT_L0("Signature header check error");
@@ -12988,7 +12987,7 @@ tools::wallet2::message_signature_result_t wallet2::verify(const std::string &da
     crypto::cn_fast_hash(data.data(), data.size(), hash);
   }
   std::string decoded;
-  if (!tools::base58::decode(signature.substr(v1 ? v1_header_len : v2_header_len), decoded)) {
+  if (!tools::base58::decode(signature.substr(header_len), decoded)) {
     LOG_PRINT_L0("Signature decoding error");
     return {};
   }

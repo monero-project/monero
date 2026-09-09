@@ -47,6 +47,7 @@ namespace
 class TestDB: public cryptonote::BaseTestDB {
 public:
   virtual uint64_t height() const override { return blocks.size(); }
+  using cryptonote::BaseTestDB::add_block;
   virtual void add_block( const block& blk
                         , size_t block_weight
                         , uint64_t long_term_block_weight
