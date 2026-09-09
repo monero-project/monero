@@ -884,6 +884,7 @@ bool bulletproof_VERIFY(const std::vector<const Bulletproof*> &proofs)
   }
   CHECK_AND_ASSERT_MES(max_length < 32, false, "At least one proof is too large");
   size_t maxMN = 1u << max_length;
+  CHECK_AND_ASSERT_MES(maxMN <= maxN*maxM, false, "Proof inner-product length exceeds the generator table");
 
   rct::key tmp;
 
