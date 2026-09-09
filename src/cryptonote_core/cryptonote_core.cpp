@@ -124,9 +124,9 @@ namespace cryptonote
   , "Set maximum size of block download queue in bytes (0 for default)"
   , 0
   };
-  const command_line::arg_descriptor<size_t> arg_span_limit  = {
-    "span-limit"
-  , "Defines how many minutes of block synchronization data to request at a time (default is 2 minutes)"
+  const command_line::arg_descriptor<size_t> arg_block_sync_queue_time  = {
+    "block-sync-queue-time"
+  , "Target duration of block synchronization data to keep queued, in minutes (default is 2 minutes)"
   , 2
   };
   const command_line::arg_descriptor<bool> arg_sync_pruned_blocks  = {
@@ -326,7 +326,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_offline);
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_block_download_max_size);
-    command_line::add_arg(desc, arg_span_limit);
+    command_line::add_arg(desc, arg_block_sync_queue_time);
     command_line::add_arg(desc, arg_sync_pruned_blocks);
     command_line::add_arg(desc, arg_max_txpool_weight);
     command_line::add_arg(desc, arg_block_notify);
@@ -941,7 +941,8 @@ namespace cryptonote
              << " bytes and the max average blocksize in the queue is " << max_average_of_blocksize_in_queue << " bytes");
       uint64_t projected_blocksize = std::max(max_average_of_blocksize_in_queue, max_weight);
       uint64_t blocks_huge_threshold = (batch_max_weight / 2);
-      if ((projected_blocksize * BLOCKS_MAX_WINDOW) < batch_max_weight)
+      // batch_max_weight is positive; compare without overflowing the projected batch weight.
+      if (projected_blocksize <= (batch_max_weight - 1) / BLOCKS_MAX_WINDOW)
       {
         res = BLOCKS_MAX_WINDOW;
         MINFO("blocks are tiny, " << projected_blocksize << " bytes, sync " << res << " blocks in next batch");
@@ -1900,6 +1901,11 @@ namespace cryptonote
   bool core::has_block_weights(uint64_t height, uint64_t nblocks) const
   {
     return get_blockchain_storage().has_block_weights(height, nblocks);
+  }
+  //-----------------------------------------------------------------------------------------------
+  uint64_t core::get_prevalidated_block_weight(uint64_t height) const
+  {
+    return get_blockchain_storage().get_prevalidated_block_weight(height);
   }
   //-----------------------------------------------------------------------------------------------
   std::time_t core::get_start_time() const

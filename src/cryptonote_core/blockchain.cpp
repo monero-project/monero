@@ -4867,6 +4867,14 @@ bool Blockchain::has_block_weights(uint64_t height, uint64_t nblocks) const
   return true;
 }
 
+uint64_t Blockchain::get_prevalidated_block_weight(uint64_t height) const
+{
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  if (height >= m_blocks_hash_check.size())
+    return 0;
+  return m_blocks_hash_check[height].second;
+}
+
 //------------------------------------------------------------------
 // ND: Speedups:
 // 1. Thread long_hash computations if possible (m_max_prepare_blocks_threads = nthreads, default = 4)

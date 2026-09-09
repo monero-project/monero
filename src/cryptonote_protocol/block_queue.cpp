@@ -434,6 +434,45 @@ size_t block_queue::get_num_filled_spans() const
   return size;
 }
 
+uint64_t block_queue::get_num_filled_blocks() const
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  uint64_t size = 0;
+  for (const auto &span: blocks)
+  {
+    if (!span.blocks.empty())
+      size += span.nblocks;
+  }
+  return size;
+}
+
+uint64_t block_queue::get_max_block_size_average() const
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  uint64_t max_average = 0;
+  for (const auto &span: blocks)
+  {
+    if (span.blocks.empty())
+      continue;
+
+    uint64_t span_size = 0;
+    for (const block_complete_entry &entry: span.blocks)
+    {
+      uint64_t block_size = entry.block.size();
+      for (const tx_blob_entry &tx: entry.txs)
+      {
+        const uint64_t tx_size = tx.blob.size();
+        block_size += std::min(tx_size, std::numeric_limits<uint64_t>::max() - block_size);
+      }
+      if (entry.pruned)
+        block_size = std::max(block_size, entry.block_weight);
+      span_size += std::min(block_size, std::numeric_limits<uint64_t>::max() - span_size);
+    }
+    max_average = std::max(max_average, span_size / span.nblocks);
+  }
+  return max_average;
+}
+
 float block_queue::get_speed(const boost::uuids::uuid &connection_id) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);

@@ -1139,6 +1139,12 @@ namespace cryptonote
     bool has_block_weights(uint64_t height, uint64_t nblocks) const;
 
     /**
+     * @brief returns the prevalidated block weight
+     * @return the prevalidated weight, or zero if unavailable
+     */
+    uint64_t get_prevalidated_block_weight(uint64_t height) const;
+
+    /**
      * @brief flush the invalid blocks set
      */
     void flush_invalid_blocks();
