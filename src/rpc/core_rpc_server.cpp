@@ -99,6 +99,12 @@ namespace
   {
     store_128(difficulty, sdiff, swdiff, stop64);
   }
+
+  std::size_t default_rpc_threads_count()
+  {
+    const unsigned int hw_concurrency = boost::thread::hardware_concurrency();
+    return std::min<std::size_t>(hw_concurrency > 0 ? hw_concurrency : 4, 8);
+  }
 } //anonymous namespace
 
 namespace cryptonote
@@ -115,6 +121,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_rpc_max_connections_per_private_ip);
     command_line::add_arg(desc, arg_rpc_max_connections);
     command_line::add_arg(desc, arg_rpc_response_soft_limit);
+    command_line::add_arg(desc, arg_rpc_threads);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   core_rpc_server::core_rpc_server(
@@ -3128,5 +3135,11 @@ namespace cryptonote
       "rpc-response-soft-limit"
     , "Max response bytes that can be queued, enforced at next response attempt"
     , DEFAULT_RPC_SOFT_LIMIT_SIZE
+  };
+
+  const command_line::arg_descriptor<std::size_t> core_rpc_server::arg_rpc_threads = {
+      "rpc-threads"
+    , "Number of threads to use for the RPC server"
+    , default_rpc_threads_count()
   };
 }  // namespace cryptonote
