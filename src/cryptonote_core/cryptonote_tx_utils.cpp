@@ -51,41 +51,30 @@ using namespace epee;
 using namespace crypto;
 
 
-namespace
-{
-//---------------------------------------------------------------
-/**
- * @brief check if can re-derive change address from device / keys
- * @param change_addr address to attempt to re-derive
- * @param subaddresses subaddress map
- * @param keys account keys of sender
- * @return subaddress index of `change_addr` if in the subaddress map and re-derives from device, otherwise nullopt
- */
-std::optional<cryptonote::subaddress_index> sanity_check_change_address(
-  const cryptonote::account_public_address& change_addr,
-  const std::unordered_map<crypto::public_key, cryptonote::subaddress_index>& subaddresses,
-  const cryptonote::account_keys &keys
-)
-{
-  // guess/find subaddress index of `change_addr`, works for main addresses if `subaddresses` is empty
-  cryptonote::subaddress_index subaddr_index{}; // (0, 0) by default
-  const auto subaddr_it = subaddresses.find(change_addr.m_spend_public_key);
-  if (subaddr_it != subaddresses.cend())
-    subaddr_index = subaddr_it->second;
-
-  // if device does not return same address given index, then fail
-  hw::device &hwdev = keys.get_device();
-  const auto recomputed_addr = hwdev.get_subaddress(keys, subaddr_index);
-  if (change_addr != recomputed_addr)
-    return std::nullopt;
-
-  return {subaddr_index};
-}
-//---------------------------------------------------------------
-} //anonymous namespace
 
 namespace cryptonote
 {
+  //---------------------------------------------------------------
+  std::optional<cryptonote::subaddress_index> sanity_check_change_address(
+    const cryptonote::account_public_address& change_addr,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index>& subaddresses,
+    const cryptonote::account_keys &keys
+  )
+  {
+    // guess/find subaddress index of `change_addr`, works for main addresses if `subaddresses` is empty
+    cryptonote::subaddress_index subaddr_index{}; // (0, 0) by default
+    const auto subaddr_it = subaddresses.find(change_addr.m_spend_public_key);
+    if (subaddr_it != subaddresses.cend())
+      subaddr_index = subaddr_it->second;
+
+    // if device does not return same address given index, then fail
+    hw::device &hwdev = keys.get_device();
+    const auto recomputed_addr = hwdev.get_subaddress(keys, subaddr_index);
+    if (change_addr != recomputed_addr)
+      return std::nullopt;
+
+    return {subaddr_index};
+  }
   //---------------------------------------------------------------
   void classify_addresses(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::account_public_address>& change_addr, size_t &num_stdaddresses, size_t &num_subaddresses, account_public_address &single_dest_subaddress)
   {
