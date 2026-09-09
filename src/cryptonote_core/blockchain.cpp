@@ -148,6 +148,8 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
   std::vector<uint64_t> absolute_offsets = relative_output_offsets_to_absolute(tx_in_to_key.key_offsets);
   std::vector<output_data_t> outputs;
 
+  // We check the m_scan_table cache, but note it may not have the entry.
+  // We have to read the db in that case.
   bool found = false;
   auto it = m_scan_table.find(tx_prefix_hash);
   if (it != m_scan_table.end())
@@ -5047,6 +5049,14 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
   std::map<uint64_t, std::vector<output_data_t>> tx_map;
   std::vector<std::pair<cryptonote::transaction, crypto::hash>> txes(total_txs);
 
+  // We want to target max memory usage for offsets here to 100mb. We'll have output_data_t
+  // per offset in memory for m_scan_table and tx_map (hence the 2*sizeof(output_data_t)).
+  // If m_scan_table doesn't have an offset entry while handling an incoming block, that's
+  // ok. It should cache miss and just do the db read(s) when handling the block.
+  // Note: we might go over the target max offsets a little, but that's ok.
+  // TODO: return early once we're past the FCMP++ fork.
+  constexpr std::size_t TARGET_MAX_OFFSETS_FOR_SCAN_TABLE_CACHE = 100000000/*100MB*/ / (2*sizeof(output_data_t));
+
 #define SCAN_TABLE_QUIT(m) \
         do { \
             MERROR_VER(m) ;\
@@ -5056,10 +5066,13 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
   // generate sorted tables for all amounts and absolute offsets
   size_t tx_index = 0;
+  size_t n_total_offsets = 0;
   for (const auto &entry : blocks_entry)
   {
     if (m_cancel)
       return false;
+    if (n_total_offsets >= TARGET_MAX_OFFSETS_FOR_SCAN_TABLE_CACHE)
+      break;
 
     for (const auto &tx_blob : entry.txs)
     {
@@ -5102,8 +5115,16 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
         // no need to check for duplicate here.
         auto absolute_offsets = relative_output_offsets_to_absolute(in_to_key.key_offsets);
         for (const auto & offset : absolute_offsets)
+        {
           offset_map[in_to_key.amount].push_back(offset);
+          ++n_total_offsets;
+        }
+      }
 
+      if (n_total_offsets >= TARGET_MAX_OFFSETS_FOR_SCAN_TABLE_CACHE)
+      {
+        MWARNING("Preparing large batch to sync, we exceeded our cache limit");
+        break;
       }
     }
   }
@@ -5148,10 +5169,13 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
   // now generate a table for each tx_prefix and k_image hashes
   tx_index = 0;
+  bool reached_end_of_cache = false;
   for (const auto &entry : blocks_entry)
   {
     if (m_cancel)
       return false;
+    if (reached_end_of_cache)
+      break;
 
     for (size_t i = 0; i < entry.txs.size(); ++i)
     {
@@ -5163,7 +5187,10 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
       auto its = m_scan_table.find(tx_prefix_hash);
       if (its == m_scan_table.end())
-        SCAN_TABLE_QUIT("Tx not found on scan table from incoming blocks.");
+      {
+        reached_end_of_cache = true;
+        break;
+      }
 
       for (const auto &txin : tx.vin)
       {
