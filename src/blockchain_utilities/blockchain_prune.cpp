@@ -78,7 +78,7 @@ static void open(MDB_env *&env, const boost::filesystem::path &path, uint64_t db
     flags |= MDB_RDONLY;
 
   dbr = mdb_env_create(&env);
-  if (dbr) throw std::runtime_error("Failed to create LDMB environment: " + std::string(mdb_strerror(dbr)));
+  if (dbr) throw std::runtime_error("Failed to create LMDB environment: " + std::string(mdb_strerror(dbr)));
   dbr = mdb_env_set_maxdbs(env, 32);
   if (dbr) throw std::runtime_error("Failed to set max env dbs: " + std::string(mdb_strerror(dbr)));
   dbr = mdb_env_open(env, path.string().c_str(), flags, 0664);
