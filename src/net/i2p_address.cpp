@@ -31,7 +31,10 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <string_view>
+#include <vector>
 
+#include "common/base32.h"
 #include "net/error.h"
 #include "net/host.h"
 #include "serialization/keyvalue_serialization.h"
@@ -41,9 +44,6 @@ namespace net
 {
     namespace
     {
-        constexpr const char base32_alphabet[] =
-            u8"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz234567";
-
         //! Validate a Base32 address (.b32.i2p)
         expect<void> host_check_b32(boost::string_ref host) noexcept
         {
@@ -54,7 +54,9 @@ namespace net
 
             if (host.size() != b32_length)
                 return {net::error::invalid_i2p_address};
-            if (host.find_first_not_of(base32_alphabet) != boost::string_ref::npos)
+
+            std::vector<std::uint8_t> decoded{};
+            if (!tools::base32::decode(std::string_view{host.data(), host.size()}, decoded))
                 return {net::error::invalid_i2p_address};
 
             return success();

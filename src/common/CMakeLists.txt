@@ -29,6 +29,7 @@
 include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 
 set(common_sources
+  base32.cpp
   base58.cpp
   command_line.cpp
   dns_utils.cpp
