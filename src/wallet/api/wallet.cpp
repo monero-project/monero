@@ -2263,12 +2263,25 @@ std::string WalletImpl::signMessage(const std::string &message, const std::strin
 
 bool WalletImpl::verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const
 {
+  return verifySignedMessageWithDetails(message, address, signature).valid;
+}
+
+Wallet::MessageSignatureResult WalletImpl::verifySignedMessageWithDetails(const std::string &message, const std::string &address, const std::string &signature) const
+{
   cryptonote::address_parse_info info;
 
   if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), address))
-    return false;
+    return {};
 
-  return m_wallet->verify(message, info.address, signature).valid;
+  const tools::wallet2::message_signature_result_t result = m_wallet->verify(message, info.address, signature);
+  MessageSignatureType type = MessageSignatureType_Invalid;
+  switch (result.type)
+  {
+    case tools::wallet2::sign_with_spend_key: type = MessageSignatureType_Spend; break;
+    case tools::wallet2::sign_with_view_key: type = MessageSignatureType_View; break;
+    default: break;
+  }
+  return {result.valid, result.version, result.old, type};
 }
 
 std::string WalletImpl::signMultisigParticipant(const std::string &message) const
