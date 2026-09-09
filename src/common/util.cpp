@@ -31,19 +31,16 @@
 #include <unistd.h>
 #include <cstdio>
 #include <wchar.h>
+#include <string>
 
-#ifdef __GLIBC__
+#if defined(_POSIX_VERSION)
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
-#include <dirent.h>
-#include <string.h>
-#include <ctype.h>
-#include <string>
 #endif
 
 //tools::is_hdd
-#ifdef __GLIBC__
+#if defined(__linux__)
   #include <sstream>
   #include <sys/sysmacros.h>
   #include <fstream>
@@ -503,7 +500,7 @@ namespace tools
 
   bool disable_core_dumps()
   {
-#ifdef __GLIBC__
+#if defined(_POSIX_VERSION)
     // disable core dumps in release mode
     struct rlimit rlimit;
     rlimit.rlim_cur = rlimit.rlim_max = 0;
@@ -518,7 +515,7 @@ namespace tools
 
   ssize_t get_lockable_memory()
   {
-#ifdef __GLIBC__
+#if defined(_POSIX_VERSION)
     struct rlimit rlim;
     if (getrlimit(RLIMIT_MEMLOCK, &rlim) < 0)
     {
@@ -562,7 +559,7 @@ namespace tools
 
   boost::optional<bool> is_hdd(const char *file_path)
   {
-#ifdef __GLIBC__
+#if defined(__linux__)
     struct stat st;
     std::string prefix;
     if(stat(file_path, &st) == 0)
@@ -790,7 +787,7 @@ namespace tools
 #if defined __FreeBSD__ || defined __OpenBSD__ || defined __NetBSD__ || defined __DragonFly__
     ::closefrom(fd);
 #else
-#if defined __GLIBC__
+#if defined(_POSIX_VERSION)
     const int sc_open_max =  sysconf(_SC_OPEN_MAX);
     const int MAX_FDS = std::min(65536, sc_open_max);
 #else
