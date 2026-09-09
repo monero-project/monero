@@ -53,6 +53,28 @@ used in isolation or together. The `--proxy` option controls how
 IPv4/IPv6/hostname connections are performed, whereas `--tx-proxy` controls
 how local transactions are relayed. Both options support Socks 4, 4a, and 5.
 
+The optional `--tor-stream-isolation` flag puts normal `--proxy` traffic into
+isolated Tor circuits. Stream isolation is always enabled for Tor `--tx-proxy`.
+When both proxy options use the same Tor instance, `monerod` assigns a different
+SOCKS5 isolation token to each traffic class. Connections within a traffic class
+reuse its token, so this does not request a new Tor circuit for every peer. Tor
+can still rotate or create additional circuits according to its own policy.
+
+Stream isolation requires each affected proxy to use an explicit `socks5://`
+scheme without user-supplied credentials. Because it is always enabled for Tor
+`--tx-proxy`, a Tor transaction proxy accepts only an explicit, unauthenticated
+SOCKS5 endpoint. Invalid combinations cause `monerod` to fail at startup. The
+flag does not affect I2P `--tx-proxy` traffic.
+
+For example:
+
+```
+monerod \
+  --tor-stream-isolation \
+  --proxy socks5://127.0.0.1:9050 \
+  --tx-proxy tor,socks5://127.0.0.1:9050,10
+```
+
 ### `--proxy`
 This option should be used when outbound connections to IPv4/IPv6 addresses and
 hostnames  (other than `.onion` `.i2p`) need to be proxied. Common examples
@@ -70,7 +92,8 @@ The format for `--proxy` usage: `[socks5://[user:pass]]@127.0.0.1`. The square
 bracket indicate optional portion. See [wallet](#wallet) section above for
 examples and other information on the format. The option can only be specified
 once. The restrictions for MitM attacks apply only to the wallet usage, and not
-to the daemon.
+to the daemon. When `--tor-stream-isolation` is enabled, the `socks5://` scheme
+is required and the optional username and password must not be specified.
 
 > When using `--proxy`, inbound connections will be impossible unless the
 > proxy server is somehow setup to forward connections. This setup is a
@@ -88,30 +111,14 @@ The format for `--tx-proxy` is
 Examples:
 
 ```
---tx-proxy tor,127.0.0.1:1050
---tx-proxy tor,127.0.0.1:1050,100
---tx-proxy tor,127.0.0.1:1050,disable_noise
---tx-proxy tor,127.0.0.1:1050,100,disable_noise
 --tx-proxy tor,socks5://127.0.0.1:1050
 --tx-proxy tor,socks5://127.0.0.1:1050,100
 --tx-proxy tor,socks5://127.0.0.1:1050,disable_noise
 --tx-proxy tor,socks5://127.0.0.1:1050,100,disable_noise
---tx-proxy tor,socks5://username:password@127.0.0.1:1050
---tx-proxy tor,socks5://username:password@127.0.0.1:1050,100
---tx-proxy tor,socks5://username:password@127.0.0.1:1050,disable_noise
---tx-proxy tor,socks5://username:password@127.0.0.1:1050,100,disable_noise
---tx-proxy tor,[::1]:1050
---tx-proxy tor,[::1]:1050,100
---tx-proxy tor,[::1]:1050,disable_noise
---tx-proxy tor,[::1]:1050,100,disable_noise
 --tx-proxy tor,socks5://[::1]:1050
 --tx-proxy tor,socks5://[::1]:1050,100
 --tx-proxy tor,socks5://[::1]:1050,disable_noise
 --tx-proxy tor,socks5://[::1]:1050,100,disable_noise
---tx-proxy tor,socks5://username:password@[::1]:1050
---tx-proxy tor,socks5://username:password@[::1]:1050,100
---tx-proxy tor,socks5://username:password@[::1]:1050,disable_noise
---tx-proxy tor,socks5://username:password@[::1]:1050,100,disable_noise
 --tx-proxy i2p,127.0.0.1:1050
 --tx-proxy i2p,127.0.0.1:1050,100
 --tx-proxy i2p,127.0.0.1:1050,disable_noise
@@ -158,8 +165,11 @@ in the next `,`) indicates the location of the socks server. The location
 socks version  - `socks4`, `socks4a`, and `socks5` are all valid here. If
 the socks version is not specified, `socks4a` is assumed.
 
-An optional username and password can also be included. These fields support
-percent-encoding, see [wallet](#wallet) section for more information.
+For I2P, an optional username and password can also be included. These fields
+support percent-encoding; see the [wallet](#wallet) section for more
+information. Tor requires the explicit `socks5://` scheme and does not accept
+user-supplied credentials because stream isolation is always enabled for Tor
+`--tx-proxy`.
 
 #### The last portion of the option
 After the ip:port section two options can be specified: the number of max
