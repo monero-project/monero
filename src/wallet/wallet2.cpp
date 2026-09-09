@@ -8204,7 +8204,7 @@ bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx
   }
 
   // sanity checks
-  for (const auto &ptx: exported_txs.m_ptx)
+  for (auto &ptx: exported_txs.m_ptx)
   {
     CHECK_AND_ASSERT_MES(ptx.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched selected_transfers/vin sizes");
     for (size_t idx: ptx.selected_transfers)
@@ -8215,6 +8215,18 @@ bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx
     CHECK_AND_ASSERT_MES(ptx.construction_data.sources.size() == ptx.tx.vin.size(), false, "Mismatched sources/vin sizes");
     CHECK_AND_ASSERT_MES(!ptx.tx.vin.empty(), false, "Multisig tx has no inputs");
     CHECK_AND_ASSERT_MES(!ptx.construction_data.sources.empty(), false, "Multisig tx has no sources");
+
+    const tools::wallet2::tx_construction_data &sd = ptx.construction_data;
+    ptx.fee = 0;
+    for (const auto &i: sd.sources)
+      ptx.fee += i.amount;
+    for (const auto &i: sd.splitted_dsts)
+      ptx.fee -= i.amount;
+    ptx.dust = 0;
+    ptx.dust_added_to_fee = false;
+    ptx.change_dts = sd.change_dts;
+    ptx.selected_transfers = sd.selected_transfers;
+    ptx.dests = sd.dests;
   }
 
   return true;

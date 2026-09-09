@@ -497,3 +497,65 @@ TEST(multisig, multisig_kex_msg)
   EXPECT_EQ(msg_rnd2.get_msg_privkey(), crypto::null_skey);
   EXPECT_EQ(msg_rnd2.get_msg_privkey(), msg_rnd2_reverse.get_msg_privkey());
 }
+
+// gives access to wallet2::m_transfers for the test below (parse_multisig_tx_from_str()'s sanity checks require
+// selected_transfers indices to be in range)
+class wallet_accessor_test
+{
+public:
+  static tools::wallet2::transfer_container &get_transfers(tools::wallet2 &wallet) { return wallet.m_transfers; }
+};
+
+// a pending_tx pulled out of a multisig_tx_set blob should not be trusted for its own fee/dests/change_dts/
+// selected_transfers: those are just labels, and parse_multisig_tx_from_str() re-derives them from
+// construction_data (what the tx is actually built from) instead of trusting whatever the blob says.
+TEST(multisig, parse_multisig_tx_relabels_untrusted_fields)
+{
+  tools::wallet2 wallet;
+  make_wallet(0, wallet);
+  wallet_accessor_test::get_transfers(wallet).resize(2);
+
+  cryptonote::account_public_address addr{};
+
+  tools::wallet2::pending_tx ptx{};
+  ptx.tx.version = 2;
+  cryptonote::txin_to_key vin{};
+  vin.key_offsets = {0};
+  ptx.tx.vin.push_back(vin);
+
+  // the honest transaction: 5 XMR in, 4.99 XMR out, 0.01 XMR fee, input #0
+  ptx.construction_data.sources.resize(1);
+  ptx.construction_data.sources[0].amount = 5000000000000;
+  ptx.construction_data.sources[0].push_output(0, crypto::public_key{}, 5000000000000);
+  ptx.construction_data.splitted_dsts = { cryptonote::tx_destination_entry(4990000000000, addr, false) };
+  ptx.construction_data.change_dts = cryptonote::tx_destination_entry(3000000000, addr, false);
+  ptx.construction_data.dests = { cryptonote::tx_destination_entry(4990000000000, addr, false) };
+  ptx.construction_data.selected_transfers = { 0 };
+
+  // labels a malicious intermediary could have substituted before handing the blob back
+  ptx.fee = 999999999999;
+  ptx.dust = 1;
+  ptx.dust_added_to_fee = true;
+  ptx.change_dts = cryptonote::tx_destination_entry(123456789, addr, false);
+  ptx.selected_transfers = { 1 };
+  ptx.dests = { cryptonote::tx_destination_entry(7000000000000, addr, false) };
+
+  tools::wallet2::multisig_tx_set txs;
+  txs.m_ptx = { ptx };
+  const std::string blob = wallet.save_multisig_tx(txs);
+  ASSERT_FALSE(blob.empty());
+
+  tools::wallet2::multisig_tx_set parsed;
+  ASSERT_TRUE(wallet.parse_multisig_tx_from_str(blob, parsed));
+  ASSERT_EQ(parsed.m_ptx.size(), 1);
+  const tools::wallet2::pending_tx &out = parsed.m_ptx[0];
+
+  EXPECT_EQ(out.fee, 10000000000);
+  EXPECT_EQ(out.dust, 0);
+  EXPECT_FALSE(out.dust_added_to_fee);
+  EXPECT_EQ(out.change_dts.amount, 3000000000);
+  ASSERT_EQ(out.selected_transfers.size(), 1);
+  EXPECT_EQ(out.selected_transfers[0], 0);
+  ASSERT_EQ(out.dests.size(), 1);
+  EXPECT_EQ(out.dests[0].amount, 4990000000000);
+}
