@@ -160,6 +160,8 @@ namespace proto {
   public:
     using FailureException::FailureException;
     CancelledException(): FailureException("Trezor returned: cancelled operation"){}
+    CancelledException(boost::optional<uint32_t> code, boost::optional<std::string> message)
+        : FailureException(code, message) { reason = "Trezor returned: cancelled operation"; }
   };
 
   class PinExpectedException : public FailureException {
