@@ -39,6 +39,7 @@
 #include "cryptonote_basic/cryptonote_boost_serialization.h"
 #include "cryptonote_core/cryptonote_core.h"
 #include "version.h"
+#include "misc_log_ex.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "bcutil"
@@ -158,7 +159,11 @@ struct ancestry_state_t
     {
       std::unordered_map<uint64_t, cryptonote::block> old_block_cache;
       a & old_block_cache;
-      block_cache.resize(old_block_cache.size());
+      uint64_t max_height = 0;
+      for (const auto& i: old_block_cache)
+        max_height = std::max(max_height, i.first);
+      CHECK_AND_ASSERT_THROW_MES(old_block_cache.empty() || max_height < block_cache.max_size(), "Corrupt ancestry state: block height too large");
+      block_cache.resize(old_block_cache.empty() ? 0 : max_height + 1);
       for (const auto& i: old_block_cache)
         block_cache[i.first] = i.second;
     }
