@@ -102,7 +102,7 @@ static void configure_wallet(Monero::Wallet *wallet)
 {
     if (!wallet)
         return;
-    wallet->allowMismatchedDaemonVersion(true);
+    wallet->setAllowMismatchedDaemonVersion(true);
     wallet->setRefreshFromBlockHeight(1);
     if (!RING_DATABASE_DIR.empty())
         wallet->setRingDatabase(RING_DATABASE_DIR);
@@ -1033,7 +1033,7 @@ struct MyWalletListener : public Monero::WalletListener
         send_triggered = receive_triggered = newblock_triggered = update_triggered = refresh_triggered = false;
     }
 
-    virtual void moneySpent(const string &txId, uint64_t amount)
+    virtual void moneySpent(const string &txId, uint64_t amount, const string &enote_pub_key, std::pair<uint32_t, uint32_t> subaddr_index /* = {} */)
     {
         std::cerr << "wallet: " << wallet->mainAddress() << "**** just spent money ("
                   << txId  << ", " << wallet->displayAmount(amount) << ")" << std::endl;
@@ -1042,7 +1042,7 @@ struct MyWalletListener : public Monero::WalletListener
         cv_send.notify_one();
     }
 
-    virtual void moneyReceived(const string &txId, uint64_t amount)
+    virtual void moneyReceived(const string &txId, uint64_t amount, const uint64_t burnt, const string &enote_pub_key, const bool is_change /* = false */, const bool is_coinbase /* = false */)
     {
         std::cout << "wallet: " << wallet->mainAddress() << "**** just received money ("
                   << txId  << ", " << wallet->displayAmount(amount) << ")" << std::endl;
@@ -1087,6 +1087,11 @@ struct MyWalletListener : public Monero::WalletListener
         cv_refresh.notify_one();
     }
 
+    void onReorg(uint64_t height, uint64_t blocks_detached, size_t transfers_detached) override {}
+
+    optional<std::string> onGetPassword(const char *reason) override { return {}; }
+
+    void onPoolTxRemoved(const string &txid) override {}
 };
 
 
