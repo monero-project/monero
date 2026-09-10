@@ -1912,6 +1912,25 @@ namespace cryptonote
       return false;
     }
 
+    if (m_restricted && ctx)
+    {
+      block parent;
+      if (!m_core.get_block_by_hash(b.prev_id, parent))
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_BLOCK_NOT_ACCEPTED;
+        error_resp.message = "Unknown parent block";
+        return false;
+      }
+      const uint64_t block_height = get_block_height(parent) + 1;
+      const uint64_t chain_height = m_core.get_current_blockchain_height();
+      if (crypto::rx_seedheight(block_height) != crypto::rx_seedheight(chain_height))
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_BLOCK_NOT_ACCEPTED;
+        error_resp.message = "Block is too old for restricted RPC";
+        return false;
+      }
+    }
+
     block_verification_context bvc;
     if(!m_core.handle_block_found(b, bvc))
     {
