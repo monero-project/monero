@@ -217,6 +217,11 @@ public:
     return sz;
   }
 
+  size_t capacity() const
+  {
+    return static_cast<size_t>(N);
+  }
+
   //Inserts item, maintains median in O(lg nItems)
   void insert(Item v)
   {
