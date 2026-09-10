@@ -453,7 +453,8 @@ static GrowLayerInstructions get_leaf_layer_grow_instructions(const uint64_t old
     const std::size_t leaf_tuple_size,
     const std::size_t leaf_layer_chunk_width)
 {
-    CHECK_AND_ASSERT_THROW_MES(leaf_layer_chunk_width % leaf_tuple_size == 0, "unexpected leaf layer chunk width");
+    CHECK_AND_ASSERT_THROW_MES(leaf_tuple_size && leaf_layer_chunk_width % leaf_tuple_size == 0,
+        "unexpected leaf size params");
 
     // The leaf layer can never be the root layer
     const bool setting_next_layer_after_old_root = false;
