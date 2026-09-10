@@ -140,6 +140,13 @@ public:
   virtual cryptonote::blobdata get_txpool_tx_blob(const crypto::hash& txid, relay_category tx_category) const override { return ""; }
   virtual bool for_all_txpool_txes(std::function<bool(const crypto::hash&, const cryptonote::txpool_tx_meta_t&, const cryptonote::blobdata_ref*)>, bool include_blob = false, relay_category category = relay_category::broadcasted) const override { return false; }
 
+  virtual uint64_t add_block( const std::pair<cryptonote::block, cryptonote::blobdata>& blk
+                        , size_t block_weight
+                        , uint64_t long_term_block_weight
+                        , const cryptonote::difficulty_type& cumulative_difficulty
+                        , const uint64_t& coins_generated
+                        , const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs
+                        ) override { return cryptonote::BlockchainDB::add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs); }
   virtual void add_block( const cryptonote::block& blk
                         , size_t block_weight
                         , uint64_t long_term_block_weight

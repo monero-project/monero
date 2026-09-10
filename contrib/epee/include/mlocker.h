@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2024, The Monero Project
+// Copyright (c) 2018-2026, The Monero Project
 
 // 
 // All rights reserved.
@@ -29,8 +29,7 @@
 
 #pragma once 
 
-#include <map>
-#include <boost/thread/mutex.hpp>
+#include <cstddef>
 
 namespace epee
 {
@@ -51,8 +50,6 @@ namespace epee
     static size_t page_size;
     static size_t num_locked_objects;
 
-    static boost::mutex &mutex();
-    static std::map<size_t, unsigned int> &map();
     static void lock_page(size_t page);
     static void unlock_page(size_t page);
 
@@ -82,7 +79,4 @@ namespace epee
 
   template<typename T>
   const T& unwrap(mlocked<T> const& src) { return src; }
-
-  template <class T, size_t N>
-  using mlocked_arr = mlocked<std::array<T, N>>;
 }

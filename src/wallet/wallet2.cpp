@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -93,6 +93,7 @@ using namespace epee;
 #include "device/device_cold.hpp"
 #include "device_trezor/device_trezor.hpp"
 #include "net/socks_connect.h"
+#include "pending_tx_validation.h"
 #include "wallet2_basic/wallet2_boost_serialization.h"
 #include "wallet2_basic/wallet2_serialization.h"
 
@@ -806,10 +807,10 @@ size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs, size_t extra
   size += 1 + 6;
 
   // vin
-  size += n_inputs * (1+6+(mixin+1)*2+32);
+  size += (size_t)n_inputs * (1+6+((size_t)mixin+1)*2+32);
 
   // vout
-  size += n_outputs * (6+32);
+  size += (size_t)n_outputs * (6+32);
 
   // extra
   size += extra_size;
@@ -823,31 +824,31 @@ size_t estimate_rct_tx_size(int n_inputs, int mixin, int n_outputs, size_t extra
   if (bulletproof || bulletproof_plus)
   {
     size_t log_padded_outputs = 0;
-    while ((1<<log_padded_outputs) < n_outputs)
+    while ((UINT64_C(1) << log_padded_outputs) < (uint64_t)n_outputs)
       ++log_padded_outputs;
     size += (2 * (6 + log_padded_outputs) + (bulletproof_plus ? 6 : (4 + 5))) * 32 + 3;
   }
   else
-    size += (2*64*32+32+64*32) * n_outputs;
+    size += (size_t)(2*64*32+32+64*32) * n_outputs;
 
   // MGs/CLSAGs
   if (clsag)
-    size += n_inputs * (32 * (mixin+1) + 64);
+    size += (size_t)n_inputs * (32 * ((size_t)mixin+1) + 64);
   else
-    size += n_inputs * (64 * (mixin+1) + 32);
+    size += (size_t)n_inputs * (64 * ((size_t)mixin+1) + 32);
 
   if (use_view_tags)
-    size += n_outputs * sizeof(crypto::view_tag);
+    size += (size_t)n_outputs * sizeof(crypto::view_tag);
 
   // mixRing - not serialized, can be reconstructed
   /* size += 2 * 32 * (mixin+1) * n_inputs; */
 
   // pseudoOuts
-  size += 32 * n_inputs;
+  size += (size_t)32 * n_inputs;
   // ecdhInfo
-  size += 8 * n_outputs;
+  size += (size_t)8 * n_outputs;
   // outPk - only commitment is saved
-  size += 32 * n_outputs;
+  size += (size_t)32 * n_outputs;
   // txnFee
   size += 4;
 
@@ -860,7 +861,7 @@ size_t estimate_tx_size(bool use_rct, int n_inputs, int mixin, int n_outputs, si
   if (use_rct)
     return estimate_rct_tx_size(n_inputs, mixin, n_outputs, extra_size, bulletproof, clsag, bulletproof_plus, use_view_tags);
   else
-    return n_inputs * (mixin+1) * APPROXIMATE_INPUT_BYTES + extra_size + (use_view_tags ? (n_outputs * sizeof(crypto::view_tag)) : 0);
+    return (size_t)n_inputs * ((size_t)mixin+1) * APPROXIMATE_INPUT_BYTES + extra_size + (use_view_tags ? ((size_t)n_outputs * sizeof(crypto::view_tag)) : 0);
 }
 
 uint64_t estimate_tx_weight(bool use_rct, int n_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, bool clsag, bool bulletproof_plus, bool use_view_tags)
@@ -870,11 +871,11 @@ uint64_t estimate_tx_weight(bool use_rct, int n_inputs, int mixin, int n_outputs
   {
     const uint64_t bp_base = (32 * ((bulletproof_plus ? 6 : 9) + 7 * 2)) / 2; // notional size of a 2 output proof, normalized to 1 proof (ie, divided by 2)
     size_t log_padded_outputs = 2;
-    while ((1<<log_padded_outputs) < n_outputs)
+    while ((UINT64_C(1) << log_padded_outputs) < (uint64_t)n_outputs)
       ++log_padded_outputs;
     uint64_t nlr = 2 * (6 + log_padded_outputs);
     const uint64_t bp_size = 32 * ((bulletproof_plus ? 6 : 9) + nlr);
-    const uint64_t bp_clawback = (bp_base * (1<<log_padded_outputs) - bp_size) * 4 / 5;
+    const uint64_t bp_clawback = (bp_base * (UINT64_C(1) << log_padded_outputs) - bp_size) * 4 / 5;
     MDEBUG("clawback on size " << size << ": " << bp_clawback);
     size += bp_clawback;
   }
@@ -1028,7 +1029,7 @@ crypto::chacha_key derive_cache_key(const crypto::chacha_key& keys_data_key, con
   static_assert(HASH_SIZE == sizeof(crypto::chacha_key), "Mismatched sizes of hash and chacha key");
 
   crypto::chacha_key cache_key;
-  epee::mlocked<tools::scrubbed_arr<char, HASH_SIZE+1>> cache_key_data;
+  epee::mlocked<tools::scrubbed<std::array<char, HASH_SIZE+1>>> cache_key_data;
   memcpy(cache_key_data.data(), &keys_data_key, HASH_SIZE);
   cache_key_data[HASH_SIZE] = domain_separator;
   cn_fast_hash(cache_key_data.data(), HASH_SIZE+1, (crypto::hash&) cache_key);
@@ -7260,6 +7261,43 @@ void wallet2::get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2:
   }
 }
 //----------------------------------------------------------------------------------------------------
+// `expect_imported_key_images = false` overlaps with `transfer_ki_resolver = std::nullopt` but
+// we include both to reduce callsite complexity. (lack of useful enums in C++)
+void wallet2::sanity_check_pending_tx(const wallet2::pending_tx &ptx,
+  const bool redacted,
+  const bool expect_imported_key_images,
+  std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver,
+  const bool allow_read_only) const
+{
+  if (expect_imported_key_images)
+  {
+    // NOTE: Update this code if there is a usecase for checking both m_transfers and using a custom resolver.
+    CHECK_AND_ASSERT_THROW_MES(!transfer_ki_resolver,
+      "sanity_check_pending_tx (wallet2): expected imported key images but a ki resolver was provided");
+
+    const std::function<const crypto::key_image(const size_t)> temp =
+      [this](const size_t i)
+      {
+        CHECK_AND_ASSERT_THROW_MES(i < m_transfers.size(),
+          "sanity_check_pending_tx (wallet2): transfer - selected transfer idx out of known transfers");
+        const auto &transfer = m_transfers.at(i);
+        CHECK_AND_ASSERT_THROW_MES(transfer.m_key_image_known,
+          "sanity_check_pending_tx (wallet2): transfer - KI is expected but unknown");
+        return transfer.m_key_image;
+      };
+    transfer_ki_resolver = temp;
+  }
+
+  wallet::sanity_check_pending_tx(ptx,
+    this->nettype(),
+    m_account.get_keys(),
+    m_subaddresses,
+    m_transfers,
+    redacted,
+    transfer_ki_resolver,
+    allow_read_only);
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::rescan_spent()
 {
   // This is RPC call that can take a long time if there are many outputs,
@@ -7941,6 +7979,18 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
     signed_txes.key_images[i] = m_transfers[i].m_key_image;
   }
 
+  // check the local tx copies
+  for (const auto &ptx : txs)
+  {
+    for (const size_t idx : ptx.selected_transfers)
+    {
+      THROW_WALLET_EXCEPTION_IF(idx >= m_transfers.size(), error::wallet_internal_error,
+        "Cold wallet signing: No record of output " + std::to_string(idx) + " in this wallet, run "
+        "`export_outputs all` on the online wallet and `import_outputs` here.");
+    }
+    this->sanity_check_pending_tx(ptx, false, true, std::nullopt, false);
+  }
+
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -8022,7 +8072,7 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
     return false;
   }
 
-  return parse_tx_from_str(s, ptx, accept_func);
+  return this->parse_tx_from_str(s, ptx, accept_func);
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func)
@@ -8073,6 +8123,36 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
     LOG_PRINT_L0("Unsupported version in signed transaction");
     return false;
   }
+
+  try
+  {
+    // validate before mutating state or displaying to user
+    // - Verify with the assumption signed txs are redacted.
+    for (const auto &ptx : signed_txs.ptx)
+    {
+      // Manually check `signed_txs.key_images` so local state is not mutated before we validate.
+      // We inject the key image checker because `ptx` internal sorting ambiguity makes it cumbersome to
+      // directly validate key images here.
+      // NOTE: These txs may be READ-ONLY, which means spent/frozen inputs are allowed.
+      const auto &kis = signed_txs.key_images;
+      this->sanity_check_pending_tx(ptx,
+        true,
+        false,
+        { [&kis](const size_t i) {
+          CHECK_AND_ASSERT_THROW_MES(i < kis.size(), "failed loading signed tx: ptx selected transfer "
+            "is outside the bounds of imported key images");
+          return kis.at(i);
+        } },
+        true);
+    }
+  }
+  catch (const std::exception &e)
+  {
+    LOG_PRINT_L0("Failed to validate signed transaction: " << e.what());
+    return false;
+  }
+
+  // print result for user
   LOG_PRINT_L0("Loaded signed tx data from binary: " << signed_txs.ptx.size() << " transactions");
   for (auto &c_ptx: signed_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(c_ptx.tx));
 
@@ -8083,12 +8163,24 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
   }
 
   // import key images
-  bool r = import_key_images(signed_txs.key_images);
+  bool r = this->import_key_images(signed_txs.key_images);
   if (!r) return false;
 
   // remember key images for this tx, for when we get those txes from the blockchain
   for (const auto &e: signed_txs.tx_key_images)
     m_cold_key_images.insert(e);
+
+  try
+  {
+    // extra/redundant validation making sure key images line up
+    for (const auto &ptx : signed_txs.ptx)
+      this->sanity_check_pending_tx(ptx, true, true, std::nullopt, true);
+  }
+  catch (const std::exception &e)
+  {
+    LOG_PRINT_L0("Failed to validate signed transaction (post import): " << e.what());
+    return false;
+  }
 
   ptx = signed_txs.ptx;
 
@@ -8144,6 +8236,9 @@ bool wallet2::save_multisig_tx(const multisig_tx_set &txs, const std::string &fi
 //----------------------------------------------------------------------------------------------------
 wallet2::multisig_tx_set wallet2::make_multisig_tx_set(const std::vector<pending_tx>& ptx_vector) const
 {
+  for (const auto &ptx : ptx_vector)
+    this->sanity_check_pending_tx(ptx, false, true, std::nullopt, false);
+
   multisig_tx_set txs;
   txs.m_ptx = ptx_vector;
 
@@ -8203,18 +8298,21 @@ bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx
     return false;
   }
 
-  // sanity checks
-  for (const auto &ptx: exported_txs.m_ptx)
+  try
   {
-    CHECK_AND_ASSERT_MES(ptx.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched selected_transfers/vin sizes");
-    for (size_t idx: ptx.selected_transfers)
-      CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
-    CHECK_AND_ASSERT_MES(ptx.construction_data.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched cd selected_transfers/vin sizes");
-    for (size_t idx: ptx.construction_data.selected_transfers)
-      CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
-    CHECK_AND_ASSERT_MES(ptx.construction_data.sources.size() == ptx.tx.vin.size(), false, "Mismatched sources/vin sizes");
-    CHECK_AND_ASSERT_MES(!ptx.tx.vin.empty(), false, "Multisig tx has no inputs");
-    CHECK_AND_ASSERT_MES(!ptx.construction_data.sources.empty(), false, "Multisig tx has no sources");
+    // sanity checks
+    for (const auto &ptx: exported_txs.m_ptx)
+    {
+      // If key images have not been imported then this could fail if we check key images. We'd rather fail elsewhere
+      // with a better error message.
+      // Note: These may be READ-ONLY, so spent/frozen inputs are allowed.
+      this->sanity_check_pending_tx(ptx, false, false, std::nullopt, true);
+    }
+  }
+  catch (const std::exception &e)
+  {
+    LOG_PRINT_L0("Failed to validate multisig tx data: " << e.what());
+    return false;
   }
 
   return true;
@@ -8297,14 +8395,33 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<
   THROW_WALLET_EXCEPTION_IF(frozen(exported_txs),
     error::wallet_internal_error, "Will not sign multisig tx containing frozen outputs")
 
+  // We only sign if key images have been imported to ensure:
+  // A) signatures can only be extracted from us if our key images are valid (the sanity checker will make sure
+  // the tx has the same key images as in our m_transfers, and a valid tx signature will mean key images are valid)
+  // B) signatures involving honest signers will always have imported key images, so at least one honest signer
+  // will be able to detect spends from such txs
+  // NOTE: This goes outside the main loop to harden against a theoretical synchronization issue where this triggers
+  // after we get half-way through partial signing, causing our next import to run into 'export needed' because
+  // the previous attempt had cleared some private nonces. At this time exports/imports are atomic so that bug can't
+  // occur.
+  for (size_t n = 0; n < exported_txs.m_ptx.size(); ++n)
+  {
+    for (const size_t idx : exported_txs.m_ptx[n].construction_data.selected_transfers)
+    {
+      if (idx >= m_transfers.size() || !m_transfers[idx].m_key_image_known)
+        THROW_WALLET_EXCEPTION(error::multisig_import_needed);
+    }
+  }
+
   // The 'exported_txs' contains a set of different transactions for the multisig group to try to sign. Each of those
   //   transactions has a set of 'signing attempts' corresponding to all the possible signing groups within the multisig.
   // - Here, we will partially sign as many of those signing attempts as possible, for each proposed transaction.
   for (size_t n = 0; n < exported_txs.m_ptx.size(); ++n)
   {
     tools::wallet2::pending_tx &ptx = exported_txs.m_ptx[n];
-    THROW_WALLET_EXCEPTION_IF(ptx.multisig_sigs.empty(), error::wallet_internal_error, "No signatures found in multisig tx");
     const tools::wallet2::tx_construction_data &sd = ptx.construction_data;
+    THROW_WALLET_EXCEPTION_IF(ptx.multisig_sigs.empty(), error::wallet_internal_error, "No signatures found in multisig tx");
+
     LOG_PRINT_L1(" " << (n+1) << ": " << sd.sources.size() << " inputs, ring size " << (sd.sources[0].outputs.size()) <<
         ", signed by " << exported_txs.m_signers.size() << "/" << m_multisig_threshold);
 
@@ -8331,6 +8448,11 @@ bool wallet2::sign_multisig_tx(multisig_tx_set &exported_txs_inout, std::vector<
       error::wallet_internal_error,
       "error: multisig::signing::tx_builder_ringct_t::init"
     );
+
+    // Fully validate
+    // NOTE: This must occur after `tx_builder_ringct_t::init` because that function edits `ptx.tx` in-place.
+    // Spaghetti is as spaghetti does.
+    this->sanity_check_pending_tx(ptx, false, true, std::nullopt, false);
 
     // go through each signing attempt for this transaction (each signing attempt corresponds to some subgroup of signers
     //   of size 'threshold')
@@ -11391,6 +11513,18 @@ void wallet2::cold_sign_tx(const std::vector<pending_tx>& ptx_vector, signed_tx_
   tx_device_aux = aux_data.tx_device_aux;
 
   MDEBUG("Signed tx data from hw: " << exported_txs.ptx.size() << " transactions");
+
+  // Double-check final values.
+  // Cold wallets are not expected to have a complete store of key images.
+  // Cold devices (e.g. trezor) may or may not redact outputs, so we set `redact = true`.
+  // TODO: Redacting means we can't fully validate ptx and that we must trust the cold wallet.
+  // For robustness it would be better for both devices to distrust each other. Note that all redacted
+  // info is left in plaintext in the `pending_tx` construction data, so it's unclear *why* anything
+  // is redacted in the first place.
+  for (const auto &ptx : exported_txs.ptx)
+    this->sanity_check_pending_tx(ptx, true, false, std::nullopt, false);
+
+  // Print
   for (auto &c_ptx: exported_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(c_ptx.tx));
 }
 //----------------------------------------------------------------------------------------------------
@@ -11887,7 +12021,7 @@ std::string wallet2::get_spend_proof(const crypto::hash &txid, const std::string
     signatures.push_back(std::vector<crypto::signature>());
     std::vector<crypto::signature>& sigs = signatures.back();
     sigs.resize(in_key->key_offsets.size());
-    crypto::generate_ring_signature(sig_prefix_hash, in_key->k_image, p_output_keys, in_ephemeral.sec, sec_index, sigs.data());
+    generate_ring_signature(sig_prefix_hash, in_key->k_image, p_output_keys.data(), p_output_keys.size(), in_ephemeral.sec, sec_index, sigs.data());
   }
 
   std::string sig_str = "SpendProofV1";
@@ -11998,7 +12132,7 @@ bool wallet2::check_spend_proof(const crypto::hash &txid, const std::string &mes
       p_output_keys.push_back(&out.key);
 
     // check this ring
-    if (!crypto::check_ring_signature(sig_prefix_hash, in_key->k_image, p_output_keys, sig_iter->data()))
+    if (!crypto::check_ring_signature(sig_prefix_hash, in_key->k_image, p_output_keys.data(), p_output_keys.size(), sig_iter->data()))
       return false;
     ++sig_iter;
   }
@@ -12424,22 +12558,32 @@ bool wallet2::check_tx_proof(const cryptonote::transaction &tx, const cryptonote
 std::string wallet2::get_reserve_proof(const boost::optional<std::pair<uint32_t, uint64_t>> &account_minreserve, const std::string &message)
 {
   THROW_WALLET_EXCEPTION_IF(m_watch_only || m_multisig, error::wallet_internal_error, "Reserve proof can only be generated by a full wallet");
-  THROW_WALLET_EXCEPTION_IF(balance_all(true) == 0, error::wallet_internal_error, "Zero balance");
-  THROW_WALLET_EXCEPTION_IF(account_minreserve && balance(account_minreserve->first, true) < account_minreserve->second, error::wallet_internal_error,
-    "Not enough balance in this account for the requested minimum reserve amount");
 
   // determine which outputs to include in the proof
+  // is_spent(td, false) excludes an output already used as input to a pending, unconfirmed
+  // send too, not just a confirmed one, so we don't claim reserve we no longer have
   std::vector<size_t> selected_transfers;
   for (size_t i = 0; i < m_transfers.size(); ++i)
   {
     const transfer_details &td = m_transfers[i];
-    if (!is_spent(td, true) && !td.m_frozen && (!account_minreserve || account_minreserve->first == td.m_subaddr_index.major))
+    if (!is_spent(td, false) && !td.m_frozen && (!account_minreserve || account_minreserve->first == td.m_subaddr_index.major))
       selected_transfers.push_back(i);
   }
+
+  // sum what's actually selected instead of calling balance_all()/balance(): those also fold
+  // in pending change and self-transfer amounts from our own unconfirmed txs, which have no
+  // matching entry in m_transfers yet and can leave a balance-based guard non-zero even once
+  // every output backing it has been excluded above
+  uint64_t available = 0;
+  for (size_t idx : selected_transfers)
+    available += m_transfers[idx].amount();
+  THROW_WALLET_EXCEPTION_IF(available == 0, error::wallet_internal_error, "Zero balance");
 
   if (account_minreserve)
   {
     THROW_WALLET_EXCEPTION_IF(account_minreserve->second == 0, error::wallet_internal_error, "Proved amount must be greater than 0");
+    THROW_WALLET_EXCEPTION_IF(available < account_minreserve->second, error::wallet_internal_error,
+      "Not enough balance in this account for the requested minimum reserve amount");
     // minimize the number of outputs included in the proof, by only picking the N largest outputs that can cover the requested min reserve amount
     std::sort(selected_transfers.begin(), selected_transfers.end(), [&](const size_t a, const size_t b)
       { return m_transfers[a].amount() > m_transfers[b].amount(); });
@@ -12973,10 +13117,9 @@ std::string wallet2::sign(const std::string &data, message_signature_type_t sign
 
 tools::wallet2::message_signature_result_t wallet2::verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const
 {
-  static const size_t v1_header_len = strlen("SigV1");
-  static const size_t v2_header_len = strlen("SigV2");
-  const bool v1 = signature.size() >= v1_header_len && signature.substr(0, v1_header_len) == "SigV1";
-  const bool v2 = signature.size() >= v2_header_len && signature.substr(0, v2_header_len) == "SigV2";
+  static const size_t header_len = strlen("SigV1");
+  const bool v1 = signature.size() >= header_len && signature.substr(0, header_len) == "SigV1";
+  const bool v2 = signature.size() >= header_len && signature.substr(0, header_len) == "SigV2";
   if (!v1 && !v2)
   {
     LOG_PRINT_L0("Signature header check error");
@@ -12988,7 +13131,7 @@ tools::wallet2::message_signature_result_t wallet2::verify(const std::string &da
     crypto::cn_fast_hash(data.data(), data.size(), hash);
   }
   std::string decoded;
-  if (!tools::base58::decode(signature.substr(v1 ? v1_header_len : v2_header_len), decoded)) {
+  if (!tools::base58::decode(signature.substr(header_len), decoded)) {
     LOG_PRINT_L0("Signature decoding error");
     return {};
   }
@@ -13172,7 +13315,7 @@ std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>
     std::vector<const crypto::public_key*> key_ptrs;
     key_ptrs.push_back(&pkey);
 
-    crypto::generate_ring_signature((const crypto::hash&)ki, ki, key_ptrs, in_ephemeral.sec, 0, &signature);
+    crypto::generate_ring_signature((const crypto::hash&)ki, ki, key_ptrs.data(), key_ptrs.size(), in_ephemeral.sec, 0, &signature);
 
     ski.push_back(std::make_pair(ki, signature));
   }
@@ -13274,7 +13417,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
           error::wallet_internal_error, "Key image out of validity domain: input " + boost::lexical_cast<std::string>(n + offset) + "/"
           + boost::lexical_cast<std::string>(signed_key_images.size()) + ", key image " + epee::string_tools::pod_to_hex(key_image));
 
-      THROW_WALLET_EXCEPTION_IF(!crypto::check_ring_signature((const crypto::hash&)key_image, key_image, pkeys, &signature),
+      THROW_WALLET_EXCEPTION_IF(!crypto::check_ring_signature((const crypto::hash&)key_image, key_image, pkeys.data(), pkeys.size(), &signature),
           error::signature_check_failed, boost::lexical_cast<std::string>(n + offset) + "/"
           + boost::lexical_cast<std::string>(signed_key_images.size()) + ", key image " + epee::string_tools::pod_to_hex(key_image)
           + ", signature " + epee::string_tools::pod_to_hex(signature) + ", pubkey " + epee::string_tools::pod_to_hex(*pkeys[0]));
@@ -14903,7 +15046,27 @@ std::string wallet2::make_uri(const std::string &address, const std::string &pay
   return uri;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error)
+bool wallet2::parse_uri(const std::string &uri,
+  std::string &address,
+  std::string &payment_id,
+  uint64_t &amount,
+  std::string &tx_description,
+  std::string &recipient_name,
+  std::vector<std::string> &unknown_parameters,
+  std::string &error)
+{
+  return wallet2::parse_uri_impl(uri,
+    this->nettype(),
+    address,
+    payment_id,
+    amount,
+    tx_description,
+    recipient_name,
+    unknown_parameters,
+    error);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::parse_uri_impl(const std::string &uri, const cryptonote::network_type nettype, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error)
 {
   if (uri.substr(0, 7) != "monero:")
   {
@@ -14916,7 +15079,7 @@ bool wallet2::parse_uri(const std::string &uri, std::string &address, std::strin
   address = ptr ? remainder.substr(0, ptr-remainder.c_str()) : remainder;
 
   cryptonote::address_parse_info info;
-  if(!get_account_address_from_str(info, nettype(), address))
+  if(!get_account_address_from_str(info, nettype, address))
   {
     error = std::string("URI has wrong address: ") + address;
     return false;

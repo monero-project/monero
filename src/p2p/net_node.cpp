@@ -89,7 +89,7 @@ namespace
                 set = client->set_connect_command(remote.as<epee::net_utils::ipv6_network_address>(), std::addressof(proxy.userinfo));
                 break;
             }
-            /* fallthrough */
+            [[fallthrough]];
         default:
             MERROR("Unsupported network address in socks_connect. Try socks5://");
             return false;

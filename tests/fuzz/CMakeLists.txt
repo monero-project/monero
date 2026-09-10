@@ -223,6 +223,19 @@ set_property(TARGET parse-url_fuzz_tests
   PROPERTY
     FOLDER "tests")
 
+monero_add_minimal_executable(network-address_fuzz_tests network_address.cpp fuzzer.cpp)
+target_link_libraries(network-address_fuzz_tests
+  PRIVATE
+    net
+    epee
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET network-address_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
+
 monero_add_minimal_executable(http-client_fuzz_tests http-client.cpp fuzzer.cpp)
 target_link_libraries(http-client_fuzz_tests
   PRIVATE
@@ -256,11 +269,8 @@ set_property(TARGET levin_fuzz_tests
 monero_add_minimal_executable(bulletproof_fuzz_tests bulletproof.cpp fuzzer.cpp)
 target_link_libraries(bulletproof_fuzz_tests
   PRIVATE
-    common
-    epee
-    ${Boost_THREAD_LIBRARY}
-    ${Boost_REGEX_LIBRARY}
-    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ringct
+    serialization
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES}
     $ENV{LIB_FUZZING_ENGINE})

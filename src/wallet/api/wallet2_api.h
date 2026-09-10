@@ -445,6 +445,19 @@ struct Wallet
         BackgroundSync_CustomPassword = 2
     };
 
+    enum MessageSignatureType {
+        MessageSignatureType_Invalid = 0,
+        MessageSignatureType_Spend,
+        MessageSignatureType_View
+    };
+
+    struct MessageSignatureResult {
+        bool valid = false;
+        unsigned version = 0;
+        bool old = false;
+        MessageSignatureType type = MessageSignatureType_Invalid;
+    };
+
     virtual ~Wallet() = 0;
     virtual std::string seed(const std::string& seed_offset = "") const = 0;
     virtual std::string getSeedLanguage() const = 0;
@@ -1052,6 +1065,14 @@ struct Wallet
      * \return true if the signature verified, false otherwise
      */
     virtual bool verifySignedMessage(const std::string &message, const std::string &addres, const std::string &signature) const = 0;
+    /*!
+     * \brief verifySignedMessageWithDetails - verify a signature and identify the signing key and algorithm
+     * \param message - the message (arbitrary byte data)
+     * \param address - the address the signature claims to be made with
+     * \param signature - the signature
+     * \return the verification result, including the signature version and key type
+     */
+    virtual MessageSignatureResult verifySignedMessageWithDetails(const std::string &message, const std::string &address, const std::string &signature) const = 0;
 
     /*!
      * \brief signMultisigParticipant   signs given message with the multisig public signer key

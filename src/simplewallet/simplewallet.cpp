@@ -8667,11 +8667,11 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
   // header
   file <<
       boost::format("%8.8s,%9.9s,%8.8s,%25.25s,%20.20s,%20.20s,%64.64s,%16.16s,%14.14s,%106.106s,%20.20s,%s,%s,%s") %
-      tr("block") % tr("direction") % tr("unlocked") % tr("timestamp") % tr("amount") % tr("running balance") % tr("hash") % tr("payment ID") % tr("fee") % tr("destination") % tr("amount") % tr("index") % tr("note") % tr("tx key")
+      tr("block") % tr("direction") % tr("unlocked") % tr("timestamp") % tr("transaction amount") % tr("running balance") % tr("hash") % tr("payment ID") % tr("fee") % tr("destination") % tr("destination amount") % tr("index") % tr("note") % tr("tx key")
       << std::endl;
 
   uint64_t running_balance = 0;
-  auto formatter = boost::format("%8.8llu,%9.9s,%8.8s,%25.25s,%20.20s,%20.20s,%64.64s,%16.16s,%14.14s,%106.106s,%20.20s,\"%s\",%s,%s");
+  auto formatter = boost::format("%8.8llu,%9.9s,%8.8s,%25.25s,%20.20s,%20.20s,%64.64s,%16.16s,%14.14s,%106.106s,%20.20s,\"%s\",\"%s\",%s");
 
   for (const auto& transfer : all_transfers)
   {
@@ -8693,6 +8693,9 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
         key_string = get_tx_key_stream(tx_key, additional_tx_keys);
     }
 
+    std::string note = transfer.note;
+    boost::replace_all(note, "\"", "\"\"");
+
     file << formatter
       % transfer.block
       % transfer.direction
@@ -8706,7 +8709,7 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
       % (transfer.outputs.size() ? transfer.outputs[0].first : "-")
       % (transfer.outputs.size() ? print_money(transfer.outputs[0].second) : "")
       % boost::algorithm::join(transfer.index | boost::adaptors::transformed([](uint32_t i) { return std::to_string(i); }), ", ")
-      % transfer.note
+      % note
       % key_string
       << std::endl;
 
@@ -10137,8 +10140,8 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
         uint64_t suggested_threshold = last_block_reward ? (pd.m_amount + last_block_reward - 1) / last_block_reward : 0;
         if (bh >= last_block_height)
           success_msg_writer() << "Locked: " << (bh - last_block_height) << " blocks to unlock";
-        else if (suggested_threshold > 0)
-          success_msg_writer() << std::to_string(confirmations) << " confirmations (" << suggested_threshold << " suggested threshold)";
+        else if (confirmations < suggested_threshold)
+          success_msg_writer() << std::to_string(confirmations) << " confirmations (" << suggested_threshold << " suggested for this amount)";
         else
           success_msg_writer() << std::to_string(confirmations) << " confirmations";
       }

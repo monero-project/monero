@@ -77,6 +77,20 @@ TEST(bulletproofs, valid_multi_random)
   }
 }
 
+TEST(bulletproofs, invalid_too_many_outputs)
+{
+  std::vector<uint64_t> amounts(16, 0);
+  rct::keyV gamma(16);
+  for (rct::key &mask: gamma)
+    mask = rct::skGen();
+  rct::Bulletproof proof = bulletproof_PROVE(amounts, gamma);
+  ASSERT_TRUE(rct::bulletproof_VERIFY(proof));
+  proof.V.push_back(proof.V.back());
+  proof.L.push_back(proof.L.back());
+  proof.R.push_back(proof.R.back());
+  ASSERT_FALSE(rct::bulletproof_VERIFY(proof));
+}
+
 TEST(bulletproofs, multi_splitting)
 {
   rct::ctkeyV sc, pc;

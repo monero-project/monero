@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -38,6 +38,7 @@
 #include "cryptonote_config.h"
 #include "crypto/crypto.h"
 #include "crypto/hash.h"
+#include "crypto/hash-ops.h"
 #include "ringct/rctOps.h"
 
 using namespace epee;
@@ -1508,7 +1509,10 @@ namespace cryptonote
     if (t.rct_signatures.type == rct::RCTTypeNull)
       hashes[2] = crypto::null_hash;
     else
+    {
       hashes[2] = pruned_data_hash;
+      t.set_prunable_hash(pruned_data_hash);
+    }
 
     // the tx hash is the hash of the 3 hashes
     res = cn_fast_hash(hashes, sizeof(hashes));

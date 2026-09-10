@@ -169,6 +169,32 @@ TEST(cn_format_utils, payment_id_tx_extra_nonce_rejects_wrong_tag_or_size)
     EXPECT_FALSE(cryptonote::get_encrypted_payment_id_from_tx_extra_nonce(wrong_size, parsed_encrypted_payment_id));
 }
 
+TEST(cn_format_utils, pruned_transaction_hash_caches_prunable_hash)
+{
+    const auto tx_path = unit_test::data_dir / "txs" / "bpp_tx_e89415.bin";
+    cryptonote::blobdata tx_blob;
+    ASSERT_TRUE(epee::file_io_utils::load_file_to_string(tx_path.string(), tx_blob));
+
+    cryptonote::transaction tx;
+    ASSERT_TRUE(cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx));
+    const cryptonote::blobdata_ref tx_blob_ref{tx_blob};
+    const crypto::hash tx_hash = cryptonote::get_transaction_hash(tx);
+    const crypto::hash prunable_hash = cryptonote::get_transaction_prunable_hash(tx, &tx_blob_ref);
+
+    cryptonote::blobdata pruned_tx_blob = tx_blob;
+    ASSERT_TRUE(cryptonote::prune_transaction_blob(pruned_tx_blob));
+
+    cryptonote::transaction pruned_tx;
+    ASSERT_TRUE(cryptonote::parse_and_validate_tx_base_from_blob(pruned_tx_blob, pruned_tx));
+    ASSERT_NE(rct::RCTTypeNull, pruned_tx.rct_signatures.type);
+    crypto::hash reconstructed_hash;
+    ASSERT_TRUE(cryptonote::get_pruned_transaction_hash(pruned_tx, prunable_hash, reconstructed_hash));
+    EXPECT_EQ(tx_hash, reconstructed_hash);
+    ASSERT_TRUE(pruned_tx.is_prunable_hash_valid());
+    const cryptonote::blobdata_ref pruned_tx_blob_ref{pruned_tx_blob};
+    EXPECT_EQ(prunable_hash, cryptonote::get_transaction_prunable_hash(pruned_tx, &pruned_tx_blob_ref));
+}
+
 TEST(cn_format_utils, block_longhash_202612_arbitrary_blob)
 {
     const cryptonote::blobdata blob = "not the historical block 202612 hashing blob";

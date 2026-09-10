@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2024, The Monero Project
+// Copyright (c) 2018-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,6 +31,7 @@
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/filesystem.hpp>
 #include "common/util.h"
+#include "crypto/hash-ops.h"
 #include "misc_log_ex.h"
 #include "scope_guard.h"
 #include "wallet_errors.h"
@@ -207,7 +208,7 @@ ringdb::ringdb(std::string filename, const std::string &genesis):
   tools::create_directories_if_necessary(filename);
 
   dbr = mdb_env_create(&env);
-  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create LDMB environment: " + std::string(mdb_strerror(dbr)));
+  THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to create LMDB environment: " + std::string(mdb_strerror(dbr)));
   dbr = mdb_env_set_maxdbs(env, 2);
   THROW_WALLET_EXCEPTION_IF(dbr, tools::error::wallet_internal_error, "Failed to set max env dbs: " + std::string(mdb_strerror(dbr)));
   const std::string actual_filename = get_rings_filename(filename); 

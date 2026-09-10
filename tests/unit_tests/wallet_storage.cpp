@@ -1,4 +1,4 @@
-// Copyright (c) 2023-2024, The Monero Project
+// Copyright (c) 2023-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -182,7 +182,7 @@ TEST(wallet_storage, export_key_images_uses_generated_key_image)
     std::vector<const crypto::public_key*> key_ptrs;
     key_ptrs.push_back(&pkey);
     EXPECT_TRUE(crypto::check_ring_signature((const crypto::hash&)exported_key_image,
-        exported_key_image, key_ptrs, &exported.second.front().second));
+        exported_key_image, key_ptrs.data(), key_ptrs.size(), &exported.second.front().second));
 }
 
 TEST(wallet_storage, change_password_same_file)

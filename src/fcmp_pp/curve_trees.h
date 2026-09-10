@@ -33,6 +33,7 @@
 #include "tower_cycle.h"
 #include "misc_log_ex.h"
 
+#include <cassert>
 #include <memory>
 #include <vector>
 
