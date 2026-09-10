@@ -161,6 +161,7 @@ namespace trezor{
 
 #define PROTO_MAGIC_SIZE 3
 #define PROTO_HEADER_SIZE 6
+#define PROTO_MAX_MESSAGE_SIZE (16 * 1024 * 1024) // Trezor protocol-v1 MESSAGE_MAX_LENGTH
 
   static size_t message_size(const google::protobuf::Message &req){
 #if GOOGLE_PROTOBUF_VERSION < 3006001
@@ -266,6 +267,9 @@ namespace trezor{
     uint32_t len;
     nread -= PROTO_MAGIC_SIZE + PROTO_HEADER_SIZE;
     deserialize_message_header(chunk_buff_raw + PROTO_MAGIC_SIZE, tag, len);
+    if (len > PROTO_MAX_MESSAGE_SIZE){
+      throw exc::CommunicationException("Message too large");
+    }
 
     epee::wipeable_string data_acc(chunk_buff_raw + PROTO_MAGIC_SIZE + PROTO_HEADER_SIZE, nread);
     data_acc.reserve(len);
