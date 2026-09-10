@@ -152,8 +152,8 @@ jobs:
       matrix:
         include:
           # Oldest supported Debian version
-          - name: Debian 11
-            container: debian:11
+          - name: Debian 12
+            container: debian:12
           # Oldest supported Ubuntu LTS version
           - name: Ubuntu 22.04
             container: ubuntu:22.04
