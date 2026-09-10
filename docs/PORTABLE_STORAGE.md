@@ -119,7 +119,6 @@ The types defined are:
 #define SERIALIZE_TYPE_STRING               10
 #define SERIALIZE_TYPE_BOOL                 11
 #define SERIALIZE_TYPE_OBJECT               12
-#define SERIALIZE_TYPE_ARRAY                13
 ```
 
 The entry type can be bitwise OR'ed with a flag:
@@ -146,10 +145,6 @@ little endian byte order.
 
 Entry values which are objects (i.e. `SERIALIZE_TYPE_OBJECT`), are stored as
 [sections](#Section).
-
-Note, I have not yet seen the type `SERIALIZE_TYPE_ARRAY` in use. My assumption
-is this would be used for *untyped* arrays and so subsequent entries could be of
-any type.
 
 ### Overall example
 
