@@ -42,6 +42,27 @@ namespace fcmp_pp
 //----------------------------------------------------------------------------------------------------------------------
 // Rust types
 //----------------------------------------------------------------------------------------------------------------------
+using SeleneScalar = ::SeleneScalar;
+static_assert(sizeof(SeleneScalar) == 32, "unexpected size of selene scalar");
+using HeliosScalar = ::HeliosScalar;
+static_assert(sizeof(HeliosScalar) == 32, "unexpected size of helios scalar");
+//----------------------------------------------------------------------------------------------------------------------
+struct SeleneT final
+{
+    using Scalar       = SeleneScalar;
+    using Point        = ::SelenePoint;
+    using Chunk        = ::SeleneScalarSlice;
+    using CycleScalar  = HeliosScalar;
+};
+//----------------------------------------------------------------------------------------------------------------------
+struct HeliosT final
+{
+    using Scalar       = HeliosScalar;
+    using Point        = ::HeliosPoint;
+    using Chunk        = ::HeliosScalarSlice;
+    using CycleScalar  = SeleneScalar;
+};
+//----------------------------------------------------------------------------------------------------------------------
 using OutputTuple = ::OutputTuple;
 //----------------------------------------------------------------------------------------------------------------------
 OutputTuple output_tuple_from_bytes(const crypto::ec_point &O, const crypto::ec_point &I, const crypto::ec_point &C);
@@ -117,6 +138,15 @@ struct UnifiedOutput final
     {
         return unified_id == other.unified_id && output_pair == other.output_pair;
     }
+};
+
+// Contiguous leaves in the tree, starting at a specified start_idx in the leaf layer
+struct ContiguousLeaves final
+{
+    // Starting leaf tuple index in the leaf layer
+    uint64_t                   start_idx{0};
+    // Contiguous leaves in a tree that start at the start_idx
+    std::vector<UnifiedOutput> tuples;
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

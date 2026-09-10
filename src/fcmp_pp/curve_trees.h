@@ -43,6 +43,47 @@ namespace curve_trees
 {
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+// Curve Trees type defs
+//----------------------------------------------------------------------------------------------------------------------
+// A layer of contiguous hashes starting from a specific start_idx in the layer
+template<typename C>
+struct LayerExtension final
+{
+    uint64_t                       start_idx{0};
+    bool                           update_existing_last_hash{false};
+    std::vector<typename C::Point> hashes;
+};
+
+// Useful metadata for growing a layer
+struct GrowLayerInstructions final
+{
+    // The max chunk width of children used to hash into a parent
+    std::size_t parent_chunk_width{0};
+
+    // Total parents refers to the total number of hashes of chunks of children
+    uint64_t old_total_parents{0};
+    uint64_t new_total_parents{0};
+
+    // When updating the tree, we use this boolean to know when we'll need to use the tree's existing old root in order
+    // to set a new layer after that root
+    // - We'll need to be sure the old root gets hashed when setting the next layer
+    bool setting_next_layer_after_old_root{false};
+    // When the last child in the child layer changes, we'll need to use its old value to update its parent hash
+    bool need_old_last_child{false};
+    // When the last parent in the layer changes, we'll need to use its old value to update itself
+    bool need_old_last_parent{false};
+
+    // The first chunk that needs to be updated's first child's offset within that chunk
+    std::size_t start_offset{0};
+    // The parent's starting index in the layer
+    uint64_t next_parent_start_index{0};
+};
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// Hash a chunk of new children
+template<typename C>
+typename C::Point get_new_parent(const std::unique_ptr<C> &curve, const typename C::Chunk &new_children);
+//----------------------------------------------------------------------------------------------------------------------
 OutputTuple output_to_tuple(const OutputPair &output_pair);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
@@ -88,12 +129,65 @@ public:
 
     static_assert(sizeof(LeafTuple) == (sizeof(typename C1::Scalar) * LEAF_TUPLE_SIZE), "unexpected LeafTuple size");
 
+    // A struct useful to extend an existing tree
+    // - layers alternate between C1 and C2
+    // - c1_layer_extensions[0] is first layer after leaves, then c2_layer_extensions[0], c1_layer_extensions[1], etc
+    struct TreeExtension final
+    {
+        ContiguousLeaves    leaves;
+        std::vector<LayerExtension<C1>> c1_layer_extensions;
+        std::vector<LayerExtension<C2>> c2_layer_extensions;
+    };
+
+    // Last hashes from each layer in the tree
+    // - layers alternate between C1 and C2
+    // - c1_last_hashes[0] refers to the layer after leaves, then c2_last_hashes[0], then c1_last_hashes[1], etc
+    struct LastHashes final
+    {
+        std::vector<typename C1::Point> c1_last_hashes;
+        std::vector<typename C2::Point> c2_last_hashes;
+    };
+
 //member functions
+public:
+    // Convert an output pair into leaf tuple, from {output pubkey,commitment} -> {O,C} -> {O.x,O.y,I.x,I.y,C.x,C.y}
+    LeafTuple leaf_tuple(const OutputPair &output_pair) const;
+
+    // Flatten leaves
+    // From: [{O.x,O.y,I.x,I.y,C.x,C.y},{O.x,O.y,I.x,I.y,C.x,C.y},...]
+    // To: [O.x,O.y,I.x,I.y,C.x,C.y,O.x,O.y,I.x,I.y,C.x,C.y...]
+    std::vector<typename C1::Scalar> flatten_leaves(std::vector<LeafTuple> &&leaves) const;
+
+    // Take in the existing number of leaf tuples and the existing last hash in each layer in the tree, as well as new
+    // outputs to add to the tree, and return a tree extension struct that can be used to extend a tree
+    TreeExtension get_tree_extension(const uint64_t old_n_leaf_tuples,
+        const LastHashes &existing_last_hashes,
+        std::vector<std::vector<UnifiedOutput>> &&new_outputs) const;
+
+    // Calculate the number of elems in each layer of the tree based on the number of leaf tuples.
+    // Doesn't include the leaf layer.
+    std::vector<uint64_t> n_elems_per_layer(const uint64_t n_leaf_tuples) const;
+
+    // Calculate how many layers in the tree there are based on the number of leaf tuples.
+    // Doesn't include the leaf layer.
+    std::size_t n_layers(const uint64_t n_leaf_tuples) const;
+
 private:
     // Multithreaded helper function to convert valid outputs to leaf tuples ready for insertion to the tree & db
     void outputs_to_leaves(std::vector<UnifiedOutput> &&new_outputs,
         std::vector<typename C1::Scalar> &flattened_leaves_out,
         std::vector<UnifiedOutput> &valid_outputs_out) const;
+
+    // Helper function used to set the next layer extension used to grow the next layer in the tree
+    // - for example, if we just grew the parent layer after the leaf layer, the "next layer" would be the grandparent
+    //   layer of the leaf layer
+    GrowLayerInstructions set_next_layer_extension(
+        const GrowLayerInstructions &prev_layer_instructions,
+        const bool parent_is_c2,
+        const LastHashes &last_hashes,
+        std::size_t &c1_last_idx_inout,
+        std::size_t &c2_last_idx_inout,
+        TreeExtension &tree_extension_inout) const;
 
 //private state
 private:
@@ -102,6 +196,10 @@ private:
     mutable uint64_t m_batch_invert_ms{0};
     mutable uint64_t m_collect_derivatives_ms{0};
     mutable uint64_t m_convert_valid_leaves_ms{0};
+
+    mutable uint64_t m_sorting_outputs_ms{0};
+    mutable uint64_t m_hash_leaves_ms{0};
+    mutable uint64_t m_hash_layers_ms{0};
 
 //public member variables
 public:
@@ -116,6 +214,18 @@ public:
     const std::size_t m_c1_width;
     const std::size_t m_c2_width;
 };
+//----------------------------------------------------------------------------------------------------------------------
+using Selene       = tower_cycle::Selene;
+using Helios       = tower_cycle::Helios;
+using CurveTreesV1 = CurveTrees<Selene, Helios>;
+
+// https://github.com/monero-oxide/monero-oxide/blob/31c26d96eaadbba910ffe3613ad8b4cf9c598a93/crypto/fcmps/src/lib.rs#L54-L59
+const std::size_t SELENE_CHUNK_WIDTH = 38;
+const std::size_t HELIOS_CHUNK_WIDTH = 18;
+
+std::shared_ptr<CurveTreesV1> curve_trees_v1(
+    const std::size_t selene_chunk_width = SELENE_CHUNK_WIDTH,
+    const std::size_t helios_chunk_width = HELIOS_CHUNK_WIDTH);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace curve_trees
