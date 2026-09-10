@@ -625,6 +625,70 @@ Pass command-line options with `--args` followed by the relevant arguments
 
 Type `run` to run monerod
 
+### Obtaining stack traces on Windows
+
+Official Windows release builds of `monerod.exe` / `monero-wallet-cli.exe` are usually **not** shipped with full debug symbols. A useful report for developers still includes: Monero version (`monerod --version`), exact command line / config, Windows version and build (`winver` or `winver` via Settings → System → About), CPU, and the Windows Error Reporting fault module / exception code from Event Viewer.
+
+#### 1. Collect crash details without extra tools (Event Viewer)
+
+1. Open **Event Viewer** (`eventvwr.msc`).
+2. Go to **Windows Logs → Application**.
+3. Find the **Error** entry for `monerod.exe` (or `monero-wallet-cli.exe` / `monero-wallet-gui.exe`) near the crash time.
+4. Note **Faulting module name**, **Exception code**, **Fault offset**, and the full faulting application path.
+5. Paste that block into the GitHub issue (see also *Windows Logs → Application* source **Application Error** / **Windows Error Reporting**).
+
+Exception code `0xc0000005` is an access violation; `0xc0000409` is often stack buffer overrun / fail-fast. Those codes alone do not replace a stack trace, but they help triage.
+
+#### 2. Enable a local dump on crash (WER LocalDumps)
+
+This writes a `.dmp` the next time the process crashes. Run **Command Prompt or PowerShell as Administrator**:
+
+```bat
+reg add "HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\monerod.exe" /v DumpFolder /t REG_EXPAND_SZ /d "%LOCALAPPDATA%\CrashDumps" /f
+reg add "HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\monerod.exe" /v DumpType /t REG_DWORD /d 2 /f
+reg add "HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\monerod.exe" /v DumpCount /t REG_DWORD /d 5 /f
+```
+
+Reproduce the crash, then look under `%LOCALAPPDATA%\CrashDumps` for `monerod.exe.*.dmp`.
+
+To remove the policy later:
+
+```bat
+reg delete "HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\monerod.exe" /f
+```
+
+Do **not** upload dump files publicly if the process may contain wallet paths, RPC credentials, or other secrets. Prefer posting a **text stack** (next section) or sharing dumps privately with a maintainer.
+
+#### 3. Print a stack with WinDbg / `cdb` (Debugging Tools for Windows)
+
+1. Install **Debugging Tools for Windows** (WinDbg) via the [Windows SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/) installer (you can select only *Debugging Tools for Windows*).
+2. Open **x64 Native Tools** / a shell where `cdb.exe` is on `PATH` (often under `C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\`).
+3. For a dump file:
+
+```bat
+cdb -z "%LOCALAPPDATA%\CrashDumps\monerod.exe.XXXX.dmp" -c "!analyze -v; k; ~* k; q"
+```
+
+4. For a **live hung** (not necessarily crashed) process, as Administrator:
+
+```bat
+cdb -p <pid> -c "k; ~* k; q"
+```
+
+(`Get-Process monerod` in PowerShell shows the PID.)
+
+5. Copy the text output into the issue. If symbols for Monero are missing, frames may show only addresses / `monerod+0x...` — still useful together with the exact binary version.
+
+Optional: set a Microsoft symbol path so OS modules resolve:
+
+```bat
+set _NT_SYMBOL_PATH=srv*C:\symbols*https://msdl.microsoft.com/download/symbols
+```
+
+#### 4. Debug builds (developers)
+
+When building with MSYS2/MinGW as described under *On Windows* above, a `make debug` build produces binaries under `build/debug/bin` that are more suitable for gdb-style debugging inside the MSYS2 environment. Prefer that when you are developing a fix rather than only reporting a release crash.
+
 ### Analysing memory corruption
 
 There are two tools available:
