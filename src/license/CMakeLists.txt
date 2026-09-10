@@ -33,7 +33,7 @@ vtk_encode_string(INPUT sublicenses.txt.in
   NUL_TERMINATE)
 
 set(monero_licenses_sources
-  monero_license.c
+  monero_license.cpp
   ${MONERO_SUBLICENSE_SOURCE})
 
 monero_find_all_headers(monero_license_headers "${CMAKE_CURRENT_SOURCE_DIR}")

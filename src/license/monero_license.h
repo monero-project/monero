@@ -36,7 +36,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif /* defined(__cplusplus) */
+#endif
 
 typedef struct
 {
@@ -63,5 +63,6 @@ monero_license_entry_t monero_license_get(size_t idx);
 
 #ifdef __cplusplus
 } /* extern "C" */
-#endif /* defined(__cplusplus) */
+#endif
+
 #endif /* defined(MONERO_LICENSE_H) */

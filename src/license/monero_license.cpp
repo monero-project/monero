@@ -32,56 +32,34 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <string.h>
-#include <threads.h>
+
+#include <mutex>
 
 #define MAX_N_LICENSES 20
 #define HL_SEP '%' /* horizontal line separator */
 #define COPYRIGHT_PREFIX "Copyright (c) "
 
-extern const unsigned char monero_sublicenses[]; // should match generated include
-
 static monero_license_entry_t licenses[MAX_N_LICENSES];
 static size_t n_licenses;
-static once_flag inited = ONCE_FLAG_INIT;
 
-/**
- * @brief Get pointer to next target character `t` after p, or `end` if not applicable
- * @param t target chatcter
- * @param p -
- * @param end -
- * @param[out] is_hl true iff no character in range (p, q) not equal to HL_SEP and at least one non-target character
- * @return pointer q in [p, end] s.t. (q == end) || (*q == '\n' && q > p)
-*/
-static const char * find_next_c(const char t, const char *s, const char * const end, bool *is_hl)
-{
-    assert(s);
-    assert(end);
-    assert(is_hl);
-
-    bool non_t = false;
-
-    *is_hl = true;
-    if (s < end && *s == t)
-        ++s;
-    while (s < end)
-    {
-        const char c = *s;
-        assert(c != '\r'); /* UNIX newlines FTW */
-        if (c == t)
-            break;
-        else if (c != HL_SEP)
-            *is_hl = false;
-        ++s;
-        non_t = true;
-    }
-    if (!non_t)
-        *is_hl = false;
-    return s;
-}
+extern const unsigned char monero_sublicenses[]; // should match generated include, minus size
 
 static const char * find_next_line_end(const char *s, const char * const end, bool *is_hl)
 {
-    return find_next_c('\n', s, end, is_hl);
+    if (*s == '\n')
+        ++s;
+    const char *p = strchr(s, '\n');
+    if (NULL == p) return end;
+    *is_hl = p != s;
+    for (; s < p; ++s)
+    {
+        if (*s != HL_SEP)
+        {
+            *is_hl = false;
+            break;
+        }
+    }
+    return p;
 }
 
 static void init_licenses(void)
@@ -100,11 +78,8 @@ static void init_licenses(void)
         assert(is_hl);
 
         /* 2. consume source location */
-        p = next_line_end;
+        p = next_line_end + 1;
         next_line_end = find_next_line_end(p, end, &is_hl);
-        if (p >= next_line_end)
-            break;
-        ++p;
         p_license->source_location = p;
         p_license->source_location_len = next_line_end - p;
         assert(p_license->source_location);
@@ -117,20 +92,15 @@ static void init_licenses(void)
         assert(p + 1 == next_line_end);
 
         /* 4. consume "$COPYRIGHT_PREFIX <year> <holder>" */
-        p = next_line_end;
+        p = next_line_end + 1;
         next_line_end = find_next_line_end(p, end, &is_hl);
-        if (p >= next_line_end)
-            break;
-        ++p;
         if (next_line_end - p <= (ptrdiff_t)strlen(COPYRIGHT_PREFIX) || 
                 0 != memcmp(p, COPYRIGHT_PREFIX, strlen(COPYRIGHT_PREFIX)))
             break;
         assert(!is_hl);
         p += strlen(COPYRIGHT_PREFIX);
         p_license->year = p;
-        p_license->holder = find_next_c(' ', p, next_line_end, &is_hl);
-        if (p_license->holder >= next_line_end)
-            break;
+        p_license->holder = strchr(p, ' ');
         p_license->year_len = p_license->holder - p_license->year;
         ++p_license->holder;
         p_license->holder_len = next_line_end - p_license->holder;
@@ -159,15 +129,29 @@ static void init_licenses(void)
     assert(n_licenses); /* we have at least our own license */
 }
 
+static void init_licenses_once(void)
+{
+    static std::once_flag once;
+    std::call_once(once, init_licenses);
+}
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 size_t monero_license_num(void)
 {
-    call_once(&inited, init_licenses);
+    init_licenses_once();
     return n_licenses;
 }
 
 monero_license_entry_t monero_license_get(const size_t idx)
 {
-    call_once(&inited, init_licenses);
+    init_licenses_once();
     assert(idx < n_licenses);
     return licenses[idx];
 }
+
+#ifdef __cplusplus
+} /* defined(MONERO_LICENSE_H) */
+#endif
