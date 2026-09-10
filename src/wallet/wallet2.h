@@ -285,8 +285,9 @@ private:
       uint32_t m_subaddr_index_major;
       uint32_t m_subaddr_index_minor;
 
+      crypto::hash m_txid = crypto::null_hash;
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(1)
+        VERSION_FIELD(2)
         if (version < 1)
           return false;
         FIELD(m_pubkey)
@@ -298,6 +299,8 @@ private:
         FIELD(m_additional_tx_keys)
         VARINT_FIELD(m_subaddr_index_major)
         VARINT_FIELD(m_subaddr_index_minor)
+        if (version >= 2)
+          FIELD(m_txid)
       END_SERIALIZE()
     };
 
