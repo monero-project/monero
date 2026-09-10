@@ -101,7 +101,7 @@ namespace net_utils
 					entry.m_etc_header_fields.push_back(std::pair<std::string, std::string>(result[field_etc_name], result[field_val]));
 				else
 				{
-					LOG_ERROR("simple_http_connection_handler::parse_header() not matched last entry in:"<<std::string(it_current_bound, it_end));
+					LOG_ERROR("simple_http_connection_handler::parse_header() not matched last entry (" << std::distance(it_current_bound, it_end) << " bytes)");
 				}
 
 				it_current_bound = result[(int)result.size()-1].first;
@@ -122,7 +122,7 @@ namespace net_utils
 
 			if(!parse_header(it_begin, end_header_it+4, entry))
 			{
-				LOG_ERROR("Failed to parse header:" << std::string(it_begin, end_header_it+2));
+				LOG_ERROR("Failed to parse header (" << std::distance(it_begin, end_header_it + 2) << " bytes)");
 				return false;
 			}
 		
@@ -139,7 +139,7 @@ namespace net_utils
 			std::string boundary;
 			if(!match_boundary(content_type, boundary))
 			{
-				MERROR("Failed to match boundary in content type: " << content_type);
+				MERROR("Failed to match boundary in content type (" << content_type.size() << " bytes)");
 				return false;
 			}
 			
@@ -430,7 +430,7 @@ namespace net_utils
 		}else
 		{
 			m_state = http_state_error;
-			LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::handle_invoke_query_line(): Failed to match first line: " << m_cache);
+			LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::handle_invoke_query_line(): Failed to match first line (" << m_cache.size() << " bytes)");
 			return false;
 		}
 
@@ -454,14 +454,14 @@ namespace net_utils
   template<class t_connection_context>
 	bool simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(size_t pos)
 	{ 
-		LOG_PRINT_L3("HTTP HEAD:\r\n" << m_cache.substr(0, pos));
+		LOG_PRINT_L3("HTTP HEAD: " << pos << " bytes");
 
 		m_query_info.m_full_request_buf_size = pos;
     m_query_info.m_request_head.assign(m_cache.begin(), m_cache.begin()+pos); 
 
 		if(!parse_cached_header(m_query_info.m_header_info, m_cache, pos))
 		{
-			LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): failed to anilize request header: " << m_cache);
+			LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): failed to anilize request header (" << pos << " bytes)");
 			m_state = http_state_error;
 			return false;
 		}
@@ -477,7 +477,7 @@ namespace net_utils
 			m_body_transfer_type = http_body_transfer_measure;
 			if(!get_len_from_content_lenght(m_query_info.m_header_info.m_content_length, m_len_summary))
 			{
-				LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): Failed to get_len_from_content_lenght();, m_query_info.m_content_length="<<m_query_info.m_header_info.m_content_length);
+				LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): Failed to get_len_from_content_lenght() (" << m_query_info.m_header_info.m_content_length.size() << " bytes)");
 				m_state = http_state_error;
 				return false;
 			}
