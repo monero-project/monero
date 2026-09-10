@@ -55,6 +55,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -64,6 +65,59 @@ namespace tools
 {
 namespace wallet
 {
+//-------------------------------------------------------------------------------------------------------------------
+static const std::vector<cryptonote::tx_destination_entry>& get_tx_destinations(const wallet2::tx_construction_data &tx)
+{
+    return tx.splitted_dsts;
+}
+//-------------------------------------------------------------------------------------------------------------------
+static const std::vector<cryptonote::tx_destination_entry>& get_tx_destinations(const wallet2::pending_tx &tx)
+{
+    return tx.construction_data.splitted_dsts;
+}
+//-------------------------------------------------------------------------------------------------------------------
+static const std::vector<cryptonote::tx_source_entry>& get_tx_sources(const wallet2::tx_construction_data &tx)
+{
+    return tx.sources;
+}
+//-------------------------------------------------------------------------------------------------------------------
+static const std::vector<cryptonote::tx_source_entry>& get_tx_sources(const wallet2::pending_tx &tx)
+{
+    return tx.construction_data.sources;
+}
+//-------------------------------------------------------------------------------------------------------------------
+template<typename T>
+static bool check_consistent_ins_outs_impl(const std::vector<T> &txes)
+{
+    std::unordered_set<rct::key> seen_ins;
+    std::unordered_map<cryptonote::account_public_address, bool> destination_types{};
+    for (const auto &tx: txes)
+    {
+        // Inputs
+        for (const auto &src: get_tx_sources(tx))
+        {
+            CHECK_AND_ASSERT_THROW_MES(src.real_output < src.outputs.size(),
+                "has_consistent_ins_outs: ring sig index " << src.real_output << " out of input set size "
+                << src.outputs.size());
+            const auto &dest = src.outputs[src.real_output].second.dest;
+            const auto result = seen_ins.emplace(dest);
+            CHECK_AND_ASSERT_THROW_MES(result.second,
+                "has_consistent_ins_outs: duplicate input pubkey");
+        }
+
+        // Outputs
+        // Keep the address type consistent across transactions, including zero-amount
+        // outputs and change.
+        // We only care about normal vs subaddress consistency, not integrated address consistency.
+        for (const auto &dest: get_tx_destinations(tx))
+        {
+            const auto result = destination_types.emplace(dest.addr, dest.is_subaddress);
+            CHECK_AND_ASSERT_THROW_MES(result.second && result.first->second == dest.is_subaddress,
+                "has_consistent_ins_outs: duplicate input pubkey");
+        }
+    }
+    return true;
+}
 //-------------------------------------------------------------------------------------------------------------------
 static void validate_tx_outs(
     const wallet2::pending_tx &ptx,
@@ -160,7 +214,7 @@ static void validate_tx_outs(
 
         // - encoded amount
         rct::ecdhTuple amnt_data{};
-        memcpy(amnt_data.amount.bytes, &dest.amount, sizeof(dest.amount));
+        amnt_data.amount = rct::d2h(dest.amount);
         rct::ecdhDecode(amnt_data, amount_keys.at(i), true); //v2, decode gives mask
         CHECK_AND_ASSERT_THROW_MES(ptx.tx.rct_signatures.ecdhInfo.at(i).amount == amnt_data.amount,
             "validate_tx_outs: failed reproducing encoded amount");
@@ -371,11 +425,13 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
     // - For SOME REASON, construction data sources are not always in the same order as inputs, so we need to fix that
     auto sources_ordered = construct.sources;
     std::vector<size_t> ins_order;
+    std::unordered_set<crypto::public_key> seen_ins;
     for (const size_t selected_transfer : ptx.selected_transfers)
     {
         CHECK_AND_ASSERT_THROW_MES(selected_transfer < transfers.size(),
             "sanity_check_pending_tx: invalid transfers index");
         const auto &transfer = transfers.at(selected_transfer);
+        const auto transfer_pkey = transfer.get_public_key();
         for (size_t i = 0; i < sources_ordered.size(); ++i)
         {
             const auto &src = sources_ordered.at(i);
@@ -386,11 +442,16 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
             // 'index in global array of same-amount outputs'.
             if (src.outputs[src.real_output].first != transfer.m_global_output_index
                 || src.amount != transfer.m_amount
-                || src.outputs[src.real_output].second.dest != rct::pk2rct(transfer.get_public_key()))
+                || src.outputs[src.real_output].second.dest != rct::pk2rct(transfer_pkey))
                 continue;
             ins_order.push_back(i);
             break;
         }
+        // We check for duplicate onetime addr instead of selected_transfer in case of transfers with
+        // the same destination. Note that we assume `transfers` is sanitized of non-canonical pubkey representations.
+        CHECK_AND_ASSERT_THROW_MES(seen_ins.count(transfer_pkey) == 0,
+            "sanity_check_pending_tx: duplicate input pubkey");
+        seen_ins.insert(transfer_pkey);
     }
     CHECK_AND_ASSERT_THROW_MES(ins_order.size() == sources_ordered.size(),
         "sanity_check_pending_tx: global index mismatch between sources and tx");
@@ -764,6 +825,34 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
             "sanity_check_pending_tx: output amount > 2^64 - 1");
     CHECK_AND_ASSERT_THROW_MES(output_amnt == input_amnt,
             "sanity_check_pending_tx: output amount != input amount");
+}
+//-------------------------------------------------------------------------------------------------------------------
+void check_consistent_ins_outs(const std::vector<wallet2::tx_construction_data> &txes)
+{
+    check_consistent_ins_outs_impl(txes);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void check_consistent_ins_outs(const std::vector<wallet2::pending_tx> &txes)
+{
+    check_consistent_ins_outs_impl(txes);
+}
+//-------------------------------------------------------------------------------------------------------------------
+void sanity_check_pending_tx_set(const std::vector<wallet2::pending_tx> &ptxs,
+    const cryptonote::network_type nettype,
+    const cryptonote::account_keys &account_keys,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses,
+    const std::vector<wallet2_basic::transfer_details> &transfers,
+    const bool redacted,
+    const std::optional<std::function<const crypto::key_image(const size_t)>> &transfer_ki_resolver,
+    const bool allow_read_only)
+{
+    check_consistent_ins_outs(ptxs);
+
+    for (const auto &ptx: ptxs)
+    {
+        sanity_check_pending_tx(ptx, nettype, account_keys, subaddresses, transfers,
+            redacted, transfer_ki_resolver, allow_read_only);
+    }
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace wallet
