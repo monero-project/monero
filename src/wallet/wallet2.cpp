@@ -1294,6 +1294,11 @@ bool wallet2::has_stagenet_option(const boost::program_options::variables_map& v
   return command_line::get_arg(vm, options().stagenet);
 }
 
+bool wallet2::has_password_option(const boost::program_options::variables_map& vm)
+{
+  return command_line::has_arg(vm, options().password);
+}
+
 bool wallet2::has_proxy_option() const
 {
   return !m_proxy.empty();
