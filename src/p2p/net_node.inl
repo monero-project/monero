@@ -265,6 +265,14 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::is_remote_host_allowed(const epee::net_utils::network_address &address, time_t *t)
   {
+    if (m_allow_local_ip && (address.is_local() || address.is_loopback()) &&
+        (address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id() ||
+         address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id()))
+    {
+      MDEBUG("Local address " << address.host_str() << " is exempt from blocking/banning (--" << arg_p2p_allow_local_ip.name << ")");
+      return true;
+    }
+
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
 
     const time_t now = time(nullptr);
