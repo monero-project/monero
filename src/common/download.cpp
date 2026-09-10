@@ -108,6 +108,8 @@ namespace tools
           {
             MINFO("Content-Length: " << length);
             content_length = length;
+            if (control->progress_cb && !control->progress_cb(control->path, control->uri, 0, content_length))
+              return false;
             boost::filesystem::path path(control->path);
             try
             {
@@ -266,6 +268,24 @@ namespace tools
     download_async_handle handle = download_async(path, url, [&success](const std::string&, const std::string&, bool result) {success = result;}, cb);
     download_wait(handle);
     return success;
+  }
+
+  bool download(const std::string &path, const std::string &url, size_t max_size)
+  {
+    const auto size_guard = [max_size](const std::string& /*path*/, const std::string& /*uri*/, size_t bytes_written, ssize_t content_length) {
+      if (max_size > 0 && content_length >= 0 && static_cast<size_t>(content_length) > max_size)
+      {
+        MERROR("Download rejected, file exceeds maximum size");
+        return false;
+      }
+      if (max_size > 0 && bytes_written > max_size)
+      {
+        MERROR("Download rejected, file exceeds maximum size");
+        return false;
+      }
+      return true;
+    };
+    return download(path, url, size_guard);
   }
 
   download_async_handle download_async(const std::string &path, const std::string &url, std::function<void(const std::string&, const std::string&, bool)> result, std::function<bool(const std::string&, const std::string&, size_t, ssize_t)> progress)

@@ -212,6 +212,7 @@
 #define RPC_CREDITS_PER_HASH_SCALE ((float)(1<<24))
 
 #define DNS_BLOCKLIST_LIFETIME (86400 * 8)
+#define DNS_BLOCKLIST_MAX_SIZE (1024 * 1024 * 10)
 
 //The limit is enough for the mandatory transaction content with 16 outputs (547 bytes),
 //a custom tag (1 byte) and up to 32 bytes of custom data for each recipient.
