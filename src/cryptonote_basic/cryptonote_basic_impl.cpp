@@ -247,6 +247,23 @@ namespace cryptonote {
       get_account_address_from_str(info, nettype, address_str);
   }
   //--------------------------------------------------------------------------------
+  const char* get_network_type_name(const network_type nettype)
+  {
+    switch (nettype)
+    {
+    case MAINNET:
+      return "mainnet";
+    case TESTNET:
+      return "testnet";
+    case STAGENET:
+      return "stagenet";
+    case FAKECHAIN:
+      return "fakechain";
+    default:
+      return "unknown";
+    };
+  }
+  //--------------------------------------------------------------------------------
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b) {
     return cryptonote::get_transaction_hash(a) == cryptonote::get_transaction_hash(b);
   }
