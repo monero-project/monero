@@ -30,6 +30,8 @@
 
 #include "gtest/gtest.h"
 
+#include "wallet/api/pending_transaction.h"
+#include "wallet/api/wallet.h"
 #include "wallet/api/wallet2_api.h"
 #include "wallet/wallet2.h"
 #include "include_base_utils.h"
@@ -50,9 +52,139 @@
 #include <vector>
 #include <atomic>
 #include <functional>
+#include <utility>
 
 
 using namespace std;
+
+class wallet_accessor_test
+{
+public:
+    static bool refreshRunning(tools::wallet2 *wallet)
+    {
+        return wallet->refresh_running();
+    }
+
+    static bool firstRefreshDone(tools::wallet2 *wallet)
+    {
+        return wallet->m_first_refresh_done;
+    }
+
+    static void setFirstRefreshDone(tools::wallet2 *wallet, bool done)
+    {
+        wallet->m_first_refresh_done = done;
+    }
+};
+
+class WalletApiAccessorTest
+{
+public:
+    static bool refreshRunning(Monero::Wallet *wallet)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        return impl && wallet_accessor_test::refreshRunning(impl->m_wallet.get());
+    }
+
+    static bool refreshEnabled(Monero::Wallet *wallet)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        return impl && impl->m_refreshEnabled;
+    }
+
+    static bool rescanPending(Monero::Wallet *wallet)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        return impl && impl->m_refreshShouldRescan;
+    }
+
+    static bool firstRefreshDone(Monero::Wallet *wallet)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        return impl && wallet_accessor_test::firstRefreshDone(impl->m_wallet.get());
+    }
+
+    static void setFirstRefreshDone(Monero::Wallet *wallet, bool done)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        ASSERT_NE(nullptr, impl);
+        wallet_accessor_test::setFirstRefreshDone(impl->m_wallet.get(), done);
+    }
+
+    static void suspendRefresh(Monero::Wallet *wallet)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        ASSERT_NE(nullptr, impl);
+        impl->m_wallet->suspend_refresh();
+    }
+
+    static void resumeRefresh(Monero::Wallet *wallet)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        ASSERT_NE(nullptr, impl);
+        impl->m_wallet->resume_refresh();
+    }
+
+    static void waitForRefresh(Monero::Wallet *wallet)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        if (!impl)
+            return;
+        boost::mutex::scoped_lock lock(impl->m_refreshMutex);
+        boost::mutex::scoped_lock lock2(impl->m_refreshMutex2);
+    }
+
+    static unsigned refreshLockRequests(Monero::Wallet *wallet)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        return impl ? impl->m_refreshLockRequests.load() : 0;
+    }
+
+    static bool refreshInterrupted(Monero::Wallet *wallet)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        return impl && impl->m_refreshInterrupted;
+    }
+
+    static void withRefreshLock(Monero::Wallet *wallet, const std::function<void()> &function)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        ASSERT_NE(nullptr, impl);
+        Monero::WalletImpl::RefreshLock lock(*impl);
+        function();
+    }
+
+    static void withRefreshMutex(Monero::Wallet *wallet, const std::function<void()> &function)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        ASSERT_NE(nullptr, impl);
+        boost::mutex::scoped_lock lock(impl->m_refreshMutex);
+        function();
+    }
+
+    static void withRefreshMutex2(Monero::Wallet *wallet, const std::function<void()> &function)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        ASSERT_NE(nullptr, impl);
+        boost::mutex::scoped_lock lock(impl->m_refreshMutex2);
+        function();
+    }
+
+    static void setStatusError(Monero::Wallet *wallet, const std::string &message)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        ASSERT_NE(nullptr, impl);
+        impl->setStatusError(message);
+    }
+
+    static bool loadUnsignedTx(Monero::Wallet *wallet, const std::string &filename)
+    {
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        if (!impl)
+            return false;
+        tools::wallet2::unsigned_tx_set txs;
+        return impl->m_wallet->load_unsigned_tx(filename, txs);
+    }
+};
 
 namespace Consts
 {
@@ -1089,8 +1221,1155 @@ struct MyWalletListener : public Monero::WalletListener
 
 };
 
+struct BlockingRefreshListener : public Monero::WalletListener
+{
+    boost::mutex mutex;
+    boost::condition_variable cv;
+    bool refresh_entered = false;
+    bool release_refresh = false;
+    size_t refresh_count = 0;
+    const bool block_on_completion;
 
+    explicit BlockingRefreshListener(Monero::Wallet *wallet, bool block_on_completion = false)
+        : block_on_completion(block_on_completion)
+    {
+        wallet->setListener(this);
+    }
 
+    void moneySpent(const std::string &, uint64_t) override {}
+    void moneyReceived(const std::string &, uint64_t) override {}
+    void unconfirmedMoneyReceived(const std::string &, uint64_t) override {}
+    void updated() override {}
+    void refreshed() override
+    {
+        boost::unique_lock<boost::mutex> lock(mutex);
+        ++refresh_count;
+        cv.notify_one();
+        if (block_on_completion && !refresh_entered)
+        {
+            refresh_entered = true;
+            while (!release_refresh)
+                cv.wait(lock);
+        }
+    }
+
+    void newBlock(uint64_t) override
+    {
+        boost::unique_lock<boost::mutex> lock(mutex);
+        if (block_on_completion || refresh_entered)
+            return;
+
+        refresh_entered = true;
+        cv.notify_one();
+        while (!release_refresh)
+            cv.wait(lock);
+    }
+
+    bool waitForRefresh()
+    {
+        boost::unique_lock<boost::mutex> lock(mutex);
+        return cv.wait_for(lock, boost::chrono::seconds(20), [this] { return refresh_entered; });
+    }
+
+    size_t refreshCount()
+    {
+        boost::lock_guard<boost::mutex> lock(mutex);
+        return refresh_count;
+    }
+
+    bool waitForRefreshAfter(size_t count)
+    {
+        boost::unique_lock<boost::mutex> lock(mutex);
+        return cv.wait_for(lock, boost::chrono::seconds(20), [this, count] { return refresh_count > count; });
+    }
+
+    void releaseRefresh()
+    {
+        boost::lock_guard<boost::mutex> lock(mutex);
+        release_refresh = true;
+        cv.notify_one();
+    }
+};
+
+struct CallbackStoreListener : public Monero::WalletListener
+{
+    Monero::WalletManager *manager;
+    Monero::Wallet *wallet;
+    bool store_attempted = false;
+    bool store_succeeded = true;
+    std::string store_error;
+    bool close_succeeded = true;
+    std::string close_error;
+
+    CallbackStoreListener(Monero::WalletManager *manager, Monero::Wallet *wallet)
+        : manager(manager), wallet(wallet)
+    {
+        wallet->setListener(this);
+    }
+
+    void moneySpent(const std::string &, uint64_t) override {}
+    void moneyReceived(const std::string &, uint64_t) override {}
+    void unconfirmedMoneyReceived(const std::string &, uint64_t) override {}
+    void updated() override {}
+    void refreshed() override {}
+
+    void newBlock(uint64_t) override
+    {
+        if (store_attempted)
+            return;
+        store_attempted = true;
+        store_succeeded = wallet->store("");
+        store_error = wallet->errorString();
+        close_succeeded = manager->closeWallet(wallet, false);
+        close_error = wallet->errorString();
+    }
+};
+
+struct CallbackTransactionListener : public Monero::WalletListener
+{
+    Monero::Wallet *wallet;
+    const std::string commit_filename;
+    bool refresh_attempted = false;
+    bool refresh_succeeded = true;
+    std::string refresh_error;
+    bool rescan_attempted = false;
+    bool rescan_succeeded = true;
+    std::string rescan_error;
+    bool create_attempted = false;
+    int create_status = Monero::PendingTransaction::Status_Ok;
+    std::string create_error;
+    int sweep_status = Monero::PendingTransaction::Status_Ok;
+    std::string sweep_error;
+    bool setup_background_sync_succeeded = true;
+    std::string setup_background_sync_error;
+    bool start_background_sync_succeeded = true;
+    std::string start_background_sync_error;
+    bool stop_background_sync_succeeded = true;
+    std::string stop_background_sync_error;
+    bool commit_attempted = false;
+    bool commit_succeeded = true;
+    std::string commit_error;
+    bool file_commit_attempted = false;
+    bool file_commit_succeeded = false;
+    int file_commit_status = Monero::PendingTransaction::Status_Error;
+    std::string file_commit_error;
+    std::unique_ptr<Monero::PendingTransactionImpl> broadcast_pending;
+
+    CallbackTransactionListener(
+            Monero::Wallet *wallet,
+            Monero::WalletImpl *impl,
+            std::string commit_filename)
+        : wallet(wallet)
+        , commit_filename(std::move(commit_filename))
+        , broadcast_pending(new Monero::PendingTransactionImpl(*impl))
+    {
+        wallet->setListener(this);
+    }
+
+    void moneySpent(const std::string &, uint64_t) override {}
+    void moneyReceived(const std::string &, uint64_t) override {}
+    void unconfirmedMoneyReceived(const std::string &, uint64_t) override {}
+    void updated() override {}
+    void refreshed() override {}
+
+    void newBlock(uint64_t) override
+    {
+        if (create_attempted)
+            return;
+
+        refresh_attempted = true;
+        refresh_succeeded = wallet->refresh();
+        refresh_error = wallet->errorString();
+
+        rescan_attempted = true;
+        rescan_succeeded = wallet->rescanBlockchain();
+        rescan_error = wallet->errorString();
+
+        create_attempted = true;
+        Monero::PendingTransaction *created = wallet->createTransaction(
+                "invalid", PAYMENT_ID_EMPTY, uint64_t{1}, 0);
+        create_status = created->status();
+        create_error = created->errorString();
+        wallet->disposeTransaction(created);
+
+        Monero::PendingTransaction *sweep = wallet->createSweepUnmixableTransaction();
+        sweep_status = sweep->status();
+        sweep_error = sweep->errorString();
+        wallet->disposeTransaction(sweep);
+
+        setup_background_sync_succeeded = wallet->setupBackgroundSync(
+                Monero::Wallet::BackgroundSync_ReusePassword, "", optional<std::string>());
+        setup_background_sync_error = wallet->errorString();
+        start_background_sync_succeeded = wallet->startBackgroundSync();
+        start_background_sync_error = wallet->errorString();
+        stop_background_sync_succeeded = wallet->stopBackgroundSync("");
+        stop_background_sync_error = wallet->errorString();
+
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+        ASSERT_NE(nullptr, impl);
+        commit_attempted = true;
+        commit_succeeded = broadcast_pending->commit();
+        commit_error = broadcast_pending->errorString();
+
+        Monero::PendingTransactionImpl pending(*impl);
+        pending.commit();
+        file_commit_attempted = true;
+        file_commit_succeeded = pending.commit(commit_filename);
+        file_commit_status = pending.status();
+        file_commit_error = pending.errorString();
+    }
+};
+
+struct CrossWalletCallbackListener : public Monero::WalletListener
+{
+    Monero::Wallet *target;
+    const std::string filename;
+    bool attempted = false;
+    bool store_succeeded = true;
+    std::string store_error;
+    bool file_commit_attempted = false;
+    bool file_commit_succeeded = true;
+    std::string file_commit_error;
+
+    CrossWalletCallbackListener(Monero::Wallet *source, Monero::Wallet *target, std::string filename)
+        : target(target), filename(std::move(filename))
+    {
+        source->setListener(this);
+    }
+
+    void moneySpent(const std::string &, uint64_t) override {}
+    void moneyReceived(const std::string &, uint64_t) override {}
+    void unconfirmedMoneyReceived(const std::string &, uint64_t) override {}
+    void updated() override {}
+    void refreshed() override {}
+
+    void newBlock(uint64_t) override
+    {
+        if (attempted)
+            return;
+        attempted = true;
+        store_succeeded = target->store("");
+        store_error = target->errorString();
+
+        Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(target);
+        if (!impl)
+            return;
+        Monero::PendingTransactionImpl pending(*impl);
+        file_commit_attempted = true;
+        file_commit_succeeded = pending.commit(filename);
+        file_commit_error = pending.errorString();
+    }
+};
+
+struct NewBlockCountingListener : public Monero::WalletListener
+{
+    size_t new_blocks = 0;
+
+    explicit NewBlockCountingListener(Monero::Wallet *wallet)
+    {
+        wallet->setListener(this);
+    }
+
+    void moneySpent(const std::string &, uint64_t) override {}
+    void moneyReceived(const std::string &, uint64_t) override {}
+    void unconfirmedMoneyReceived(const std::string &, uint64_t) override {}
+    void updated() override {}
+    void refreshed() override {}
+    void newBlock(uint64_t) override { ++new_blocks; }
+};
+
+struct RefreshedCountingListener : public Monero::WalletListener
+{
+    std::atomic<size_t> refreshes{0};
+
+    explicit RefreshedCountingListener(Monero::Wallet *wallet)
+    {
+        wallet->setListener(this);
+    }
+
+    void moneySpent(const std::string &, uint64_t) override {}
+    void moneyReceived(const std::string &, uint64_t) override {}
+    void unconfirmedMoneyReceived(const std::string &, uint64_t) override {}
+    void updated() override {}
+    void refreshed() override { ++refreshes; }
+    void newBlock(uint64_t) override {}
+};
+
+static bool waitForFlag(const std::atomic<bool> &flag)
+{
+    for (size_t i = 0; i < 20000; ++i)
+    {
+        if (flag)
+            return true;
+        boost::this_thread::sleep_for(boost::chrono::milliseconds(1));
+    }
+    return false;
+}
+
+static bool waitForRefreshLockRequests(Monero::Wallet *wallet, unsigned requests)
+{
+    for (size_t i = 0; i < 20000; ++i)
+    {
+        if (WalletApiAccessorTest::refreshLockRequests(wallet) == requests)
+            return true;
+        boost::this_thread::sleep_for(boost::chrono::milliseconds(1));
+    }
+    return false;
+}
+
+static bool waitForRefreshStop(Monero::Wallet *wallet, const std::atomic<bool> &operation_finished)
+{
+    for (size_t i = 0; i < 20000; ++i)
+    {
+        if (!WalletApiAccessorTest::refreshRunning(wallet))
+            return true;
+        if (operation_finished)
+            return false;
+        boost::this_thread::sleep_for(boost::chrono::milliseconds(1));
+    }
+    return false;
+}
+
+TEST_F(WalletTest2, WalletStoreWaitsForSynchronousRefresh)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET6_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    const std::string label = "stored after synchronous refresh";
+    wallet->setSubaddressLabel(0, 0, label);
+    ASSERT_EQ(Monero::Wallet::Status_Ok, wallet->status());
+    BlockingRefreshListener listener(wallet);
+    WalletApiAccessorTest::setFirstRefreshDone(wallet, false);
+
+    bool refresh_succeeded = false;
+    boost::thread refresh_thread([&] { refresh_succeeded = wallet->refresh(); });
+    const bool refresh_entered = listener.waitForRefresh();
+    if (refresh_entered)
+        wallet->rescanBlockchainAsync();
+    bool store_succeeded = false;
+    std::atomic<bool> store_started{false};
+    std::atomic<bool> store_finished{false};
+    boost::thread store_thread;
+    if (refresh_entered)
+    {
+        store_thread = boost::thread([&] {
+            store_started = true;
+            store_succeeded = wallet->store("");
+            store_finished = true;
+        });
+    }
+
+    const bool store_thread_started = refresh_entered && waitForFlag(store_started);
+    const bool refresh_stopped = store_thread_started && waitForRefreshStop(wallet, store_finished);
+    const bool store_finished_during_refresh = store_finished;
+    listener.releaseRefresh();
+    if (store_thread.joinable())
+        store_thread.join();
+    refresh_thread.join();
+
+    EXPECT_TRUE(refresh_entered);
+    EXPECT_TRUE(store_thread_started);
+    EXPECT_TRUE(refresh_stopped);
+    EXPECT_FALSE(store_finished_during_refresh);
+    EXPECT_TRUE(store_succeeded);
+    EXPECT_FALSE(refresh_succeeded);
+    EXPECT_TRUE(WalletApiAccessorTest::firstRefreshDone(wallet));
+    EXPECT_TRUE(WalletApiAccessorTest::rescanPending(wallet));
+    EXPECT_EQ(size_t{0}, listener.refreshCount());
+    EXPECT_TRUE(wallet->refresh());
+    EXPECT_TRUE(WalletApiAccessorTest::firstRefreshDone(wallet));
+    EXPECT_FALSE(WalletApiAccessorTest::rescanPending(wallet));
+    EXPECT_EQ(size_t{1}, listener.refreshCount());
+    EXPECT_EQ(Monero::Wallet::Status_Ok, wallet->status());
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+
+    wallet = wmgr->openWallet(TESTNET_WALLET6_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_EQ(Monero::Wallet::Status_Ok, wallet->status());
+    EXPECT_EQ(label, wallet->getSubaddressLabel(0, 0));
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletStoreWaitsForBackgroundRefresh)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET3_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    BlockingRefreshListener listener(wallet);
+    wallet->setAutoRefreshInterval(0);
+    wallet->startRefresh();
+    const bool refresh_entered = listener.waitForRefresh();
+    bool store_succeeded = false;
+    std::atomic<bool> store_started{false};
+    std::atomic<bool> store_finished{false};
+    boost::thread store_thread;
+    if (refresh_entered)
+    {
+        store_thread = boost::thread([&] {
+            store_started = true;
+            store_succeeded = wallet->store("");
+            store_finished = true;
+        });
+    }
+
+    const bool store_thread_started = refresh_entered && waitForFlag(store_started);
+    const bool refresh_stopped = store_thread_started && waitForRefreshStop(wallet, store_finished);
+    const bool store_finished_during_refresh = store_finished;
+    const size_t refresh_count = listener.refreshCount();
+    listener.releaseRefresh();
+    if (store_thread.joinable())
+        store_thread.join();
+
+    const bool refresh_resumed = listener.waitForRefreshAfter(refresh_count);
+
+    EXPECT_TRUE(refresh_entered);
+    EXPECT_TRUE(store_thread_started);
+    EXPECT_TRUE(refresh_stopped);
+    EXPECT_FALSE(store_finished_during_refresh);
+    EXPECT_TRUE(store_succeeded);
+    EXPECT_TRUE(WalletApiAccessorTest::refreshEnabled(wallet));
+    EXPECT_TRUE(refresh_resumed);
+    wallet->pauseRefresh();
+    wallet->stop();
+    WalletApiAccessorTest::waitForRefresh(wallet);
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletStopBackgroundSyncStopsRefreshBeforeWaiting)
+{
+    const std::string wallet_name = WALLETS_ROOT_DIR + "/stop_background_sync.bin";
+    Utils::deleteWallet(wallet_name);
+    Monero::Wallet *wallet = wmgr->createWallet(
+            wallet_name, TESTNET_WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
+    ASSERT_NE(nullptr, wallet);
+    ASSERT_EQ(Monero::Wallet::Status_Ok, wallet->status());
+    wallet->setAutoRefreshInterval(0);
+    wallet->pauseRefresh();
+    ASSERT_TRUE(init_wallet(wallet));
+    WalletApiAccessorTest::waitForRefresh(wallet);
+    ASSERT_TRUE(wallet->setupBackgroundSync(
+            Monero::Wallet::BackgroundSync_ReusePassword, TESTNET_WALLET_PASS, optional<std::string>()));
+    ASSERT_TRUE(wallet->startBackgroundSync());
+    ASSERT_TRUE(wallet->isBackgroundSyncing());
+    BlockingRefreshListener listener(wallet);
+
+    bool refresh_succeeded = false;
+    boost::thread refresh_thread([&] { refresh_succeeded = wallet->refresh(); });
+    const bool refresh_entered = listener.waitForRefresh();
+    bool stop_succeeded = false;
+    std::atomic<bool> stop_finished{false};
+    boost::thread stop_thread;
+    if (refresh_entered)
+    {
+        stop_thread = boost::thread([&] {
+            stop_succeeded = wallet->stopBackgroundSync(TESTNET_WALLET_PASS);
+            stop_finished = true;
+        });
+    }
+
+    const bool stop_registered = refresh_entered && waitForRefreshLockRequests(wallet, 1);
+    const bool refresh_stopped = stop_registered && waitForRefreshStop(wallet, stop_finished);
+    const bool refresh_interrupted_while_stop_waited = WalletApiAccessorTest::refreshInterrupted(wallet);
+    const bool stop_finished_during_refresh = stop_finished;
+    listener.releaseRefresh();
+    if (stop_thread.joinable())
+        stop_thread.join();
+    refresh_thread.join();
+
+    EXPECT_TRUE(refresh_entered);
+    EXPECT_TRUE(stop_registered);
+    EXPECT_TRUE(refresh_stopped);
+    EXPECT_TRUE(refresh_interrupted_while_stop_waited);
+    EXPECT_FALSE(stop_finished_during_refresh);
+    EXPECT_FALSE(refresh_succeeded);
+    EXPECT_TRUE(stop_succeeded);
+    EXPECT_FALSE(wallet->isBackgroundSyncing());
+    EXPECT_EQ(Monero::Wallet::Status_Ok, wallet->status());
+    EXPECT_EQ(size_t{0}, listener.refreshCount());
+    const uint64_t interrupted_height = wallet->blockChainHeight();
+    EXPECT_TRUE(wallet->refresh());
+    const uint64_t refreshed_height = wallet->blockChainHeight();
+    EXPECT_GE(refreshed_height, interrupted_height);
+    EXPECT_EQ(size_t{1}, listener.refreshCount());
+    EXPECT_TRUE(wallet->setupBackgroundSync(
+            Monero::Wallet::BackgroundSync_Off, TESTNET_WALLET_PASS, optional<std::string>()));
+    ASSERT_TRUE(wmgr->closeWallet(wallet));
+
+    wallet = wmgr->openWallet(wallet_name, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_NE(nullptr, wallet);
+    ASSERT_EQ(Monero::Wallet::Status_Ok, wallet->status());
+    wallet->setAutoRefreshInterval(0);
+    wallet->pauseRefresh();
+    ASSERT_TRUE(init_wallet(wallet));
+    WalletApiAccessorTest::waitForRefresh(wallet);
+    EXPECT_EQ(refreshed_height, wallet->blockChainHeight());
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+    Utils::deleteWallet(wallet_name);
+}
+
+TEST_F(WalletTest2, WalletRefreshAsyncPersistsRequestDuringRefresh)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET3_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    BlockingRefreshListener listener(wallet, true);
+    wallet->setAutoRefreshInterval(0);
+    wallet->startRefresh();
+    const bool refresh_entered = listener.waitForRefresh();
+    const size_t refresh_count = listener.refreshCount();
+
+    if (refresh_entered)
+        wallet->refreshAsync();
+    listener.releaseRefresh();
+    const bool requested_refresh_completed = listener.waitForRefreshAfter(refresh_count);
+
+    EXPECT_TRUE(refresh_entered);
+    EXPECT_TRUE(requested_refresh_completed);
+    wallet->pauseRefresh();
+    wallet->stop();
+    WalletApiAccessorTest::waitForRefresh(wallet);
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletCloseWaitsForBackgroundRefresh)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET6_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    const std::string label = "stored while closing after refresh";
+    wallet->setSubaddressLabel(0, 0, label);
+    BlockingRefreshListener listener(wallet);
+    wallet->setAutoRefreshInterval(100);
+    wallet->startRefresh();
+    const bool refresh_entered = listener.waitForRefresh();
+    bool close_succeeded = false;
+    std::atomic<bool> close_finished{false};
+    boost::thread close_thread;
+    if (refresh_entered)
+    {
+        close_thread = boost::thread([&] {
+            close_succeeded = wmgr->closeWallet(wallet);
+            close_finished = true;
+        });
+    }
+
+    const bool close_registered = refresh_entered && waitForRefreshLockRequests(wallet, 1);
+    const bool close_finished_during_refresh = close_finished;
+    listener.releaseRefresh();
+    if (close_thread.joinable())
+        close_thread.join();
+
+    EXPECT_TRUE(refresh_entered);
+    EXPECT_TRUE(close_registered);
+    EXPECT_FALSE(close_finished_during_refresh);
+    ASSERT_TRUE(close_succeeded);
+    EXPECT_EQ(size_t{0}, listener.refreshCount());
+
+    wallet = wmgr->openWallet(TESTNET_WALLET6_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_EQ(Monero::Wallet::Status_Ok, wallet->status());
+    EXPECT_EQ(label, wallet->getSubaddressLabel(0, 0));
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletSynchronousRefreshReportsInterruption)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    wallet->pauseRefresh();
+    WalletApiAccessorTest::waitForRefresh(wallet);
+    RefreshedCountingListener listener(wallet);
+
+    auto check_interrupted = [&](const std::function<bool()> &operation, bool rescan_pending) {
+        bool store_succeeded = false;
+        bool operation_succeeded = false;
+        std::atomic<bool> operation_started{false};
+        std::atomic<bool> operation_finished{false};
+        boost::thread store_thread;
+        boost::thread operation_thread;
+        bool store_registered = false;
+        bool operation_thread_started = false;
+        bool operation_finished_while_store_waited = false;
+        size_t refreshes_while_store_waited = 0;
+        std::string operation_error;
+        const size_t refreshes_before = listener.refreshes;
+
+        WalletApiAccessorTest::withRefreshMutex(wallet, [&] {
+            store_thread = boost::thread([&] { store_succeeded = wallet->store(""); });
+            store_registered = waitForRefreshLockRequests(wallet, 1);
+            if (store_registered)
+            {
+                operation_thread = boost::thread([&] {
+                    operation_started = true;
+                    operation_succeeded = operation();
+                    operation_error = wallet->errorString();
+                    operation_finished = true;
+                });
+                operation_thread_started = waitForFlag(operation_started);
+                operation_finished_while_store_waited = waitForFlag(operation_finished);
+                refreshes_while_store_waited = listener.refreshes;
+            }
+        });
+
+        if (store_thread.joinable())
+            store_thread.join();
+        if (operation_thread.joinable())
+            operation_thread.join();
+
+        EXPECT_TRUE(store_registered);
+        EXPECT_TRUE(operation_thread_started);
+        EXPECT_TRUE(operation_finished_while_store_waited);
+        EXPECT_EQ(refreshes_before, refreshes_while_store_waited);
+        EXPECT_TRUE(store_succeeded);
+        EXPECT_FALSE(operation_succeeded);
+        EXPECT_EQ("Refresh interrupted by another wallet operation", operation_error);
+        EXPECT_EQ(rescan_pending, WalletApiAccessorTest::rescanPending(wallet));
+        EXPECT_EQ(refreshes_before, listener.refreshes);
+    };
+
+    check_interrupted([&] { return wallet->refresh(); }, false);
+    check_interrupted([&] { return wallet->rescanBlockchain(); }, true);
+    EXPECT_TRUE(wallet->refresh());
+    EXPECT_FALSE(WalletApiAccessorTest::rescanPending(wallet));
+    EXPECT_EQ(size_t{1}, listener.refreshes);
+    EXPECT_FALSE(WalletApiAccessorTest::refreshEnabled(wallet));
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletRefreshDoesNotInheritOperationError)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    wallet->pauseRefresh();
+    WalletApiAccessorTest::waitForRefresh(wallet);
+    WalletApiAccessorTest::setStatusError(wallet, "stale error");
+    std::atomic<bool> operation_locked{false};
+    std::atomic<bool> status_cleared_while_locked{false};
+
+    boost::thread operation_thread([&] {
+        WalletApiAccessorTest::withRefreshMutex2(wallet, [&] {
+            operation_locked = true;
+            for (size_t i = 0; i < 1000 && wallet->status() != Monero::Wallet::Status_Ok; ++i)
+                boost::this_thread::sleep_for(boost::chrono::milliseconds(1));
+            status_cleared_while_locked = wallet->status() == Monero::Wallet::Status_Ok;
+            WalletApiAccessorTest::setStatusError(wallet, "operation failed");
+        });
+    });
+    const bool operation_acquired_lock = waitForFlag(operation_locked);
+    const bool refresh_succeeded = operation_acquired_lock && wallet->refresh();
+
+    operation_thread.join();
+
+    EXPECT_TRUE(operation_acquired_lock);
+    EXPECT_FALSE(status_cleared_while_locked);
+    EXPECT_TRUE(refresh_succeeded);
+    EXPECT_EQ(Monero::Wallet::Status_Ok, wallet->status());
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletStoreDoesNotInheritRefreshError)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    wallet->pauseRefresh();
+    WalletApiAccessorTest::waitForRefresh(wallet);
+    bool store_succeeded = false;
+    bool store_registered = false;
+    boost::thread store_thread;
+
+    WalletApiAccessorTest::withRefreshMutex2(wallet, [&] {
+        store_thread = boost::thread([&] { store_succeeded = wallet->store(""); });
+        store_registered = waitForRefreshLockRequests(wallet, 1);
+        WalletApiAccessorTest::setStatusError(wallet, "refresh failed");
+    });
+    store_thread.join();
+
+    EXPECT_TRUE(store_registered);
+    EXPECT_TRUE(store_succeeded);
+    EXPECT_EQ(Monero::Wallet::Status_Ok, wallet->status());
+    EXPECT_TRUE(wallet->errorString().empty());
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletTransactionCreationWaitsForRefresh)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET6_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    BlockingRefreshListener listener(wallet);
+
+    bool refresh_succeeded = false;
+    boost::thread refresh_thread([&] { refresh_succeeded = wallet->refresh(); });
+    const bool refresh_entered = listener.waitForRefresh();
+    Monero::PendingTransaction *transaction = nullptr;
+    std::atomic<bool> transaction_started{false};
+    std::atomic<bool> transaction_finished{false};
+    boost::thread transaction_thread;
+    if (refresh_entered)
+    {
+        transaction_thread = boost::thread([&] {
+            transaction_started = true;
+            transaction = wallet->createTransaction("invalid", PAYMENT_ID_EMPTY, uint64_t{1}, 0);
+            transaction_finished = true;
+        });
+    }
+
+    const bool transaction_thread_started = refresh_entered && waitForFlag(transaction_started);
+    const bool refresh_stopped = transaction_thread_started && waitForRefreshStop(wallet, transaction_finished);
+    const bool transaction_finished_during_refresh = transaction_finished;
+    listener.releaseRefresh();
+    if (transaction_thread.joinable())
+        transaction_thread.join();
+    refresh_thread.join();
+
+    EXPECT_TRUE(refresh_entered);
+    EXPECT_TRUE(transaction_thread_started);
+    EXPECT_TRUE(refresh_stopped);
+    EXPECT_FALSE(transaction_finished_during_refresh);
+    EXPECT_FALSE(refresh_succeeded);
+    EXPECT_EQ(size_t{0}, listener.refreshCount());
+    ASSERT_NE(nullptr, transaction);
+    EXPECT_EQ(Monero::PendingTransaction::Status_Error, transaction->status());
+    EXPECT_EQ("Invalid destination address", transaction->errorString());
+    wallet->disposeTransaction(transaction);
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletEmptyTransactionCommitDoesNotInterruptRefresh)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET6_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+    ASSERT_NE(nullptr, impl);
+    Monero::PendingTransactionImpl transaction(*impl);
+    BlockingRefreshListener listener(wallet);
+
+    bool refresh_succeeded = false;
+    boost::thread refresh_thread([&] { refresh_succeeded = wallet->refresh(); });
+    const bool refresh_entered = listener.waitForRefresh();
+    bool commit_succeeded = false;
+    std::atomic<bool> commit_started{false};
+    std::atomic<bool> commit_finished{false};
+    boost::thread commit_thread;
+    if (refresh_entered)
+    {
+        commit_thread = boost::thread([&] {
+            commit_started = true;
+            commit_succeeded = transaction.commit();
+            commit_finished = true;
+        });
+    }
+
+    const bool commit_thread_started = refresh_entered && waitForFlag(commit_started);
+    const bool commit_finished_during_refresh = commit_thread_started && waitForFlag(commit_finished);
+    const bool refresh_running_during_commit = WalletApiAccessorTest::refreshRunning(wallet);
+    listener.releaseRefresh();
+    if (commit_thread.joinable())
+        commit_thread.join();
+    refresh_thread.join();
+
+    EXPECT_TRUE(refresh_entered);
+    EXPECT_TRUE(commit_thread_started);
+    EXPECT_TRUE(commit_finished_during_refresh);
+    EXPECT_TRUE(refresh_running_during_commit);
+    EXPECT_TRUE(refresh_succeeded);
+    EXPECT_EQ(size_t{1}, listener.refreshCount());
+    EXPECT_TRUE(commit_succeeded);
+    EXPECT_EQ(Monero::PendingTransaction::Status_Ok, transaction.status());
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletTransactionFileCommitWaitsForRefresh)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET6_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+    ASSERT_NE(nullptr, impl);
+    Monero::PendingTransactionImpl transaction(*impl);
+    BlockingRefreshListener listener(wallet);
+    const std::string filename = WALLETS_ROOT_DIR + "/pending_tx_refresh";
+    boost::filesystem::remove(filename);
+
+    bool refresh_succeeded = false;
+    boost::thread refresh_thread([&] { refresh_succeeded = wallet->refresh(); });
+    const bool refresh_entered = listener.waitForRefresh();
+    bool commit_succeeded = false;
+    std::atomic<bool> commit_started{false};
+    std::atomic<bool> commit_finished{false};
+    boost::thread commit_thread;
+    if (refresh_entered)
+    {
+        commit_thread = boost::thread([&] {
+            commit_started = true;
+            commit_succeeded = transaction.commit(filename);
+            commit_finished = true;
+        });
+    }
+
+    const bool commit_thread_started = refresh_entered && waitForFlag(commit_started);
+    const bool commit_registered = commit_thread_started && waitForRefreshLockRequests(wallet, 1);
+    const bool commit_finished_during_refresh = commit_finished;
+    const bool file_created_during_refresh = boost::filesystem::exists(filename);
+    listener.releaseRefresh();
+    if (commit_thread.joinable())
+        commit_thread.join();
+    refresh_thread.join();
+
+    EXPECT_TRUE(refresh_entered);
+    EXPECT_TRUE(commit_thread_started);
+    EXPECT_TRUE(commit_registered);
+    EXPECT_FALSE(commit_finished_during_refresh);
+    EXPECT_FALSE(file_created_during_refresh);
+    EXPECT_FALSE(refresh_succeeded);
+    EXPECT_EQ(size_t{0}, listener.refreshCount());
+    EXPECT_TRUE(commit_succeeded);
+    EXPECT_EQ(Monero::PendingTransaction::Status_Ok, transaction.status());
+    EXPECT_TRUE(WalletApiAccessorTest::loadUnsignedTx(wallet, filename));
+    boost::filesystem::remove(filename);
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletTransactionsPreservePausedRefresh)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    wallet->pauseRefresh();
+    ASSERT_FALSE(WalletApiAccessorTest::refreshEnabled(wallet));
+
+    Monero::PendingTransaction *created = wallet->createTransaction(
+            "invalid", PAYMENT_ID_EMPTY, uint64_t{1}, 0);
+    ASSERT_NE(nullptr, created);
+    EXPECT_EQ(Monero::PendingTransaction::Status_Error, created->status());
+    EXPECT_EQ("Invalid destination address", created->errorString());
+    EXPECT_FALSE(created->commit());
+    EXPECT_EQ(Monero::PendingTransaction::Status_Error, created->status());
+    EXPECT_EQ("Invalid destination address", created->errorString());
+    wallet->disposeTransaction(created);
+    EXPECT_FALSE(WalletApiAccessorTest::refreshEnabled(wallet));
+
+    Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+    ASSERT_NE(nullptr, impl);
+    Monero::PendingTransactionImpl pending(*impl);
+    EXPECT_TRUE(pending.commit());
+    EXPECT_FALSE(WalletApiAccessorTest::refreshEnabled(wallet));
+
+    const std::string filename = WALLETS_ROOT_DIR + "/pending_tx";
+    boost::filesystem::remove(filename);
+    Monero::PendingTransactionImpl saved(*impl);
+    EXPECT_TRUE(saved.commit(filename));
+    EXPECT_FALSE(WalletApiAccessorTest::refreshEnabled(wallet));
+    boost::filesystem::remove(filename);
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletBackgroundSyncClearsRefreshErrorAfterLock)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    wallet->pauseRefresh();
+
+    bool setup_succeeded = false;
+    std::atomic<bool> setup_finished{false};
+    boost::thread setup_thread;
+    bool setup_registered = false;
+    WalletApiAccessorTest::withRefreshMutex(wallet, [&] {
+        setup_thread = boost::thread([&] {
+            setup_succeeded = wallet->setupBackgroundSync(
+                    Monero::Wallet::BackgroundSync_Off, "", optional<std::string>());
+            setup_finished = true;
+        });
+        setup_registered = waitForRefreshLockRequests(wallet, 1);
+        WalletApiAccessorTest::setStatusError(wallet, "stale refresh error");
+        EXPECT_FALSE(setup_finished);
+    });
+    setup_thread.join();
+
+    EXPECT_TRUE(setup_registered);
+    EXPECT_TRUE(setup_succeeded);
+    EXPECT_EQ(Monero::Wallet::Status_Ok, wallet->status());
+    EXPECT_TRUE(wallet->errorString().empty());
+    EXPECT_FALSE(WalletApiAccessorTest::refreshEnabled(wallet));
+
+    Monero::PendingTransaction *sweep = wallet->createSweepUnmixableTransaction();
+    ASSERT_NE(nullptr, sweep);
+    EXPECT_FALSE(WalletApiAccessorTest::refreshEnabled(wallet));
+    wallet->disposeTransaction(sweep);
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletOperationsRejectNestedRefreshLock)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+    ASSERT_NE(nullptr, impl);
+    wallet->startRefresh();
+    ASSERT_TRUE(WalletApiAccessorTest::refreshEnabled(wallet));
+
+    bool store_succeeded = true;
+    std::string store_error;
+    bool refresh_succeeded = true;
+    std::string refresh_error;
+    bool rescan_succeeded = true;
+    std::string rescan_error;
+    int create_status = Monero::PendingTransaction::Status_Ok;
+    std::string create_error;
+    int sweep_status = Monero::PendingTransaction::Status_Ok;
+    std::string sweep_error;
+    bool setup_background_sync_succeeded = true;
+    std::string setup_background_sync_error;
+    bool start_background_sync_succeeded = true;
+    std::string start_background_sync_error;
+    bool stop_background_sync_succeeded = true;
+    std::string stop_background_sync_error;
+    bool commit_succeeded = true;
+    std::string commit_error;
+    bool close_succeeded = true;
+    std::string close_error;
+    const std::string filename = WALLETS_ROOT_DIR + "/pending_tx_nested";
+    boost::filesystem::remove(filename);
+    bool file_commit_succeeded = false;
+    int file_commit_status = Monero::PendingTransaction::Status_Error;
+    std::string file_commit_error;
+    WalletApiAccessorTest::withRefreshLock(wallet, [&] {
+        wallet->pauseRefresh();
+        store_succeeded = wallet->store("");
+        store_error = wallet->errorString();
+        refresh_succeeded = wallet->refresh();
+        refresh_error = wallet->errorString();
+        rescan_succeeded = wallet->rescanBlockchain();
+        rescan_error = wallet->errorString();
+
+        Monero::PendingTransaction *created = wallet->createTransaction(
+                "invalid", PAYMENT_ID_EMPTY, uint64_t{1}, 0);
+        create_status = created->status();
+        create_error = created->errorString();
+        wallet->disposeTransaction(created);
+
+        Monero::PendingTransaction *sweep = wallet->createSweepUnmixableTransaction();
+        sweep_status = sweep->status();
+        sweep_error = sweep->errorString();
+        wallet->disposeTransaction(sweep);
+
+        setup_background_sync_succeeded = wallet->setupBackgroundSync(
+                Monero::Wallet::BackgroundSync_ReusePassword, "", optional<std::string>());
+        setup_background_sync_error = wallet->errorString();
+        start_background_sync_succeeded = wallet->startBackgroundSync();
+        start_background_sync_error = wallet->errorString();
+        stop_background_sync_succeeded = wallet->stopBackgroundSync("");
+        stop_background_sync_error = wallet->errorString();
+
+        Monero::PendingTransactionImpl pending(*impl);
+        commit_succeeded = pending.commit();
+        commit_error = pending.errorString();
+        file_commit_succeeded = pending.commit(filename);
+        file_commit_status = pending.status();
+        file_commit_error = pending.errorString();
+        close_succeeded = wmgr->closeWallet(wallet, false);
+        close_error = wallet->errorString();
+    });
+
+    EXPECT_FALSE(store_succeeded);
+    EXPECT_EQ("Cannot store wallet from another wallet operation", store_error);
+    EXPECT_FALSE(refresh_succeeded);
+    EXPECT_EQ("Cannot refresh wallet from another wallet operation", refresh_error);
+    EXPECT_FALSE(rescan_succeeded);
+    EXPECT_EQ("Cannot rescan blockchain from another wallet operation", rescan_error);
+    EXPECT_EQ(Monero::PendingTransaction::Status_Error, create_status);
+    EXPECT_EQ("Cannot create transaction from another wallet operation", create_error);
+    EXPECT_EQ(Monero::PendingTransaction::Status_Error, sweep_status);
+    EXPECT_EQ("Cannot create transaction from another wallet operation", sweep_error);
+    EXPECT_FALSE(setup_background_sync_succeeded);
+    EXPECT_EQ("Cannot setup background sync from another wallet operation", setup_background_sync_error);
+    EXPECT_FALSE(start_background_sync_succeeded);
+    EXPECT_EQ("Cannot start background sync from another wallet operation", start_background_sync_error);
+    EXPECT_FALSE(stop_background_sync_succeeded);
+    EXPECT_EQ("Cannot stop background sync from another wallet operation", stop_background_sync_error);
+    EXPECT_FALSE(commit_succeeded);
+    EXPECT_EQ("Cannot commit transaction from another wallet operation", commit_error);
+    EXPECT_TRUE(file_commit_succeeded);
+    EXPECT_EQ(Monero::PendingTransaction::Status_Ok, file_commit_status);
+    EXPECT_TRUE(file_commit_error.empty());
+    EXPECT_FALSE(close_succeeded);
+    EXPECT_EQ("Cannot close wallet from another wallet operation", close_error);
+    EXPECT_TRUE(WalletApiAccessorTest::loadUnsignedTx(wallet, filename));
+    boost::filesystem::remove(filename);
+    EXPECT_FALSE(WalletApiAccessorTest::refreshEnabled(wallet));
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletRefreshLockHandlesOverlap)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    std::atomic<bool> first_entered{false};
+    std::atomic<bool> release_first{false};
+    std::atomic<bool> second_entered{false};
+    std::atomic<bool> release_second{false};
+
+    boost::thread first([&] {
+        WalletApiAccessorTest::withRefreshLock(wallet, [&] {
+            first_entered = true;
+            while (!release_first)
+                boost::this_thread::sleep_for(boost::chrono::milliseconds(1));
+        });
+    });
+    const bool first_started = waitForFlag(first_entered);
+    boost::thread second;
+    bool second_registered = false;
+    if (first_started)
+    {
+        wallet->startRefresh();
+        second = boost::thread([&] {
+            WalletApiAccessorTest::withRefreshLock(wallet, [&] {
+                second_entered = true;
+                while (!release_second)
+                    boost::this_thread::sleep_for(boost::chrono::milliseconds(1));
+            });
+        });
+        second_registered = waitForRefreshLockRequests(wallet, 2);
+    }
+
+    const bool second_entered_during_first = second_entered;
+    release_first = true;
+    first.join();
+    const bool second_started = second.joinable() && waitForFlag(second_entered);
+    release_second = true;
+    if (second.joinable())
+        second.join();
+
+    EXPECT_TRUE(first_started);
+    EXPECT_TRUE(second_registered);
+    EXPECT_FALSE(second_entered_during_first);
+    EXPECT_TRUE(second_started);
+    EXPECT_EQ(0, WalletApiAccessorTest::refreshLockRequests(wallet));
+    EXPECT_TRUE(WalletApiAccessorTest::refreshEnabled(wallet));
+    wallet->pauseRefresh();
+    wallet->stop();
+    WalletApiAccessorTest::waitForRefresh(wallet);
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletRefreshHonorsSuspension)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    NewBlockCountingListener listener(wallet);
+
+    ASSERT_TRUE(wallet->refresh());
+    ASSERT_GT(listener.new_blocks, 0);
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+
+    wallet = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    NewBlockCountingListener suspended_listener(wallet);
+
+    WalletApiAccessorTest::suspendRefresh(wallet);
+    EXPECT_TRUE(wallet->refresh());
+    EXPECT_EQ(0, suspended_listener.new_blocks);
+    WalletApiAccessorTest::resumeRefresh(wallet);
+    EXPECT_TRUE(wallet->refresh());
+    EXPECT_GT(suspended_listener.new_blocks, 0);
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletStoreRejectsRefreshCallback)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    CallbackStoreListener listener(wmgr, wallet);
+
+    EXPECT_FALSE(wallet->refresh());
+    EXPECT_TRUE(listener.store_attempted);
+    EXPECT_FALSE(listener.store_succeeded);
+    EXPECT_EQ("Cannot store wallet from a refresh callback", listener.store_error);
+    EXPECT_FALSE(listener.close_succeeded);
+    EXPECT_EQ("Cannot close wallet from a refresh callback", listener.close_error);
+    EXPECT_EQ(Monero::Wallet::Status_Error, wallet->status());
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletTransactionsRejectRefreshCallback)
+{
+    Monero::Wallet *wallet = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(wallet));
+    Monero::WalletImpl *impl = dynamic_cast<Monero::WalletImpl *>(wallet);
+    ASSERT_NE(nullptr, impl);
+    const std::string filename = WALLETS_ROOT_DIR + "/pending_tx_callback";
+    boost::filesystem::remove(filename);
+    CallbackTransactionListener listener(wallet, impl, filename);
+
+    EXPECT_FALSE(wallet->refresh());
+    EXPECT_TRUE(listener.refresh_attempted);
+    EXPECT_FALSE(listener.refresh_succeeded);
+    EXPECT_EQ("Cannot refresh wallet from a refresh callback", listener.refresh_error);
+    EXPECT_TRUE(listener.rescan_attempted);
+    EXPECT_FALSE(listener.rescan_succeeded);
+    EXPECT_EQ("Cannot rescan blockchain from a refresh callback", listener.rescan_error);
+    EXPECT_TRUE(listener.create_attempted);
+    EXPECT_EQ(Monero::PendingTransaction::Status_Error, listener.create_status);
+    EXPECT_EQ("Cannot create transaction from a refresh callback", listener.create_error);
+    EXPECT_EQ(Monero::PendingTransaction::Status_Error, listener.sweep_status);
+    EXPECT_EQ("Cannot create transaction from a refresh callback", listener.sweep_error);
+    EXPECT_FALSE(listener.setup_background_sync_succeeded);
+    EXPECT_EQ("Cannot setup background sync from a refresh callback", listener.setup_background_sync_error);
+    EXPECT_FALSE(listener.start_background_sync_succeeded);
+    EXPECT_EQ("Cannot start background sync from a refresh callback", listener.start_background_sync_error);
+    EXPECT_FALSE(listener.stop_background_sync_succeeded);
+    EXPECT_EQ("Cannot stop background sync from a refresh callback", listener.stop_background_sync_error);
+    EXPECT_TRUE(listener.commit_attempted);
+    EXPECT_FALSE(listener.commit_succeeded);
+    EXPECT_EQ("Cannot commit transaction from a refresh callback", listener.commit_error);
+    EXPECT_EQ(Monero::Wallet::Status_Error, wallet->status());
+    EXPECT_FALSE(listener.broadcast_pending->commit());
+    EXPECT_EQ(Monero::PendingTransaction::Status_Error, listener.broadcast_pending->status());
+    EXPECT_EQ("Cannot commit transaction from a refresh callback", listener.broadcast_pending->errorString());
+    EXPECT_TRUE(listener.file_commit_attempted);
+    EXPECT_TRUE(listener.file_commit_succeeded);
+    EXPECT_EQ(Monero::PendingTransaction::Status_Ok, listener.file_commit_status);
+    EXPECT_TRUE(listener.file_commit_error.empty());
+    EXPECT_TRUE(WalletApiAccessorTest::loadUnsignedTx(wallet, filename));
+    boost::filesystem::remove(filename);
+    ASSERT_TRUE(wmgr->closeWallet(wallet, false));
+}
+
+TEST_F(WalletTest2, WalletOperationsRejectCrossWalletRefreshContexts)
+{
+    Monero::Wallet *source = wmgr->openWallet(TESTNET_WALLET4_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(source));
+    Monero::Wallet *target = wmgr->openWallet(TESTNET_WALLET6_NAME, TESTNET_WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_TRUE(init_wallet(target));
+    Monero::WalletImpl *target_impl = dynamic_cast<Monero::WalletImpl *>(target);
+    ASSERT_NE(nullptr, target_impl);
+    const std::string filename = WALLETS_ROOT_DIR + "/pending_tx_cross_wallet";
+    boost::filesystem::remove(filename);
+    CrossWalletCallbackListener listener(source, target, filename);
+
+    EXPECT_TRUE(source->refresh());
+    EXPECT_TRUE(listener.attempted);
+    EXPECT_FALSE(listener.store_succeeded);
+    EXPECT_EQ("Cannot store wallet from a refresh callback", listener.store_error);
+    EXPECT_TRUE(listener.file_commit_attempted);
+    EXPECT_FALSE(listener.file_commit_succeeded);
+    EXPECT_EQ("Cannot save transaction from another wallet's refresh callback", listener.file_commit_error);
+    EXPECT_FALSE(boost::filesystem::exists(filename));
+
+    bool store_succeeded = true;
+    std::string store_error;
+    bool file_commit_succeeded = true;
+    std::string file_commit_error;
+    unsigned lock_requests = 0;
+    WalletApiAccessorTest::withRefreshLock(source, [&] {
+        store_succeeded = target->store("");
+        store_error = target->errorString();
+        Monero::PendingTransactionImpl pending(*target_impl);
+        file_commit_succeeded = pending.commit(filename);
+        file_commit_error = pending.errorString();
+        lock_requests = WalletApiAccessorTest::refreshLockRequests(target);
+    });
+
+    EXPECT_FALSE(store_succeeded);
+    EXPECT_EQ("Cannot store wallet from another wallet operation", store_error);
+    EXPECT_FALSE(file_commit_succeeded);
+    EXPECT_EQ("Cannot save transaction from another wallet operation", file_commit_error);
+    EXPECT_EQ(0u, lock_requests);
+    EXPECT_FALSE(boost::filesystem::exists(filename));
+    ASSERT_TRUE(wmgr->closeWallet(target, false));
+    ASSERT_TRUE(wmgr->closeWallet(source, false));
+}
 
 TEST_F(WalletTest2, WalletCallBackRefreshedSync)
 {

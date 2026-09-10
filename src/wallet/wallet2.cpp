@@ -1210,6 +1210,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_upper_transaction_weight_limit(0),
   m_run(true),
   m_stopped(false),
+  m_refresh_suspended(false),
   m_callback(0),
   m_trusted_daemon(false),
   m_nettype(nettype),
@@ -4304,6 +4305,9 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
   m_first_refresh_done = true;
   if (m_background_syncing || m_is_background_wallet)
     m_background_sync_data.first_refresh_done = true;
+
+  if (m_refresh_suspended)
+    return;
 
   m_multisig_rescan_info = std::vector<std::vector<tools::wallet2::multisig_info>>{};
   for (auto &v: m_multisig_rescan_k)
