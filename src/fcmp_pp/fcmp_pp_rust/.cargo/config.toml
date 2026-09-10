@@ -12,4 +12,4 @@ rev = "71da8f03a87f596db674258cda74553068a57bcd"
 replace-with = "vendored-sources"
 
 [source.vendored-sources]
-directory = "/rust/vendor"
+directory = "vendor"
