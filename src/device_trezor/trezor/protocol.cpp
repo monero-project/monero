@@ -469,7 +469,7 @@ namespace tx {
 
     dst->set_real_out_tx_key(key_to_string(src.real_out_tx_key));
     dst->set_real_output_in_tx_index(src.real_output_in_tx_index);
-    if (!src.real_out_additional_tx_keys.empty()) {
+    if (src.real_output_in_tx_index < src.real_out_additional_tx_keys.size()) {
       dst->add_real_out_additional_tx_keys(key_to_string(src.real_out_additional_tx_keys.at(src.real_output_in_tx_index)));
     }
     dst->set_amount(src.amount);
