@@ -969,6 +969,78 @@ TEST(HTTP, Server_Rejects_Malformed_Content_Length)
   }
 }
 
+TEST(HTTP, Server_Accepts_Matching_Content_Length_Values)
+{
+  const std::string body = "test";
+  for (const char* headers : {
+    "Content-Length: 4\r\nContent-Length: 04\r\n",
+    "Content-Length: 4, 04\r\n",
+    "Content-Length: 4, 04\r\nContent-Length: 4\r\n"
+  })
+  {
+    SCOPED_TRACE(headers);
+    const auto capture = feed_http_request(
+      "POST /json_rpc HTTP/1.1\r\n" + std::string(headers) +
+      "\r\n" + body
+    );
+
+    ASSERT_EQ(1u, capture.results.size());
+    EXPECT_TRUE(capture.results.front());
+    ASSERT_EQ(1u, capture.requests.size());
+    EXPECT_EQ(body, capture.requests.front().m_body);
+  }
+}
+
+TEST(HTTP, Server_Rejects_Conflicting_Content_Length_Values)
+{
+  for (const char* headers : {
+    "Content-Length: 0\r\nContent-Length: 4\r\n",
+    "Content-Length: 4\r\nContent-Length: 0\r\n",
+    "Content-Length: 0, 4\r\n",
+    "Content-Length: 4, nope\r\n",
+    "Content-Length: , 4\r\n",
+    "Content-Length: 4,\r\n",
+    "Content-Length: 999999999999999999999999999999999999\r\n"
+  })
+  {
+    SCOPED_TRACE(headers);
+    const auto capture = feed_http_request(
+      "POST /json_rpc HTTP/1.1\r\n" + std::string(headers) +
+      "\r\n"
+      "test"
+    );
+
+    ASSERT_EQ(1u, capture.results.size());
+    EXPECT_FALSE(capture.results.front());
+    EXPECT_TRUE(capture.requests.empty());
+  }
+}
+
+TEST(HTTP, Server_Rejects_Transfer_Encoding)
+{
+  for (const char* headers : {
+    "Transfer-Encoding:\r\n",
+    "Transfer-Encoding: identity\r\n",
+    "Transfer-Encoding: chunked\r\n",
+    "Transfer-Encoding: chunked\r\nTransfer-Encoding: chunked\r\n",
+    "Transfer-Encoding: gzip, chunked\r\n",
+    "Content-Length: 4\r\nTransfer-Encoding: chunked\r\n",
+    "Transfer-Encoding: chunked\r\nContent-Length: 4\r\n"
+  })
+  {
+    SCOPED_TRACE(headers);
+    const auto capture = feed_http_request(
+      "POST /json_rpc HTTP/1.1\r\n" + std::string(headers) +
+      "\r\n"
+      "4\r\ntest\r\n0\r\n\r\n"
+    );
+
+    ASSERT_EQ(1u, capture.results.size());
+    EXPECT_FALSE(capture.results.front());
+    EXPECT_TRUE(capture.requests.empty());
+  }
+}
+
 TEST(HTTP, Server_Rejects_Malformed_First_Header)
 {
   const auto capture = feed_http_request(
