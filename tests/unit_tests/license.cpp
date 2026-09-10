@@ -27,9 +27,14 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "license/monero_license.h"
+#include "misc_log_ex.h"
 
 #include <gtest/gtest.h>
+#include <string>
 #include <time.h>
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "unit_test.license"
 
 TEST(license, monero_first)
 {
@@ -55,4 +60,21 @@ TEST(license, monero_updated_year)
     const monero_license_entry_t license_entry = monero_license_get(0);
     const std::string license_year(license_entry.year, license_entry.year_len);
     ASSERT_NE(std::string::npos, license_year.find(std::to_string(year)));
+}
+
+TEST(license, dump_all_short)
+{
+    const size_t n_licenses = monero_license_num();
+    for (size_t i = 0; i < n_licenses; ++i)
+    {
+        const monero_license_entry_t license_entry = monero_license_get(i);
+        const std::string year(license_entry.year, license_entry.year_len);
+        const std::string holder(license_entry.holder, license_entry.holder_len);
+        const std::string source_location(license_entry.source_location, license_entry.source_location_len);
+        const std::string text(license_entry.text, license_entry.text_len);
+
+        LOG_PRINT_L1("Copyright (c) " << year << " ~ " << holder << " ~ " << source_location);
+        LOG_PRINT_L1("    " << text.substr(0, std::min<size_t>(text.size(), 160)) << " ...");
+        LOG_PRINT_L1("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
+    }
 }
