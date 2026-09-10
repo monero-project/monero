@@ -46,7 +46,7 @@ extern const unsigned char monero_sublicenses[]; // should match generated inclu
 
 static const char * find_next_line_end(const char *s, const char * const end, bool *is_hl)
 {
-    if (*s == '\n' || *s == '\r')
+    while (*s == '\n' || *s == '\r')
         ++s;
     const char *p = strpbrk(s, "\n\r");
     if (NULL == p) return end;
