@@ -53,6 +53,7 @@ public:
     uint64_t txCount() const override;
     // sign txs and save to file
     bool sign(const std::string &signedFileName) override;
+    std::string signAsString() override;
     std::string confirmationMessage() const override {return m_confirmationMessage;}
     uint64_t minMixinCount() const override;
 

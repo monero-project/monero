@@ -120,3 +120,5 @@ nbproject
 __pycache__/
 *.pyc
 *.log
+.gitignore
+/dist/
