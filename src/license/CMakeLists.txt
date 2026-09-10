@@ -28,12 +28,9 @@
 
 vtk_encode_string(INPUT sublicenses.txt.in
   NAME monero_sublicenses
-  HEADER_OUTPUT MONERO_SUBLICENSE_HEADER
   SOURCE_OUTPUT MONERO_SUBLICENSE_SOURCE
   BINARY
   NUL_TERMINATE)
-
-message(STATUS "beepbeep ${MONERO_SUBLICENSE_HEADER} ${MONERO_SUBLICENSE_SOURCE}")
 
 set(monero_licenses_sources
   monero_license.c
