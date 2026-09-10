@@ -665,7 +665,7 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------------------------
-  bool tx_memory_pool::get_complement(std::vector<crypto::hash> hashes, std::vector<cryptonote::blobdata> &txes) const
+  bool tx_memory_pool::get_complement(std::vector<crypto::hash> hashes, std::vector<crypto::hash> &inv_txes) const
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
@@ -673,7 +673,7 @@ namespace cryptonote
     // Sort so we can do binary search later
     std::sort(hashes.begin(), hashes.end());
 
-    m_blockchain.for_all_txpool_txes([this, &hashes, &txes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
+    m_blockchain.for_all_txpool_txes([&hashes, &inv_txes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
       const auto tx_relay_method = meta.get_relay_method();
       if (tx_relay_method != relay_method::block && tx_relay_method != relay_method::fluff)
         return true;
@@ -683,25 +683,9 @@ namespace cryptonote
       if (hash_it != hashes.cend() && *hash_it == txid)
         return true;
 
-      {
-        cryptonote::blobdata bd;
-        try
-        {
-          if (!m_blockchain.get_txpool_tx_blob(txid, bd, cryptonote::relay_category::broadcasted))
-          {
-            MERROR("Failed to get blob for txpool transaction " << txid);
-            return true;
-          }
-          txes.emplace_back(std::move(bd));
-        }
-        catch (const std::exception &e)
-        {
-          MERROR("Failed to get blob for txpool transaction " << txid << ": " << e.what());
-          return true;
-        }
-      }
+      inv_txes.push_back(txid);
       return true;
-    }, false);
+    }, false, cryptonote::relay_category::broadcasted);
     return true;
   }
   //---------------------------------------------------------------------------------
@@ -1343,8 +1327,10 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::get_transaction(const crypto::hash& id, cryptonote::blobdata& txblob, relay_category tx_category) const
   {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-    CRITICAL_REGION_LOCAL1(m_blockchain);
+    // WARNING: this function does not take m_blockchain_lock, and thus should only call read only
+    // m_db functions which do not depend on one another (ie, no getheight + gethash(height-1), as
+    // well as not accessing class members, even read only (ie, m_invalid_blocks). The caller must
+    // lock if it is otherwise needed.
     try
     {
       return m_blockchain.get_txpool_tx_blob(id, txblob, tx_category);
@@ -1373,8 +1359,10 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::have_tx(const crypto::hash &id, relay_category tx_category) const
   {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-    CRITICAL_REGION_LOCAL1(m_blockchain);
+    // WARNING: this function does not take m_blockchain_lock, and thus should only call read only
+    // m_db functions which do not depend on one another (ie, no getheight + gethash(height-1), as
+    // well as not accessing class members, even read only (ie, m_invalid_blocks). The caller must
+    // lock if it is otherwise needed.
     return m_blockchain.get_db().txpool_has_tx(id, tx_category);
   }
   //---------------------------------------------------------------------------------
