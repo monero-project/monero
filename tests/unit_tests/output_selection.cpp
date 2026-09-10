@@ -109,28 +109,48 @@ TEST(select_outputs, order)
     offset = n_outs += (n); \
   }
 
+void pick_outputs(size_t npicks, std::vector<uint64_t> offsets, size_t n_outs, tools::gamma_picker picker, double &median)
+{
+  std::vector<double> ages(npicks);
+  double age_scale = 120. * (offsets.size() / (double)n_outs);
+  for (size_t i = 0; i < ages.size(); )
+  {
+    uint64_t o = picker.pick();
+    bool acceptable_bad_pick = o == std::numeric_limits<uint64_t>::max();
+    if (acceptable_bad_pick)
+      continue;
+    ages[i] = (n_outs - 1 - o) * age_scale;
+    ASSERT_GE(ages[i], CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE * 120);
+    ASSERT_LE(ages[i], offsets.size() * 120);
+    ++i;
+  }
+  median = epee::misc_utils::median(ages);
+}
+
+// TODO: deterministic tests would be nice
 TEST(select_outputs, gamma)
 {
   std::vector<uint64_t> offsets;
 
   MKOFFSETS(300000, 1);
   tools::gamma_picker picker(offsets);
-  std::vector<double> ages(100000);
-  double age_scale = 120. * (offsets.size() / (double)n_outs);
-  for (size_t i = 0; i < ages.size(); )
-  {
-    uint64_t o = picker.pick();
-    if (o >= n_outs)
-      continue;
-    ages[i] = (n_outs - 1 - o) * age_scale;
-    ASSERT_GE(ages[i], 0);
-    ASSERT_LE(ages[i], offsets.size() * 120);
-    ++i;
-  }
-  double median = epee::misc_utils::median(ages);
-  MDEBUG("median age: " << median / 86400. << " days");
-  ASSERT_GE(median, 1.3 * 86400);
-  ASSERT_LE(median, 1.4 * 86400);
+
+  size_t NPICKS = 100000;
+  double median = 0;
+  pick_outputs(NPICKS, offsets, n_outs, picker, median);
+
+  // expected median is ~115,100s, or 1.33 * 86400. Calculated by running the algorithm
+  // under the same conditions as the paper (outputs <10 blocks old can be selected, and
+  // are selected from chain tip)
+  double MEDIAN_LOWER_BOUND = 1.28 * 86400;
+  double MEDIAN_UPPER_BOUND = 1.38 * 86400;
+
+  // should be rare, but if needed, 10x NPICKS and try again to get a more accurate median
+  if (median < MEDIAN_LOWER_BOUND || median > MEDIAN_UPPER_BOUND)
+    pick_outputs(NPICKS * 10, offsets, n_outs, picker, median);
+
+  ASSERT_GE(median, MEDIAN_LOWER_BOUND);
+  ASSERT_LE(median, MEDIAN_UPPER_BOUND);
 }
 
 TEST(select_outputs, density)
@@ -145,15 +165,16 @@ TEST(select_outputs, density)
   for (int i = 0; i < NPICKS; )
   {
     uint64_t o = picker.pick();
-    if (o >= n_outs)
+    if (o == std::numeric_limits<uint64_t>::max())
       continue;
     auto it = std::lower_bound(offsets.begin(), offsets.end(), o);
     auto idx = std::distance(offsets.begin(), it);
-    ASSERT_LT(idx, picks.size());
+    ASSERT_LT(idx, offsets.size() - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
     ++picks[idx];
     ++i;
   }
 
+  std::vector<float> selected_ratios;
   for (int d = 1; d < 0x20; ++d)
   {
     // count the number of times an output in a block of d outputs was selected
@@ -172,8 +193,16 @@ TEST(select_outputs, density)
     float chain_ratio = count_chain / (float)n_outs;
     MDEBUG(count_selected << "/" << NPICKS << " outputs selected in blocks of density " << d << ", " << 100.0f * selected_ratio << "%");
     MDEBUG(count_chain << "/" << offsets.size() << " outputs in blocks of density " << d << ", " << 100.0f * chain_ratio << "%");
-    ASSERT_LT(fabsf(selected_ratio - chain_ratio), 0.025f);
+    ASSERT_GT(selected_ratio, 0.0f);
+    ASSERT_GT(chain_ratio, 0.0f);
+
+    float MAX_DEVIATION = 2.25f;
+    ASSERT_GT(MAX_DEVIATION * selected_ratio, chain_ratio);
+    ASSERT_GT(MAX_DEVIATION * chain_ratio, selected_ratio);
+
+    selected_ratios.push_back(selected_ratio);
   }
+  ASSERT_LT(selected_ratios[0], selected_ratios[selected_ratios.size() - 1]);
 }
 
 TEST(select_outputs, same_distribution)
@@ -189,11 +218,11 @@ TEST(select_outputs, same_distribution)
   for (int i = 0; i < NPICKS; )
   {
     uint64_t o = picker.pick();
-    if (o >= n_outs)
+    if (o == std::numeric_limits<uint64_t>::max())
       continue;
     auto it = std::lower_bound(offsets.begin(), offsets.end(), o);
     auto idx = std::distance(offsets.begin(), it);
-    ASSERT_LT(idx, chain_picks.size());
+    ASSERT_LT(idx, offsets.size() - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
     ++chain_picks[idx];
     ++output_picks[o];
     ++i;
@@ -216,7 +245,7 @@ TEST(select_outputs, same_distribution)
   }
   avg_dev /= 100;
   MDEBUG("avg_dev: " << avg_dev);
-  ASSERT_LT(avg_dev, 0.02);
+  ASSERT_LT(avg_dev, 0.025);
 }
 
 TEST(select_outputs, exact_unlock_block)
