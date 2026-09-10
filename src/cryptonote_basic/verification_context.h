@@ -66,6 +66,7 @@ namespace cryptonote
   {
     bool m_added_to_main_chain;
     bool m_verifivation_failed; //bad block, should drop connection
+    bool m_no_drop_offense; // we may not want to drop if the block passed the PoW check e.g.
     bool m_marked_as_orphaned;
     bool m_already_exists;
     bool m_partial_block_reward;

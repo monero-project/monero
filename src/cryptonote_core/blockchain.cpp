@@ -2009,6 +2009,8 @@ bool Blockchain::handle_alternative_block(const block& b, const crypto::hash& id
       bvc.m_bad_pow = true;
       return false;
     }
+    else
+      bvc.m_no_drop_offense = true; // good PoW, so don't drop
 
     if(!prevalidate_miner_transaction(b, bei.height, hf_version))
     {
@@ -2820,6 +2822,7 @@ bool Blockchain::add_block_as_invalid(const block& bl, const crypto::hash& h)
 //------------------------------------------------------------------
 bool Blockchain::add_block_as_invalid(const block_extended_info& bei, const crypto::hash& h)
 {
+  // WARNING: we expect that the PoW check already passed
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
   auto i_res = m_invalid_blocks.insert(std::map<crypto::hash, block_extended_info>::value_type(h, bei));
@@ -3925,6 +3928,18 @@ leave:
     goto leave;
   }
 
+  // If we're at a checkpoint, ensure that our hardcoded checkpoint hash
+  // is correct.
+  if(m_checkpoints.is_in_checkpoint_zone(blockchain_height))
+  {
+    if(!m_checkpoints.check_block(blockchain_height, id))
+    {
+      LOG_ERROR("CHECKPOINT VALIDATION FAILED");
+      bvc.m_verifivation_failed = true;
+      goto leave;
+    }
+  }
+
   TIME_MEASURE_FINISH(t1);
   TIME_MEASURE_START(t2);
 
@@ -4006,18 +4021,8 @@ leave:
       bvc.m_bad_pow = true;
       goto leave;
     }
-  }
-
-  // If we're at a checkpoint, ensure that our hardcoded checkpoint hash
-  // is correct.
-  if(m_checkpoints.is_in_checkpoint_zone(blockchain_height))
-  {
-    if(!m_checkpoints.check_block(blockchain_height, id))
-    {
-      LOG_ERROR("CHECKPOINT VALIDATION FAILED");
-      bvc.m_verifivation_failed = true;
-      goto leave;
-    }
+    else
+      bvc.m_no_drop_offense = true; // good PoW, so don't drop
   }
 
   TIME_MEASURE_FINISH(longhash_calculating_time);
@@ -4516,7 +4521,10 @@ bool Blockchain::add_new_block(const block& bl, block_verification_context& bvc,
     LOG_PRINT_L3("block with id = " << id << " already exists");
     bvc.m_already_exists = true;
     if (where == HAVE_BLOCK_INVALID)
+    {
       bvc.m_verifivation_failed = true;
+      bvc.m_no_drop_offense = true; // it's assumed that any cached invalid block must have passed PoW already
+    }
     return false;
   }
 
