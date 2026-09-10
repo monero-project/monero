@@ -63,6 +63,7 @@ set(unit_tests_sources
   levin.cpp
   logging.cpp
   long_term_block_weight.cpp
+  license.cpp
   lmdb.cpp
   main.cpp
   memwipe.cpp
@@ -122,6 +123,7 @@ target_link_libraries(unit_tests
     daemon_rpc_server
     blockchain_db
     fcmp_pp
+    monero_license
     lmdb_lib
     rpc
     net
