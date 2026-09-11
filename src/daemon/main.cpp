@@ -180,11 +180,10 @@ int main(int argc, char const * argv[])
     po::variables_map vm;
     bool ok = command_line::handle_error_helper(visible_options, [&]()
     {
-      boost::program_options::store(
-        boost::program_options::command_line_parser(argc, argv)
-          .options(all_options).positional(positional_options).run()
-      , vm
-      );
+      const auto parsed = boost::program_options::command_line_parser(argc, argv)
+        .options(all_options).positional(positional_options).run();
+      boost::program_options::store(parsed, vm);
+      command_line::check_string_swallowed_option(all_options, parsed);
 
       return true;
     });
