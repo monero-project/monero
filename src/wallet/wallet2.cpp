@@ -88,6 +88,7 @@ using namespace epee;
 #include "common/dns_utils.h"
 #include "common/notify.h"
 #include "common/perf_timer.h"
+#include "common/powerof.h"
 #include "ringct/rctSigs.h"
 #include "ringdb.h"
 #include "device/device_cold.hpp"
@@ -8680,6 +8681,16 @@ uint64_t wallet2::get_base_fee(fee_priority priority)
       MERROR("Failed to determine base fee for priority " << priority_index << ", using default");
       return FEE_PER_BYTE;
     }
+    if (get_fee_algorithm() == fee_algorithm::HardforkV8)
+    {
+      static constexpr uint64_t max_fees[] = {1200000, 4700000, 19000000, 240000000};
+      if (priority_index < std::size(max_fees) && fees[priority_index] > max_fees[priority_index])
+      {
+        MWARNING("Daemon fee estimate " << fees[priority_index] << " for priority index " << priority_index
+            << " exceeds the maximum 2021 scaling estimate " << max_fees[priority_index] << ", clamping");
+        return max_fees[priority_index];
+      }
+    }
     return fees[priority_index];
   }
   else
@@ -8700,6 +8711,16 @@ uint64_t wallet2::get_fee_quantization_mask()
   boost::optional<std::string> result = m_node_rpc_proxy.get_fee_quantization_mask(fee_quantization_mask);
   if (result)
     return 1;
+  if (get_fee_algorithm() == fee_algorithm::HardforkV8 && use_fork_rules(HF_VERSION_2021_SCALING, -30 * 1))
+  {
+    constexpr uint64_t max_mask = tools::PowerOf<10, CRYPTONOTE_DISPLAY_DECIMAL_POINT - PER_KB_FEE_QUANTIZATION_DECIMALS>::Value;
+    if (fee_quantization_mask > max_mask)
+    {
+      MWARNING("Daemon fee quantization mask " << fee_quantization_mask
+          << " exceeds the 2021 scaling mask " << max_mask << ", clamping");
+      return max_mask;
+    }
+  }
   return fee_quantization_mask;
 }
 //----------------------------------------------------------------------------------------------------
