@@ -88,6 +88,7 @@ using namespace epee;
 #include "common/dns_utils.h"
 #include "common/notify.h"
 #include "common/perf_timer.h"
+#include "common/powerof.h"
 #include "ringct/rctSigs.h"
 #include "ringdb.h"
 #include "device/device_cold.hpp"
@@ -301,14 +302,33 @@ void do_prepare_file_names(const std::string& file_path, std::string& keys_file,
   mms_file = file_path + ".mms";
 }
 
+// 2021 fee maxima at reward MONEY_SUPPLY >> 19 and Mnw = Mlw = 300000,
+// rounded up to two significant digits. Also used to bound older fee paths.
+constexpr std::array<uint64_t, 4> MAX_2021_FEES_PER_BYTE = {1200000, 4700000, 19000000, 240000000};
+constexpr uint64_t FEE_QUANTIZATION_MASK = tools::PowerOf<10, CRYPTONOTE_DISPLAY_DECIMAL_POINT - PER_KB_FEE_QUANTIZATION_DECIMALS>::Value;
+
+uint64_t clamp_fee_parameter(uint64_t value, uint64_t limit, const char *parameter)
+{
+  if (value > limit)
+  {
+    MWARNING(parameter << " " << value
+        << " exceeds wallet fee limit " << limit << ", clamping");
+    return limit;
+  }
+  return value;
+}
+
 uint64_t calculate_fee(uint64_t fee_per_kb, size_t bytes)
 {
+  fee_per_kb = clamp_fee_parameter(fee_per_kb, MAX_2021_FEES_PER_BYTE.back() * 1024, "fee per kB");
   uint64_t kB = (bytes + 1023) / 1024;
   return kB * fee_per_kb;
 }
 
 uint64_t calculate_fee_from_weight(uint64_t base_fee, uint64_t weight, uint64_t fee_quantization_mask)
 {
+  base_fee = clamp_fee_parameter(base_fee, MAX_2021_FEES_PER_BYTE.back(), "fee per byte");
+  fee_quantization_mask = std::max<uint64_t>(1, clamp_fee_parameter(fee_quantization_mask, FEE_QUANTIZATION_MASK, "fee quantization mask"));
   THROW_WALLET_EXCEPTION_IF(base_fee != 0 && weight > std::numeric_limits<uint64_t>::max() / base_fee,
       tools::error::wallet_internal_error, "Fee calculation overflow");
   uint64_t fee = weight * base_fee;
@@ -8737,12 +8757,12 @@ uint64_t wallet2::get_base_fee()
   return get_dynamic_base_fee_estimate();
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::get_base_fee(uint32_t priority)
+uint64_t wallet2::get_base_fee(uint32_t priority, boost::optional<bool> use_per_byte_fee)
 {
-  return get_base_fee(fee_priority_utilities::from_integral(priority));
+  return get_base_fee(fee_priority_utilities::from_integral(priority), use_per_byte_fee);
 }
 //----------------------------------------------------------------------------------------------------
-uint64_t wallet2::get_base_fee(fee_priority priority)
+uint64_t wallet2::get_base_fee(fee_priority priority, boost::optional<bool> use_per_byte_fee)
 {
   const bool use_2021_scaling = use_fork_rules(HF_VERSION_2021_SCALING, -30 * 1);
   if (use_2021_scaling)
@@ -8765,13 +8785,22 @@ uint64_t wallet2::get_base_fee(fee_priority priority)
       MERROR("Failed to determine base fee for priority " << priority_index << ", using default");
       return FEE_PER_BYTE;
     }
-    return fees[priority_index];
+    return clamp_fee_parameter(fees[priority_index], MAX_2021_FEES_PER_BYTE[std::min<size_t>(priority_index, MAX_2021_FEES_PER_BYTE.size() - 1)], "fee estimate");
   }
   else
   {
+    const auto fee_algorithm = get_fee_algorithm();
+    if (priority == fee_priority::Default)
+      priority = m_default_priority;
+    if (priority == fee_priority::Default)
+      priority = fee_algorithm >= fee_algorithm::HardforkV5 ? fee_priority::Normal : fee_priority::Unimportant;
+
     const uint64_t base_fee = get_base_fee();
-    const uint64_t fee_multiplier = get_fee_multiplier(priority);
-    return base_fee * fee_multiplier;
+    const uint64_t fee_multiplier = get_fee_multiplier(priority, fee_algorithm);
+    const auto priority_index = fee_priority_utilities::as_integral(fee_priority_utilities::decrease(fee_priority_utilities::clamp_modified(priority)));
+    const bool per_byte = use_per_byte_fee ? *use_per_byte_fee : use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
+    const uint64_t max_fee = MAX_2021_FEES_PER_BYTE[std::min<size_t>(priority_index, MAX_2021_FEES_PER_BYTE.size() - 1)] * (per_byte ? 1 : 1024);
+    return clamp_fee_parameter(base_fee, max_fee / fee_multiplier, per_byte ? "fee per byte" : "fee per kB") * fee_multiplier;
   }
 }
 //----------------------------------------------------------------------------------------------------
@@ -8785,7 +8814,7 @@ uint64_t wallet2::get_fee_quantization_mask()
   boost::optional<std::string> result = m_node_rpc_proxy.get_fee_quantization_mask(fee_quantization_mask);
   if (result)
     return 1;
-  return fee_quantization_mask;
+  return clamp_fee_parameter(fee_quantization_mask, FEE_QUANTIZATION_MASK, "fee quantization mask");
 }
 //----------------------------------------------------------------------------------------------------
 fee_algorithm wallet2::get_fee_algorithm()
@@ -10605,7 +10634,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_2(std::vector<cryp
   const bool use_view_tags = use_fork_rules(get_view_tag_fork(), 0);
   std::unordered_set<crypto::public_key> valid_public_keys_cache;
 
-  const uint64_t base_fee  = get_base_fee(priority);
+  const uint64_t base_fee = get_base_fee(priority, use_per_byte_fee);
   const uint64_t fee_quantization_mask = get_fee_quantization_mask();
 
   // throw if attempting a transaction with no destinations
@@ -11252,7 +11281,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_all(uint64_t below
   const bool bulletproof_plus = use_fork_rules(get_bulletproof_plus_fork(), 0);
   const bool clsag = use_fork_rules(get_clsag_fork(), 0);
   const bool use_view_tags = use_fork_rules(get_view_tag_fork(), 0);
-  const uint64_t base_fee  = get_base_fee(priority);
+  const uint64_t base_fee = get_base_fee(priority, use_per_byte_fee);
   const size_t tx_weight_one_ring = estimate_tx_weight(use_rct, 1, fake_outs_count, 2, 0, bulletproof, clsag, bulletproof_plus, use_view_tags);
   const size_t tx_weight_two_rings = estimate_tx_weight(use_rct, 2, fake_outs_count, 2, 0, bulletproof, clsag, bulletproof_plus, use_view_tags);
   THROW_WALLET_EXCEPTION_IF(tx_weight_one_ring > tx_weight_two_rings, error::wallet_internal_error, "Estimated tx weight with 1 input is larger than with 2 inputs!");
@@ -11369,7 +11398,7 @@ std::vector<wallet2::pending_tx> wallet2::create_transactions_from(const crypton
     bulletproof_plus ? 4 : 3
   };
   const bool use_view_tags = use_fork_rules(get_view_tag_fork(), 0);
-  const uint64_t base_fee  = get_base_fee(priority);
+  const uint64_t base_fee = get_base_fee(priority, use_per_byte_fee);
   const uint64_t fee_quantization_mask = get_fee_quantization_mask();
 
   LOG_PRINT_L2("Starting with " << unused_transfers_indices.size() << " non-dust outputs and " << unused_dust_indices.size() << " dust outputs");
