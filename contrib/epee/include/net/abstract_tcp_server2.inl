@@ -53,6 +53,7 @@
 #include "scope_guard.h"
 
 #include <algorithm>
+#include <cstring>
 #include <functional>
 #include <random>
 
@@ -938,9 +939,20 @@ namespace net_utils
   bool connection<T>::start_internal(
     bool is_income,
     bool is_multithreaded,
-    boost::optional<network_address> real_remote
+    boost::optional<network_address> real_remote,
+    std::string initial_data
   )
   {
+    if (initial_data.size() > m_state.data.read.buffer.size())
+    {
+      MERROR("initial_data (" << initial_data.size() << " bytes) exceeds read buffer size");
+      return false;
+    }
+    if (!initial_data.empty() && is_income && get_ssl_support() != epee::net_utils::ssl_support_t::e_ssl_support_disabled)
+    {
+      MERROR("initial_data is not supported for an inbound connection with SSL enabled");
+      return false;
+    }
     std::unique_lock<std::mutex> guard(m_state.lock);
     if (m_state.status != status_t::TERMINATED)
       return false;
@@ -1033,7 +1045,15 @@ namespace net_utils
     else if (m_state.status == status_t::TERMINATING)
       on_terminating();
     else if (!is_income || !m_state.ssl.enabled)
-      start_read();
+    {
+      if (initial_data.empty()) start_read();
+      else
+      {
+        // treat initial_data as already read from the socket
+        std::memcpy(m_state.data.read.buffer.data(), initial_data.data(), initial_data.size());
+        handle_read(initial_data.size());
+      }
+    }
     else
       start_handshake();
     return true;
@@ -1103,10 +1123,11 @@ namespace net_utils
   bool connection<T>::start(
     bool is_income,
     bool is_multithreaded,
-    network_address real_remote
+    network_address real_remote,
+    std::string initial_data
   )
   {
-    return start_internal(is_income, is_multithreaded, real_remote);
+    return start_internal(is_income, is_multithreaded, real_remote, std::move(initial_data));
   }
 
   template<typename T>
@@ -1717,12 +1738,12 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  bool boosted_tcp_server<t_protocol_handler>::add_connection(t_connection_context& out, boost::asio::ip::tcp::socket&& sock, network_address real_remote, epee::net_utils::ssl_support_t ssl_support)
+  bool boosted_tcp_server<t_protocol_handler>::add_connection(t_connection_context& out, boost::asio::ip::tcp::socket&& sock, network_address real_remote, epee::net_utils::ssl_support_t ssl_support, std::string initial_data, bool is_income)
   {
     if(std::addressof(get_io_context()) == std::addressof(sock.get_executor().context()))
     {
       connection_ptr conn(new connection<t_protocol_handler>(io_context_, std::move(sock), m_state, m_connection_type, ssl_support));
-      if(conn->start(false, 1 < m_threads_count, std::move(real_remote)))
+      if(conn->start(is_income, 1 < m_threads_count, std::move(real_remote), std::move(initial_data)))
       {
         conn->get_context(out);
         conn->save_dbg_log();
