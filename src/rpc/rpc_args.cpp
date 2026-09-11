@@ -30,6 +30,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/asio/ip/address.hpp>
+#include <algorithm>
 #include <functional>
 #include "common/command_line.h"
 #include "common/i18n.h"
@@ -97,7 +98,7 @@ namespace cryptonote
      , rpc_ignore_ipv4({"rpc-ignore-ipv4", rpc_args::tr("Ignore unsuccessful IPv4 bind for RPC"), false})
      , rpc_login({"rpc-login", rpc_args::tr("Specify username[:password] required for RPC server"), "", true})
      , confirm_external_bind({"confirm-external-bind", rpc_args::tr("Confirm rpc-bind-ip value is NOT a loopback (local) IP")})
-     , rpc_access_control_origins({"rpc-access-control-origins", rpc_args::tr("Specify a comma separated list of origins to allow cross origin resource sharing"), ""})
+     , rpc_access_control_origins({"rpc-access-control-origins", rpc_args::tr("Specify a comma separated list of origins to allow cross origin resource sharing. Requests from a browser page whose origin is not listed are rejected. '*' allows any page, which disables that protection"), ""})
      , rpc_ssl({"rpc-ssl", rpc_args::tr("Enable SSL on RPC connections: enabled|disabled|autodetect"), "autodetect"})
      , rpc_ssl_private_key({"rpc-ssl-private-key", rpc_args::tr("Path to a PEM format private key"), ""})
      , rpc_ssl_certificate({"rpc-ssl-certificate", rpc_args::tr("Path to a PEM format certificate"), ""})
@@ -250,6 +251,10 @@ namespace cryptonote
       std::vector<std::string> access_control_origins;
       boost::split(access_control_origins, access_control_origins_input, boost::is_any_of(","));
       std::for_each(access_control_origins.begin(), access_control_origins.end(), std::bind(&boost::trim<std::string>, std::placeholders::_1, std::locale::classic()));
+
+      if (std::find(access_control_origins.begin(), access_control_origins.end(), "*") != access_control_origins.end())
+        MGINFO_RED("--" << arg.rpc_access_control_origins.name << tr(" is set to '*': any web page the user visits may issue RPC requests to this server, including unrestricted state changing calls such as stop_daemon. List only the origins you need."));
+
       config.access_control_origins = std::move(access_control_origins);
     }
 

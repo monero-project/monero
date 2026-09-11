@@ -99,6 +99,17 @@
 
 #define MAP_URI_AUTO_JON2(s_pattern, callback_f, command_type) MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, true)
 
+// For state changing endpoints: an empty body deserializes to a default
+// request, so a bodyless GET would otherwise invoke them.
+#define MAP_URI_AUTO_JON2_IF_UNSAFE(s_pattern, callback_f, command_type, cond) \
+    else if((query_info.m_URI == s_pattern) && (cond) && !epee::net_utils::http::is_json_content_type(query_info.m_header_info.m_content_type)) \
+    { \
+      response_info.m_response_code = 415; \
+      response_info.m_response_comment = "Unsupported Media Type"; \
+      return true; \
+    } \
+    MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, cond)
+
 #define MAP_URI_AUTO_BIN2(s_pattern, callback_f, command_type) \
     else if(query_info.m_URI == s_pattern) \
     { \
