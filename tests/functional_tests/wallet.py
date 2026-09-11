@@ -50,6 +50,7 @@ class WalletTest():
       self.attributes()
       self.open_close()
       self.languages()
+      self.generate_from_keys()
       self.change_password()
       self.store()
 
@@ -319,6 +320,38 @@ class WalletTest():
             wallet.create_wallet(filename = '', language = language)
             res = wallet.query_key('mnemonic')
             wallet.close_wallet()
+
+    def generate_from_keys(self):
+        print('Generating wallet from keys')
+        wallet = Wallet()
+        filename = 'generate-from-keys'
+        address = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        spend_key = '148d78d2aba7dbca5cd8f6abcfb0b3c009ffbdbea1ff373d50ed94d78286640e'
+        view_key = '49774391fa5e8d249fc2c5b45dadef13534bf2483dede880dac88f061e809100'
+        seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
+
+        try: wallet.close_wallet()
+        except: pass
+        util_resources.remove_wallet_files(filename)
+
+        ok = False
+        try:
+            wallet.generate_from_keys(filename = filename, address = address,
+                spendkey = spend_key, viewkey = view_key, language = 'invalid')
+        except Exception as e:
+            assert 'The specified seed language is invalid.' in str(e)
+            ok = True
+        assert ok
+        assert not util_resources.file_exists(filename)
+        assert not util_resources.file_exists(filename + '.keys')
+
+        res = wallet.generate_from_keys(filename = filename, address = address,
+            spendkey = spend_key, viewkey = view_key, language = 'English')
+        assert res.address == address
+        assert wallet.query_key('mnemonic').key == seed
+
+        wallet.close_wallet()
+        util_resources.remove_wallet_files(filename)
 
     def change_password(self):
         print('Testing password change')
