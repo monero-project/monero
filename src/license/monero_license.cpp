@@ -42,7 +42,7 @@
 static monero_license_entry_t licenses[MAX_N_LICENSES];
 static size_t n_licenses;
 
-extern const unsigned char monero_sublicenses[]; // should match generated include, minus size
+extern const unsigned char monero_sublicenses[]; /* should match generated include, minus size */
 
 static const char * find_next_line_end(const char *s, const char * const end, const char ** eol, bool *is_hl)
 {
@@ -72,7 +72,7 @@ static void init_licenses(void)
     const char * const end = next_line + monero_sublicenses_len;
     bool is_hl;
 
-    // consume first HL
+    /* consume first HL */
     next_line = find_next_line_end(next_line, end, NULL, &is_hl);
     assert(is_hl);
 

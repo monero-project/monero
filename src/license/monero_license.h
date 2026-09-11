@@ -40,19 +40,19 @@ extern "C" {
 
 typedef struct
 {
-    /// info about source location
+    /** info about source location */
     const char *source_location;
     size_t source_location_len;
 
-    /// copyright year
+    /** copyright year */
     const char *year;
     size_t year_len;
 
-    /// copyright holder name
+    /** copyright holder name */
     const char *holder;
     size_t holder_len;
 
-    /// license text, not including copyright line
+    /** license text, not including copyright line */
     const char *text;
     size_t text_len;
 } monero_license_entry_t;
