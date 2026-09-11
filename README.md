@@ -16,9 +16,9 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
   - [Contributing](#contributing)
   - [Scheduled software/network upgrades](#scheduled-softwarenetwork-upgrades)
   - [Release staging schedule and protocol](#release-staging-schedule-and-protocol)
+  - [Building Monero releases](#building-monero-releases)
   - [Compiling Monero from source](#compiling-monero-from-source)
     - [Dependencies](#dependencies)
-    - [Guix builds](#guix-builds)
   - [Installing Monero from a package](#installing-monero-from-a-package)
   - [Running monerod](#running-monerod)
   - [Using Tor](#using-tor)
@@ -130,6 +130,10 @@ X's indicate that these details have not been determined as of commit date.
 ## Release staging schedule and protocol
 
 Approximately three months prior to a scheduled software upgrade, a branch from master will be created with the new release version tag. Pull requests that address bugs should then be made to both master and the new release branch. Pull requests that require extensive review and testing (generally, optimizations and new features) should *not* be made to the release branch.
+
+## Building Monero releases
+
+See [contrib/stagex/README.md](contrib/stagex/README.md).
 
 ## Compiling Monero from source
 
@@ -458,10 +462,6 @@ USE_DEVICE_TREZOR=OFF make release
 ```
 
 For more information, please check out Trezor [src/device_trezor/README.md](src/device_trezor/README.md).
-
-### Guix builds
-
-See [contrib/guix/README.md](contrib/guix/README.md).
 
 ### Building and running monerod with Docker
 

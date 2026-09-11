@@ -6,6 +6,7 @@ print-%: FORCE
 
 SOURCES_PATH ?= $(BASEDIR)/sources
 BASE_CACHE ?= $(BASEDIR)/built
+BASE_CACHE_HOST ?= $(BASE_CACHE)/$(host)
 FALLBACK_DOWNLOAD_PATH ?= https://downloads.getmonero.org/depends-sources
 
 C_STANDARD ?= c11
@@ -98,6 +99,7 @@ include builders/default.mk
 include packages/packages.mk
 
 ifeq ($(GUIX_ENVIRONMENT),)
+ifeq ($(STAGEX_ENVIRONMENT),)
 build_id_string:=$(BUILD_ID_SALT)
 build_id_string+=$(shell $(build_CC) --version 2>/dev/null)
 build_id_string+=$(shell $(build_AR) --version 2>/dev/null)
@@ -111,7 +113,13 @@ $(host_arch)_$(host_os)_id_string+=$(shell $(host_AR) --version 2>/dev/null)
 $(host_arch)_$(host_os)_id_string+=$(shell $(host_CXX) --version 2>/dev/null)
 $(host_arch)_$(host_os)_id_string+=$(shell $(host_RANLIB) --version 2>/dev/null)
 $(host_arch)_$(host_os)_id_string+=$(shell $(host_STRIP) --version 2>/dev/null)
-else
+endif
+endif
+
+ifneq ($(STAGEX_ENVIRONMENT),)
+build_id_string:=$(STAGEX_ENVIRONMENT)
+$(host_arch)_$(host_os)_id_string:=$(STAGEX_ENVIRONMENT)
+else ifneq ($(GUIX_ENVIRONMENT),)
 build_id_string:=$(realpath $(GUIX_ENVIRONMENT))
 $(host_arch)_$(host_os)_id_string:=$(realpath $(GUIX_ENVIRONMENT))
 endif
@@ -169,7 +177,7 @@ $(host_prefix)/share/toolchain.cmake : toolchain.cmake.in $(host_prefix)/.stamp_
 	$(AT)touch $@
 
 define check_or_remove_cached
-  mkdir -p $(BASE_CACHE)/$(host)/$(package) && cd $(BASE_CACHE)/$(host)/$(package); \
+  mkdir -p $(BASE_CACHE_HOST)/$(package) && cd $(BASE_CACHE_HOST)/$(package); \
   $(build_SHA256SUM) -c $($(package)_cached_checksum) >/dev/null 2>/dev/null || \
   ( rm -f $($(package)_cached_checksum); \
     if test -f "$($(package)_cached)"; then echo "Checksum mismatch for $(package). Forcing rebuild.."; rm -f $($(package)_cached_checksum) $($(package)_cached); fi )
