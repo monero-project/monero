@@ -54,7 +54,6 @@
 
 #include <algorithm>
 #include <functional>
-#include <random>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net"
@@ -572,7 +571,6 @@ namespace net_utils
         m_state.data.write.queue.pop_back();
         m_state.data.write.total_bytes -=
           std::min(m_state.data.write.total_bytes, byte_count);
-        m_state.condition.notify_all();
         if (m_state.data.write.queue.empty() && m_state.socket.shutdown_read) {
           // All writes have been sent and reads shutdown already, connection can be closed
           interrupt();
@@ -829,24 +827,9 @@ namespace net_utils
     if (std::numeric_limits<std::size_t>::max() - m_state.data.write.total_bytes < message.size())
       return false;
 
-    // Wait for the write queue to fall below the max. If it doesn't after a
-    // randomized delay, drop the connection. P2P senders fail fast instead of
-    // parking an io_context worker thread here.
-    auto wait_consume = [this] {
-      auto random_delay = []{
-        using engine = std::mt19937;
-        std::random_device dev;
-        std::seed_seq::result_type rand[
-          engine::state_size // Use complete bit space
-        ]{};
-        std::generate_n(rand, engine::state_size, std::ref(dev));
-        std::seed_seq seed(rand, rand + engine::state_size);
-        engine rng(seed);
-        return std::chrono::milliseconds(
-          std::uniform_int_distribution<>(5000, 6000)(rng)
-        );
-      };
-
+    // Do not park an io_context worker waiting for the write queue to drain:
+    // all workers could be sending, leaving none to complete the writes.
+    auto check_send_queue = [this] {
       // The bytes check intentionally does not include incoming message size.
       // This allows for a soft overflow; a single http response will never fail
       // this check, but multiple responses could. Clients can avoid this case
@@ -856,49 +839,10 @@ namespace net_utils
           m_state.data.write.total_bytes <= static_cast<shared_state&>(connection_basic::get_state()).response_soft_limit)
         return true;
 
-      if (m_connection_type == e_connection_type_P2P) {
-        MWARNING("Connection " << get_context().m_connection_id << " tripped write limit, terminating");
-        terminate_async();
-        return false;
-      }
-      m_state.data.write.wait_consume = true;
-      bool success = m_state.condition.wait_for(
-        m_state.lock,
-        random_delay(),
-        [this]{
-          return (
-            m_state.status != status_t::RUNNING ||
-            (
-              m_state.data.write.queue.size() <=
-                ABSTRACT_SERVER_SEND_QUE_MAX_COUNT &&
-              m_state.data.write.total_bytes <=
-                static_cast<shared_state&>(connection_basic::get_state()).response_soft_limit
-            )
-          );
-        }
-      );
-      m_state.data.write.wait_consume = false;
-      if (!success) {
-        terminate_async();
-        return false;
-      }
-      else
-        return m_state.status == status_t::RUNNING;
-    };
-    auto wait_sender = [this] {
-      m_state.condition.wait(
-        m_state.lock,
-        [this] {
-          return (
-            m_state.status != status_t::RUNNING ||
-            !m_state.data.write.wait_consume
-          );
-        }
-      );
-      return m_state.status == status_t::RUNNING;
-    };
-    if (!wait_sender())
+      MWARNING("Connection " << get_context().m_connection_id << " tripped write limit, terminating");
+      terminate_async();
       return false;
+    };
     /* CHUNK_SIZE indirectly caps outgoing to 128 * 1024 * 1000
      (ABSTRACT_SERVER_SEND_QUE_MAX_COUNT). The "soft" limit total is currently
      100 MiB (ABSTRACT_SERVER_SEND_QUE_MAX_BYTES_DEFAULT). These values will
@@ -907,7 +851,7 @@ namespace net_utils
     if (m_connection_type == e_connection_type_RPC ||
       message.size() <= 2 * CHUNK_SIZE
     ) {
-      if (!wait_consume())
+      if (!check_send_queue())
         return false;
       const std::size_t byte_count = message.size();
       m_state.data.write.queue.emplace_front(std::move(message));
@@ -921,7 +865,7 @@ namespace net_utils
       });
 
       while (!message.empty()) {
-        if (!wait_consume())
+        if (!check_send_queue())
           return false;
         m_state.data.write.queue.emplace_front(
           message.take_slice(CHUNK_SIZE)
@@ -930,7 +874,6 @@ namespace net_utils
         start_write();
       }
     }
-    m_state.condition.notify_all();
     return true;
   }
 
