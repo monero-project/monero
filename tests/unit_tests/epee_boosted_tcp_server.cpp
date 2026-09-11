@@ -982,3 +982,104 @@ TEST(boosted_tcp_server, write_failure)
   EXPECT_EQ(connection_t::WASTED, out_connection->get_status());
 }
 
+
+TEST(boosted_tcp_server, slow_reader_is_not_dropped_mid_response)
+{
+  using context_t = epee::net_utils::connection_context_base;
+
+  struct config_t {
+    static constexpr bool after_init_connection(const std::shared_ptr<epee::net_utils::connection_basic>&) noexcept
+    {
+      return true;
+    }
+  };
+
+  struct handler_t {
+    using config_type = config_t;
+    using connection_context = context_t;
+    using socket_t = epee::net_utils::i_service_endpoint;
+
+    handler_t(socket_t *socket, config_t &config, context_t &):
+      config(config)
+    {}
+    void after_init_connection()
+    {}
+
+    void handle_qued_callback()
+    {}
+
+    bool handle_recv(const char *data, size_t bytes_transferred)
+    {
+      return true;
+    }
+
+    void release_protocol()
+    {}
+
+    config_t &config;
+  };
+
+  using byte_slice_t = epee::byte_slice;
+  using connection_t = epee::net_utils::connection<handler_t>;
+  using shared_t = connection_t::shared_state;
+  using tcp_t = boost::asio::ip::tcp;
+  using endpoint_t = tcp_t::endpoint;
+  using socket_t = tcp_t::socket;
+  using acceptor_t = tcp_t::acceptor;
+
+  const endpoint_t endpoint{boost::asio::ip::make_address("127.0.0.1"), 5263};
+  boost::asio::io_context context{};
+  acceptor_t acceptor{context};
+  acceptor.open(endpoint.protocol());
+#if !defined(_WIN32)
+  acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
+#endif
+  acceptor.bind(endpoint);
+  acceptor.listen();
+
+  socket_t in_socket{context};
+  acceptor.async_accept(in_socket, [] (auto error) { EXPECT_TRUE(!error); });
+
+  socket_t out_socket{context};
+  out_socket.async_connect(endpoint, [] (auto error) { EXPECT_TRUE(!error); });
+
+  context.restart();
+  ASSERT_EQ(2u, context.run()); // connect and accept
+
+  // Keep the peer's receive window small so the payload cannot simply drain
+  // into kernel buffers while the peer reads nothing.
+  boost::system::error_code ec;
+  in_socket.set_option(boost::asio::socket_base::receive_buffer_size(4 * 1024), ec);
+
+  const auto shared = std::make_shared<shared_t>();
+  const auto out_connection = std::make_shared<connection_t>(
+    context,
+    std::move(out_socket),
+    shared,
+    epee::net_utils::e_connection_type_RPC,
+    epee::net_utils::ssl_support_t::e_ssl_support_disabled
+  );
+
+  // A loopback peer is granted NEW_CONNECTION_TIMEOUT_LOCAL, which is too long
+  // to exercise this. Declare a public address so the remote timeouts apply.
+  uint32_t ip = 0;
+  ASSERT_TRUE(epee::string_tools::get_ip_int32_from_string(ip, "8.8.8.8"));
+  ASSERT_TRUE(out_connection->start(false, true,
+    epee::net_utils::ipv4_network_address{ip, endpoint.port()}
+  ));
+
+  // RPC messages are queued unchunked, so this is a single async_write that
+  // cannot complete until the peer reads. The connection timer has to cover
+  // the write itself, not just the gap after it completes.
+  const byte_slice_t payload{std::string(std::size_t(8 * 1024 * 1024), '.')};
+  {
+    epee::net_utils::i_service_endpoint& out{*out_connection};
+    EXPECT_TRUE(out.do_send(payload.clone()));
+  }
+
+  // Run past NEW_CONNECTION_TIMEOUT_REMOTE (10s) without reading a byte.
+  context.restart();
+  context.run_for(std::chrono::seconds{12});
+
+  EXPECT_NE(connection_t::WASTED, out_connection->get_status());
+}
