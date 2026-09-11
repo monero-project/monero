@@ -61,9 +61,19 @@ class WalletTest():
         daemon.flush_txpool()
 
     def create(self):
-        print('Creating wallet')
+        print('Creating Polyseed wallet')
         wallet = Wallet()
         # close the wallet if any, will throw if none is loaded
+        try: wallet.close_wallet()
+        except: pass
+        seed = 'pulse tone truth head invite orphan sock wet crumble oven price corn pilot antenna luxury strategy'
+        res = wallet.restore_deterministic_wallet(seed = seed)
+        assert res.address == '455jFA8HBVzH6nMt2AnNXGR77VR3BypYJXYiYCRkHmTY6XtqebWpu9RhA8gv6q68fC9cuSg2NUX49Wtgtr9Az5ynGgogCzt'
+        # Don't check the returned legacy seed against the Polyseed, it's of course different
+        wallet.close_wallet()
+
+        print('Creating legacy seed wallet')
+        wallet = Wallet()
         try: wallet.close_wallet()
         except: pass
         seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
@@ -303,13 +313,25 @@ class WalletTest():
     def languages(self):
         print('Testing languages')
         wallet = Wallet()
-        res = wallet.get_languages()
+
+        # Legacy languages
+        res = wallet.get_languages(polyseed = False)
         assert 'English' in res.languages
         assert 'English' in res.languages_local
         assert 'Dutch' in res.languages
         assert 'Nederlands' in res.languages_local
         assert 'Japanese' in res.languages
         assert u'日本語' in res.languages_local
+
+        # Polyseed languages
+        res = wallet.get_languages()
+        assert 'English' in res.languages
+        assert 'English' in res.languages_local
+        assert 'Spanish' in res.languages
+        assert 'español' in res.languages_local
+        assert 'Japanese' in res.languages
+        assert u'日本語' in res.languages_local
+
         try: wallet.close_wallet()
         except: pass
         languages = res.languages
