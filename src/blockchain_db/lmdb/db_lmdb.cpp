@@ -4390,36 +4390,74 @@ std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>> BlockchainLMDB::get
     }
   }
 
-  if (unlocked || recent_cutoff > 0) {
+  if (!histogram.empty() && (unlocked || recent_cutoff > 0)) {
     const uint64_t blockchain_height = height();
+    if (blockchain_height < CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE)
+      return histogram;
+
+    // Determine the first recent height among blocks old enough to spend.
+    const uint64_t last_unlocked_height = blockchain_height - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE;
+    // Without a recent cutoff, every unlocked output is below cutoff_height.
+    uint64_t cutoff_height = last_unlocked_height + 1;
+    if (recent_cutoff > 0)
+    {
+      RCURSOR(block_info);
+      MDB_val key = zerokval;
+      uint64_t block_height = last_unlocked_height;
+      MDB_val_set(value, block_height);
+      MDB_cursor_op op = MDB_GET_BOTH;
+      while (cutoff_height > 0)
+      {
+        // Starting at the last unlocked block, walk backwards to the first old timestamp.
+        const int result = mdb_cursor_get(m_cur_block_info, &key, &value, op);
+        op = MDB_PREV_DUP;
+        if (result == MDB_NOTFOUND)
+          throw0(BLOCK_DNE("Attempt to get timestamp from height failed -- timestamp not in db"));
+        else if (result)
+          throw0(DB_ERROR(lmdb_error("Error attempting to retrieve a timestamp from the db: ", result).c_str()));
+        const mdb_block_info *bi = (const mdb_block_info *)value.mv_data;
+        assert(bi->bi_height == cutoff_height - 1);
+        if (bi->bi_timestamp < recent_cutoff)
+          break;
+        --cutoff_height;
+      }
+    }
+
+    // Count locked outputs and unlocked outputs at or above the recent height cutoff.
     for (std::map<uint64_t, std::tuple<uint64_t, uint64_t, uint64_t>>::iterator i = histogram.begin(); i != histogram.end(); ++i) {
       uint64_t amount = i->first;
       uint64_t num_elems = std::get<0>(i->second);
+      if (num_elems == 0)
+        continue;
+      uint64_t last_index_in_amount = num_elems - 1;
+      uint64_t num_locked = 0;
+      uint64_t num_recent = 0;
+      MDB_val_set(key, amount);
+      MDB_val_set(value, last_index_in_amount);
+      MDB_cursor_op op = MDB_GET_BOTH;
       while (num_elems > 0) {
-        const tx_out_index toi = get_output_tx_and_index(amount, num_elems - 1);
-        const uint64_t height = get_tx_block_height(toi.first);
-        if (height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE <= blockchain_height)
+        // Starting at the last output for this amount, walk the cursor backwards.
+        const int result = mdb_cursor_get(m_cur_output_amounts, &key, &value, op);
+        op = MDB_PREV_DUP;
+        if (result == MDB_NOTFOUND)
+          throw1(OUTPUT_DNE("Attempting to get output by index, but key does not exist"));
+        else if (result)
+          throw0(DB_ERROR(lmdb_error("Error attempting to retrieve an output from the db: ", result).c_str()));
+        assert(*(const uint64_t *)key.mv_data == amount && *(const uint64_t *)value.mv_data == num_elems - 1);
+
+        const uint64_t output_height = amount == 0 ? ((const outkey *)value.mv_data)->data.height
+                                                  : ((const pre_rct_outkey *)value.mv_data)->data.height;
+        if (output_height > last_unlocked_height)
+          ++num_locked;
+        else if (output_height < cutoff_height)
           break;
+        else
+          ++num_recent;
         --num_elems;
       }
       // modifying second does not invalidate the iterator
-      std::get<1>(i->second) = num_elems;
-
-      if (recent_cutoff > 0)
-      {
-        uint64_t recent = 0;
-        while (num_elems > 0) {
-          const tx_out_index toi = get_output_tx_and_index(amount, num_elems - 1);
-          const uint64_t height = get_tx_block_height(toi.first);
-          const uint64_t ts = get_block_timestamp(height);
-          if (ts < recent_cutoff)
-            break;
-          --num_elems;
-          ++recent;
-        }
-        // modifying second does not invalidate the iterator
-        std::get<2>(i->second) = recent;
-      }
+      std::get<1>(i->second) = std::get<0>(i->second) - num_locked;
+      std::get<2>(i->second) = num_recent;
     }
   }
 
