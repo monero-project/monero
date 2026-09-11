@@ -560,7 +560,7 @@ TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_invali
 
 TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_big_cb)
 {
-  m_req_head.m_cb = max_packet_size + 1;
+  m_req_head.m_cb = SWAP64LE(max_packet_size + 1);
   prepare_buf();
 
   ASSERT_FALSE(m_conn->m_protocol_handler.handle_recv(m_buf.data(), m_buf.size()));
@@ -636,15 +636,15 @@ TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_unexpe
 
 TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_short_fragment)
 {
-  m_req_head.m_cb = 1;
-  m_req_head.m_flags = LEVIN_PACKET_BEGIN;
-  m_req_head.m_command = 0;
+  m_req_head.m_cb = SWAP64LE(1);
+  m_req_head.m_flags = SWAP32LE(LEVIN_PACKET_BEGIN);
+  m_req_head.m_command = SWAP32LE(0);
   m_in_data.resize(1);
   prepare_buf();
 
   ASSERT_TRUE(m_conn->m_protocol_handler.handle_recv(m_buf.data(), m_buf.size()));
 
-  m_req_head.m_flags = LEVIN_PACKET_END;
+  m_req_head.m_flags = SWAP32LE(LEVIN_PACKET_END);
   prepare_buf();
 
   ASSERT_FALSE(m_conn->m_protocol_handler.handle_recv(m_buf.data(), m_buf.size()));
@@ -652,16 +652,16 @@ TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_short_
 
 TEST_F(test_levin_protocol_handler__hanle_recv_with_invalid_data, handles_bad_cb)
 {
-  m_req_head.m_cb = sizeof(epee::levin::bucket_head2);
-  m_req_head.m_flags = LEVIN_PACKET_BEGIN;
-  m_req_head.m_command = 0;
+  m_req_head.m_cb = SWAP64LE(sizeof(epee::levin::bucket_head2));
+  m_req_head.m_flags = SWAP32LE(LEVIN_PACKET_BEGIN);
+  m_req_head.m_command = SWAP32LE(0);
   m_in_data.resize(sizeof(epee::levin::bucket_head2));
   prepare_buf();
 
   ASSERT_TRUE(m_conn->m_protocol_handler.handle_recv(m_buf.data(), m_buf.size()));
 
-  m_req_head.m_cb = 1;
-  m_req_head.m_flags = LEVIN_PACKET_END;
+  m_req_head.m_cb = SWAP64LE(1);
+  m_req_head.m_flags = SWAP32LE(LEVIN_PACKET_END);
   m_in_data.resize(1);
   prepare_buf();
 
