@@ -162,3 +162,30 @@ TEST(keccak, alignment)
     ASSERT_TRUE(!memcmp(md, amd, 32));
   }
 }
+
+TEST(keccak, output_alignment)
+{
+  const uint8_t data[] = {0, 1, 2, 3};
+  alignas(uint64_t) uint8_t expected[32];
+  alignas(uint64_t) uint8_t output[39];
+  alignas(uint64_t) uint8_t expected1600[200];
+  alignas(uint64_t) uint8_t output1600[207];
+
+  keccak(data, sizeof(data), expected, sizeof(expected));
+  keccak1600(data, sizeof(data), expected1600);
+  for (size_t offset = 1; offset < sizeof(uint64_t); ++offset)
+  {
+    keccak(data, sizeof(data), output + offset, sizeof(expected));
+    ASSERT_EQ(0, memcmp(expected, output + offset, sizeof(expected)));
+
+    memset(output, 0xa5, sizeof(output));
+    KECCAK_CTX ctx;
+    keccak_init(&ctx);
+    keccak_update(&ctx, data, sizeof(data));
+    keccak_finish(&ctx, output + offset);
+    ASSERT_EQ(0, memcmp(expected, output + offset, sizeof(expected)));
+
+    keccak1600(data, sizeof(data), output1600 + offset);
+    ASSERT_EQ(0, memcmp(expected1600, output1600 + offset, sizeof(expected1600)));
+  }
+}
