@@ -1662,7 +1662,8 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
     const std::size_t n_minor_labels = (major < m_subaddress_labels.size()) ? m_subaddress_labels.at(major).size() : 0;
     const std::uint32_t minor_base = std::max<std::uint32_t>(n_minor_labels, 1) - 1;
     const std::uint32_t minor_end = get_subaddress_clamped_sum(minor_base, m_subaddress_lookahead_minor);
-    const std::uint32_t minor_begin = lowest_missing_minor.count(major) ? lowest_missing_minor.at(major) : 0;
+    const auto lowest_missing_minor_it = lowest_missing_minor.find(major);
+    const std::uint32_t minor_begin = lowest_missing_minor_it != lowest_missing_minor.end() ? lowest_missing_minor_it->second : 0;
     if (minor_begin >= minor_end)
       continue;
     const std::vector<crypto::public_key> pkeys
@@ -8927,7 +8928,7 @@ bool wallet2::get_rings(const crypto::chacha_key &key, const std::vector<crypto:
 
 bool wallet2::get_rings(const crypto::hash &txid, std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &outs)
 {
-  for (auto i: m_confirmed_txs)
+  for (const auto &i: m_confirmed_txs)
   {
     if (txid == i.first)
     {
@@ -8936,7 +8937,7 @@ bool wallet2::get_rings(const crypto::hash &txid, std::vector<std::pair<crypto::
       return true;
     }
   }
-  for (auto i: m_unconfirmed_txs)
+  for (const auto &i: m_unconfirmed_txs)
   {
     if (txid == i.first)
     {
