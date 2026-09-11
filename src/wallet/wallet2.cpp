@@ -14798,6 +14798,11 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs, bool re
   // parse and validate locally so failures preserve any pending rescan state
   std::vector<std::vector<tools::wallet2::multisig_info>> info;
   std::unordered_set<crypto::public_key> seen;
+
+  const size_t expected_n_partial_key_images = get_account().get_multisig_keys().size();
+  const size_t expected_n_lr = tools::combinations_count(m_multisig_signers.size() - m_multisig_threshold, m_multisig_signers.size() - 1)
+    * multisig::signing::kAlphaComponents;
+
   for (cryptonote::blobdata &data: blobs)
   {
     const size_t magiclen = strlen(MULTISIG_EXPORT_FILE_MAGIC);
@@ -14844,6 +14849,13 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs, bool re
 
     for (const auto &e: i)
     {
+      CHECK_AND_ASSERT_THROW_MES(e.m_signer == signer, "Multisig info body signer does not match header signer");
+
+      CHECK_AND_ASSERT_THROW_MES(e.m_partial_key_images.size() == expected_n_partial_key_images,
+        "Multisig info has an unexpected number of partial key images");
+      CHECK_AND_ASSERT_THROW_MES(e.m_LR.size() == expected_n_lr,
+        "Multisig info has an unexpected number of signing nonces");
+
       for (const auto &lr: e.m_LR)
       {
         CHECK_AND_ASSERT_THROW_MES(rct::isInMainSubgroup(lr.m_L), "Multisig value is not in the main subgroup");
