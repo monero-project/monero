@@ -44,12 +44,13 @@ static size_t n_licenses;
 
 extern const unsigned char monero_sublicenses[]; // should match generated include, minus size
 
-static const char * find_next_line_end(const char *s, const char * const end, bool *is_hl)
+static const char * find_next_line_end(const char *s, const char * const end, const char ** eol, bool *is_hl)
 {
-    while (*s == '\n' || *s == '\r')
-        ++s;
     const char *p = strpbrk(s, "\n\r");
-    if (NULL == p) return end;
+    if (NULL == p)
+        p = end;
+    if (eol)
+        *eol = p;
     *is_hl = p != s;
     for (; s < p; ++s)
     {
@@ -59,73 +60,67 @@ static const char * find_next_line_end(const char *s, const char * const end, bo
             break;
         }
     }
+    while (p < end && (*p == '\n' || *p == '\r'))
+        ++p;
     return p;
 }
 
 static void init_licenses(void)
 {
-    const char * p = (const char*)monero_sublicenses;
-    const size_t monero_sublicenses_len = strlen(p);
-    const char * const end = p + monero_sublicenses_len;
+    const char * next_line = (const char*)monero_sublicenses;
+    const size_t monero_sublicenses_len = strlen(next_line);
+    const char * const end = next_line + monero_sublicenses_len;
     bool is_hl;
 
-    while (p < end && n_licenses < MAX_N_LICENSES)
+    // consume first HL
+    next_line = find_next_line_end(next_line, end, NULL, &is_hl);
+    assert(is_hl);
+
+    while (next_line < end && n_licenses < MAX_N_LICENSES)
     {
         monero_license_entry_t *p_license = &licenses[n_licenses];
+        const char *eol;
 
-        /* 1. consume line of HL_SEP characters */
-        const char *next_line_end = find_next_line_end(p, end, &is_hl);
-        assert(is_hl);
-
-        /* 2. consume source location */
-        p = next_line_end + 1;
-        next_line_end = find_next_line_end(p, end, &is_hl);
-        p_license->source_location = p;
-        p_license->source_location_len = next_line_end - p;
+        /* 1. consume source location */
+        p_license->source_location = next_line;
+        next_line = find_next_line_end(next_line, end, &eol, &is_hl);
+        p_license->source_location_len = eol - p_license->source_location;
         assert(p_license->source_location);
         assert(p_license->source_location_len);
         assert(!is_hl);
 
-        /* 3. consume empty line */
-        p = next_line_end;
-        next_line_end = find_next_line_end(p, end, &is_hl);
-        assert(p + 1 == next_line_end);
-
-        /* 4. consume "$COPYRIGHT_PREFIX <year> <holder>" */
-        p = next_line_end + 1;
-        next_line_end = find_next_line_end(p, end, &is_hl);
-        if (next_line_end - p <= (ptrdiff_t)strlen(COPYRIGHT_PREFIX) || 
-                0 != memcmp(p, COPYRIGHT_PREFIX, strlen(COPYRIGHT_PREFIX)))
+        /* 2. consume "$COPYRIGHT_PREFIX <year> <holder>" */
+        if (end - next_line <= (ptrdiff_t)strlen(COPYRIGHT_PREFIX) ||
+                0 != memcmp(next_line, COPYRIGHT_PREFIX, strlen(COPYRIGHT_PREFIX)))
             break;
-        assert(!is_hl);
-        p += strlen(COPYRIGHT_PREFIX);
-        p_license->year = p;
-        p_license->holder = strchr(p, ' ');
+        next_line += strlen(COPYRIGHT_PREFIX);
+        p_license->year = next_line;
+        p_license->holder = strchr(next_line, ' ');
+        if (!p_license->holder)
+            break;
         p_license->year_len = p_license->holder - p_license->year;
         ++p_license->holder;
-        p_license->holder_len = next_line_end - p_license->holder;
+        next_line = find_next_line_end(p_license->holder, end, &eol, &is_hl);
+        p_license->holder_len = eol - p_license->holder;
         assert(p_license->year);
         assert(p_license->year_len);
-        assert(p_license->holder);
         assert(p_license->holder_len);
-        
-        /* 5. consume lines of license text until we hit a line of HL_SEP or EOF */
-        p = next_line_end;
-        p_license->text = p;
+
+        /* 3. consume lines of license text until we consume a line of HL_SEP or hit EOF */
+        p_license->text = next_line;
         p_license->text_len = 0;
-        while (p < end)
+        while (next_line < end)
         {
-            next_line_end = find_next_line_end(p, end, &is_hl);
+            next_line = find_next_line_end(next_line, end, &eol, &is_hl);
             if (is_hl)
                 break;
-            p = next_line_end;
-            p_license->text_len = p - p_license->text;
+            p_license->text_len = next_line - p_license->text;
         }
         assert(p_license->text_len);
 
         ++n_licenses;
     }
-    assert(p == end); /* otherwise need to bump MAX_N_LICENSES, or badly formatted file, or bug */
+    assert(next_line == end); /* otherwise need to bump MAX_N_LICENSES, or badly formatted file, or bug */
     assert(n_licenses); /* we have at least our own license */
 }
 
