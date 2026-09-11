@@ -55,6 +55,7 @@
 #include <algorithm>
 #include <functional>
 #include <random>
+#include <type_traits>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net"
@@ -77,6 +78,18 @@ namespace net_utils
     CHECK_AND_ASSERT_THROW_MES(bool(ptr), "shared_state cannot be null");
     return *ptr;
   }
+
+  namespace detail
+  {
+    template<typename T, typename = void>
+    struct has_per_ip_connection_limits : std::false_type {};
+
+    template<typename T>
+    struct has_per_ip_connection_limits<T, std::void_t<
+      decltype(std::declval<const T&>().m_max_private_ip_connections),
+      decltype(std::declval<const T&>().m_max_public_ip_connections)
+    >> : std::true_type {};
+  } // namespace detail
 
   /************************************************************************/
   /*                                                                      */
@@ -106,11 +119,19 @@ namespace net_utils
   {
     unsigned count{};
     try { count = host_count(); } catch (...) {}
-    const unsigned shift = (
-      connection_basic::get_state().sock_count > AGGRESSIVE_TIMEOUT_THRESHOLD ?
-      std::min(std::max(count, 1u) - 1, 8u) :
-      0
-    );
+    unsigned shift = 0;
+    if (connection_basic::get_state().sock_count > AGGRESSIVE_TIMEOUT_THRESHOLD)
+    {
+      if constexpr (detail::has_per_ip_connection_limits<shared_state>::value)
+      {
+        // Scale against the configured per-IP limit rather than a flat count.
+        const shared_state &state = static_cast<const shared_state&>(connection_basic::get_state());
+        const std::size_t limit = m_local ? state.m_max_private_ip_connections : state.m_max_public_ip_connections;
+        shift = limit ? static_cast<unsigned>(std::min<std::size_t>(8, (std::size_t(count) * 8) / limit)) : 0;
+      }
+      else
+        shift = std::min(std::max(count, 1u) - 1, 8u);
+    }
     return (
       m_local ?
       std::chrono::milliseconds(DEFAULT_TIMEOUT_MS_LOCAL >> shift) :
