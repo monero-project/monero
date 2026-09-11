@@ -34,6 +34,7 @@
 #include <boost/bind/bind.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/filesystem/operations.hpp>
+#include <boost/multiprecision/cpp_int.hpp>
 #include <boost/optional/optional.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -69,36 +70,72 @@ namespace nodetool
 {
   namespace
   {
-    uint64_t ipv4_subnet_size(const uint8_t mask)
+    template<typename Subnet>
+    struct subnet_traits;
+
+    template<>
+    struct subnet_traits<epee::net_utils::ipv4_network_subnet>
     {
-      CHECK_AND_ASSERT_THROW_MES(mask <= 32, "invalid IPv4 subnet mask");
-      return mask == 0 ? (uint64_t{1} << 32) : (uint64_t{1} << (32 - mask));
+      using address_type = epee::net_utils::ipv4_network_address;
+      using value_type = uint64_t;
+      static constexpr uint8_t bits = 32;
+
+      static value_type first(const epee::net_utils::ipv4_network_subnet &subnet)
+      {
+        return SWAP32BE(subnet.subnet());
+      }
+
+      static epee::net_utils::ipv4_network_subnet make(const value_type first, const uint8_t mask)
+      {
+        return {SWAP32BE(static_cast<uint32_t>(first)), mask};
+      }
+    };
+
+    template<>
+    struct subnet_traits<epee::net_utils::ipv6_network_subnet>
+    {
+      using address_type = epee::net_utils::ipv6_network_address;
+      using value_type = boost::multiprecision::uint256_t;
+      static constexpr uint8_t bits = 128;
+
+      static value_type first(const epee::net_utils::ipv6_network_subnet &subnet)
+      {
+        value_type value = 0;
+        for (const auto byte : subnet.subnet().to_bytes())
+          value = (value << 8) | byte;
+        return value;
+      }
+
+      static epee::net_utils::ipv6_network_subnet make(value_type first, const uint8_t mask)
+      {
+        boost::asio::ip::address_v6::bytes_type bytes = {};
+        for (auto i = bytes.rbegin(); i != bytes.rend(); ++i)
+        {
+          *i = static_cast<unsigned char>((first & 0xff).convert_to<unsigned int>());
+          first >>= 8;
+        }
+        return {boost::asio::ip::address_v6{bytes}, mask};
+      }
+    };
+
+    template<typename Subnet>
+    typename subnet_traits<Subnet>::value_type subnet_size(const uint8_t mask)
+    {
+      using traits = subnet_traits<Subnet>;
+      using value_type = typename traits::value_type;
+      CHECK_AND_ASSERT_THROW_MES(mask <= traits::bits, "invalid subnet mask");
+      return value_type{1} << (traits::bits - mask);
     }
 
-    uint64_t ipv4_subnet_first(const epee::net_utils::ipv4_network_subnet &subnet)
+    template<typename Subnet>
+    void subtract_subnet(const Subnet &blocked, const Subnet &removed, std::vector<Subnet> &result)
     {
-      return SWAP32BE(subnet.subnet());
-    }
-
-    uint64_t ipv4_subnet_last(const epee::net_utils::ipv4_network_subnet &subnet)
-    {
-      return ipv4_subnet_first(subnet) + ipv4_subnet_size(subnet.mask()) - 1;
-    }
-
-    epee::net_utils::ipv4_network_subnet make_ipv4_subnet(const uint64_t first, const uint8_t mask)
-    {
-      return {SWAP32BE(static_cast<uint32_t>(first)), mask};
-    }
-
-    void subtract_ipv4_subnet(
-      const epee::net_utils::ipv4_network_subnet &blocked,
-      const epee::net_utils::ipv4_network_subnet &removed,
-      std::vector<epee::net_utils::ipv4_network_subnet> &result)
-    {
-      const uint64_t blocked_first = ipv4_subnet_first(blocked);
-      const uint64_t blocked_last = ipv4_subnet_last(blocked);
-      const uint64_t removed_first = ipv4_subnet_first(removed);
-      const uint64_t removed_last = ipv4_subnet_last(removed);
+      using traits = subnet_traits<Subnet>;
+      using value_type = typename traits::value_type;
+      const value_type blocked_first = traits::first(blocked);
+      const value_type blocked_last = blocked_first + subnet_size<Subnet>(blocked.mask()) - 1;
+      const value_type removed_first = traits::first(removed);
+      const value_type removed_last = removed_first + subnet_size<Subnet>(removed.mask()) - 1;
 
       if (removed_last < blocked_first || blocked_last < removed_first)
       {
@@ -109,21 +146,49 @@ namespace nodetool
         return;
 
       const uint8_t child_mask = blocked.mask() + 1;
-      CHECK_AND_ASSERT_THROW_MES(child_mask <= 32, "invalid IPv4 subnet split");
+      CHECK_AND_ASSERT_THROW_MES(child_mask <= traits::bits, "invalid subnet split");
 
-      const uint64_t child_size = ipv4_subnet_size(child_mask);
-      subtract_ipv4_subnet(make_ipv4_subnet(blocked_first, child_mask), removed, result);
-      subtract_ipv4_subnet(make_ipv4_subnet(blocked_first + child_size, child_mask), removed, result);
+      const value_type child_size = subnet_size<Subnet>(child_mask);
+      subtract_subnet(traits::make(blocked_first, child_mask), removed, result);
+      subtract_subnet(traits::make(blocked_first + child_size, child_mask), removed, result);
     }
 
-    void emplace_blocked_subnet(
-      std::map<epee::net_utils::ipv4_network_subnet, time_t> &subnets,
-      const epee::net_utils::ipv4_network_subnet &subnet,
-      const time_t limit)
+    template<typename Subnet>
+    void emplace_blocked_subnet(std::map<Subnet, time_t> &subnets, const Subnet &subnet, const time_t limit)
     {
       auto entry = subnets.find(subnet);
       if (entry == subnets.end() || entry->second < limit)
         subnets[subnet] = limit;
+    }
+
+    template<typename Address, typename Subnet>
+    bool is_address_allowed(const Address &address, std::map<Subnet, time_t> &subnets, const time_t now, time_t *t)
+    {
+      for (auto i = subnets.begin(); i != subnets.end(); )
+      {
+        if (now >= i->second)
+        {
+          MCLOG_CYAN(el::Level::Info, "global", "Subnet " << i->first.host_str() << " unblocked.");
+          i = subnets.erase(i);
+          continue;
+        }
+        if (i->first.matches(address))
+        {
+          if (t)
+            *t = i->second - now;
+          return false;
+        }
+        ++i;
+      }
+      return true;
+    }
+
+    template<typename Address, typename Subnet>
+    bool matches_blocked_subnet(const Address &address, const std::map<Subnet, time_t> &subnets)
+    {
+      return std::any_of(subnets.begin(), subnets.end(), [&address](const auto &subnet) {
+        return subnet.first.matches(address);
+      });
     }
   }
 
@@ -287,28 +352,10 @@ namespace nodetool
       }
     }
 
-    // manually loop in subnets
     if (address.get_type_id() == epee::net_utils::address_type::ipv4)
-    {
-      auto ipv4_address = address.template as<epee::net_utils::ipv4_network_address>();
-      std::map<epee::net_utils::ipv4_network_subnet, time_t>::iterator it;
-      for (it = m_blocked_subnets.begin(); it != m_blocked_subnets.end(); )
-      {
-        if (now >= it->second)
-        {
-          MCLOG_CYAN(el::Level::Info, "global", "Subnet " << it->first.host_str() << " unblocked.");
-          it = m_blocked_subnets.erase(it);
-          continue;
-        }
-        if (it->first.matches(ipv4_address))
-        {
-          if (t)
-            *t = it->second - now;
-          return false;
-        }
-        ++it;
-      }
-    }
+      return is_address_allowed(address.template as<epee::net_utils::ipv4_network_address>(), m_blocked_subnets, now, t);
+    if (address.get_type_id() == epee::net_utils::address_type::ipv6)
+      return is_address_allowed(address.template as<epee::net_utils::ipv6_network_address>(), m_blocked_ipv6_subnets, now, t);
 
     // not found in hosts or subnets, allowed
     return true;
@@ -356,20 +403,14 @@ namespace nodetool
       m_blocked_hosts[host_str] = limit;
 
       // if the host was already blocked due to being in a blocked subnet, let it be silent
-      bool matches_blocked_subnet = false;
+      bool blocked_by_subnet = false;
       if (addr.get_type_id() == epee::net_utils::address_type::ipv4)
-      {
-        auto ipv4_address = addr.template as<epee::net_utils::ipv4_network_address>();
-        for (auto jt = m_blocked_subnets.begin(); jt != m_blocked_subnets.end(); ++jt)
-        {
-          if (jt->first.matches(ipv4_address))
-          {
-            matches_blocked_subnet = true;
-            break;
-          }
-        }
-      }
-      if (!matches_blocked_subnet)
+        blocked_by_subnet = matches_blocked_subnet(
+          addr.template as<epee::net_utils::ipv4_network_address>(), m_blocked_subnets);
+      else if (addr.get_type_id() == epee::net_utils::address_type::ipv6)
+        blocked_by_subnet = matches_blocked_subnet(
+          addr.template as<epee::net_utils::ipv6_network_address>(), m_blocked_ipv6_subnets);
+      if (!blocked_by_subnet)
         added = true;
     }
     else if (it->second < limit || !add_only)
@@ -430,8 +471,11 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::block_subnet(const epee::net_utils::ipv4_network_subnet &subnet, time_t seconds)
+  template<typename Subnet>
+  bool node_server<t_payload_net_handler>::block_subnet_impl(
+    std::map<Subnet, time_t> &blocked_subnets, const Subnet &subnet, time_t seconds)
   {
+    using address_type = typename subnet_traits<Subnet>::address_type;
     const time_t now = time(nullptr);
 
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
@@ -440,8 +484,8 @@ namespace nodetool
       limit = std::numeric_limits<time_t>::max();
     else
       limit = now + seconds;
-    const bool added = m_blocked_subnets.find(subnet) == m_blocked_subnets.end();
-    m_blocked_subnets[subnet] = limit;
+    const bool added = blocked_subnets.find(subnet) == blocked_subnets.end();
+    blocked_subnets[subnet] = limit;
 
     // drop any connection to that subnet. This should only have to look into
     // the zone related to the connection, but really make sure everything is
@@ -451,10 +495,9 @@ namespace nodetool
     {
       zone.second.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
       {
-        if (cntxt.m_remote_address.get_type_id() != epee::net_utils::ipv4_network_address::get_type_id())
+        if (cntxt.m_remote_address.get_type_id() != address_type::get_type_id())
           return true;
-        auto ipv4_address = cntxt.m_remote_address.template as<epee::net_utils::ipv4_network_address>();
-        if (subnet.matches(ipv4_address))
+        if (subnet.matches(cntxt.m_remote_address.template as<address_type>()))
         {
           conns.push_back(cntxt.m_connection_id);
         }
@@ -465,9 +508,9 @@ namespace nodetool
 
       for (int i = 0; i < 2; ++i)
         zone.second.m_peerlist.filter(i == 0, [&subnet](const peerlist_entry &pe){
-          if (pe.adr.get_type_id() != epee::net_utils::ipv4_network_address::get_type_id())
+          if (pe.adr.get_type_id() != address_type::get_type_id())
             return false;
-          return subnet.matches(pe.adr.as<const epee::net_utils::ipv4_network_address>());
+          return subnet.matches(pe.adr.as<const address_type>());
         });
 
       conns.clear();
@@ -481,16 +524,32 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::unblock_subnet(const epee::net_utils::ipv4_network_subnet &subnet)
+  bool node_server<t_payload_net_handler>::block_subnet(const epee::net_utils::ipv4_network_subnet &subnet, time_t seconds)
   {
+    return block_subnet_impl(m_blocked_subnets, subnet, seconds);
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::block_subnet(const epee::net_utils::ipv6_network_subnet &subnet, time_t seconds)
+  {
+    return block_subnet_impl(m_blocked_ipv6_subnets, subnet, seconds);
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  template<typename Subnet>
+  bool node_server<t_payload_net_handler>::unblock_subnet_impl(
+    std::map<Subnet, time_t> &blocked_subnets, const Subnet &subnet)
+  {
+    using traits = subnet_traits<Subnet>;
+    using address_type = typename traits::address_type;
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
     bool unblocked = false;
 
     for (auto i = m_blocked_hosts.begin(); i != m_blocked_hosts.end(); )
     {
       auto address = net::get_network_address(i->first, 0);
-      if (address && address->get_type_id() == epee::net_utils::ipv4_network_address::get_type_id()
-        && subnet.matches(address->template as<epee::net_utils::ipv4_network_address>()))
+      if (address && address->get_type_id() == address_type::get_type_id()
+        && subnet.matches(address->template as<address_type>()))
       {
         i = m_blocked_hosts.erase(i);
         unblocked = true;
@@ -499,33 +558,46 @@ namespace nodetool
         ++i;
     }
 
-    std::map<epee::net_utils::ipv4_network_subnet, time_t> blocked_subnets;
-    std::vector<epee::net_utils::ipv4_network_subnet> remaining;
-    remaining.reserve(32);
-    for (const auto &blocked_subnet : m_blocked_subnets)
+    std::map<Subnet, time_t> remaining_subnets;
+    std::vector<Subnet> remaining;
+    remaining.reserve(traits::bits);
+    for (const auto &blocked_subnet : blocked_subnets)
     {
       remaining.clear();
-      subtract_ipv4_subnet(blocked_subnet.first, subnet, remaining);
+      subtract_subnet(blocked_subnet.first, subnet, remaining);
       if (remaining.size() != 1 || remaining.front() != blocked_subnet.first)
         unblocked = true;
       for (const auto &entry : remaining)
-        emplace_blocked_subnet(blocked_subnets, entry, blocked_subnet.second);
+        emplace_blocked_subnet(remaining_subnets, entry, blocked_subnet.second);
     }
 
     if (!unblocked)
       return false;
-    m_blocked_subnets.swap(blocked_subnets);
+    blocked_subnets.swap(remaining_subnets);
     MCLOG_CYAN(el::Level::Info, "global", "Subnet " << subnet.str() << " unblocked.");
     return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::unblock_subnet(const epee::net_utils::ipv4_network_subnet &subnet)
+  {
+    return unblock_subnet_impl(m_blocked_subnets, subnet);
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::unblock_subnet(const epee::net_utils::ipv6_network_subnet &subnet)
+  {
+    return unblock_subnet_impl(m_blocked_ipv6_subnets, subnet);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::clear_bans()
   {
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
-    const bool had_bans = !m_blocked_hosts.empty() || !m_blocked_subnets.empty();
+    const bool had_bans = !m_blocked_hosts.empty() || !m_blocked_subnets.empty() || !m_blocked_ipv6_subnets.empty();
     m_blocked_hosts.clear();
     m_blocked_subnets.clear();
+    m_blocked_ipv6_subnets.clear();
     if (had_bans)
       MCLOG_CYAN(el::Level::Info, "global", "All bans cleared.");
     return had_bans;
@@ -669,13 +741,19 @@ namespace nodetool
           block_subnet(*subnet, std::numeric_limits<time_t>::max());
           continue;
         }
+        auto ipv6_subnet = net::get_ipv6_subnet_address(line);
+        if (ipv6_subnet)
+        {
+          block_subnet(*ipv6_subnet, std::numeric_limits<time_t>::max());
+          continue;
+        }
         const expect<epee::net_utils::network_address> parsed_addr = net::get_network_address(line, 0);
         if (parsed_addr)
         {
           block_host(*parsed_addr, std::numeric_limits<time_t>::max());
           continue;
         }
-        MERROR("Invalid IP address or IPv4 subnet: " << line);
+        MERROR("Invalid IP address or subnet: " << line);
       }
     }
 
@@ -2234,6 +2312,13 @@ namespace nodetool
         if (subnet)
         {
           block_subnet(*subnet, DNS_BLOCKLIST_LIFETIME);
+          ++good;
+          continue;
+        }
+        auto ipv6_subnet = net::get_ipv6_subnet_address(ip);
+        if (ipv6_subnet)
+        {
+          block_subnet(*ipv6_subnet, DNS_BLOCKLIST_LIFETIME);
           ++good;
           continue;
         }
