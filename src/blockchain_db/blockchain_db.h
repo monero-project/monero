@@ -539,7 +539,6 @@ private:
    * private concrete members
    *********************************************************************/
 
-  // helper function to remove transaction from blockchain
   /**
    * @brief helper function to remove transaction from the blockchain
    *
@@ -708,7 +707,6 @@ public:
    */
   virtual bool remove_data_file(const std::string& folder) const = 0;
 
-  // return the name of the folder the db's file(s) should reside in
   /**
    * @brief gets the name of the folder the BlockchainDB's file(s) should be in
    *
@@ -796,7 +794,6 @@ public:
 
   virtual void set_hard_fork(HardFork* hf);
 
-  // adds a block with the given metadata to the top of the blockchain, returns the new height
   /**
    * @brief handles the addition of a new block to BlockchainDB
    *
@@ -1165,7 +1162,6 @@ public:
   virtual bool tx_exists(const crypto::hash& h) const = 0;
   virtual bool tx_exists(const crypto::hash& h, uint64_t& tx_id) const = 0;
 
-  // return unlock time of tx with hash <h>
   /**
    * @brief fetch a transaction's unlock time/height
    *
@@ -1180,8 +1176,6 @@ public:
    */
   virtual uint64_t get_tx_unlock_time(const crypto::hash& h) const = 0;
 
-  // return tx with hash <h>
-  // throw if no such tx exists
   /**
    * @brief fetches the transaction with the given hash
    *
@@ -1365,7 +1359,6 @@ public:
    */
   virtual std::vector<transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const = 0;
 
-  // returns height of block that contains transaction with hash <h>
   /**
    * @brief fetches the height of a transaction's block
    *
@@ -1380,7 +1373,6 @@ public:
    */
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const = 0;
 
-  // returns the total number of outputs of amount <amount>
   /**
    * @brief fetches the number of outputs of a given amount
    *
