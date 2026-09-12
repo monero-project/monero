@@ -27,8 +27,13 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#ifdef __GLIBC__
+#include <cstdlib>
+#ifndef _WIN32
+#include <fcntl.h>
+#include <signal.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #endif
 
 #include "gtest/gtest.h"
@@ -39,6 +44,7 @@
 #include "string_tools.h"
 #include "file_io_utils.h"
 #include "common/notify.h"
+#include "common/spawn.h"
 
 TEST(notify, works)
 {
@@ -88,3 +94,35 @@ TEST(notify, works)
   boost::filesystem::remove(name_template);
   ASSERT_TRUE(ok);
 }
+
+#ifndef _WIN32
+TEST(notify, exec_failure_exits_child)
+{
+  const boost::filesystem::path test_dir = boost::filesystem::temp_directory_path() /
+      boost::filesystem::unique_path("monero-notify-unit-test-%%%%-%%%%-%%%%");
+  ASSERT_TRUE(boost::filesystem::create_directory(test_dir));
+
+  const boost::filesystem::path interpreter = test_dir / "missing-interpreter";
+  const boost::filesystem::path script = test_dir / "script";
+  const boost::filesystem::path child_returned = test_dir / "child-returned";
+  ASSERT_TRUE(epee::file_io_utils::save_string_to_file(script.string(), "#!" + interpreter.string() + "\n"));
+  ASSERT_EQ(chmod(script.c_str(), 0700), 0);
+
+  void (*previous_sigchld_handler)(int) = signal(SIGCHLD, SIG_DFL);
+  ASSERT_NE(previous_sigchld_handler, SIG_ERR);
+  const pid_t parent_pid = getpid();
+  const int result = tools::spawn(script.c_str(), {script.string()}, true);
+  if (getpid() != parent_pid)
+  {
+    const int fd = open(child_returned.c_str(), O_CREAT | O_WRONLY, 0600);
+    if (fd >= 0)
+      close(fd);
+    _exit(0);
+  }
+
+  EXPECT_EQ(result, EXIT_FAILURE);
+  EXPECT_FALSE(boost::filesystem::exists(child_returned));
+  EXPECT_NE(signal(SIGCHLD, previous_sigchld_handler), SIG_ERR);
+  boost::filesystem::remove_all(test_dir);
+}
+#endif
