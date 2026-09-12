@@ -636,7 +636,7 @@ block Blockchain::pop_block_from_blockchain()
       ++pruned;
       continue;
     }
-    if (!is_coinbase(tx))
+    if (!tx.is_coinbase())
     {
       cryptonote::tx_verification_context tvc = AUTO_VAL_INIT(tvc);
 

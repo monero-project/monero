@@ -38,8 +38,8 @@
 #include <set>
 #include "serialization.h"
 
-template <template <bool> class Archive, class T> bool do_serialize(Archive<false> &ar, std::vector<T> &v);
-template <template <bool> class Archive, class T> bool do_serialize(Archive<true> &ar, std::vector<T> &v);
+template <template <bool> class Archive, class T> bool do_serialize(Archive<false> &ar, std::vector<T> &v, size_t max_cnt = std::numeric_limits<size_t>::max());
+template <template <bool> class Archive, class T> bool do_serialize(Archive<true> &ar, std::vector<T> &v, size_t max_cnt = std::numeric_limits<size_t>::max());
 
 template <template <bool> class Archive, class T> bool do_serialize(Archive<false> &ar, std::deque<T> &v);
 template <template <bool> class Archive, class T> bool do_serialize(Archive<true> &ar, std::deque<T> &v);
@@ -105,8 +105,8 @@ namespace serialization
 
 #include "container.h"
 
-template <template <bool> class Archive, class T> bool do_serialize(Archive<false> &ar, std::vector<T> &v) { return do_serialize_container(ar, v); }
-template <template <bool> class Archive, class T> bool do_serialize(Archive<true> &ar, std::vector<T> &v) { return do_serialize_container(ar, v); }
+template <template <bool> class Archive, class T> bool do_serialize(Archive<false> &ar, std::vector<T> &v, size_t max_cnt) { return do_serialize_container(ar, v, max_cnt); }
+template <template <bool> class Archive, class T> bool do_serialize(Archive<true> &ar, std::vector<T> &v, size_t max_cnt) { return do_serialize_container(ar, v, max_cnt); }
 
 template <template <bool> class Archive, class T> bool do_serialize(Archive<false> &ar, std::deque<T> &v) { return do_serialize_container(ar, v); }
 template <template <bool> class Archive, class T> bool do_serialize(Archive<true> &ar, std::deque<T> &v) { return do_serialize_container(ar, v); }
