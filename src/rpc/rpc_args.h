@@ -90,6 +90,13 @@ namespace cryptonote
     bool require_ipv4;
     std::vector<std::string> access_control_origins;
     boost::optional<tools::login> login; // currently `boost::none` if unspecified by user
+    struct ha1_auth
+    {
+      std::string username;
+      std::string ha1_md5;
+      std::string ha1_sha256;
+    };
+    boost::optional<ha1_auth> auth;
     epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
     bool disable_rpc_ban = false;
   };
