@@ -1881,15 +1881,39 @@ TEST(socks_client, resolve_command)
     while (test_client->called_ == 1);
 }
 
-TEST(socks_client, v5_username_host_connect)
+TEST(socks_client, v5_username_host_connect_with_domain_reply)
 {
+    struct domain_reply_client : net::socks::client
+    {
+        std::atomic<bool>& called_;
+
+        domain_reply_client(stream_type::socket&& proxy, std::atomic<bool>& called)
+          : net::socks::client(std::move(proxy), net::socks::version::v5), called_(called)
+        {}
+
+        virtual void done(boost::system::error_code error, const std::shared_ptr<client>& self) override
+        {
+            EXPECT_EQ(this, self.get());
+            EXPECT_FALSE(error) << "Socks server: " << error.message();
+
+            const std::uint8_t expected_bytes[] = {
+                5, 0, 0, 3, 11, 'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o', 'm', 0, 0x50
+            };
+            EXPECT_EQ(sizeof(expected_bytes), buffer().size());
+            if (buffer().size() == sizeof(expected_bytes))
+            {
+                EXPECT_EQ(0, std::memcmp(expected_bytes, buffer().data(), sizeof(expected_bytes)));
+            }
+
+            called_ = true;
+        }
+    };
+
     io_thread io{};
     stream_type::socket client{io.io_service};
 
     std::atomic<bool> called{false};
-    auto test_client = net::socks::make_connect_client(
-        std::move(client), net::socks::version::v5, checked_client{std::addressof(called), false}
-    );
+    auto test_client = std::make_shared<domain_reply_client>(std::move(client), called);
     ASSERT_TRUE(bool(test_client));
 
     const auto userinfo =
@@ -1898,7 +1922,7 @@ TEST(socks_client, v5_username_host_connect)
         test_client->set_connect_command("example.com", 80, std::addressof(userinfo))
     );
     EXPECT_FALSE(test_client->buffer().empty());
-    ASSERT_TRUE(net::socks::client::connect_and_send(std::move(test_client), io.acceptor.local_endpoint()));
+    ASSERT_TRUE(net::socks::client::connect_and_send(test_client, io.acceptor.local_endpoint()));
     while (!io.connected)
         ASSERT_FALSE(called);
 
@@ -1934,10 +1958,13 @@ TEST(socks_client, v5_username_host_connect)
         boost::asio::read(io.server, boost::asio::buffer(actual_bytes));
         EXPECT_TRUE(std::memcmp(expected_bytes, actual_bytes, sizeof(actual_bytes)) == 0);
 
-        const std::uint8_t reply_bytes[] = {
-            5, 0, 0, 1, 0xDE, 0xAD, 0xBE, 0xEF, 0x50, 00
+        const std::uint8_t reply_header[] = {5, 0, 0, 3, 11};
+        boost::asio::write(io.server, boost::asio::buffer(reply_header));
+
+        const std::uint8_t reply_address[] = {
+            'e', 'x', 'a', 'm', 'p', 'l', 'e', '.', 'c', 'o', 'm', 0, 0x50
         };
-        boost::asio::write(io.server, boost::asio::buffer(reply_bytes));
+        boost::asio::write(io.server, boost::asio::buffer(reply_address));
     }
 
     // yikes!

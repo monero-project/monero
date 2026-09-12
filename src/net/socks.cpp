@@ -606,6 +606,8 @@ namespace socks
                         bytes = sizeof(v5_response_ipv4);
                     else if (header.type == v5_ipv6_type)
                         bytes = sizeof(v5_response_ipv6);
+                    else if (header.type == v5_domain_type)
+                        bytes = sizeof(std::uint8_t);
                     else
                     {
                         self.done(socks::error::address_type_not_supported, self_);
@@ -621,6 +623,18 @@ namespace socks
                 );
                 std::get<0>(self.buffer_size_) =
                     std::min(sizeof(self.buffer_), sizeof(v5_response_connect) + bytes);
+
+                if (self.buffer_[3] == v5_domain_type)
+                {
+                    bytes = self.buffer_[sizeof(v5_response_connect)] + sizeof(boost::endian::big_uint16_t);
+                    BOOST_ASIO_CORO_YIELD boost::asio::async_read(
+                        self.proxy_,
+                        get_read_buffer(self, bytes),
+                        boost::asio::bind_executor(self.strand_, std::move(*this))
+                    );
+                    std::get<0>(self.buffer_size_) =
+                        std::min(sizeof(self.buffer_), std::get<0>(self.buffer_size_) + bytes);
+                }
                 self.done(error, self_);
             }
         }
