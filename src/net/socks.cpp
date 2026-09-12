@@ -624,6 +624,8 @@ namespace socks
                 std::get<0>(self.buffer_size_) =
                     std::min(sizeof(self.buffer_), sizeof(v5_response_connect) + bytes);
 
+                static_assert(3 < sizeof(self.buffer_), "buffer too small for v5 response");
+                static_assert(sizeof(v5_response_connect) < sizeof(self.buffer_), "buffer too small for v5 response");
                 if (self.buffer_[3] == v5_domain_type)
                 {
                     bytes = self.buffer_[sizeof(v5_response_connect)] + sizeof(boost::endian::big_uint16_t);
