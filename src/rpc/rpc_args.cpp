@@ -245,6 +245,46 @@ namespace cryptonote
         return boost::none;
       }
     }
+    
+    const bool has_rpc_auth_arg = command_line::has_arg(vm, arg.rpc_auth);
+    if (has_rpc_auth_arg)
+    {
+      if (has_rpc_arg || use_rpc_env)
+      {
+        LOG_ERROR(tr("Cannot specify both --") << arg.rpc_login.name << tr(" and --") << arg.rpc_auth.name);
+        return boost::none;
+      }
+
+      const std::string auth_value = command_line::get_arg(vm, arg.rpc_auth);
+      std::vector<std::string> parts;
+      boost::split(parts, auth_value, boost::is_any_of(":"));
+
+      if (parts.size() < 2 || parts[0].empty())
+      {
+        LOG_ERROR(tr("Invalid format for --") << arg.rpc_auth.name << tr(". Expected username:HA1_MD5[:HA1_SHA256]"));
+        return boost::none;
+      }
+
+      config.auth = rpc_args::ha1_auth{};
+      config.auth->username = std::move(parts[0]);
+
+      config.auth->ha1_md5 = std::move(parts[1]);
+      if (config.auth->ha1_md5.size() != 32)
+      {
+        LOG_ERROR(tr("Invalid MD5 HA1 length for --") << arg.rpc_auth.name << tr(". Expected 32 hex characters"));
+        return boost::none;
+      }
+
+      if (parts.size() >= 3)
+      {
+        config.auth->ha1_sha256 = std::move(parts[2]);
+        if (config.auth->ha1_sha256.size() != 64)
+        {
+          LOG_ERROR(tr("Invalid SHA-256 HA1 length for --") << arg.rpc_auth.name << tr(". Expected 64 hex characters"));
+          return boost::none;
+        }
+      }
+    }
 
     auto access_control_origins_input = command_line::get_arg(vm, arg.rpc_access_control_origins);
     if (!access_control_origins_input.empty())
