@@ -269,7 +269,7 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
   dnssec_available = false;
   dnssec_valid = false;
   
-  ub_result *result;
+  ub_result *result = NULL;
   // Make sure we are cleaning after result.
   const epee::scope_guard scope_exit_handler([&](){
     ub_resolve_free(result);
