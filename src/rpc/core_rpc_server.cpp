@@ -166,6 +166,11 @@ namespace cryptonote
 
     if (rpc_config->login)
       http_login.emplace(std::move(rpc_config->login->username), std::move(rpc_config->login->password).password());
+    else if (rpc_config->auth)
+    {
+      http_login.emplace(std::move(rpc_config->auth->username),
+        std::move(rpc_config->auth->ha1_md5), std::move(rpc_config->auth->ha1_sha256));
+    }
 
     bool store_ssl_key = !restricted && rpc_config->ssl_options && rpc_config->ssl_options.auth.certificate_path.empty();
     const auto ssl_base_path = (boost::filesystem::path{data_dir} / "rpc_ssl").string();
