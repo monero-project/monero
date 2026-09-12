@@ -198,6 +198,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_p2p_use_ipv6);
     command_line::add_arg(desc, arg_p2p_ignore_ipv4);
     command_line::add_arg(desc, arg_p2p_external_port);
+    command_line::add_arg(desc, arg_p2p_external_ip);
     command_line::add_arg(desc, arg_p2p_allow_local_ip);
     command_line::add_arg(desc, arg_p2p_add_peer);
     command_line::add_arg(desc, arg_p2p_add_priority_node);
@@ -569,6 +570,7 @@ namespace nodetool
     public_zone.m_port_ipv6 = command_line::get_arg(vm, arg_p2p_bind_port_ipv6);
     public_zone.m_can_pingback = true;
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
+    m_external_ip = command_line::get_arg(vm, arg_p2p_external_ip);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
     if (!command_line::is_arg_defaulted(vm, arg_igd))
     {
@@ -1120,6 +1122,74 @@ namespace nodetool
     }
     if(m_external_port)
       MDEBUG("External port defined as " << m_external_port);
+    if(public_zone.m_our_address.get_zone() == epee::net_utils::zone::public_)
+      MDEBUG("External address defined as " << public_zone.m_our_address.str());
+
+    if (!m_external_ip.empty())
+    {
+      std::string host_str;
+      std::string port_str;
+      net::get_network_address_host_and_port(m_external_ip, host_str, port_str);
+      if (!port_str.empty())
+      {
+        MERROR("Invalid --p2p-external-ip \"" << m_external_ip << "\": " << " port specified in IP address. Use --p2p-external_port to specify a port.");
+        return false;
+      }
+      boost::system::error_code ec;
+      const boost::asio::ip::address ext_addr = boost::asio::ip::make_address(host_str, ec);
+      if (ec)
+      {
+        MERROR("Invalid --p2p-external-ip \"" << m_external_ip << "\": " << ec.message());
+        return false;
+      }
+
+      if (ext_addr.is_v4())
+      {
+        const uint16_t port = m_external_port ? static_cast<uint16_t>(m_external_port) : static_cast<uint16_t>(m_listening_port);
+        if (port == 0)
+        {
+          MERROR("Cannot advertise external IPv4 address: effective port is 0. Set --p2p-external-port or ensure --p2p-bind-port is non-zero.");
+          return false;
+        }
+        const uint32_t ip_net = boost::asio::detail::socket_ops::host_to_network_long(ext_addr.to_v4().to_uint());
+        const epee::net_utils::ipv4_network_address ipv4_na(ip_net, port);
+        if (!m_allow_local_ip && (ipv4_na.is_loopback() || ipv4_na.is_local()))
+        {
+          MWARNING("--p2p-external-ip " << m_external_ip << " is a loopback/private address; ignoring. Use --allow-local-ip to override.");
+        }
+        else
+        {
+          public_zone.m_our_address = ipv4_na;
+          MLOG_GREEN(el::Level::Info, "External address set to " << public_zone.m_our_address.str());
+        }
+      }
+      else // IPv6
+      {
+        if (!m_use_ipv6)
+        {
+          MWARNING("--p2p-external-ip " << m_external_ip << " is an IPv6 address but --p2p-use-ipv6 is not set; ignoring.");
+        }
+        else
+        {
+          const uint16_t port = m_external_port ? static_cast<uint16_t>(m_external_port) : static_cast<uint16_t>(m_listening_port_ipv6);
+          if (port == 0)
+          {
+            MERROR("Cannot advertise external IPv6 address: effective port is 0. Set --p2p-external-port or ensure --p2p-bind-port-ipv6 is non-zero.");
+            return false;
+          }
+          const epee::net_utils::ipv6_network_address ipv6_na(ext_addr.to_v6(), port);
+          if (!m_allow_local_ip && (ipv6_na.is_loopback() || ipv6_na.is_local()))
+          {
+            MWARNING("--p2p-external-ip " << m_external_ip << " is a loopback/link-local IPv6 address; ignoring. Use --allow-local-ip to override.");
+          }
+          else
+          {
+            public_zone.m_our_address = ipv6_na;
+            MLOG_GREEN(el::Level::Info, "External address set to " << public_zone.m_our_address.str());
+          }
+        }
+      }
+    }
 
     return res;
   }
@@ -2188,6 +2258,18 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::get_our_address(epee::net_utils::network_address& address, epee::net_utils::zone zone) const
+  {
+    auto it = m_network_zones.find(zone);
+    if (it != m_network_zones.end())
+    {
+      address = it->second.m_our_address;
+      return true;
+    }
+    return false;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::idle_worker()
   {
     m_peer_handshake_idle_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::peer_sync_idle_maker, this));
@@ -2640,7 +2722,12 @@ namespace nodetool
     network_zone& zone = m_network_zones.at(zone_type);
 
     //will add self to peerlist if in same zone as outgoing later in this function
-    const bool outgoing_to_same_zone = !context.m_is_income && zone.m_our_address.get_zone() == zone_type;
+    //for anonymous zones the peer inserts its own address
+    //for the public zone, honour --hide-my-port: if set, do not inject our own address
+    const bool outgoing_to_same_zone = !context.m_is_income
+        && zone.m_our_address.get_zone() == zone_type
+        && !(zone_type == epee::net_utils::zone::public_ && m_hide_my_port);
+
     const uint32_t max_peerlist_size = P2P_DEFAULT_PEERS_IN_HANDSHAKE - (outgoing_to_same_zone ? 1 : 0);
 
     std::vector<peerlist_entry> local_peerlist_new;
@@ -2651,7 +2738,8 @@ namespace nodetool
 
     /* Tor/I2P nodes receiving connections via forwarding (from tor/i2p daemon)
     do not know the address of the connecting peer. This is relayed to them,
-    iff the node has setup an inbound hidden service.
+    iff the node has setup an inbound hidden service. Similarly, clearnet nodes 
+    with an advertised external address relay it.
 
     \note Insert into `local_peerlist_new` so that it is only sent once like
       the other peers. */
