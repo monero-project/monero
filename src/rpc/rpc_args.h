@@ -68,6 +68,7 @@ namespace cryptonote
       const command_line::arg_descriptor<bool> rpc_ssl_allow_chained;
       const command_line::arg_descriptor<bool> rpc_ssl_allow_any_cert;
       const command_line::arg_descriptor<bool> disable_rpc_ban;
+      const command_line::arg_descriptor<std::string> rpc_auth;
     };
 
     // `allow_any_cert` bool toggles `--rpc-ssl-allow-any-cert` configuration
