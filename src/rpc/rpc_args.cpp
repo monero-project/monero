@@ -132,6 +132,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg.disable_rpc_ban);
     if (any_cert_option)
       command_line::add_arg(desc, arg.rpc_ssl_allow_any_cert);
+    command_line::add_arg(desc, arg.rpc_auth);
   }
 
   boost::optional<rpc_args> rpc_args::process(const boost::program_options::variables_map& vm, const bool any_cert_option)
