@@ -2479,7 +2479,10 @@ cryptonote::blobdata BlockchainLMDB::get_block_blob_from_height(const uint64_t& 
     throw0(BLOCK_DNE(std::string("Attempt to get block from height ").append(boost::lexical_cast<std::string>(height)).append(" failed -- block not in db").c_str()));
   }
   else if (get_result)
-    throw0(DB_ERROR("Error attempting to retrieve a block from the db"));
+    throw0(DB_ERROR(
+      "Error attempting to retrieve a block from the db\n"
+      "If this occurred while loading the blockchain, the blockchain database may be corrupted.\n"
+      "Remove the damaged blockchain database file and resynchronize"));
 
   blobdata bd;
   bd.assign(reinterpret_cast<char*>(result.mv_data), result.mv_size);
