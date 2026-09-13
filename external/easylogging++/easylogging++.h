@@ -2792,6 +2792,7 @@ class Storage : base::NoCopy, public base::threading::ThreadSafe {
   }
 };
 extern ELPP_EXPORT base::type::StoragePointer elStorage;
+ELPP_EXPORT void sanitize(std::string& s);
 #define ELPP el::base::Storage::getELPP()
 class DefaultLogDispatchCallback : public LogDispatchCallback {
  protected:
