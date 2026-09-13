@@ -367,20 +367,12 @@ mkdir -p "$DISTSRC"
     # Turn off unused default options
     CMAKEFLAGS+=" -DCOMPILER_CACHE=none -DBUILD_DOCUMENTATION=OFF"
 
-    # Make sure cargo knows where to find the vendored sources.
-    mkdir -p "${HOME}/.cargo"
-    cp contrib/guix/rust/config.toml "${HOME}/.cargo/"
-
-    # Unpack rust dependencies
-    mkdir -p /rust/vendor
-    tar xf /rust-deps -C /rust
-
     # "vendor" rust std
     for dir in "${RUST_STD}"/vendor/*/; do
       [ -d "$dir" ] || continue
       BN=$(basename "$dir")
-      if [ ! -d "/rust/vendor/$BN" ]; then
-        ln -s "$dir" "/rust/vendor/$BN"
+      if [ ! -d "src/fcmp_pp/fcmp_pp_rust/vendor/$BN" ]; then
+        ln -s "$dir" "src/fcmp_pp/fcmp_pp_rust/vendor/$BN"
       fi
     done
 

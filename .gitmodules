@@ -11,3 +11,6 @@
 [submodule "external/gtest"]
 	path = external/gtest
 	url = https://github.com/google/googletest.git
+[submodule "src/fcmp_pp/fcmp_pp_rust/vendor"]
+	path = src/fcmp_pp/fcmp_pp_rust/vendor
+	url = https://github.com/tobtoht/monero-rust-deps.git
