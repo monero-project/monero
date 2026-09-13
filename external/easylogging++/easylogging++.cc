@@ -16,6 +16,7 @@
 
 #define EASYLOGGING_CC
 #include "easylogging++.h"
+#include <cstdint>
 
 #include <atomic>
 #include <unistd.h>
@@ -2502,11 +2503,11 @@ void DefaultLogDispatchCallback::handle(const LogDispatchData* data) {
 
 
 template<typename Transform>
-static inline void utf8canonical(std::string &s, Transform t = [](wint_t c)->wint_t { return c; })
+static inline void utf8canonical(std::string &s, Transform t = [](std::uint32_t c)->std::uint32_t { return c; })
 {
     size_t avail = s.size();
     const char *ptr = s.data();
-    wint_t cp = 0;
+    std::uint32_t cp = 0;
     int rbytes = 1, bytes = -1;
     char wbuf[8], *wptr;
     size_t w_offset = 0;
@@ -2585,7 +2586,7 @@ static inline void utf8canonical(std::string &s, Transform t = [](wint_t c)->win
 
 void sanitize(std::string &s)
 {
-  utf8canonical(s, [](wint_t c)->wint_t {
+  utf8canonical(s, [](std::uint32_t c)->std::uint32_t {
     if (c == 9 || c == 10 || c == 13)
       return c;
     if (c < 0x20)
