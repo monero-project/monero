@@ -2671,6 +2671,13 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           uint64_t amount = tx.vout[o].amount ? tx.vout[o].amount : tx_scan_info[o].amount;
           uint64_t burnt = m_transfers[kit->second].amount();
           uint64_t extra_amount = amount - burnt;
+
+          amounts_container& tx_amounts_this_out = tx_amounts_individual_outs[tx_scan_info[o].received->index];
+          auto amount_iterator = std::find(tx_amounts_this_out.begin(), tx_amounts_this_out.end(), amount);
+          THROW_WALLET_EXCEPTION_IF(amount_iterator == tx_amounts_this_out.end(),
+              error::wallet_internal_error, "Unexpected values of new and old outputs");
+          *amount_iterator = extra_amount;
+
           if (!pool)
           {
             transfer_details &td = m_transfers[kit->second];
