@@ -498,7 +498,24 @@ namespace tools
   }
 #endif
 #else
+#ifndef _WIN32
+  static void posix_sigbus_handler(int signal)
+  {
+    static const char message[] =
+      "\nSIGBUS error: If this occurred while loading the blockchain, the blockchain database may be corrupted.\n"
+      "Remove the damaged blockchain database file and resynchronize.\n";
+    const ssize_t ignored = write(STDERR_FILENO, message, sizeof(message) - 1);
+    (void)ignored;
+    _exit(128 + signal);
+  }
+
+  static void setup_crash_dump()
+  {
+    signal(SIGBUS, posix_sigbus_handler);
+  }
+#else
   static void setup_crash_dump() {}
+#endif
 #endif
 
   bool disable_core_dumps()
