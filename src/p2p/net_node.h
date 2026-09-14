@@ -286,7 +286,7 @@ namespace nodetool
         m_offline(false),
         is_closing(false),
         m_network_id(),
-        m_enable_dns_seed_nodes(true),
+        m_allow_dns(true),
         max_connections(1)
     {}
     virtual ~node_server();
@@ -525,7 +525,7 @@ namespace nodetool
 
     epee::net_utils::ssl_support_t m_ssl_support;
 
-    bool m_enable_dns_seed_nodes;
+    bool m_allow_dns;
     bool m_enable_dns_blocklist;
 
     uint32_t max_connections;
