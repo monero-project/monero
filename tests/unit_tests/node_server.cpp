@@ -326,6 +326,28 @@ TEST(node_server, anonymous_inbound_bind_port)
   EXPECT_FALSE(parse("65536"));
 }
 
+TEST(node_server, skips_local_resolution_for_restricted_peer_addresses)
+{
+  using tcp = boost::asio::ip::tcp;
+  struct resolver
+  {
+    explicit resolver(boost::asio::io_context&) {}
+    tcp::resolver::results_type resolve(const std::string&, const std::string&, tcp::resolver::flags, boost::system::error_code&)
+    {
+      ADD_FAILURE() << "Unexpected local peer lookup";
+      return {};
+    }
+  };
+
+  std::vector<epee::net_utils::network_address> peers;
+  EXPECT_TRUE(nodetool::append_net_address<resolver>(peers, "node.example", 18080, false));
+  EXPECT_TRUE(nodetool::append_net_address<resolver>(peers, "node.example:http", 18080, false));
+  EXPECT_FALSE(nodetool::append_net_address<resolver>(peers, "node.example:65536", 18080, false));
+  EXPECT_FALSE(nodetool::append_net_address<resolver>(peers,
+    "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:http", 18080, true));
+  EXPECT_TRUE(peers.empty());
+}
+
 TEST(node_server, ipv6_peer_group)
 {
   const auto make_ipv6 = [](const char* ip) {
@@ -538,7 +560,7 @@ namespace
     boost::filesystem::remove_all(path, ec);
   }
 
-  boost::program_options::variables_map make_regtest_options(const path_t& dir)
+  boost::program_options::variables_map make_regtest_options(const path_t& dir, const std::vector<std::string>& extra_args = {"--offline"})
   {
     boost::program_options::options_description desc;
     cryptonote::core::init_options(desc);
@@ -553,8 +575,8 @@ namespace
       dir.string(),
       "--check-updates=disabled",
       "--disable-dns-checkpoints",
-      "--offline",
     };
+    args.insert(args.end(), extra_args.begin(), extra_args.end());
 
     boost::program_options::variables_map vm;
     boost::program_options::store(
@@ -573,6 +595,78 @@ namespace
     peer.last_seen = last_seen;
     return peer;
   }
+
+  class proxy_peers : public ::testing::Test
+  {
+  protected:
+    path_t dir;
+    test_core core;
+    cryptonote::t_cryptonote_protocol_handler<test_core> protocol{core, nullptr};
+    Server server{protocol};
+
+    void SetUp() override
+    {
+      dir = create_temp_dir("proxy-peers-%%%%%%%%%%%%%%%%");
+      ASSERT_FALSE(dir.empty());
+      protocol.set_p2p_endpoint(&server);
+    }
+
+    void TearDown() override
+    {
+      if (!dir.empty())
+        remove_tree(dir);
+    }
+
+    bool init(std::vector<std::string> args)
+    {
+      args.push_back("--p2p-bind-port=0");
+      return server.init(make_regtest_options(dir, args), "127.0.0.1:9050", false);
+    }
+  };
+}
+
+TEST_F(proxy_peers, skips_hostnames_and_keeps_numeric_peers)
+{
+  ASSERT_TRUE(init({"--add-peer=localhost:http", "--add-peer=192.0.2.1:18082",
+    "--add-priority-node=localhost:18085", "--add-priority-node=192.0.2.3:18084",
+    "--seed-node=localhost:http", "--seed-node=192.0.2.2:18083"}));
+
+  std::vector<nodetool::peerlist_entry> gray, white;
+  server.get_public_peerlist(gray, white);
+  ASSERT_EQ(1u, white.size());
+  EXPECT_EQ("192.0.2.1:18082", white.front().adr.str());
+  const auto& seeds = server.add_zone(epee::net_utils::zone::public_).m_seed_nodes;
+  ASSERT_EQ(1u, seeds.size());
+  EXPECT_EQ("192.0.2.2:18083", seeds.front().str());
+  EXPECT_TRUE(server.is_priority_node(MAKE_IPV4_ADDRESS_PORT(192, 0, 2, 3, 18084)));
+  EXPECT_FALSE(server.is_priority_node(MAKE_IPV4_ADDRESS_PORT(127, 0, 0, 1, 18085)));
+  EXPECT_FALSE(server.is_priority_node(
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6::loopback(), 18085}));
+  EXPECT_TRUE(server.deinit());
+}
+
+TEST_F(proxy_peers, accepts_mixed_exclusive_list)
+{
+  ASSERT_TRUE(init({"--add-exclusive-node=localhost:http", "--add-exclusive-node=192.0.2.2"}));
+  EXPECT_TRUE(server.deinit());
+}
+
+TEST_F(proxy_peers, rejects_unusable_exclusive_list)
+{
+  EXPECT_FALSE(init({"--add-exclusive-node=localhost:18081"}));
+}
+
+TEST_F(proxy_peers, rejects_invalid_proxy_before_applying_peer_options)
+{
+  const auto vm = make_regtest_options(dir, {"--add-peer=localhost", "--no-sync"});
+  EXPECT_FALSE(server.init(vm, "garbage", true));
+  EXPECT_FALSE(protocol.no_sync());
+}
+
+TEST_F(proxy_peers, accepts_unusable_exclusive_list_offline)
+{
+  ASSERT_TRUE(init({"--offline", "--add-exclusive-node=localhost:18081"}));
+  EXPECT_TRUE(server.deinit());
 }
 
 TEST(node_server, peerlist_merge_rejects_forbidden_ipv6_addresses)
