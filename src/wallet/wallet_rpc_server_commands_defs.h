@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 33
+#define WALLET_RPC_VERSION_MINOR 34
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -2230,6 +2230,31 @@ namespace wallet_rpc
     struct response_t
     {
       BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
+
+  struct COMMAND_RPC_WALLET_EXISTS
+  {
+    struct request_t
+    {
+      std::string filename;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(filename)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      bool keys_file_exists;
+      bool wallet_file_exists;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(keys_file_exists)
+        KV_SERIALIZE(wallet_file_exists)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

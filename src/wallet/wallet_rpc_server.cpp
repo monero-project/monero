@@ -185,6 +185,24 @@ namespace
         entry.suggested_confirmations_threshold = std::max(entry.suggested_confirmations_threshold, (unlock_time - now + DIFFICULTY_TARGET_V2 - 1) / DIFFICULTY_TARGET_V2);
     }
   }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool is_valid_wallet_filename(const std::string &filename, epee::json_rpc::error& er)
+  {
+    const char *ptr = strchr(filename.c_str(), '/');
+#ifdef _WIN32
+    if (!ptr)
+      ptr = strchr(filename.c_str(), '\\');
+    if (!ptr)
+      ptr = strchr(filename.c_str(), ':');
+#endif
+    if (ptr)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Invalid filename";
+      return false;
+    }
+    return true;
+  }
 }
 
 namespace tools
@@ -3608,19 +3626,8 @@ namespace tools
 
     namespace po = boost::program_options;
     po::variables_map vm2;
-    const char *ptr = strchr(req.filename.c_str(), '/');
-#ifdef _WIN32
-    if (!ptr)
-      ptr = strchr(req.filename.c_str(), '\\');
-    if (!ptr)
-      ptr = strchr(req.filename.c_str(), ':');
-#endif
-    if (ptr)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "Invalid filename";
+    if (!is_valid_wallet_filename(req.filename, er))
       return false;
-    }
     std::string wallet_file = req.filename.empty() ? "" : (m_wallet_dir + "/" + req.filename);
     {
       if (!crypto::ElectrumWords::is_valid_language(req.language))
@@ -3706,19 +3713,8 @@ namespace tools
 
     namespace po = boost::program_options;
     po::variables_map vm2;
-    const char *ptr = strchr(req.filename.c_str(), '/');
-#ifdef _WIN32
-    if (!ptr)
-      ptr = strchr(req.filename.c_str(), '\\');
-    if (!ptr)
-      ptr = strchr(req.filename.c_str(), ':');
-#endif
-    if (ptr)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "Invalid filename";
+    if (!is_valid_wallet_filename(req.filename, er))
       return false;
-    }
     if (m_wallet && req.autosave_current)
     {
       try
@@ -3761,6 +3757,33 @@ namespace tools
     }
 
     set_wallet(wal.release());
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_wallet_exists(const wallet_rpc::COMMAND_RPC_WALLET_EXISTS::request& req, wallet_rpc::COMMAND_RPC_WALLET_EXISTS::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (m_restricted)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    if (m_wallet_dir.empty())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NO_WALLET_DIR;
+      er.message = "No wallet dir configured.";
+      return false;
+    }
+    if (!tools::wallet2::wallet_valid_path_format(req.filename))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+      er.message = "Filename is required.";
+      return false;
+    }
+    if (!is_valid_wallet_filename(req.filename, er))
+      return false;
+    std::string wallet_file = m_wallet_dir + "/" + req.filename;
+    tools::wallet2::wallet_exists(wallet_file, res.keys_file_exists, res.wallet_file_exists);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -3932,19 +3955,8 @@ namespace tools
 
     namespace po = boost::program_options;
     po::variables_map vm2;
-    const char *ptr = strchr(req.filename.c_str(), '/');
-  #ifdef _WIN32
-    if (!ptr)
-      ptr = strchr(req.filename.c_str(), '\\');
-    if (!ptr)
-      ptr = strchr(req.filename.c_str(), ':');
-  #endif
-    if (ptr)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "Invalid filename";
+    if (!is_valid_wallet_filename(req.filename, er))
       return false;
-    }
     std::string wallet_file = req.filename.empty() ? "" : (m_wallet_dir + "/" + req.filename);
     // check if wallet file already exists
     if (!wallet_file.empty())
@@ -4122,19 +4134,8 @@ namespace tools
 
     namespace po = boost::program_options;
     po::variables_map vm2;
-    const char *ptr = strchr(req.filename.c_str(), '/');
-  #ifdef _WIN32
-    if (!ptr)
-      ptr = strchr(req.filename.c_str(), '\\');
-    if (!ptr)
-      ptr = strchr(req.filename.c_str(), ':');
-  #endif
-    if (ptr)
-    {
-      er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-      er.message = "Invalid filename";
+    if (!is_valid_wallet_filename(req.filename, er))
       return false;
-    }
     std::string wallet_file = req.filename.empty() ? "" : (m_wallet_dir + "/" + req.filename);
     // check if wallet file already exists
     if (!wallet_file.empty())
