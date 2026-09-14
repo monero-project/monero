@@ -203,13 +203,14 @@ std::string write_fields(const fields& args)
   return out;
 }
 
-http::http_request_info make_request(const fields& args)
+http::http_request_info make_request(const fields& args, const std::string& uri = {})
 {
   std::string out{"   DIGEST   "};
   write_fields(out, args);
 
   http::http_request_info request{};
   request.m_http_method_str = "NOP";
+  request.m_URI = uri;
   request.m_header_info.m_etc_fields.push_back(
     std::make_pair(u8"authorization", std::move(out))
   );
@@ -496,7 +497,7 @@ TEST(HTTP_Server_Auth, MD5)
     {u8"response", quoted(auth_code)},
     {u8"uri", quoted(uri)},
     {u8"username", quoted(user.username)}
-  });
+  }, uri);
 
   EXPECT_FALSE(bool(auth.get_response(request)));
 
@@ -547,7 +548,7 @@ TEST(HTTP_Server_Auth, MD5_sess)
     {u8"response", quoted(auth_code)},
     {u8"uri", quoted(uri)},
     {u8"username", quoted(user.username)}
-  });
+  }, uri);
 
   EXPECT_FALSE(bool(auth.get_response(request)));
 
@@ -608,7 +609,7 @@ TEST(HTTP_Server_Auth, MD5_auth)
     {u8"username", quoted(user.username)}
   };
 
-  const auto request = make_request(args);
+  const auto request = make_request(args, uri);
   EXPECT_FALSE(bool(auth.get_response(request)));
 
   for (unsigned i = 2; i < 20; ++i)
@@ -616,7 +617,7 @@ TEST(HTTP_Server_Auth, MD5_auth)
     nc = get_nc(i);
     args.at(u8"nc") = nc;
     args.at(u8"response") = quoted(generate_auth());
-    EXPECT_FALSE(auth.get_response(make_request(args)));
+    EXPECT_FALSE(auth.get_response(make_request(args, uri)));
   }
 
   const auto replay = auth.get_response(request);
@@ -676,7 +677,7 @@ TEST(HTTP_Server_Auth, MD5_sess_auth)
     {u8"username", quoted(user.username)}
   };
 
-  const auto request = make_request(args);
+  const auto request = make_request(args, uri);
   EXPECT_FALSE(bool(auth.get_response(request)));
 
   for (unsigned i = 2; i < 20; ++i)
@@ -684,7 +685,7 @@ TEST(HTTP_Server_Auth, MD5_sess_auth)
     nc = get_nc(i);
     args.at(u8"nc") = nc;
     args.at(u8"response") = quoted(generate_auth());
-    EXPECT_FALSE(auth.get_response(make_request(args)));
+    EXPECT_FALSE(auth.get_response(make_request(args, uri)));
   }
 
   const auto replay = auth.get_response(request);
@@ -699,6 +700,50 @@ TEST(HTTP_Server_Auth, MD5_sess_auth)
   EXPECT_STREQ(u8"true", parsed_replay[0].at(u8"stale").c_str());
 }
 
+
+TEST(HTTP_Auth, RequestTargetBinding)
+{
+  const struct
+  {
+    const char* digest_uri;
+    const char* request_uri;
+    bool accepted;
+  } cases[] = {
+    {"/json_rpc", "/json_rpc", true},
+    {"/json_rpc", "/stop_daemon", false},
+    {"/json_rpc?foo=1", "/json_rpc?foo=2", false}
+  };
+
+  const http::login user{"foo", "bar"};
+  for (const auto& test : cases)
+  {
+    SCOPED_TRACE(test.request_uri);
+    http::http_server_auth server{user, rng};
+    http::http_client_auth client{user};
+    http::http_request_info request{};
+    request.m_http_method_str = "POST";
+    request.m_URI = test.request_uri;
+
+    auto challenge = server.get_response(request);
+    ASSERT_TRUE(bool(challenge));
+    ASSERT_TRUE(is_unauthorized(*challenge));
+    challenge->m_header_info.m_etc_fields = challenge->m_additional_fields;
+    ASSERT_EQ(http::http_client_auth::kSuccess, client.handle_401(*challenge));
+
+    auto authorization = client.get_auth_field(request.m_http_method_str, test.digest_uri);
+    ASSERT_TRUE(bool(authorization));
+    request.m_header_info.m_etc_fields.push_back(std::move(*authorization));
+
+    const auto response = server.get_response(request);
+    if (test.accepted)
+      EXPECT_FALSE(bool(response));
+    else
+    {
+      ASSERT_TRUE(bool(response));
+      EXPECT_TRUE(is_unauthorized(*response));
+    }
+  }
+}
 
 TEST(HTTP_Auth, DogFood)
 {
