@@ -56,10 +56,10 @@ execute_process(COMMAND ${Python3_EXECUTABLE} "-c" "import requests; import zmq;
 if (REQUESTS_OUTPUT STREQUAL "OK")
   add_test(
     NAME    functional_tests_rpc
-    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/functional_tests_rpc.py" "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_BINARY_DIR}" all)
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/functional_tests_rpc.py" "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}" "${PROJECT_BINARY_DIR}" all)
   add_test(
     NAME    check_missing_rpc_methods
-    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/check_missing_rpc_methods.py" "${CMAKE_SOURCE_DIR}")
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/check_missing_rpc_methods.py" "${PROJECT_SOURCE_DIR}")
 else()
   message(WARNING "functional_tests_rpc and check_missing_rpc_methods skipped, needs the 'requests', 'zmq', and 'deepdiff' python modules")
   set(CTEST_CUSTOM_TESTS_IGNORE ${CTEST_CUSTOM_TESTS_IGNORE} functional_tests_rpc check_missing_rpc_methods)
