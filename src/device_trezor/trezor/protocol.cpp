@@ -155,12 +155,12 @@ namespace ki {
       res.emplace_back();
       auto & cres = res.back();
       cres.set_out_key(key_to_string(td.get_public_key()));
-      cres.set_tx_pub_key(key_to_string(tx_pub_key));
+      cres.set_tx_pub_key(key_to_string(::crypto::pubkey_clear_torsion(tx_pub_key)));
       cres.set_internal_output_index(td.m_internal_output_index);
       cres.set_sub_addr_major(td.m_subaddr_index.major);
       cres.set_sub_addr_minor(td.m_subaddr_index.minor);
       if (!additional_tx_pub_keys.empty() && additional_tx_pub_keys.size() > td.m_internal_output_index) {
-        cres.add_additional_tx_pub_keys(key_to_string(additional_tx_pub_keys[td.m_internal_output_index]));
+        cres.add_additional_tx_pub_keys(key_to_string(::crypto::pubkey_clear_torsion(additional_tx_pub_keys[td.m_internal_output_index])));
       }
     }
 
@@ -456,10 +456,10 @@ namespace tx {
       }
     }
 
-    dst->set_real_out_tx_key(key_to_string(src.real_out_tx_key));
+    dst->set_real_out_tx_key(key_to_string(::crypto::pubkey_clear_torsion(src.real_out_tx_key)));
     dst->set_real_output_in_tx_index(src.real_output_in_tx_index);
-    if (!src.real_out_additional_tx_keys.empty()) {
-      dst->add_real_out_additional_tx_keys(key_to_string(src.real_out_additional_tx_keys.at(src.real_output_in_tx_index)));
+    if (src.real_output_in_tx_index < src.real_out_additional_tx_keys.size()) {
+      dst->add_real_out_additional_tx_keys(key_to_string(::crypto::pubkey_clear_torsion(src.real_out_additional_tx_keys.at(src.real_output_in_tx_index))));
     }
     dst->set_amount(src.amount);
     dst->set_rct(src.rct);
