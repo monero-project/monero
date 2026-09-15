@@ -66,6 +66,8 @@ namespace net_utils
 			bool m_disable_md5{false};
 			critical_section m_lock;
 
+			unsigned get_timeout_shift(const net_utils::network_address& address, unsigned shift);
+
 			template<typename T>
 			static bool after_init_connection(const std::shared_ptr<T>& self)
 			{
