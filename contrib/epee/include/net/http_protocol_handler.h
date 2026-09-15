@@ -64,6 +64,8 @@ namespace net_utils
 			std::size_t m_max_private_ip_connections{25};
 			std::size_t m_max_connections{100};
 			critical_section m_lock;
+
+			unsigned get_timeout_shift(const net_utils::network_address& address, unsigned shift);
 		};
 
 		// RPC limits groupable IPv6 clients by /64 to avoid per-address limit bypasses.
