@@ -98,6 +98,8 @@ namespace crypto {
     sizeof(key_derivation) == 32 && sizeof(key_image) == 32 &&
     sizeof(signature) == 64 && sizeof(view_tag) == 1, "Invalid structure size");
 
+  static const ec_point EC_I = {1};
+
   class crypto_ops {
     crypto_ops();
     crypto_ops(const crypto_ops &);
@@ -201,6 +203,8 @@ namespace crypto {
   inline bool check_key(const public_key &key) {
     return crypto_ops::check_key(key);
   }
+
+  bool get_valid_torsion_cleared_point_vartime(const ec_point &point, ec_point &torsion_cleared_out);
 
   /* Checks a private key and computes the corresponding public key.
    */

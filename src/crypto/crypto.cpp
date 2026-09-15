@@ -224,6 +224,16 @@ namespace crypto {
     return ge_frombytes_vartime(&point, &key) == 0;
   }
 
+  bool get_valid_torsion_cleared_point_vartime(const ec_point &point, ec_point &torsion_cleared_out) {
+    ge_p3 p3;
+    if (ge_frombytes_vartime(&p3, &point) != 0)
+      return false;
+    ge_clear_torsion_vartime(&torsion_cleared_out, &p3);
+    if (torsion_cleared_out == EC_I)
+      return false;
+    return true;
+  }
+
   bool crypto_ops::secret_key_to_public_key(const secret_key &sec, public_key &pub) {
     ge_p3 point;
     if (sc_check(&unwrap(sec)) != 0) {
