@@ -240,6 +240,13 @@ namespace crypto {
     return torsion_cleared_out != EC_I;
   }
 
+  public_key pubkey_clear_torsion(const public_key &pubkey) {
+    public_key result;
+    if (!get_valid_torsion_cleared_point_vartime(pubkey, result))
+      static_cast<ec_point &>(result) = EC_I;
+    return result;
+  }
+
   bool crypto_ops::secret_key_to_public_key(const secret_key &sec, public_key &pub) {
     ge_p3 point;
     if (sc_check(&unwrap(sec)) != 0) {
