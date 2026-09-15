@@ -39,7 +39,6 @@
 #include "bulletproofs_plus.h"
 #include "cryptonote_config.h"
 #include "device/device.hpp"
-#include "fcmp_pp/fcmp_pp_crypto.h"
 #include "scope_guard.h"
 #include "serialization/crypto.h"
 
@@ -1603,7 +1602,7 @@ namespace rct {
           {
             const crypto::ec_point &point = rct::rct2pt(pts[i]);
             crypto::ec_point torsion_cleared_point;
-            if (fcmp_pp::get_valid_torsion_cleared_point_vartime(point, torsion_cleared_point)
+            if (crypto::get_valid_torsion_cleared_point_vartime(point, torsion_cleared_point)
                 && point == torsion_cleared_point)
             {
               // Point is torsion free if it's equal to itself after clearing torsion
