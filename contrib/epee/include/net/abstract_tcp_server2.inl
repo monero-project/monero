@@ -78,6 +78,21 @@ namespace net_utils
     return *ptr;
   }
 
+  namespace detail
+  {
+    inline unsigned get_per_ip_timeout_shift(const connection_basic_shared_state&, const network_address&, unsigned shift)
+    {
+      return shift;
+    }
+
+    template<typename T>
+    auto get_per_ip_timeout_shift(T& state, const network_address& address, unsigned shift)
+      -> decltype(state.get_timeout_shift(address, shift))
+    {
+      return state.get_timeout_shift(address, shift);
+    }
+  } // namespace detail
+
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -111,10 +126,13 @@ namespace net_utils
       std::min(std::max(count, 1u) - 1, 8u) :
       0
     );
+    const unsigned scaled_shift = detail::get_per_ip_timeout_shift(
+      static_cast<shared_state&>(connection_basic::get_state()), get_context().m_remote_address, shift
+    );
     return (
       m_local ?
-      std::chrono::milliseconds(DEFAULT_TIMEOUT_MS_LOCAL >> shift) :
-      std::chrono::milliseconds(DEFAULT_TIMEOUT_MS_REMOTE >> shift)
+      std::chrono::milliseconds(DEFAULT_TIMEOUT_MS_LOCAL >> scaled_shift) :
+      std::chrono::milliseconds(DEFAULT_TIMEOUT_MS_REMOTE >> scaled_shift)
     );
   }
 
@@ -1035,6 +1053,9 @@ namespace net_utils
     guard.lock();
     m_state.protocol.wait_init = false;
     m_state.protocol.initialized = true;
+    // Account for this connection in the RPC limits without extending its timer.
+    if (m_state.status == status_t::RUNNING && m_connection_type == e_connection_type_RPC)
+      start_timer(duration_t{}, true);
     if (m_state.status == status_t::INTERRUPTED)
       on_interrupted();
     else if (m_state.status == status_t::TERMINATING)

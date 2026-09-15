@@ -40,6 +40,7 @@
 
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "include_base_utils.h"
+#include "int-util.h"
 #include "string_tools.h"
 #include "net/abstract_tcp_server2.h"
 #include "net/levin_protocol_handler_async.h"
@@ -88,6 +89,20 @@ namespace
   };
 
   typedef epee::net_utils::boosted_tcp_server<test_protocol_handler> test_tcp_server;
+}
+
+TEST(boosted_tcp_server, per_ip_timeout_shift_without_limits)
+{
+  using handler = epee::levin::async_protocol_handler<test_connection_context>;
+  using epee::net_utils::detail::get_per_ip_timeout_shift;
+  epee::net_utils::connection<handler>::shared_state state;
+  const epee::net_utils::network_address local = epee::net_utils::ipv4_network_address{SWAP32LE(0x0100007f), 0};
+  const epee::net_utils::network_address remote = epee::net_utils::ipv4_network_address{SWAP32LE(0x010200c0), 0};
+  for (unsigned shift = 0; shift <= 8; ++shift)
+  {
+    EXPECT_EQ(shift, get_per_ip_timeout_shift(state, local, shift));
+    EXPECT_EQ(shift, get_per_ip_timeout_shift(state, remote, shift));
+  }
 }
 
 TEST(boosted_tcp_server, worker_threads_are_exception_resistant)
