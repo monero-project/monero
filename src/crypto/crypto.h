@@ -98,6 +98,27 @@ namespace crypto {
     sizeof(key_derivation) == 32 && sizeof(key_image) == 32 &&
     sizeof(signature) == 64 && sizeof(view_tag) == 1, "Invalid structure size");
 
+  static const ec_point EC_I = {1};
+
+  static const ec_scalar EC_INV_EIGHT = {{
+      static_cast<char>(static_cast<signed char>(121)), static_cast<char>(static_cast<signed char>(47)),
+      static_cast<char>(static_cast<signed char>(-36)), static_cast<char>(static_cast<signed char>(-30)),
+      static_cast<char>(static_cast<signed char>(41)),  static_cast<char>(static_cast<signed char>(-27)),
+      static_cast<char>(static_cast<signed char>(6)),   static_cast<char>(static_cast<signed char>(97)),
+      static_cast<char>(static_cast<signed char>(-48)), static_cast<char>(static_cast<signed char>(-38)),
+      static_cast<char>(static_cast<signed char>(28)),  static_cast<char>(static_cast<signed char>(125)),
+      static_cast<char>(static_cast<signed char>(-77)), static_cast<char>(static_cast<signed char>(-99)),
+      static_cast<char>(static_cast<signed char>(-45)), static_cast<char>(static_cast<signed char>(7)),
+      static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
+      static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
+      static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
+      static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
+      static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
+      static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
+      static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
+      static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(6))
+    }};
+
   class crypto_ops {
     crypto_ops();
     crypto_ops(const crypto_ops &);
@@ -201,6 +222,8 @@ namespace crypto {
   inline bool check_key(const public_key &key) {
     return crypto_ops::check_key(key);
   }
+
+  bool get_valid_torsion_cleared_point_vartime(const ec_point &point, ec_point &torsion_cleared_out);
 
   /* Checks a private key and computes the corresponding public key.
    */

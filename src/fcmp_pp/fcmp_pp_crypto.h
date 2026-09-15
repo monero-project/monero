@@ -38,27 +38,6 @@ namespace fcmp_pp
 {
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
-static const crypto::ec_point EC_I = {1};
-
-static const crypto::ec_scalar EC_INV_EIGHT = {{
-    static_cast<char>(static_cast<signed char>(121)), static_cast<char>(static_cast<signed char>(47)),
-    static_cast<char>(static_cast<signed char>(-36)), static_cast<char>(static_cast<signed char>(-30)),
-    static_cast<char>(static_cast<signed char>(41)),  static_cast<char>(static_cast<signed char>(-27)),
-    static_cast<char>(static_cast<signed char>(6)),   static_cast<char>(static_cast<signed char>(97)),
-    static_cast<char>(static_cast<signed char>(-48)), static_cast<char>(static_cast<signed char>(-38)),
-    static_cast<char>(static_cast<signed char>(28)),  static_cast<char>(static_cast<signed char>(125)),
-    static_cast<char>(static_cast<signed char>(-77)), static_cast<char>(static_cast<signed char>(-99)),
-    static_cast<char>(static_cast<signed char>(-45)), static_cast<char>(static_cast<signed char>(7)),
-    static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
-    static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
-    static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
-    static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
-    static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
-    static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
-    static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(0)),
-    static_cast<char>(static_cast<signed char>(0)),   static_cast<char>(static_cast<signed char>(6))
-  }};
-//----------------------------------------------------------------------------------------------------------------------
 // Field elems needed to get wei x and y coords
 // Take note of the bounds, and make sure downstream field ops can take said bounds as input.
 struct EdDerivatives final
@@ -70,8 +49,6 @@ struct EdDerivatives final
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 bool mul8_is_identity_vartime(const ge_p3 &point);
-crypto::ec_point clear_torsion_vartime(const ge_p3 &point);
-bool get_valid_torsion_cleared_point_vartime(const crypto::ec_point &point, crypto::ec_point &torsion_cleared_out);
 
 /*
 point_to_ed_derivatives converts an Ed25519 point to Ed25519 derivatives used for converting to
@@ -79,7 +56,7 @@ Weierstrauss coords, as per https://www.ietf.org/archive/id/draft-ietf-lwig-curv
 
 We expect that a point passed in this function has been validated to be in the main subgroup with no torsion,
 and does not equal identity. The `torsion_free_point` param is expected to be the output of
-get_valid_torsion_cleared_point_vartime.
+crypto::get_valid_torsion_cleared_point_vartime.
 */
 bool point_to_ed_derivatives(const crypto::ec_point &torsion_free_point, EdDerivatives &ed_derivatives);
 
@@ -94,7 +71,7 @@ point_to_wei_x_y takes a torsion free point as input, and coverts to Weierstraus
 
 We expect that a point passed in this function has been validated to be in the main subgroup with no torsion,
 and does not equal identity. The `torsion_free_point` param is expected to be the output of
-get_valid_torsion_cleared_point_vartime.
+crypto::get_valid_torsion_cleared_point_vartime.
 */
 bool point_to_wei_x_y(const crypto::ec_point &torsion_free_point, crypto::ec_coord &wei_x, crypto::ec_coord &wei_y);
 //----------------------------------------------------------------------------------------------------------------------

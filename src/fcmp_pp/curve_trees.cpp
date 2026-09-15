@@ -101,9 +101,9 @@ OutputTuple output_to_tuple(const OutputPair &output_pair)
     {
         TIME_MEASURE_NS_START(clear_torsion_ns);
 
-        if (!fcmp_pp::get_valid_torsion_cleared_point_vartime(output_pubkey, O))
+        if (!crypto::get_valid_torsion_cleared_point_vartime(output_pubkey, O))
             throw std::runtime_error("O is invalid for insertion to tree");
-        if (!fcmp_pp::get_valid_torsion_cleared_point_vartime(commitment, C))
+        if (!crypto::get_valid_torsion_cleared_point_vartime(commitment, C))
             throw std::runtime_error("C is invalid for insertion to tree");
 
         if (O != output_pubkey)
@@ -121,17 +121,17 @@ OutputTuple output_to_tuple(const OutputPair &output_pair)
         // Debug build safety checks
         crypto::ec_point O_debug;
         crypto::ec_point C_debug;
-        assert(fcmp_pp::get_valid_torsion_cleared_point_vartime(output_pubkey, O_debug));
-        assert(fcmp_pp::get_valid_torsion_cleared_point_vartime(commitment, C_debug));
+        assert(crypto::get_valid_torsion_cleared_point_vartime(output_pubkey, O_debug));
+        assert(crypto::get_valid_torsion_cleared_point_vartime(commitment, C_debug));
         assert(O == O_debug);
         assert(C == C_debug);
     }
 #endif
 
     // Redundant check for safety
-    if (O == fcmp_pp::EC_I)
+    if (O == crypto::EC_I)
         throw std::runtime_error("O cannot equal identity");
-    if (C == fcmp_pp::EC_I)
+    if (C == crypto::EC_I)
         throw std::runtime_error("C cannot equal identity");
 
     return output_tuple_from_bytes(O, I, C);

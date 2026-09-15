@@ -457,15 +457,9 @@ TEST(Crypto, fe_equals)
 
 TEST(Crypto, ec_constants_rct_parity)
 {
-  ASSERT_TRUE(memcmp(&fcmp_pp::EC_I,         &rct::I,         32) == 0);
-  ASSERT_TRUE(memcmp(&fcmp_pp::EC_INV_EIGHT, &rct::INV_EIGHT, 32) == 0);
+  ASSERT_TRUE(memcmp(&crypto::EC_I,         &rct::I,         32) == 0);
+  ASSERT_TRUE(memcmp(&crypto::EC_INV_EIGHT, &rct::INV_EIGHT, 32) == 0);
 }
-
-#define CHECK_CLEARED(k, cleared) \
-  crypto::ec_point cleared2; \
-  const bool r = fcmp_pp::get_valid_torsion_cleared_point_vartime(rct::rct2pt(k), cleared2); \
-  ASSERT_TRUE(r); \
-  ASSERT_EQ(cleared, cleared2);
 
 TEST(Crypto, torsion_check_pass_random)
 {
@@ -477,9 +471,9 @@ TEST(Crypto, torsion_check_pass_random)
     ASSERT_EQ(ge_frombytes_vartime(&x, pk.bytes), 0);
     ASSERT_TRUE(rct::isInMainSubgroup(pk));
     ASSERT_FALSE(fcmp_pp::mul8_is_identity_vartime(x));
-    const crypto::ec_point cleared = fcmp_pp::clear_torsion_vartime(x);
+    crypto::ec_point cleared;
+    ASSERT_TRUE(crypto::get_valid_torsion_cleared_point_vartime(rct::rct2pt(pk), cleared));
     ASSERT_EQ(rct::rct2pt(pk), cleared);
-    CHECK_CLEARED(pk, cleared);
     pts.emplace_back(pk);
   }
   ASSERT_TRUE(rct::verPointsForTorsion(pts));
@@ -504,7 +498,8 @@ TEST(Crypto, torsion_check_hardcoded)
     ASSERT_EQ(ge_frombytes_vartime(&x, k.bytes), 0);
     ASSERT_EQ(rct::isInMainSubgroup(k), point.torsion_free);
     ASSERT_FALSE(fcmp_pp::mul8_is_identity_vartime(x));
-    const crypto::ec_point cleared = fcmp_pp::clear_torsion_vartime(x);
+    crypto::ec_point cleared;
+    ASSERT_TRUE(crypto::get_valid_torsion_cleared_point_vartime(rct::rct2pt(k), cleared));
     if (point.torsion_free)
     {
       ASSERT_EQ(rct::rct2pt(k), cleared);
@@ -515,7 +510,6 @@ TEST(Crypto, torsion_check_hardcoded)
       ASSERT_NE(rct::rct2pt(k), cleared);
       torsioned_pts.push_back(k);
     }
-    CHECK_CLEARED(k, cleared);
     all_pts.emplace_back(k);
     torsion_cleared_pts.emplace_back(rct::pt2rct(cleared));
   }
@@ -540,7 +534,7 @@ TEST(Crypto, mul8_is_identity_vartime)
     ASSERT_TRUE(fcmp_pp::mul8_is_identity_vartime(x));
 
     crypto::ec_point _;
-    ASSERT_FALSE(fcmp_pp::get_valid_torsion_cleared_point_vartime(rct::rct2pt(point), _));
+    ASSERT_FALSE(crypto::get_valid_torsion_cleared_point_vartime(rct::rct2pt(point), _));
   }
 }
 
