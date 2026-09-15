@@ -28,11 +28,11 @@
 
 if(OSSFUZZ)
 # Add the include path for <fuzzer/FuzzedDataProvider.h>
-include_directories(${CMAKE_SOURCE_DIR}/tests/fuzz/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 # Recompile perf_timer for fuzzing
 add_library(fuzz_unsafe_macro OBJECT
-  ${CMAKE_SOURCE_DIR}/src/common/perf_timer.cpp)
+  ${PROJECT_SOURCE_DIR}/src/common/perf_timer.cpp)
 target_compile_definitions(fuzz_unsafe_macro
   PRIVATE FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION)
 

@@ -76,7 +76,7 @@ function (monero_add_executable name)
       FOLDER "prog")
   set_property(TARGET "${name}"
     PROPERTY
-      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+      RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/bin")
   enable_stack_trace("${name}")
   
   monero_set_target_no_relink("${name}")
@@ -84,7 +84,7 @@ function (monero_add_executable name)
 endfunction ()
 
 include(Version)
-monero_add_library(version SOURCES ${CMAKE_BINARY_DIR}/version.cpp DEPENDS genversion)
+monero_add_library(version SOURCES ${PROJECT_BINARY_DIR}/version.cpp DEPENDS genversion)
 
 add_subdirectory(common)
 add_subdirectory(crypto)
