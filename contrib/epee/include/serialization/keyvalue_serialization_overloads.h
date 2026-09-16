@@ -104,7 +104,7 @@ namespace epee
     static bool unserialize_stl_container_t_val(stl_container& container, t_storage& stg, typename t_storage::hsection hparent_section, const char* pname)
     {
       container.clear();
-      typename stl_container::value_type exchange_val;
+      typename stl_container::value_type exchange_val{};
       typename t_storage::harray hval_array = stg.get_first_value(pname, exchange_val, hparent_section);
       if(!hval_array) return false;
       container.insert(container.end(), std::move(exchange_val));
