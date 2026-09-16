@@ -175,10 +175,41 @@ namespace nodetool
 
     return left.is_same_host(right);
   }
+
+  inline std::shared_ptr<pending_pingbacks::slot> pending_pingbacks::reserve(const epee::net_utils::network_address& host)
+  {
+    CRITICAL_REGION_LOCAL(m_lock);
+    if (m_stopped)
+      return nullptr;
+
+    auto available = m_slots.end();
+    for (auto it = m_slots.begin(); it != m_slots.end(); ++it)
+    {
+      const auto pending = it->lock();
+      if (!pending || !pending->m_active)
+        available = it;
+      else if (is_same_p2p_connection_limit_host(pending->m_host, host))
+        return nullptr;
+    }
+    if (available == m_slots.end())
+      return nullptr;
+
+    auto pending = std::make_shared<slot>(host);
+    *available = pending;
+    return pending;
+  }
+
+  inline void pending_pingbacks::stop()
+  {
+    CRITICAL_REGION_LOCAL(m_lock);
+    m_stopped = true;
+  }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   node_server<t_payload_net_handler>::~node_server()
   {
+    m_pending_pingbacks.stop();
+
     // tcp server uses io_context in destructor, and every zone uses
     // io_service from public zone.
     for (auto current = m_network_zones.begin(); current != m_network_zones.end(); /* below */)
@@ -1369,6 +1400,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::deinit()
   {
+    m_pending_pingbacks.stop();
     kill();
 
     if (!m_offline)
@@ -1415,6 +1447,7 @@ namespace nodetool
       MDEBUG("[node] Stop signal already sent");
       return true;
     }
+    m_pending_pingbacks.stop();
     MDEBUG("[node] stopping server payload handler");
     m_payload_handler.stop();
 
@@ -2757,50 +2790,61 @@ namespace nodetool
       address = epee::net_utils::network_address{epee::net_utils::ipv6_network_address(ipv6_addr, node_data.my_port)};
     }
     peerid_type pr = node_data.peer_id;
-    bool r = zone.m_net_server.connect_async(ip, port, zone.m_config.m_net_config.ping_connection_timeout, [cb = std::forward<t_callback>(cb), /*context,*/ address, pr, this] (
+    // A pingback can outlive its inbound connection and is excluded from the outbound peer count.
+    const auto slot = m_pending_pingbacks.reserve(na);
+    if (!slot)
+    {
+      LOG_DEBUG_CC(context, "Skipping back ping: outstanding pingback limit reached or node stopping");
+      return false;
+    }
+    // Cancellation callbacks can run during destruction of the node's io_context.
+    const auto config = zone.m_net_server.get_config_shared();
+    bool r = zone.m_net_server.connect_async(ip, port, zone.m_config.m_net_config.ping_connection_timeout, [cb = std::forward<t_callback>(cb), slot, config, address, pr] (
       const typename net_server::t_connection_context& ping_context,
       const boost::system::error_code& ec) mutable ->bool
     {
       if(ec)
       {
+        slot->release();
         LOG_WARNING_CC(ping_context, "back ping connect failed to " << address.str());
         return false;
       }
       COMMAND_PING::request req;
       COMMAND_PING::response rsp;
 
-      network_zone& zone = m_network_zones.at(address.get_zone());
-
-      bool inv_call_res = epee::net_utils::async_invoke_remote_command2<COMMAND_PING::response>(ping_context, COMMAND_PING::ID, req, zone.m_net_server.get_config_object(),
-        [this, pr, cb = std::move(cb), ping_context = std::move(ping_context), address](int code, const COMMAND_PING::response& rsp, p2p_connection_context& context)
+      bool inv_call_res = epee::net_utils::async_invoke_remote_command2<COMMAND_PING::response>(ping_context, COMMAND_PING::ID, req, *config,
+        [pr, cb = std::move(cb), ping_context = std::move(ping_context), address, slot, config](int code, const COMMAND_PING::response& rsp, p2p_connection_context& context)
       {
+        // Levin can retain this callback after completion until its canceled timer runs.
+        const epee::scope_guard release_slot([&] { slot->release(); });
+        config->close(ping_context.m_connection_id, false);
+
         if(code <= 0)
         {
           LOG_WARNING_CC(ping_context, "Failed to invoke COMMAND_PING to " << address.str() << "(" << code <<  ", " << epee::levin::get_err_descr(code) << ")");
           return;
         }
 
-        network_zone& zone = m_network_zones.at(address.get_zone());
         if(rsp.status != PING_OK_RESPONSE_STATUS_TEXT || pr != rsp.peer_id)
         {
           LOG_WARNING_CC(ping_context, "back ping invoke wrong response \"" << rsp.status << "\" from" << address.str() << ", hsh_peer_id=" << pr << ", rsp.peer_id=" << peerid_to_string(rsp.peer_id));
-          zone.m_net_server.get_config_object().close(ping_context.m_connection_id, false);
           return;
         }
-        zone.m_net_server.get_config_object().close(ping_context.m_connection_id, false);
         cb();
-      });
+      }, std::chrono::milliseconds{P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT});
 
       if(!inv_call_res)
       {
         LOG_WARNING_CC(ping_context, "back ping invoke failed to " << address.str());
-        zone.m_net_server.get_config_object().close(ping_context.m_connection_id, false);
+        config->close(ping_context.m_connection_id, false);
+        slot->release();
         return false;
       }
       return true;
     }, "0.0.0.0", m_ssl_support, p2p_connection_context{true /* is_ping */});
     if(!r)
     {
+      slot->release();
       LOG_WARNING_CC(context, "Failed to call connect_async, network error.");
     }
     return r;

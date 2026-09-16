@@ -380,6 +380,8 @@ namespace net_utils
 	/************************************************************************/
 	struct connection_context_base
 	{
+    static constexpr bool is_ping_command(int) noexcept { return false; }
+
     const boost::uuids::uuid m_connection_id;
     const network_address m_remote_address;
     const bool     m_is_income;

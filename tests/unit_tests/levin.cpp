@@ -31,6 +31,7 @@
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/uuid/random_generator.hpp>
 #include <boost/uuid/uuid.hpp>
+#include <chrono>
 #include <cstring>
 #include <gtest/gtest.h>
 #include <limits>
@@ -394,6 +395,35 @@ namespace
         std::deque<std::shared_ptr<test_connection>> contexts_;
         test_core_events events_;
     };
+}
+
+TEST(levin, invoke_timer_refresh)
+{
+    const auto check = [](int command, std::size_t expected_cancellations) {
+        SCOPED_TRACE(command);
+        boost::asio::io_context io;
+        cryptonote::levin::connections connections;
+        boost::uuids::random_generator generator;
+        auto connection = std::make_shared<test_connection>(io, connections, generator, false);
+        auto& protocol = connection->m_protocol_handler;
+        const auto on_result = [](int code, epee::span<const uint8_t>, auto&) {
+            EXPECT_EQ(LEVIN_ERROR_CONNECTION_DESTROYED, code);
+        };
+        ASSERT_TRUE(protocol.add_invoke_response_handler(on_result, std::chrono::hours{1}, connection, command));
+        ASSERT_EQ(1u, protocol.m_invoke_response_handlers.size());
+        const auto handler = protocol.m_invoke_response_handlers.front().lock();
+        ASSERT_TRUE(handler);
+        ASSERT_TRUE(handler->reset_timer(false));
+
+        // Renewing a timer queues a canceled wait. A fixed deadline leaves the original wait pending.
+        EXPECT_EQ(expected_cancellations, io.poll());
+        protocol.release_protocol();
+        EXPECT_EQ(1u, io.poll());
+    };
+
+    check(nodetool::COMMAND_PING::ID, 0);
+    check(nodetool::COMMAND_HANDSHAKE_T<cryptonote::CORE_SYNC_DATA>::ID, 0);
+    check(nodetool::COMMAND_TIMED_SYNC_T<cryptonote::CORE_SYNC_DATA>::ID, 1);
 }
 
 TEST(make_header, no_expect_return)
