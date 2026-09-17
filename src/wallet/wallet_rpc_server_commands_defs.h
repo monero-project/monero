@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 34
+#define WALLET_RPC_VERSION_MINOR 35
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -56,6 +56,48 @@ namespace wallet_rpc
 {
 #define WALLET_RPC_STATUS_OK      "OK"
 #define WALLET_RPC_STATUS_BUSY    "BUSY"
+
+  struct COMMAND_RPC_GET_WALLET_INFO
+  {
+    struct request_t
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::string filename;
+      std::string description;
+      std::string address;
+      std::string wallet_type;           // Normal | Multisig | Watch-Only | Background
+      std::string seed_type;             // Legacy | Multisig | Polyseed
+      std::string network_type;
+      std::string daemon_address;
+      std::string daemon_proxy;
+      std::uint64_t wallet_block_height;
+      std::uint64_t daemon_block_height;
+      std::uint32_t daemon_rpc_version;
+      bool daemon_ssl;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(filename)
+        KV_SERIALIZE(description)
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(wallet_type)
+        KV_SERIALIZE(seed_type)
+        KV_SERIALIZE(network_type)
+        KV_SERIALIZE(daemon_address)
+        KV_SERIALIZE(daemon_proxy)
+        KV_SERIALIZE(wallet_block_height)
+        KV_SERIALIZE(daemon_block_height)
+        KV_SERIALIZE(daemon_rpc_version)
+        KV_SERIALIZE(daemon_ssl)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
 
   struct COMMAND_RPC_GET_BALANCE
   {
