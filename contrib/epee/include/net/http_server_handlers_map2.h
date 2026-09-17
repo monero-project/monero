@@ -112,6 +112,8 @@
     } \
     MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, cond)
 
+#define MAP_URI_AUTO_JON2_UNSAFE(s_pattern, callback_f, command_type) MAP_URI_AUTO_JON2_IF_UNSAFE(s_pattern, callback_f, command_type, true)
+
 #define MAP_URI_AUTO_BIN2(s_pattern, callback_f, command_type) \
     else if(query_info.m_URI == s_pattern) \
     { \
