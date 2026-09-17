@@ -317,7 +317,7 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(restore_deterministic_wallet)
 
-    def generate_from_keys(self, restore_height = 0, filename = "", password = "", address = "", spendkey = "", viewkey = "", autosave_current = True):
+    def generate_from_keys(self, restore_height = 0, filename = "", password = "", address = "", spendkey = "", viewkey = "", language = "English", autosave_current = True):
         generate_from_keys = {
             'method': 'generate_from_keys',
             'params' : {
@@ -327,6 +327,7 @@ class Wallet(object):
                 'spendkey': spendkey,
                 'viewkey': viewkey,
                 'password': password,
+                'language': language,
                 'autosave_current': autosave_current,
             },
             'jsonrpc': '2.0', 
@@ -399,10 +400,11 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(stop_wallet)
 
-    def refresh(self):
+    def refresh(self, start_height = 0):
         refresh = {
             'method': 'refresh',
             'params' : {
+                "start_height": start_height,
             },
             'jsonrpc': '2.0', 
             'id': '0'
@@ -923,12 +925,13 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(set_account_tag_description)
 
-    def rescan_blockchain(self, hard = False):
+    def rescan_blockchain(self, hard = False, keep_key_images = False):
         rescan_blockchain = {
             'method': 'rescan_blockchain',
             'jsonrpc': '2.0',
             'params': {
                 'hard': hard,
+                'keep_key_images': keep_key_images,
             },
             'id': '0'
         }

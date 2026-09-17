@@ -5439,7 +5439,7 @@ void simple_wallet::on_new_block(uint64_t height, const cryptonote::block& block
 void simple_wallet::on_money_received(uint64_t height, const crypto::hash &txid,
   const cryptonote::transaction& tx, uint64_t amount, uint64_t burnt,
   const cryptonote::subaddress_index& subaddr_index, const crypto::hash &payment_id, bool is_change,
-  uint64_t unlock_time)
+  uint64_t unlock_time, const crypto::public_key& enote_pub_key)
 {
   if (m_locked)
     return;
@@ -5494,7 +5494,7 @@ void simple_wallet::on_unconfirmed_money_received(uint64_t height, const crypto:
   // Not implemented in CLI wallet
 }
 //----------------------------------------------------------------------------------------------------
-void simple_wallet::on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx, const cryptonote::subaddress_index& subaddr_index)
+void simple_wallet::on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx, uint64_t amount, const cryptonote::transaction& spend_tx, const cryptonote::subaddress_index& subaddr_index, const crypto::public_key& enote_pub_key)
 {
   if (m_locked)
     return;
