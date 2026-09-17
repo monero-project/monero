@@ -33,6 +33,7 @@
 #include <boost/utility/string_view.hpp>
 
 #include <string>
+#include <string_view>
 #include <utility>
 #include <list>
 #include <stdint.h>
@@ -139,13 +140,12 @@ namespace net_utils
 		};
 
 		// A cross origin page cannot set this without a CORS preflight.
-		inline bool is_json_content_type(const std::string& content_type)
+		inline bool is_json_content_type(std::string_view content_type)
 		{
-			boost::string_view type(content_type);
-			type = type.substr(0, type.find(';'));
-			while(!type.empty() && (type.back() == ' ' || type.back() == '\t'))
-				type.remove_suffix(1);
-			return boost::iequals(type, "application/json");
+			content_type = content_type.substr(0, content_type.find(';'));
+			while(!content_type.empty() && (content_type.back() == ' ' || content_type.back() == '\t'))
+				content_type.remove_suffix(1);
+			return boost::iequals(content_type, "application/json");
 		}
 
     struct uri_content
