@@ -9895,6 +9895,8 @@ bool simple_wallet::wallet_info(const std::vector<std::string> &args)
   message_writer() << tr("Network type: ") << (
     m_wallet->nettype() == cryptonote::TESTNET ? tr("Testnet") :
     m_wallet->nettype() == cryptonote::STAGENET ? tr("Stagenet") : tr("Mainnet"));
+  message_writer() << tr("Daemon-Address: ") << m_wallet->get_daemon_address();
+  message_writer() << tr("Daemon-Proxy: ") << m_wallet->get_proxy();
   if (ms_status.multisig_is_active)
   {
     type = tr("Multisig");
