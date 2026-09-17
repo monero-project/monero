@@ -620,9 +620,14 @@ namespace net_utils
 		// not prevent the request from being executed. Refuse disallowed origins.
 		if (!is_request_allowed(query_info))
 		{
+			MINFO("HTTP [" << m_conn_context.m_remote_address.host_str() << "] " << query_info.m_http_method_str
+				<< " " << query_info.m_URI << " rejected: origin \"" << query_info.m_header_info.m_origin
+				<< "\" (Sec-Fetch-Site: \"" << query_info.m_header_info.m_sec_fetch_site
+				<< "\") is not allowed by --rpc-access-control-origins");
 			response.m_response_code = 403;
 			response.m_response_comment = "Forbidden";
 			response.m_mime_tipe = "text/plain";
+			response.m_body = "Origin not allowed. See --rpc-access-control-origins.\n";
 		}
 		else if (query_info.m_http_method != http::http_method_options)
 		{

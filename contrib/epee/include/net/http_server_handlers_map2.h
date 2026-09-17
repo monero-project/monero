@@ -106,6 +106,8 @@
     { \
       response_info.m_response_code = 415; \
       response_info.m_response_comment = "Unsupported Media Type"; \
+      response_info.m_mime_tipe = "text/plain"; \
+      response_info.m_body = "Content-Type: application/json required\n"; \
       return true; \
     } \
     MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, cond)
