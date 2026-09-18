@@ -203,13 +203,14 @@ std::string write_fields(const fields& args)
   return out;
 }
 
-http::http_request_info make_request(const fields& args)
+http::http_request_info make_request(const fields& args, std::string uri = {})
 {
   std::string out{"   DIGEST   "};
   write_fields(out, args);
 
   http::http_request_info request{};
   request.m_http_method_str = "NOP";
+  request.m_URI = std::move(uri);
   request.m_header_info.m_etc_fields.push_back(
     std::make_pair(u8"authorization", std::move(out))
   );
@@ -496,7 +497,7 @@ TEST(HTTP_Server_Auth, MD5)
     {u8"response", quoted(auth_code)},
     {u8"uri", quoted(uri)},
     {u8"username", quoted(user.username)}
-  });
+  }, uri);
 
   EXPECT_FALSE(bool(auth.get_response(request)));
 
@@ -547,7 +548,7 @@ TEST(HTTP_Server_Auth, MD5_sess)
     {u8"response", quoted(auth_code)},
     {u8"uri", quoted(uri)},
     {u8"username", quoted(user.username)}
-  });
+  }, uri);
 
   EXPECT_FALSE(bool(auth.get_response(request)));
 
@@ -608,7 +609,7 @@ TEST(HTTP_Server_Auth, MD5_auth)
     {u8"username", quoted(user.username)}
   };
 
-  const auto request = make_request(args);
+  const auto request = make_request(args, uri);
   EXPECT_FALSE(bool(auth.get_response(request)));
 
   for (unsigned i = 2; i < 20; ++i)
@@ -616,7 +617,7 @@ TEST(HTTP_Server_Auth, MD5_auth)
     nc = get_nc(i);
     args.at(u8"nc") = nc;
     args.at(u8"response") = quoted(generate_auth());
-    EXPECT_FALSE(auth.get_response(make_request(args)));
+    EXPECT_FALSE(auth.get_response(make_request(args, uri)));
   }
 
   const auto replay = auth.get_response(request);
@@ -676,7 +677,7 @@ TEST(HTTP_Server_Auth, MD5_sess_auth)
     {u8"username", quoted(user.username)}
   };
 
-  const auto request = make_request(args);
+  const auto request = make_request(args, uri);
   EXPECT_FALSE(bool(auth.get_response(request)));
 
   for (unsigned i = 2; i < 20; ++i)
@@ -684,7 +685,7 @@ TEST(HTTP_Server_Auth, MD5_sess_auth)
     nc = get_nc(i);
     args.at(u8"nc") = nc;
     args.at(u8"response") = quoted(generate_auth());
-    EXPECT_FALSE(auth.get_response(make_request(args)));
+    EXPECT_FALSE(auth.get_response(make_request(args, uri)));
   }
 
   const auto replay = auth.get_response(request);
@@ -697,6 +698,61 @@ TEST(HTTP_Server_Auth, MD5_sess_auth)
 
   EXPECT_NE(nonce, parsed_replay[0].at(u8"nonce"));
   EXPECT_STREQ(u8"true", parsed_replay[0].at(u8"stale").c_str());
+}
+
+
+TEST(HTTP_Server_Auth, URI_must_match_request)
+{
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng};
+
+  const std::string uri{"/some_foo_thing"};
+
+  // Every failed attempt issues a new nonce, so fetch a fresh challenge and
+  // sign it for `uri`. The request is then delivered to `request_uri`.
+  const auto sign = [&] (const std::string& request_uri)
+  {
+    const auto challenge = auth.get_response(make_request(fields{}));
+    EXPECT_TRUE(bool(challenge));
+    if (!challenge)
+      return http::http_request_info{};
+
+    const auto parsed = parse_response(*challenge);
+    EXPECT_LE(2u, parsed.size());
+    if (parsed.size() < 2)
+      return http::http_request_info{};
+
+    const std::string& nonce = parsed[0].at(u8"nonce");
+    const std::string auth_code = md5_hex(
+      boost::join(
+        std::vector<std::string>{md5_hex(get_a1(user, parsed)), nonce, md5_hex(get_a2(uri))}, u8":"
+      )
+    );
+
+    return make_request({
+      {u8"nonce", quoted(nonce)},
+      {u8"realm", quoted(parsed[0].at(u8"realm"))},
+      {u8"response", quoted(auth_code)},
+      {u8"uri", quoted(uri)},
+      {u8"username", quoted(user.username)}
+    }, request_uri);
+  };
+
+  // a valid digest must not authorize a request for any other request-target
+  for (const std::string request_uri : {"/other_thing", "/some_foo_thing?a=b", "/Some_foo_thing", "/some_foo_thing/", "/", ""})
+  {
+    const auto response = auth.get_response(sign(request_uri));
+    ASSERT_TRUE(bool(response)) << "request-target: \"" << request_uri << "\"";
+    EXPECT_TRUE(is_unauthorized(*response));
+
+    const auto parsed = parse_response(*response);
+    ASSERT_LE(2u, parsed.size());
+    EXPECT_TRUE(has_same_fields(parsed));
+    EXPECT_STREQ(u8"false", parsed[0].at(u8"stale").c_str());
+  }
+
+  // control: same signing path succeeds when the request-target matches
+  EXPECT_FALSE(bool(auth.get_response(sign(uri))));
 }
 
 
@@ -765,6 +821,35 @@ TEST(HTTP_Auth, DogFood)
 
   // client should give up if stale=false
   EXPECT_EQ(http::http_client_auth::kBadPassword, client.handle_401(*response));
+}
+
+TEST(HTTP_Auth, DogFood_retargeted_request)
+{
+  const http::login user{"some_user", "ultimate password"};
+
+  http::http_server_auth server{user, rng};
+  http::http_client_auth client{user};
+
+  http::http_request_info request{};
+  request.m_http_method_str = "POST";
+  request.m_URI = "/get_info";
+
+  auto response = server.get_response(request);
+  ASSERT_TRUE(bool(response));
+  EXPECT_TRUE(is_unauthorized(*response));
+  response->m_header_info.m_etc_fields = response->m_additional_fields;
+  ASSERT_EQ(http::http_client_auth::kSuccess, client.handle_401(*response));
+
+  // client authenticates a request for /get_info ...
+  auto field = client.get_auth_field(request.m_http_method_str, request.m_URI);
+  ASSERT_TRUE(bool(field));
+  request.m_header_info.m_etc_fields.push_back(std::move(*field));
+
+  // ... but the request is altered in transit to a different target
+  request.m_URI = "/stop_daemon";
+  const auto rejected = server.get_response(request);
+  ASSERT_TRUE(bool(rejected));
+  EXPECT_TRUE(is_unauthorized(*rejected));
 }
 
 TEST(HTTP_Client_Auth, Unavailable)

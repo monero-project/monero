@@ -357,12 +357,16 @@ namespace
     using iterator = const char*;
     enum status{ kFail = 0, kStale, kPass };
 
-    //! \return Status of the `response` field from the client
-    static status verify(const boost::string_ref method, const boost::string_ref request,
-      const http::http_server_auth::session& user)
+    /*! \param method HTTP method from the request line
+        \param uri request-target from the request line
+        \param request value of the client "Authorization" field
+        \return Status of the `response` field from the client */
+    static status verify(const boost::string_ref method, const boost::string_ref uri,
+      const boost::string_ref request, const http::http_server_auth::session& user)
     {
       const auto parsed = parse(request);
       if (parsed &&
+          boost::equals(parsed->uri, uri) &&
           boost::equals(parsed->username, user.credentials.username) &&
           boost::fusion::any(digest_algorithms, has_valid_response{*parsed, user, method}))
       {
@@ -772,7 +776,7 @@ namespace epee
         if (auth != fields.end())
         {
           ++(user->counter);
-          switch (auth_message::verify(request.m_http_method_str, auth->second, *user))
+          switch (auth_message::verify(request.m_http_method_str, request.m_URI, auth->second, *user))
           {
           case auth_message::kPass:
             return boost::none;
