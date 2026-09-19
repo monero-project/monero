@@ -106,10 +106,9 @@ namespace
 
   //// Digest Algorithms
 
-  struct md5_
+  template<const EVP_MD* (*DigestFunc)(), std::size_t DigestSize>
+  struct digest_base_
   {
-    static constexpr const boost::string_ref name = ceref(u8"MD5");
-
     struct update
     {
       template<typename T>
@@ -139,13 +138,13 @@ namespace
     };
 
     template<typename... T>
-    boost::optional<std::array<char, 32>> operator()(const T&... args) const
+    boost::optional<std::array<char, DigestSize * 2>> operator()(const T&... args) const
     {
       std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> ctx(EVP_MD_CTX_new(), &EVP_MD_CTX_free);
       if (!ctx)
         return boost::none;
 
-      if (EVP_DigestInit_ex(ctx.get(), EVP_md5(), nullptr) != 1)
+      if (EVP_DigestInit_ex(ctx.get(), DigestFunc(), nullptr) != 1)
         return boost::none;
 
       bool ok = true;
@@ -156,16 +155,29 @@ namespace
       if (!ok)
         return boost::none;
 
-      std::array<std::uint8_t, 16> digest{{}};
+      std::array<std::uint8_t, DigestSize> digest{{}};
       if (EVP_DigestFinal_ex(ctx.get(), digest.data(), nullptr) != 1)
         return boost::none;
       return epee::to_hex::array(digest);
     }
   };
+
+  //! MD5 algo. Marked "historic" by RFC 7616; retained for backwards compatibility
+  struct md5_ : digest_base_<EVP_md5, 16>
+  {
+    static constexpr const boost::string_ref name = ceref(u8"MD5");
+  };
   constexpr const boost::string_ref md5_::name;
 
+  //! SHA-256 algo
+  struct sha256_ : digest_base_<EVP_sha256, 32>
+  {
+    static constexpr const boost::string_ref name = ceref(u8"SHA-256");
+  };
+  constexpr const boost::string_ref sha256_::name;
+
   //! Digest Algorithms available for HTTP Digest Auth. Sort better algos to the left
-  constexpr const std::tuple<md5_> digest_algorithms{};
+  constexpr const std::tuple<sha256_, md5_> digest_algorithms{};
 
   //// Various String Utilities
 
