@@ -119,6 +119,13 @@ static inline int disabled_flags(void) {
     else {
       flags = 0;
     }
+
+    if (flags & RANDOMX_FLAG_V2)
+    {
+      mwarning(RX_LOGCAT,
+        "MONERO_RANDOMX_UMASK would mask RandomX V2, ignoring that bit...");
+      flags &= ~RANDOMX_FLAG_V2;
+    }
   }
 
   return flags;
@@ -284,9 +291,11 @@ static void rx_init_full_vm(const int variant, randomx_vm** vm, int* vm_variant)
   if ((flags & RANDOMX_FLAG_JIT) && !miner_thread) {
     flags |= RANDOMX_FLAG_SECURE;
   }
+  flags |= RANDOMX_FLAG_LARGE_PAGES | RANDOMX_FLAG_FULL_MEM;
+  flags &= ~disabled_flags();
   flags |= get_variant_flags(variant);
 
-  *vm = randomx_create_vm((flags | RANDOMX_FLAG_LARGE_PAGES | RANDOMX_FLAG_FULL_MEM) & ~disabled_flags(), NULL, main_dataset);
+  *vm = randomx_create_vm(flags, NULL, main_dataset);
   *vm_variant = variant;
   if (!*vm) {
     static int shown = 0;
@@ -294,7 +303,7 @@ static void rx_init_full_vm(const int variant, randomx_vm** vm, int* vm_variant)
         shown = 1;
         alloc_err_msg("Couldn't allocate RandomX full VM using large pages (will print only once)");
     }
-    *vm = randomx_create_vm((flags | RANDOMX_FLAG_FULL_MEM) & ~disabled_flags(), NULL, main_dataset);
+    *vm = randomx_create_vm(flags & ~RANDOMX_FLAG_LARGE_PAGES, NULL, main_dataset);
     if (!*vm) {
       merror(RX_LOGCAT, "Couldn't allocate RandomX full VM");
     }
@@ -317,11 +326,11 @@ static void rx_init_light_vm(const int variant, randomx_vm** vm, int* vm_variant
   if ((flags & RANDOMX_FLAG_JIT) && !miner_thread) {
     flags |= RANDOMX_FLAG_SECURE;
   }
+  flags |= RANDOMX_FLAG_LARGE_PAGES;
+  flags &= ~(disabled_flags() | RANDOMX_FLAG_FULL_MEM);
   flags |= get_variant_flags(variant);
 
-  flags &= ~RANDOMX_FLAG_FULL_MEM;
-
-  *vm = randomx_create_vm((flags | RANDOMX_FLAG_LARGE_PAGES) & ~disabled_flags(), cache, NULL);
+  *vm = randomx_create_vm(flags, cache, NULL);
   *vm_variant = variant;
   if (!*vm) {
     static int shown = 0;
@@ -329,7 +338,7 @@ static void rx_init_light_vm(const int variant, randomx_vm** vm, int* vm_variant
         shown = 1;
         alloc_err_msg("Couldn't allocate RandomX light VM using large pages (will print only once)");
     }
-    *vm = randomx_create_vm(flags & ~disabled_flags(), cache, NULL);
+    *vm = randomx_create_vm(flags & ~RANDOMX_FLAG_LARGE_PAGES, cache, NULL);
     if (!*vm) local_abort("Couldn't allocate RandomX light VM");
   }
 }
