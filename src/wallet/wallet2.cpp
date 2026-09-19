@@ -6816,7 +6816,8 @@ void wallet2::trim_hashchain()
       if (m_node_rpc_proxy.get_block_header_by_height(m_blockchain.size() - 1, block_header))
         throw std::runtime_error("Failed to request block header by height");
       crypto::hash hash;
-      epee::string_tools::hex_to_pod(block_header.hash, hash);
+      THROW_WALLET_EXCEPTION_IF(!epee::string_tools::hex_to_pod(block_header.hash, hash),
+        error::wallet_internal_error, "Daemon returned an invalid block hash");
       m_blockchain.refill(hash);
     }
     catch(...)
