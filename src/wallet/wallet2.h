@@ -825,6 +825,7 @@ private:
       epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect,
       const std::string &proxy = "");
     bool set_proxy(const std::string &address);
+    std::string get_proxy() const;
 
     void stop() { m_run.store(false, std::memory_order_relaxed); m_message_store.stop(); }
     // teardown-only: a permanent stop that also aborts an in-flight daemon request
