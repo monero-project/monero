@@ -56,7 +56,7 @@ namespace net_utils
       wipeable_string password;
     };
 
-    //! Implements RFC 2617 digest auth. Digests from RFC 7616 can be added.
+    //! Implements RFC 7616 Digest Auth. Supports SHA-256 and MD5
     class http_server_auth
     {
     public:
@@ -90,7 +90,7 @@ namespace net_utils
       std::function<void(size_t, uint8_t*)> rng;
     };
 
-    //! Implements RFC 2617 digest auth. Digests from RFC 7616 can be added.
+    //! Implements RFC 7616 Digest Auth. Supports SHA-256 and MD5
     class http_client_auth
     {
     public:
