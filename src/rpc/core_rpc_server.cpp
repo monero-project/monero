@@ -1574,6 +1574,7 @@ namespace cryptonote
 
     COMMAND_RPC_GET_PEER_LIST::request peer_list_req;
     COMMAND_RPC_GET_PEER_LIST::response peer_list_res;
+    peer_list_req.public_only = true;
     peer_list_req.include_blocked = req.include_blocked;
     const bool success = on_get_peer_list(peer_list_req, peer_list_res, ctx);
     res.status = peer_list_res.status;
