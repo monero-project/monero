@@ -176,8 +176,7 @@ namespace misc_utils
               }
               break;
             default:
-              val.push_back(*it);
-              LOG_PRINT_L0("Unknown escape sequence :\"\\" << *it << "\"");
+              ASSERT_MES_AND_THROW("Invalid escape sequence in JSON string");
             }
             escape_mode = false;
           }else if(*it == '"')
@@ -187,13 +186,13 @@ namespace misc_utils
           }else if(*it == '\\')
           {
             escape_mode = true;
-          }          
+          }
           else
           {
             val.push_back(*it); 
           }
         }
-        ASSERT_MES_AND_THROW("Failed to match string in json entry: " << std::string(star_end_string, buf_end));
+        ASSERT_MES_AND_THROW("Unterminated JSON string");
       }
       void match_number2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, boost::string_ref& val, bool& is_float_val, bool& is_signed_val)
       {
@@ -226,10 +225,10 @@ namespace misc_utils
               return;
             }
             else 
-              ASSERT_MES_AND_THROW("wrong number in json entry: " << std::string(star_end_string, buf_end));
+              ASSERT_MES_AND_THROW("Invalid number in JSON entry");
           }
         }
-        ASSERT_MES_AND_THROW("wrong number in json entry: " << std::string(star_end_string, buf_end));
+        ASSERT_MES_AND_THROW("Invalid number in JSON entry");
       }
       void match_word2(std::string::const_iterator& star_end_string, std::string::const_iterator buf_end, boost::string_ref& val)
       {
@@ -244,11 +243,11 @@ namespace misc_utils
             {
               star_end_string = --it;
               return;
-            }else 
-              ASSERT_MES_AND_THROW("failed to match word number in json entry: " << std::string(star_end_string, buf_end));
+            }else
+              ASSERT_MES_AND_THROW("Invalid word in JSON entry");
           }
         }
-        ASSERT_MES_AND_THROW("failed to match word number in json entry: " << std::string(star_end_string, buf_end));
+        ASSERT_MES_AND_THROW("Invalid word in JSON entry");
       }
   }
 }

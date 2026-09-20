@@ -794,7 +794,7 @@ namespace cryptonote
 
     transaction tx;
     crypto::hash txid;
-    if (!parse_and_validate_tx_from_blob(tx_blob, tx, txid))
+    if (!parse_and_validate_tx_from_blob(tx_blob, tx, txid, true))
     {
       LOG_PRINT_L1("Incoming transactions failed to parse, rejected");
       tvc.m_verifivation_failed = true;
@@ -1207,7 +1207,7 @@ namespace cryptonote
 
     for (std::size_t i = 0; i < tx_blobs.size(); ++i)
     {
-      if (!parse_and_validate_tx_from_blob(tx_blobs[i], txs[i], tx_hashes[i]))
+      if (!parse_and_validate_tx_from_blob(tx_blobs[i], txs[i], tx_hashes[i], true))
       {
         LOG_ERROR("Failed to parse relayed transaction");
         return;
@@ -1326,26 +1326,8 @@ namespace cryptonote
     {
       cryptonote_connection_context exclude_context = {};
       NOTIFY_NEW_FLUFFY_BLOCK::request arg{};
-      arg.current_blockchain_height = m_blockchain_storage.get_current_blockchain_height();
-      std::vector<crypto::hash> missed_txs;
-      for (const auto &tx_hash : b.tx_hashes)
-      {
-        if (m_blockchain_storage.have_tx(tx_hash))
-          continue;
-        missed_txs.push_back(tx_hash);
-      }
-      if(missed_txs.size() &&  m_blockchain_storage.get_block_id_by_height(get_block_height(b)) != get_block_hash(b))
-      {
-        LOG_PRINT_L1("Block found but, seems that reorganize just happened after that, do not relay this block");
-        return true;
-      }
-      CHECK_AND_ASSERT_MES(!missed_txs.size(), false, "can't find some transactions in found block:" << get_block_hash(b)
-        << " b.tx_hashes.size()=" << b.tx_hashes.size() << ", missed_txs.size()" << missed_txs.size());
-
+      arg.current_blockchain_height = get_block_height(b) + 1;
       block_to_blob(b, arg.b.block);
-      // Relay an empty fluffy block
-      arg.b.txs.clear();
-
       m_pprotocol->relay_block(arg, exclude_context);
     }
     return true;
@@ -1556,14 +1538,14 @@ namespace cryptonote
     return m_mempool.have_tx(id, relay_category::legacy);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_data) const
+  bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const
   {
-    return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos, include_sensitive_data);
+    return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos, bool include_sensitive) const
+  bool core::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const
   {
-    return m_mempool.get_pool_for_rpc(tx_infos, key_image_infos, include_sensitive);
+    return m_mempool.get_pool_for_rpc(tx_infos, key_image_infos);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t& current_height) const

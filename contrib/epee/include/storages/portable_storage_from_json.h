@@ -43,7 +43,7 @@ namespace epee
   {
     namespace json
     {
-#define CHECK_ISSPACE()  if(!epee::misc_utils::parse::isspace(*it)){ ASSERT_MES_AND_THROW("Wrong JSON character at: " << std::string(it, buf_end));}
+#define CHECK_ISSPACE()  if(!epee::misc_utils::parse::isspace(*it)){ ASSERT_MES_AND_THROW("Unexpected character in JSON data");}
 
       /*inline void parse_error()
       {
@@ -168,7 +168,7 @@ namespace epee
             {
               //sub section here
               typename t_storage::hsection new_sec = stg.open_section(name, current_section, true);
-              CHECK_AND_ASSERT_THROW_MES(new_sec, "Failed to insert new section in json: " << std::string(it, buf_end));
+              CHECK_AND_ASSERT_THROW_MES(new_sec, "Failed to insert new section in JSON data");
               run_handler(new_sec, it, buf_end, stg, recursion + 1);
               state = match_state_wonder_after_value;
             }else if(*it == '[')
@@ -403,7 +403,7 @@ namespace epee
         }
         catch(const std::exception& ex)
         {
-          MERROR("Failed to parse json, what: " << ex.what());
+          MERROR("Failed to parse json, what: " << misc_utils::parse::transform_to_escape_sequence(ex.what()));
           return false;
         }
         catch(...)

@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 31
+#define WALLET_RPC_VERSION_MINOR 32
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -736,6 +736,7 @@ namespace wallet_rpc
       uint64_t change_amount;
       std::string change_address;
       uint64_t fee;
+      uint64_t weight;
       uint32_t dummy_outputs;
       std::string extra;
 
@@ -750,6 +751,7 @@ namespace wallet_rpc
         KV_SERIALIZE(change_amount)
         KV_SERIALIZE(change_address)
         KV_SERIALIZE(fee)
+        KV_SERIALIZE_OPT(weight, (uint64_t)0)
         KV_SERIALIZE(dummy_outputs)
         KV_SERIALIZE(extra)
       END_KV_SERIALIZE_MAP()

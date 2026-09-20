@@ -155,7 +155,7 @@ namespace epee
         return true;
 
       const bool is_private = na.is_loopback() || na.is_local();
-      const auto elem = config.m_connections.find(na.host_str());
+      const auto elem = config.m_connections.find(net_utils::http::get_rpc_connection_limit_key(na));
       if (elem != config.m_connections.end())
       {
         if (is_private)

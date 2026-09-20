@@ -3,6 +3,7 @@ $(package)_version=1.91.0-1
 $(package)_download_path=https://github.com/boostorg/boost/releases/download/boost-$($(package)_version)
 $(package)_file_name=boost-$($(package)_version)-b2-nodocs.tar.gz
 $(package)_sha256_hash=b5a3d1490118e012f8b12688240d981bcdfcd009fd35bc70d120fbc907df4f7c
+$(package)_patches=no-embed-absolute.patch
 
 define $(package)_set_vars
 $(package)_config_opts_release=variant=release
@@ -27,6 +28,7 @@ $(package)_cxxflags_darwin+=-ffile-prefix-map=$($(package)_extract_dir)=/usr
 endef
 
 define $(package)_preprocess_cmds
+  patch -p1 < $($(package)_patch_dir)/no-embed-absolute.patch && \
   echo "using $(boost_toolset_$(host_os)) : : $($(package)_cxx) : <cxxflags>\"$($(package)_cxxflags) $($(package)_cppflags)\" <linkflags>\"$($(package)_ldflags)\" <archiver>\"$(boost_archiver_$(host_os))\" <arflags>\"$($(package)_arflags)\" <striper>\"$(host_STRIP)\"  <ranlib>\"$(host_RANLIB)\" <rc>\"$(host_WINDRES)\" : ;" > user-config.jam
 endef
 

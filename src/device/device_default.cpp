@@ -30,6 +30,7 @@
 
 
 
+#include <boost/thread/lock_guard.hpp>
 #include "device_default.hpp"
 #include "int-util.h"
 #include "crypto/wallet/crypto.h"
@@ -82,19 +83,32 @@ namespace hw {
             return true;
         }
 
+        // serialize mode access so callers cannot observe another wallet's transient signing mode
         bool  device_default::set_mode(device_mode mode) {
+            boost::lock_guard<boost::recursive_mutex> lock(device_locker);
             return device::set_mode(mode);
+        }
+
+        device::device_mode device_default::get_mode() const {
+            boost::lock_guard<boost::recursive_mutex> lock(device_locker);
+            return device::get_mode();
         }
 
         /* ======================================================================= */
         /*  LOCKER                                                                 */
         /* ======================================================================= */ 
     
-        void device_default::lock() { }
+        void device_default::lock() {
+            device_locker.lock();
+        }
 
-        bool device_default::try_lock() { return true; }
+        bool device_default::try_lock() {
+            return device_locker.try_lock();
+        }
 
-        void device_default::unlock() { }
+        void device_default::unlock() {
+            device_locker.unlock();
+        }
 
         /* ======================================================================= */
         /*                             WALLET & ADDRESS                            */

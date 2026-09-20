@@ -1,4 +1,4 @@
-// Copyright (c) 2016-2026, The Monero Project
+// Copyright (c) 2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -26,51 +26,19 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include "rpc/zmq_restricted_methods.h"
+#include "net/http_protocol_handler.h"
 
-#include <algorithm>
-#include <array>
-#include <string>
-#include <string_view>
-
-namespace cryptonote
+namespace epee { namespace net_utils { namespace http
 {
-namespace rpc
-{
-  namespace
-  {
-    constexpr std::array<std::string_view, 10> blocked_in_restricted_mode{{
-      "flush_txpool",
-      "get_peer_list",
-      "get_transaction_pool",
-      "mining_status",
-      "relay_tx",
-      "save_bc",
-      "set_log_categories",
-      "set_log_level",
-      "start_mining",
-      "stop_mining"
-    }};
-  }
+	std::string get_rpc_connection_limit_key(const net_utils::network_address& address)
+	{
+		if (address.get_type_id() == net_utils::ipv6_network_address::get_type_id())
+		{
+			const boost::asio::ip::address_v6 ip = address.as<const net_utils::ipv6_network_address>().ip();
+			if (net_utils::should_group_ipv6_by_prefix(ip))
+				return net_utils::get_ipv6_subnet_address(ip, 64).to_string() + "/64";
+		}
 
-  bool is_blocked_in_restricted_mode(const std::string_view method) noexcept
-  {
-    return std::binary_search(
-      blocked_in_restricted_mode.begin(),
-      blocked_in_restricted_mode.end(),
-      method
-    );
-  }
-
-  void check_blocked_methods_sorted()
-  {
-    const auto last =
-      std::is_sorted_until(blocked_in_restricted_mode.begin(), blocked_in_restricted_mode.end());
-
-    if (last != blocked_in_restricted_mode.end())
-      throw std::logic_error{
-        std::string{"ZMQ restricted-method map is not properly sorted, see "} + std::string{*last}
-      };
-  }
-} // rpc
-} // cryptonote
+		return address.host_str();
+	}
+}}}

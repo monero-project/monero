@@ -29,6 +29,7 @@
 
 #include "device_trezor_base.hpp"
 #include "memwipe.h"
+#include <algorithm>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -239,6 +240,12 @@ namespace trezor {
       // Hard requirement on initialized field, has to be there.
       if (!m_features->has_initialized() || !m_features->initialized()){
         throw exc::TrezorException("Device is not initialized");
+      }
+
+      // Reject firmware that doesn't have the Monero feature/capability
+      const auto& capabilities = m_features->capabilities();
+      if (std::find(capabilities.begin(), capabilities.end(), messages::management::Features::Capability_Monero) == capabilities.end()){
+        throw exc::FirmwareNotSupportedException();
       }
     }
 
