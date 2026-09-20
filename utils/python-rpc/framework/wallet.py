@@ -317,7 +317,7 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(restore_deterministic_wallet)
 
-    def generate_from_keys(self, restore_height = 0, filename = "", password = "", address = "", spendkey = "", viewkey = "", autosave_current = True):
+    def generate_from_keys(self, restore_height = 0, filename = "", password = "", address = "", spendkey = "", viewkey = "", autosave_current = True, language = ""):
         generate_from_keys = {
             'method': 'generate_from_keys',
             'params' : {
@@ -328,6 +328,7 @@ class Wallet(object):
                 'viewkey': viewkey,
                 'password': password,
                 'autosave_current': autosave_current,
+                'language': language,
             },
             'jsonrpc': '2.0', 
             'id': '0'
