@@ -357,6 +357,9 @@ int main(int argc, char const * argv[])
       }
     }
 
+    // Calibrate perf timer on startup
+    (void)tools::ticks_to_ns(0);
+
     MINFO("Moving from main() into the daemonize now.");
 
     return daemonizer::daemonize(argc, argv, daemonize::t_executor{parse_public_rpc_port(vm)}, vm) ? 0 : 1;
