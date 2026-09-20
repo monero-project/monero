@@ -489,7 +489,15 @@ public:
 
             temp.swap(m_fragment_buffer);
             std::memcpy(std::addressof(m_current_head), std::addressof(temp[0]), sizeof(bucket_head2));
-            const std::uint64_t inner_size = SWAP64LE(m_current_head.m_cb);
+#if BYTE_ORDER != LITTLE_ENDIAN
+            m_current_head.m_signature = SWAP64LE(m_current_head.m_signature);
+            m_current_head.m_cb = SWAP64LE(m_current_head.m_cb);
+            m_current_head.m_command = SWAP32LE(m_current_head.m_command);
+            m_current_head.m_return_code = SWAP32LE(m_current_head.m_return_code);
+            m_current_head.m_flags = SWAP32LE(m_current_head.m_flags);
+            m_current_head.m_protocol_version = SWAP32LE(m_current_head.m_protocol_version);
+#endif
+            const std::uint64_t inner_size = m_current_head.m_cb;
             buff_to_invoke = {reinterpret_cast<const uint8_t*>(temp.data()) + sizeof(bucket_head2), temp.size() - sizeof(bucket_head2)};
             if (buff_to_invoke.size() < inner_size)
             {
