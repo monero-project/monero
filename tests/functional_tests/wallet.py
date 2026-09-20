@@ -372,6 +372,15 @@ class WalletTest():
         assert res.address == address
         assert wallet.query_key('mnemonic').key == seed
 
+        attribute = 'wallet-rpc.autosave-test'
+        wallet.auto_refresh(False)
+        wallet.set_attribute(attribute, 'stored')
+        wallet.generate_from_keys(address = address, spendkey = spend_key,
+            viewkey = view_key)
+        wallet.open_wallet(filename, autosave_current = False)
+        assert wallet.get_attribute(attribute).value == 'stored'
+        wallet.auto_refresh(True)
+
         wallet.close_wallet()
         util_resources.remove_wallet_files(filename)
 
