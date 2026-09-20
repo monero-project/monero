@@ -240,6 +240,7 @@ namespace cryptonote
     );
 
     m_net_server.get_config_object().m_max_content_length = MAX_RPC_CONTENT_LENGTH;
+    m_net_server.get_config_object().m_disable_md5 = rpc_config->disable_md5;
 
     if (store_ssl_key && inited)
     {

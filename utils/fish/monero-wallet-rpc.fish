@@ -50,6 +50,7 @@ complete -c monero-wallet-rpc -l rpc-ssl-ca-certificates -r -F -d "Path to file 
 complete -c monero-wallet-rpc -l rpc-ssl-allowed-fingerprints -r -d "List of certificate fingerprints to allow"
 complete -c monero-wallet-rpc -l rpc-ssl-allow-chained -d "Allow user (via --rpc-ssl-certificates) chain certificates"
 complete -c monero-wallet-rpc -l disable-rpc-ban -d "Do not ban hosts on RPC errors"
+complete -c monero-wallet-rpc -l disable-md5 -d "Disable MD5 in HTTP Digest Authentication, use SHA-256 only"
 complete -c monero-wallet-rpc -l wallet-file -r -F -d "Use wallet <arg>"
 complete -c monero-wallet-rpc -l generate-from-json -r -k -a "(__fish_complete_suffix .json)" -d "Generate wallet from JSON format file"
 complete -c monero-wallet-rpc -l wallet-dir -r -a "(__fish_complete_directories)" -d "Directory for newly created wallets"

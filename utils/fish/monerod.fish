@@ -99,6 +99,7 @@ complete -c monerod -l rpc-ssl-ca-certificates -r -F -d "Path to file containing
 complete -c monerod -l rpc-ssl-allowed-fingerprints -r -d "List of certificate fingerprints to allow"
 complete -c monerod -l rpc-ssl-allow-chained -d "Allow user (via --rpc-ssl-certificates) chain certificates"
 complete -c monerod -l disable-rpc-ban -d "Do not ban hosts on RPC errors"
+complete -c monerod -l disable-md5 -d "Disable MD5 in HTTP Digest Authentication, use SHA-256 only"
 complete -c monerod -l rpc-ssl-allow-any-cert -d "Allow any peer certificate"
 complete -c monerod -l rpc-max-connections-per-public-ip -d "Max RPC connections per public IP permitted. Default: 3"
 complete -c monerod -l rpc-max-connections-per-private-ip -d "Max RPC connections per private and localhost IP permitted. Default: 25"

@@ -747,6 +747,100 @@ TEST(HTTP_Server_Auth, Algorithms)
   }
 }
 
+TEST(HTTP_Server_Auth, DisableMD5)
+{
+  // RFC 7616 3.7: with MD5 disabled, only SHA-256 challenges are sent, and
+  // MD5 credentials must be rejected even when the response is otherwise valid
+  http::login user{"foo", "bar"};
+  const std::string uri{"/some_foo_thing"};
+
+  http::http_server_auth auth{user, rng, true};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+  EXPECT_TRUE(is_unauthorized(*response));
+
+  const auto challenges = parse_response(*response);
+  ASSERT_EQ(2u, challenges.size()); // sha256, sha256-sess only
+  EXPECT_STREQ(u8"SHA-256", challenges[0].at(u8"algorithm").c_str());
+  EXPECT_STREQ(u8"SHA-256-sess", challenges[1].at(u8"algorithm").c_str());
+  EXPECT_TRUE(has_same_fields(challenges));
+
+  const std::string& nonce = challenges[0].at(u8"nonce");
+  EXPECT_EQ(24, nonce.size());
+
+  // a valid MD5 response must be rejected
+  constexpr const char cnonce[] = "not a nonce";
+  constexpr const char qop[] = "auth";
+  const std::string md5_a1 = get_a1(user, challenges);
+  const std::string a2 = get_a2(uri);
+  const std::string md5_code = md5_hex(
+    boost::join(
+      std::vector<std::string>{md5_hex(md5_a1), nonce, get_nc(1), cnonce, qop, md5_hex(a2)}, u8":"
+    )
+  );
+
+  const auto md5_request = make_request({
+    {u8"algorithm", quoted(u8"md5")},
+    {u8"cnonce", quoted(cnonce)},
+    {u8"nc", get_nc(1)},
+    {u8"nonce", quoted(nonce)},
+    {u8"qop", quoted(qop)},
+    {u8"realm", quoted(challenges[0].at(u8"realm"))},
+    {u8"response", quoted(md5_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  });
+
+  const auto rejected = auth.get_response(md5_request);
+  ASSERT_TRUE(bool(rejected));
+  EXPECT_TRUE(is_unauthorized(*rejected));
+
+  // the failed attempt rotates the nonce; only SHA-256 challenges are re-sent
+  const auto retry_challenges = parse_response(*rejected);
+  ASSERT_EQ(2u, retry_challenges.size());
+  EXPECT_STREQ(u8"SHA-256", retry_challenges[0].at(u8"algorithm").c_str());
+  EXPECT_STREQ(u8"SHA-256-sess", retry_challenges[1].at(u8"algorithm").c_str());
+
+  // a valid SHA-256 response with the new nonce is accepted
+  const std::string& retry_nonce = retry_challenges[0].at(u8"nonce");
+  const std::string sha_code = sha256_hex(
+    boost::join(std::vector<std::string>{sha256_hex(get_a1(user, retry_challenges)), retry_nonce, sha256_hex(a2)}, u8":")
+  );
+
+  const auto sha_request = make_request({
+    {u8"algorithm", u8"sha-256"},
+    {u8"nonce", quoted(retry_nonce)},
+    {u8"realm", quoted(retry_challenges[0].at(u8"realm"))},
+    {u8"response", quoted(sha_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  });
+  EXPECT_FALSE(bool(auth.get_response(sha_request)));
+
+  // legacy RFC 2069 requests (MD5) are rejected too
+  http::http_server_auth legacy_auth{user, rng, true};
+
+  const auto legacy_challenge_response = legacy_auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(legacy_challenge_response));
+  const auto legacy_challenges = parse_response(*legacy_challenge_response);
+  ASSERT_EQ(2u, legacy_challenges.size());
+
+  const std::string& legacy_nonce = legacy_challenges[0].at(u8"nonce");
+  const std::string legacy_code = md5_hex(
+    boost::join(std::vector<std::string>{md5_hex(get_a1(user, legacy_challenges)), legacy_nonce, md5_hex(a2)}, u8":")
+  );
+
+  const auto legacy_request = make_request({
+    {u8"nonce", quoted(legacy_nonce)},
+    {u8"realm", quoted(legacy_challenges[0].at(u8"realm"))},
+    {u8"response", quoted(legacy_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  });
+  EXPECT_TRUE(bool(legacy_auth.get_response(legacy_request)));
+}
+
 TEST(HTTP_Server_Auth, SHA256)
 {
   http::login user{"foo", "bar"};

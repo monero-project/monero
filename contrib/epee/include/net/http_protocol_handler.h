@@ -58,6 +58,7 @@ namespace net_utils
 			std::vector<std::string> m_access_control_origins;
 			std::unordered_map<std::string, std::size_t> m_connections;
 			boost::optional<login> m_user;
+			bool m_disable_md5{false};
 			size_t m_max_content_length{std::numeric_limits<size_t>::max()};
 			std::size_t m_connection_count{0};
 			std::size_t m_max_public_ip_connections{3};
@@ -197,7 +198,7 @@ namespace net_utils
 			http_custom_handler(i_service_endpoint* psnd_hndlr, config_type& config, t_connection_context& conn_context)
 				: simple_http_connection_handler<t_connection_context>(psnd_hndlr, config, conn_context),
 					m_config(config),
-					m_auth(m_config.m_user ? http_server_auth{*m_config.m_user, config.rng} : http_server_auth{})
+					m_auth(m_config.m_user ? http_server_auth{*m_config.m_user, config.rng, config.m_disable_md5} : http_server_auth{})
 			{}
 			inline bool handle_request(const http_request_info& query_info, http_response_info& response)
 			{

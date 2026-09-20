@@ -430,6 +430,7 @@ namespace tools
 
     m_net_server.set_threads_prefix("RPC");
     m_net_server.get_config_object().m_max_content_length = MAX_RPC_CONTENT_LENGTH * 100;
+    m_net_server.get_config_object().m_disable_md5 = rpc_config->disable_md5;
     auto rng = [](size_t len, uint8_t *ptr) { return crypto::rand(len, ptr); };
     return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(
       rng, std::move(bind_port), std::move(rpc_config->bind_ip),

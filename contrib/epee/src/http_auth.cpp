@@ -371,12 +371,12 @@ namespace
 
     //! \return Status of the `response` field from the client
     static status verify(const boost::string_ref method, const boost::string_ref request,
-      const http::http_server_auth::session& user)
+      const http::http_server_auth::session& user, const bool disable_md5)
     {
       const auto parsed = parse(request);
       if (parsed &&
           boost::equals(parsed->username, user.credentials.username) &&
-          boost::fusion::any(digest_algorithms, has_valid_response{*parsed, user, method}))
+          boost::fusion::any(digest_algorithms, has_valid_response{*parsed, user, method, disable_md5}))
       {
         if (boost::equals(parsed->nonce, user.nonce))
         {
@@ -585,6 +585,11 @@ namespace
       template<typename Digest>
       bool operator()(const Digest& digest) const
       {
+        // Disabled algo must not verify, otherwise an attacker could
+        // authenticate with MD5 even when only SHA-256 challenges are offered
+        if (disable_md5 && std::is_same<md5_, Digest>::value)
+          return false;
+
         if (boost::starts_with(request.algorithm, Digest::name, ascii_iequal) ||
             (request.algorithm.empty() && std::is_same<md5_, Digest>::value))
         {
@@ -618,6 +623,7 @@ namespace
       const auth_message& request;
       const http::http_server_auth::session& user;
       const boost::string_ref method;
+      const bool disable_md5;
     };
 
     boost::optional<std::uint32_t> counter() const
@@ -720,6 +726,9 @@ namespace
     template<typename Digest>
     void operator()(const Digest& digest) const
     {
+      if (disable_md5 && std::is_same<md5_, Digest>::value)
+        return;
+
       static constexpr const auto fvalue = ceref(u8"Digest qop=\"auth\"");
 
       for (unsigned i = 0; i < 2; ++i)
@@ -741,9 +750,11 @@ namespace
     const boost::string_ref nonce;
     std::list<std::pair<std::string, std::string>>& fields;
     const bool is_stale;
+    const bool disable_md5;
   };
 
-  http::http_response_info create_digest_response(const boost::string_ref nonce, const bool is_stale)
+  http::http_response_info create_digest_response(const boost::string_ref nonce, const bool is_stale,
+    const bool disable_md5)
   {
     epee::net_utils::http::http_response_info rc{};
     rc.m_response_code = 401;
@@ -753,7 +764,7 @@ namespace
       u8"<html><head><title>Unauthorized Access</title></head><body><h1>401 Unauthorized</h1></body></html>";
 
     boost::fusion::for_each(
-      digest_algorithms, add_challenge{nonce, rc.m_additional_fields, is_stale}
+      digest_algorithms, add_challenge{nonce, rc.m_additional_fields, is_stale, disable_md5}
     );
     
     return rc;
@@ -766,8 +777,8 @@ namespace epee
   {
     namespace http
     {
-      http_server_auth::http_server_auth(login credentials, std::function<void(size_t, uint8_t*)> r)
-        : user(session{std::move(credentials)}), rng(std::move(r)) {
+      http_server_auth::http_server_auth(login credentials, std::function<void(size_t, uint8_t*)> r, bool disable_md5)
+        : user(session{std::move(credentials)}), rng(std::move(r)), disable_md5(disable_md5) {
       }
 
       boost::optional<http_response_info> http_server_auth::do_get_response(const http_request_info& request)
@@ -784,7 +795,7 @@ namespace epee
         if (auth != fields.end())
         {
           ++(user->counter);
-          switch (auth_message::verify(request.m_http_method_str, auth->second, *user))
+          switch (auth_message::verify(request.m_http_method_str, auth->second, *user, disable_md5))
           {
           case auth_message::kPass:
             return boost::none;
@@ -804,7 +815,7 @@ namespace epee
           rng(rand_128bit.size(), rand_128bit.data());
           user->nonce = string_encoding::base64_encode(rand_128bit.data(), rand_128bit.size());
         }
-        return create_digest_response(user->nonce, is_stale);
+        return create_digest_response(user->nonce, is_stale, disable_md5);
       }
 
       http_client_auth::http_client_auth(login credentials)
