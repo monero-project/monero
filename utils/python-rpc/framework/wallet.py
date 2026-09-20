@@ -1017,6 +1017,26 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(parse_uri)
 
+    def make_uri_multi(self, recipients, tx_description = '', network_type = 'mainnet'):
+        return self.rpc.send_json_rpc_request({
+            'method': 'make_uri_multi',
+            'jsonrpc': '2.0',
+            'params': {
+                'recipients': recipients,
+                'tx_description': tx_description,
+                'network_type': network_type,
+            },
+            'id': '0',
+        })
+
+    def parse_uri_multi(self, uri, network_type = 'mainnet'):
+        return self.rpc.send_json_rpc_request({
+            'method': 'parse_uri_multi',
+            'jsonrpc': '2.0',
+            'params': {'uri': uri, 'network_type': network_type},
+            'id': '0',
+        })
+
     def add_address_book(self, address = '', payment_id = '', description = ''):
         add_address_book = {
             'method': 'add_address_book',
