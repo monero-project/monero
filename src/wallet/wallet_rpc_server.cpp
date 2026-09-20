@@ -488,10 +488,10 @@ namespace tools
     req2.threads_count = 1;
     req2.do_background_mining = true;
     req2.ignore_battery = false;
-    r = m_wallet->invoke_http_json("/start_mining", req2, res);
+    r = m_wallet->invoke_http_json("/start_mining", req2, res2);
     if (!r || res2.status != CORE_RPC_STATUS_OK)
     {
-      MERROR("Failed to setup background mining: " << (r ? res.status : "No connection to daemon"));
+      MERROR("Failed to setup background mining: " << (r ? res2.status : "No connection to daemon"));
       return;
     }
 
