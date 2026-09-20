@@ -43,6 +43,7 @@
 
 #include <cryptonote_core/cryptonote_core.h>
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
+#include "cryptonote_protocol/block_entry_utils.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
 #include "net/network_throttle-detail.hpp"
@@ -83,96 +84,6 @@
 
 namespace cryptonote
 {
-  template <class CryptoHashContainer>
-  inline bool make_pool_supplement_from_block_entry(
-    const std::vector<cryptonote::tx_blob_entry>& tx_entries,
-    const CryptoHashContainer& blk_tx_hashes,
-    const bool allow_pruned,
-    cryptonote::pool_supplement& pool_supplement)
-  {
-    if (tx_entries.size() > blk_tx_hashes.size())
-    {
-      MERROR("Failed to make pool supplement: Too many transaction blobs!");
-      return false;
-    }
-
-    for (const cryptonote::tx_blob_entry& tx_entry: tx_entries)
-    {
-      const bool is_pruned = tx_entry.prunable_hash != crypto::null_hash;
-      if (is_pruned && !allow_pruned)
-      {
-        MERROR("Pruned transaction not allowed here");
-        return false;
-      }
-
-      cryptonote::transaction tx;
-      crypto::hash tx_hash;
-      bool parse_success = false;
-      const bool max_size_check = true;
-      if (is_pruned)
-      {
-        if ((parse_success = cryptonote::parse_and_validate_tx_base_from_blob(tx_entry.blob, tx, max_size_check)))
-          parse_success = cryptonote::get_pruned_transaction_hash(tx, tx_entry.prunable_hash, tx_hash);
-      }
-      else
-      {
-        parse_success = cryptonote::parse_and_validate_tx_from_blob(tx_entry.blob, tx, tx_hash, max_size_check);
-      }
-
-      if (!parse_success)
-      {
-        MERROR("failed to parse and/or validate transaction: "
-          << epee::string_tools::buff_to_hex_nodelimer(tx_entry.blob)
-        );
-        return false;
-      }
-      else if (!blk_tx_hashes.count(tx_hash))
-      {
-        MERROR("transaction " << tx_hash << " not in block");
-        return false;
-      }
-
-      pool_supplement.add_tx(tx_hash, std::move(tx), tx_entry.blob);
-    }
-
-    return true;
-  }
-
-  inline bool make_full_pool_supplement_from_block_entry(
-    const cryptonote::block_complete_entry& blk_entry,
-    cryptonote::pool_supplement& pool_supplement)
-  {
-    cryptonote::block blk;
-    if (!cryptonote::parse_and_validate_block_from_blob(blk_entry.block, blk))
-    {
-      MERROR("sent bad block: failed to parse and/or validate block: "
-        << epee::string_tools::buff_to_hex_nodelimer(blk_entry.block)
-      );
-      return false;
-    }
-
-    const std::unordered_set<crypto::hash> blk_tx_hashes(blk.tx_hashes.cbegin(), blk.tx_hashes.cend());
-
-    if (blk_tx_hashes.size() != blk_entry.txs.size())
-    {
-      MERROR("sent bad block entry: number of hashes is not equal number of tx blobs: "
-        << epee::string_tools::buff_to_hex_nodelimer(blk_entry.block)
-      );
-      return false;
-    }
-    else if (blk_tx_hashes.size() != blk.tx_hashes.size())
-    {
-      MERROR("sent bad block entry: there are duplicate tx hashes in parsed block: "
-        << epee::string_tools::buff_to_hex_nodelimer(blk_entry.block));
-      return false;
-    }
-
-    // We set `allow_pruned` equal to whether this block entry is pruned since the pruned flag
-    // should be checked anyways by the time we deserialize transactions
-    return make_pool_supplement_from_block_entry(blk_entry.txs, blk_tx_hashes, blk_entry.pruned, pool_supplement);
-  }
-
-
   //-----------------------------------------------------------------------------------------------------------------------
   template<class t_core>
     t_cryptonote_protocol_handler<t_core>::t_cryptonote_protocol_handler(t_core& rcore, nodetool::i_p2p_endpoint<connection_context>* p_net_layout, bool offline):m_core(rcore),
@@ -2914,4 +2825,3 @@ skip:
     m_core.stop();
   }
 } // namespace
-
