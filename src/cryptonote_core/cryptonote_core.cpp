@@ -1270,6 +1270,9 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   block_complete_entry get_block_complete_entry(block& b, tx_memory_pool &pool)
   {
+    const std::unordered_set<crypto::hash> tx_hashes(b.tx_hashes.cbegin(), b.tx_hashes.cend());
+    CHECK_AND_ASSERT_THROW_MES(tx_hashes.size() == b.tx_hashes.size(), "Duplicate transaction hashes in block");
+
     block_complete_entry bce;
     bce.block = cryptonote::block_to_blob(b);
     bce.block_weight = 0; // we can leave it to 0, those txes aren't pruned
