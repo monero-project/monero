@@ -5008,6 +5008,12 @@ public:
         return false;
       }
 
+      if(!wallet_dir.empty() && tools::wallet2::has_password_option(vm))
+      {
+        LOG_ERROR(tools::wallet_rpc_server::tr("--password is not allowed in combination with --wallet-dir"));
+        return false;
+      }
+
       if (!wallet_dir.empty())
       {
         try
