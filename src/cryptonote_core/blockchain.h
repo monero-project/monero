@@ -901,7 +901,7 @@ namespace cryptonote
      *
      * @return the version
      */
-    uint8_t get_current_hard_fork_version() const { return m_hardfork->get_current_version(); }
+    uint8_t get_current_hard_fork_version() const;
 
     /**
      * @brief returns the newest hardfork version known to the blockchain
@@ -909,13 +909,6 @@ namespace cryptonote
      * @return the version
      */
     uint8_t get_ideal_hard_fork_version() const { return m_hardfork->get_ideal_version(); }
-
-    /**
-     * @brief returns the next hardfork version
-     *
-     * @return the version
-     */
-    uint8_t get_next_hard_fork_version() const { return m_hardfork->get_next_version(); }
 
     /**
      * @brief returns the newest hardfork version voted to be enabled
@@ -934,7 +927,7 @@ namespace cryptonote
      *
      * @return the version
      */
-    uint8_t get_hard_fork_version(uint64_t height) const { return m_hardfork->get(height); }
+    uint8_t get_hard_fork_version(uint64_t height) const;
 
     /**
      * @brief returns the earliest block a given version may activate
@@ -1221,7 +1214,7 @@ namespace cryptonote
     checkpoints m_checkpoints;
     bool m_enforce_dns_checkpoints;
 
-    HardFork *m_hardfork;
+    std::optional<HardFork> m_hardfork;
 
     network_type m_nettype;
     bool m_offline;
