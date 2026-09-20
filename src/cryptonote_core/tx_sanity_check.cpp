@@ -49,7 +49,7 @@ bool tx_sanity_check(const cryptonote::blobdata &tx_blob, uint64_t rct_outs_avai
     return false;
   }
 
-  if (cryptonote::is_coinbase(tx))
+  if (tx.is_coinbase())
   {
     MERROR("Transaction is coinbase");
     return false;
