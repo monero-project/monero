@@ -129,7 +129,7 @@ endif()
 
 enable_language(C ASM)
 
-# Require C11/C++11 and disable extensions for all targets
+# Require C11/C++17 and disable extensions for all targets
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
