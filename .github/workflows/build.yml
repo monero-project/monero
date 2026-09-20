@@ -132,10 +132,10 @@ jobs:
 
   build-debian:
     # Oldest supported Debian version
-    name: 'Debian 11'
+    name: 'Debian 12'
     runs-on: ubuntu-latest
     container:
-      image: debian:11
+      image: debian:12
       env:
         DEBIAN_FRONTEND: noninteractive
     steps:
@@ -155,8 +155,8 @@ jobs:
         id: ccache-restore
         with:
           path: ~/.cache/ccache
-          key: ccache-debian-11-build-${{ github.sha }}
-          restore-keys: ccache-debian-11-build-
+          key: ccache-debian-12-build-${{ github.sha }}
+          restore-keys: ccache-debian-12-build-
       - uses: ./.github/actions/set-make-job-count
       - name: build
         env:
