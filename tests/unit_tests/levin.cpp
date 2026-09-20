@@ -567,9 +567,7 @@ TEST(make_fragment, multiple)
     EXPECT_TRUE(std::memcmp(std::addressof(header), fragment.data(), sizeof(header)) == 0);
 
     fragment.take_slice(sizeof(header));
-    header.m_flags = LEVIN_PACKET_REQUEST;
-    header.m_cb = bytes.size();
-    header.m_command = 114;
+    header = epee::levin::make_header(114, bytes.size(), LEVIN_PACKET_REQUEST, false);
 
     ASSERT_LE(sizeof(header), fragment.size());
     EXPECT_TRUE(std::memcmp(std::addressof(header), fragment.data(), sizeof(header)) == 0);
@@ -581,9 +579,7 @@ TEST(make_fragment, multiple)
 
     bytes.erase(0, 1024 - sizeof(header) * 2);
     fragment.take_slice(1024 - sizeof(header) * 2);
-    header.m_flags = 0;
-    header.m_cb = 1024 - sizeof(header);
-    header.m_command = 0;
+    header = epee::levin::make_header(0, 1024 - sizeof(header), 0, false);
 
     ASSERT_LE(sizeof(header), fragment.size());
     EXPECT_TRUE(std::memcmp(std::addressof(header), fragment.data(), sizeof(header)) == 0);
@@ -595,7 +591,7 @@ TEST(make_fragment, multiple)
 
     bytes.erase(0, 1024 - sizeof(header));
     fragment.take_slice(1024 - sizeof(header));
-    header.m_flags = LEVIN_PACKET_END;
+    header = epee::levin::make_header(0, 1024 - sizeof(header), LEVIN_PACKET_END, false);
 
     ASSERT_LE(sizeof(header), fragment.size());
     EXPECT_TRUE(std::memcmp(std::addressof(header), fragment.data(), sizeof(header)) == 0);

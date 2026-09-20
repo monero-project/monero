@@ -11,3 +11,9 @@
 [submodule "external/gtest"]
 	path = external/gtest
 	url = https://github.com/google/googletest.git
+[submodule "external/polyseed"]
+	path = external/polyseed
+	url = https://github.com/tevador/polyseed.git
+[submodule "external/utf8proc"]
+	path = external/utf8proc
+	url = https://github.com/JuliaStrings/utf8proc.git

@@ -143,9 +143,13 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
 
-  inline bool is_forbidden_ipv4_mapped_ipv6_address(const epee::net_utils::network_address& address)
+  inline bool is_forbidden_ipv6_address(const epee::net_utils::network_address& address)
   {
-    return bool(epee::net_utils::get_ipv4_mapped_address(address));
+    if (address.get_type_id() != epee::net_utils::ipv6_network_address::get_type_id())
+      return false;
+
+    const boost::asio::ip::address_v6 ip = address.as<const epee::net_utils::ipv6_network_address>().ip();
+    return ip.is_v4_mapped() || ip.is_unspecified();
   }
 
   inline bool should_skip_connect_address(const epee::net_utils::network_address& address, bool use_ipv6)
@@ -153,7 +157,7 @@ namespace nodetool
     if (address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id() && !use_ipv6)
       return true;
 
-    return is_forbidden_ipv4_mapped_ipv6_address(address);
+    return is_forbidden_ipv6_address(address);
   }
 
   inline bool is_same_p2p_connection_limit_host(const epee::net_utils::network_address& left, const epee::net_utils::network_address& right)
@@ -1284,7 +1288,8 @@ namespace nodetool
     typename COMMAND_HANDSHAKE::request arg;
     typename COMMAND_HANDSHAKE::response rsp;
     get_local_node_data(arg.node_data, zone);
-    m_payload_handler.get_payload_sync_data(arg.payload_data);
+    if (!just_take_peerlist)
+      m_payload_handler.get_payload_sync_data(arg.payload_data);
 
     epee::simple_event ev;
     std::atomic<bool> hsh_result(false);
@@ -1616,14 +1621,14 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::is_addr_recently_failed(const epee::net_utils::network_address& addr)
+  bool node_server<t_payload_net_handler>::is_addr_recently_failed(const epee::net_utils::network_address& addr, time_t forget_seconds)
   {
     CRITICAL_REGION_LOCAL(m_conn_fails_cache_lock);
     auto it = m_conn_fails_cache.find(addr.host_str());
     if(it == m_conn_fails_cache.end())
       return false;
 
-    if(time(NULL) - it->second > P2P_FAILED_ADDR_FORGET_SECONDS)
+    if(time(NULL) - it->second > forget_seconds)
       return false;
     else
       return true;
@@ -1961,7 +1966,7 @@ namespace nodetool
         pe_seed.adr = server.m_seed_nodes[current_index];
         if (is_peer_used(pe_seed))
           is_connected_to_at_least_one_seed_node = true;
-        else if (try_to_connect_and_handshake_with_new_peer(server.m_seed_nodes[current_index], true))
+        else if (!is_addr_recently_failed(pe_seed.adr, P2P_FAILED_SEED_ADDR_FORGET_SECONDS) && try_to_connect_and_handshake_with_new_peer(pe_seed.adr, true))
           break;
         if(++try_count > server.m_seed_nodes.size())
         {
@@ -2307,7 +2312,7 @@ namespace nodetool
       bool ignore = false;
       peerlist_entry &be = local_peerlist[i];
       epee::net_utils::network_address &na = be.adr;
-      if (is_forbidden_ipv4_mapped_ipv6_address(na))
+      if (is_forbidden_ipv6_address(na))
       {
         ignore = true;
       }
@@ -2364,7 +2369,7 @@ namespace nodetool
     LOG_TRACE_CC(context, "REMOTE PEERLIST: " << ENDL << print_peerlist_to_string(peerlist_));
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
     return m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.merge_peerlist(peerlist_, [this](const peerlist_entry &pe) {
-      return !is_forbidden_ipv4_mapped_ipv6_address(pe.adr) &&
+      return !is_forbidden_ipv6_address(pe.adr) &&
         !is_addr_recently_failed(pe.adr) && is_remote_host_allowed(pe.adr);
     });
   }
@@ -2646,7 +2651,7 @@ namespace nodetool
     std::vector<peerlist_entry> local_peerlist_new;
     zone.m_peerlist.get_peerlist_head(local_peerlist_new, true, max_peerlist_size);
     local_peerlist_new.erase(std::remove_if(local_peerlist_new.begin(), local_peerlist_new.end(), [](const peerlist_entry& peer) {
-      return is_forbidden_ipv4_mapped_ipv6_address(peer.adr);
+      return is_forbidden_ipv6_address(peer.adr);
     }), local_peerlist_new.end());
 
     /* Tor/I2P nodes receiving connections via forwarding (from tor/i2p daemon)
@@ -2773,7 +2778,7 @@ namespace nodetool
     //fill response
     zone.m_peerlist.get_peerlist_head(rsp.local_peerlist_new, true);
     rsp.local_peerlist_new.erase(std::remove_if(rsp.local_peerlist_new.begin(), rsp.local_peerlist_new.end(), [](const peerlist_entry& peer) {
-      return is_forbidden_ipv4_mapped_ipv6_address(peer.adr);
+      return is_forbidden_ipv6_address(peer.adr);
     }), rsp.local_peerlist_new.end());
     for (const auto &e: rsp.local_peerlist_new)
       context.sent_addresses.insert(e.adr);
@@ -3069,7 +3074,7 @@ namespace nodetool
       if (!zone.second.m_peerlist.get_random_gray_peer(pe))
         continue;
 
-      if (is_forbidden_ipv4_mapped_ipv6_address(pe.adr))
+      if (is_forbidden_ipv6_address(pe.adr))
       {
         zone.second.m_peerlist.remove_from_peer_gray(pe);
         LOG_PRINT_L2("PEER EVICTED FROM GRAY PEER LIST: address: " << pe.adr.host_str() << " Peer ID: " << peerid_to_string(pe.id));
@@ -3163,7 +3168,7 @@ namespace nodetool
     }
     else if (is_ipv6)
     {
-      if (epee::net_utils::get_ipv4_mapped_address(na))
+      if (is_forbidden_ipv6_address(na))
         return boost::none;
 
       const epee::net_utils::ipv6_network_address &ipv6 = na.as<const epee::net_utils::ipv6_network_address>();

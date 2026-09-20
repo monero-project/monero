@@ -191,11 +191,28 @@ TEST(node_server, ipv4_mapped_ipv6_address)
   };
   EXPECT_FALSE(epee::net_utils::get_ipv4_mapped_address(ipv6));
 
-  EXPECT_TRUE(nodetool::is_forbidden_ipv4_mapped_ipv6_address(mapped));
-  EXPECT_FALSE(nodetool::is_forbidden_ipv4_mapped_ipv6_address(ipv6));
+  EXPECT_TRUE(nodetool::is_forbidden_ipv6_address(mapped));
+  EXPECT_FALSE(nodetool::is_forbidden_ipv6_address(ipv6));
   EXPECT_TRUE(nodetool::should_skip_connect_address(mapped, true));
   EXPECT_TRUE(nodetool::should_skip_connect_address(ipv6, false));
   EXPECT_FALSE(nodetool::should_skip_connect_address(ipv6, true));
+}
+
+TEST(node_server, unspecified_ipv6_address)
+{
+  const epee::net_utils::network_address unspecified{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6::any(), 18080}
+  };
+  EXPECT_TRUE(nodetool::is_forbidden_ipv6_address(unspecified));
+  EXPECT_TRUE(nodetool::should_skip_connect_address(unspecified, true));
+  EXPECT_TRUE(nodetool::should_skip_connect_address(unspecified, false));
+
+  const epee::net_utils::network_address ipv6{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("2001:db8::1"), 18080}
+  };
+  EXPECT_FALSE(nodetool::is_forbidden_ipv6_address(ipv6));
+  EXPECT_FALSE(nodetool::should_skip_connect_address(ipv6, true));
+  EXPECT_TRUE(nodetool::should_skip_connect_address(ipv6, false));
 }
 
 TEST(node_server, p2p_connection_limit_ipv6_by_64)
@@ -352,7 +369,7 @@ namespace
   }
 }
 
-TEST(node_server, peerlist_merge_rejects_ipv4_mapped_ipv6_address)
+TEST(node_server, peerlist_merge_rejects_forbidden_ipv6_addresses)
 {
   boost::asio::ip::address_v6::bytes_type bytes = {};
   bytes[10] = 0xff;
@@ -366,15 +383,23 @@ TEST(node_server, peerlist_merge_rejects_ipv4_mapped_ipv6_address)
     epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes}, 18080}
   };
   const epee::net_utils::network_address ipv4{MAKE_IPV4_ADDRESS_PORT(11, 22, 33, 44, 18080)};
+  const epee::net_utils::network_address unspecified{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6::any(), 18080}
+  };
+  const epee::net_utils::network_address ipv6{
+    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("2001:db8::1"), 18080}
+  };
 
   std::vector<nodetool::peerlist_entry> remote_peerlist;
   remote_peerlist.push_back(make_peer(mapped, 1, 100));
   remote_peerlist.push_back(make_peer(ipv4, 2, 200));
+  remote_peerlist.push_back(make_peer(unspecified, 3, 300));
+  remote_peerlist.push_back(make_peer(ipv6, 4, 400));
 
   nodetool::peerlist_manager peerlist;
   ASSERT_TRUE(peerlist.init(nodetool::peerlist_types{}, false));
   ASSERT_TRUE(peerlist.merge_peerlist(remote_peerlist, [](const nodetool::peerlist_entry& pe) {
-    return !nodetool::is_forbidden_ipv4_mapped_ipv6_address(pe.adr);
+    return !nodetool::is_forbidden_ipv6_address(pe.adr);
   }));
 
   std::vector<nodetool::peerlist_entry> gray;
@@ -386,8 +411,11 @@ TEST(node_server, peerlist_merge_rejects_ipv4_mapped_ipv6_address)
     });
   };
   EXPECT_TRUE(contains_address(gray, ipv4));
+  EXPECT_TRUE(contains_address(gray, ipv6));
   EXPECT_FALSE(contains_address(gray, mapped));
   EXPECT_FALSE(contains_address(white, mapped));
+  EXPECT_FALSE(contains_address(gray, unspecified));
+  EXPECT_FALSE(contains_address(white, unspecified));
 }
 
 TEST(ban, add)
