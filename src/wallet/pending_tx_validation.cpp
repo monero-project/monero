@@ -97,12 +97,12 @@ static bool check_consistent_ins_outs_impl(const std::vector<T> &txes)
         for (const auto &src: get_tx_sources(tx))
         {
             CHECK_AND_ASSERT_THROW_MES(src.real_output < src.outputs.size(),
-                "has_consistent_ins_outs: ring sig index " << src.real_output << " out of input set size "
+                "check_consistent_ins_outs: ring sig index " << src.real_output << " out of input set size "
                 << src.outputs.size());
             const auto &dest = src.outputs[src.real_output].second.dest;
             const auto result = seen_ins.emplace(dest);
             CHECK_AND_ASSERT_THROW_MES(result.second,
-                "has_consistent_ins_outs: duplicate input pubkey");
+                "check_consistent_ins_outs: duplicate input pubkey");
         }
 
         // Outputs
@@ -113,7 +113,7 @@ static bool check_consistent_ins_outs_impl(const std::vector<T> &txes)
         {
             const auto result = destination_types.emplace(dest.addr, dest.is_subaddress);
             CHECK_AND_ASSERT_THROW_MES(result.second || result.first->second == dest.is_subaddress,
-                "has_consistent_ins_outs: duplicate output pubkey");
+                "check_consistent_ins_outs: duplicate destinations do not have matching subaddress designations");
         }
     }
     return true;

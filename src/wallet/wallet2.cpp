@@ -7850,12 +7850,16 @@ bool wallet2::parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsi
         LOG_PRINT_L0("Failed to parse data from unsigned tx");
         return false;
       }
-      wallet::check_consistent_ins_outs(exported_txs.txes);
     }
     catch (...)
     {
       LOG_PRINT_L0("Failed to parse data from unsigned tx");
       return false;
+    }
+    try { wallet::check_consistent_ins_outs(exported_txs.txes); }
+    catch (const std::exception &e)
+    {
+      LOG_PRINT_L0("Failed to validate unsigned txs: " << e.what());
     }
   }
   else
@@ -8372,12 +8376,20 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
         // SPECIAL CONDITION: before saving any info about the tx we should fully validate it. This
         // requires knowing the key images. parse_multisig_tx_from_str() is allowed to treat the
         // tx as informational, which permits unknown key images, but here we enforce it.
-        for (const auto idx : ptx.construction_data.selected_transfers)
+        try
         {
-          if (idx >= m_transfers.size() || !m_transfers[idx].m_key_image_known)
-            THROW_WALLET_EXCEPTION(error::multisig_import_needed);
+          for (const auto idx : ptx.construction_data.selected_transfers)
+          {
+            if (idx >= m_transfers.size() || !m_transfers[idx].m_key_image_known)
+              THROW_WALLET_EXCEPTION(error::multisig_import_needed);
+          }
+          this->sanity_check_pending_tx(ptx, false, true, std::nullopt, true);
         }
-        this->sanity_check_pending_tx(ptx, false, true, std::nullopt, true);
+        catch (const std::exception &e)
+        {
+          LOG_PRINT_L1("load_multisig_tx failed: " << e.what());
+          return false;
+        }
 
         m_tx_keys[txid] = ptx.tx_key;
         m_additional_tx_keys[txid] = ptx.additional_tx_keys;
