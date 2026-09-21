@@ -174,12 +174,15 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
       tx_verification_context tvc = AUTO_VAL_INIT(tvc);
       CHECK_AND_ASSERT_THROW_MES(tx_blob.prunable_hash == crypto::null_hash,
         "block entry must not contain pruned txs");
-      core.handle_incoming_tx(tx_blob.blob, tvc, relay_method::block, true);
-      if(tvc.m_verifivation_failed)
+      cryptonote::transaction tx;
+      crypto::hash txid;
+      const bool parse_success = cryptonote::parse_and_validate_tx_from_blob(tx_blob.blob, tx, txid, true);
+      if (!parse_success
+        || !core.handle_incoming_tx(tx_blob.blob, tx, txid, tvc, relay_method::block, true)
+        || tvc.m_verifivation_failed)
       {
-        cryptonote::transaction transaction;
-        if (cryptonote::parse_and_validate_tx_from_blob(tx_blob.blob, transaction))
-          MERROR("Transaction verification failed, tx_id = " << cryptonote::get_transaction_hash(transaction));
+        if (parse_success)
+          MERROR("Transaction verification failed, tx_id = " << txid);
         else
           MERROR("Transaction verification failed, transaction is unparsable");
         core.cleanup_handle_incoming_blocks();

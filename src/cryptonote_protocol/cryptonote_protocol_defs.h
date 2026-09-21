@@ -32,8 +32,11 @@
 
 #include "crypto/hash.h"
 #include "cryptonote_basic/blobdatatype.h"
+#include "byte_slice.h"
+#include "common/varint.h"
 #include "misc_language.h"
 #include "serialization/keyvalue_serialization.h"
+#include "storages/portable_storage_template_helper.h"
 
 #include <list>
 
@@ -200,15 +203,50 @@ namespace cryptonote
       std::vector<blobdata>   txs;
       std::string _; // padding
       bool dandelionpp_fluff; //zero initialization defaults to stem mode
+      uint64_t nonce; // if responding to NOTIFY_REQUEST_TX_POOL_TXS, includes nonce in resp
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txs)
         KV_SERIALIZE(_)
         KV_SERIALIZE_OPT(dandelionpp_fluff, true) // backwards compatible mode is fluff
+        KV_SERIALIZE_OPT(nonce, (uint64_t)0)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
   };
+
+  struct tx_request_padding
+  {
+    void operator()(NOTIFY_NEW_TRANSACTIONS::request& request) const
+    {
+      size_t bytes = 9 /* header */ + 4 /* 1 + 'txs' */ + tools::get_varint_data(request.txs.size()).size();
+      for(auto tx_blob_it = request.txs.begin(); tx_blob_it!=request.txs.end(); ++tx_blob_it)
+        bytes += tools::get_varint_data(tx_blob_it->size()).size() + tx_blob_it->size();
+
+      // stuff some dummy bytes in to stay safe from traffic volume analysis
+      static constexpr const size_t granularity = 1024;
+      size_t padding = granularity - bytes % granularity;
+      const size_t overhead = 2 /* 1 + '_' */ + tools::get_varint_data(padding).size();
+      if (overhead > padding)
+        padding = 0;
+      else
+        padding -= overhead;
+      request._ = std::string(padding, ' ');
+
+      epee::byte_slice arg_buff;
+      epee::serialization::store_t_to_binary(request, arg_buff);
+
+      // we probably lowballed the payload size a bit, so added a but too much. Fix this now.
+      size_t remove = arg_buff.size() % granularity;
+      if (remove > request._.size())
+        request._.clear();
+      else
+        request._.resize(request._.size() - remove);
+      // if the size of _ moved enough, we might lose byte in size encoding, we don't care
+    }
+  };
+  inline constexpr tx_request_padding pad_tx_request{};
+
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -375,6 +413,52 @@ namespace cryptonote
         KV_SERIALIZE_CONTAINER_POD_AS_BLOB(hashes)
       END_KV_SERIALIZE_MAP()
     };
+    typedef epee::misc_utils::struct_init<request_t> request;
+  };
+
+  /************************************************************************
+  * Announces new transaction hashes that                                 *
+  * the sender believes the receiver may not have.                        *
+  * The receiver can pull which hashes are missing locally                *
+  * and optionally request the actual serialized transactions for them.   *
+  *************************************************************************/
+  struct NOTIFY_TX_POOL_HASH
+  {
+    const static int ID = BC_COMMANDS_POOL_BASE + 11;
+
+    struct request_t
+    {
+      std::vector<crypto::hash> t;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(t)
+      END_KV_SERIALIZE_MAP()
+    };
+
+    typedef epee::misc_utils::struct_init<request_t> request;
+  };
+
+  /************************************************************************
+  * Requests the actual transaction data corresponding                    *
+  * to a set of transaction hashes.                                       *
+  * The receiver should look up each transaction in its own pool          *
+  * or memory and respond with the serialized version, if known.          *
+  *************************************************************************/
+  struct NOTIFY_REQUEST_TX_POOL_TXS
+  {
+    const static int ID = BC_COMMANDS_POOL_BASE + 12;
+
+    struct request_t
+    {
+      uint64_t n; // request nonce
+      std::vector<crypto::hash> t;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(n)
+        KV_SERIALIZE_CONTAINER_POD_AS_BLOB(t)
+      END_KV_SERIALIZE_MAP()
+    };
+
     typedef epee::misc_utils::struct_init<request_t> request;
   };
     

@@ -981,4 +981,3 @@ TEST(boosted_tcp_server, write_failure)
   EXPECT_LE(1u, context.run());
   EXPECT_EQ(connection_t::WASTED, out_connection->get_status());
 }
-

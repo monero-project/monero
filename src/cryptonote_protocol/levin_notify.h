@@ -39,6 +39,7 @@
 #include "cryptonote_protocol/fwd.h"
 #include "net/enums.h"
 #include "span.h"
+#include "crypto/hash.h"
 
 namespace epee
 {
@@ -102,7 +103,7 @@ namespace levin
     //! Probe for new outbound connection - skips if not needed.
     void new_out_connection();
 
-    void on_handshake_complete(const boost::uuids::uuid &id, bool is_income);
+    void on_handshake_complete(const boost::uuids::uuid &id, bool is_income, bool tx_relay_v2);
     void on_connection_close(const boost::uuids::uuid &id);
 
     //! Run the logic for the next epoch immediately. Only use in testing.
@@ -124,12 +125,13 @@ namespace levin
           enabled.
 
         \param txs The transactions that need to be serialized and relayed.
+        \param tx_hashes The hashes of all txs.
         \param source The source of the notification. `is_nil()` indicates this
           node is the source. Dandelion++ will use this to map a source to a
           particular stem.
 
       \return True iff the notification is queued for sending. */
-    bool send_txs(std::vector<blobdata> txs, const boost::uuids::uuid& source, relay_method tx_relay);
+    bool send_txs(std::vector<blobdata> txs, std::vector<crypto::hash> &&tx_hashes, const boost::uuids::uuid& source, relay_method tx_relay);
   };
 } // levin
 } // net
