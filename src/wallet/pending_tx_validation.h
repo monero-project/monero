@@ -50,8 +50,9 @@ namespace wallet
 // Checks that inputs are not duplicated across transactions in the set.
 // Checks that duplicate destination addresses across the tx set have the same normal/subaddress
 // designations.
-// *Only* for checking consistency between tx proposals/partial txs. Use `sanity_check_pending_tx` to
-// validate internal consistency for individual partial txs.
+// *Only* for checking consistency between txs (which may be proposals, partially signed, or fully signed).
+// Use `sanity_check_pending_tx` to validate internal consistency for individual `pending_tx`, or
+// `sanity_check_pending_tx_set` to check consistent ins/outs + internals.
 void check_consistent_ins_outs(const std::vector<wallet2::tx_construction_data> &txes);
 void check_consistent_ins_outs(const std::vector<wallet2::pending_tx> &txes);
 /**
