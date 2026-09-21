@@ -26,6 +26,8 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+add_subdirectory(gen_corpus)
+
 if(OSSFUZZ)
 # Add the include path for <fuzzer/FuzzedDataProvider.h>
 include_directories(${CMAKE_SOURCE_DIR}/tests/fuzz/include)
