@@ -71,6 +71,13 @@ TEST(ZmqFullMessage, InvalidRequest)
     (cryptonote::rpc::FullMessage{"{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":3,\"params\":[]}", true}),
     cryptonote::json::WRONG_TYPE
   );
+
+  std::string trailing_bytes = "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"foo\",\"params\":[]}";
+  trailing_bytes.append("\0junk", 5);
+  EXPECT_THROW(
+    (cryptonote::rpc::FullMessage{std::move(trailing_bytes), true}),
+    cryptonote::json::PARSE_FAIL
+  );
 }
 
 TEST(ZmqFullMessage, Request)
@@ -82,6 +89,11 @@ TEST(ZmqFullMessage, Request)
 
   cryptonote::rpc::FullMessage parsed{request, true};
   EXPECT_STREQ("foo", parsed.getRequestType().c_str());
+
+  cryptonote::rpc::FullMessage embedded_null{
+    "{\"jsonrpc\":\"2.0\",\"id\":0,\"method\":\"foo\\u0000bar\",\"params\":[]}", true
+  };
+  EXPECT_EQ(std::string("foo\0bar", 7), embedded_null.getRequestType());
 }
 
 TEST(ZmqRestrictedMethods, BasicCoverage)

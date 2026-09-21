@@ -90,6 +90,9 @@ void Message::fromJson(const rapidjson::Value& val)
 FullMessage::FullMessage(std::string&& json_string, bool request)
   : contents(std::move(json_string)), doc()
 {
+  if (contents.find('\0') != std::string::npos)
+    throw cryptonote::json::PARSE_FAIL();
+
   /* Insitu parsing does not copy data from `contents` to DOM,
      accelerating string heavy content. */
   doc.ParseInsitu<rapidjson::kParseIterativeFlag>(std::addressof(contents[0]));
@@ -117,7 +120,8 @@ FullMessage::FullMessage(std::string&& json_string, bool request)
 
 std::string FullMessage::getRequestType() const
 {
-  return get_method_field(doc).GetString();
+  const rapidjson::Value& method = get_method_field(doc);
+  return {method.GetString(), method.GetStringLength()};
 }
 
 const rapidjson::Value& FullMessage::getMessage() const
