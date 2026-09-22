@@ -362,6 +362,8 @@ namespace epee
             ASSERT_MES_AND_THROW("WRONG JSON STATE");
           }
         }
+
+        ASSERT_MES_AND_THROW("Unexpected end of JSON data");
       }
 /*
 {
@@ -399,6 +401,17 @@ namespace epee
         try
         {
           run_handler(nullptr, sec_buf_begin, buff_json.end(), stg, 0);
+
+          CHECK_AND_ASSERT_THROW_MES(
+            sec_buf_begin != buff_json.end() && *sec_buf_begin == '}',
+            "JSON object did not terminate");
+
+          std::string::const_iterator it = sec_buf_begin;
+          for (++it; it != buff_json.end(); ++it)
+            CHECK_AND_ASSERT_THROW_MES(
+              epee::misc_utils::parse::isspace(*it),
+              "Unexpected character after JSON data");
+
           return true;
         }
         catch(const std::exception& ex)
