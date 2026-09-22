@@ -8388,7 +8388,7 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
         }
         catch (const std::exception &e)
         {
-          LOG_PRINT_L1("load_multisig_tx failed: " << e.what());
+          LOG_PRINT_L0("load_multisig_tx failed: " << e.what());
           return false;
         }
 
