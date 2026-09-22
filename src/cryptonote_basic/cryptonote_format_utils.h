@@ -57,7 +57,7 @@ namespace cryptonote
   bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash, const bool max_size_check = false);
   bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, crypto::hash& tx_hash, const bool max_size_check = false);
   bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, const bool max_size_check = false);
-  bool parse_and_validate_tx_base_from_blob(const blobdata_ref& tx_blob, transaction& tx, const bool max_size_check = false);
+  bool parse_and_validate_tx_base_from_blob(const blobdata_ref& tx_blob, transaction& tx, const bool max_size_check = false, const bool require_eof = false);
   /**
    * @brief extract transaction version from transaction blob
    * @param tx_blob transction blob
