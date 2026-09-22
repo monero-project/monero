@@ -45,7 +45,8 @@ N_MONERODS = 5
 # 4 wallets connected to the main offline monerod
 # 1 wallet connected to the first local online monerod
 # 1 offline wallet
-N_WALLETS = 7
+# 1 offline wallet generated from a JSON file with a Polyseed
+N_WALLETS = 8
 
 WALLET_DIRECTORY = builddir + "/functional-tests-directory"
 FUNCTIONAL_TESTS_DIRECTORY = builddir + "/tests/functional_tests"
@@ -69,7 +70,12 @@ wallet_extra = [
   ["--daemon-port", "18182", "--disable-rpc-login"],
   ["--offline", "--disable-rpc-login"],
   ["--daemon-port", "18184", "--daemon-login", "md5_lover:Z1ON0101", "--rpc-login", "kyle:reveille"],
+  ["--offline", "--disable-rpc-login", "--generate-from-json", WALLET_DIRECTORY + "/polyseed.json"],
 ]
+
+os.makedirs(WALLET_DIRECTORY, exist_ok = True)
+with open(WALLET_DIRECTORY + "/polyseed.json", "w") as f:
+  f.write('{"version": 1, "filename": "", "password": "", "seed": "pulse tone truth head invite orphan sock wet crumble oven price corn pilot antenna luxury strategy", "seed_passphrase": "abc"}')
 
 command_lines = []
 processes = []
@@ -87,6 +93,10 @@ for i in range(N_WALLETS):
   command_lines.append([str(18090+i) if x == "wallet_port" else x for x in wallet_base])
   if i < len(wallet_extra):
     command_lines[-1] += wallet_extra[i]
+    if "--generate-from-json" in wallet_extra[i] and "--wallet-dir" in command_lines[-1]:
+      # monero-wallet-rpc ignores --generate-from-json when --wallet-dir is given
+      idx = command_lines[-1].index("--wallet-dir")
+      del command_lines[-1][idx:idx+2]
   outputs.append(open(FUNCTIONAL_TESTS_DIRECTORY + '/wallet' + str(i) + '.log', 'a+'))
   ports.append(18090+i)
 
