@@ -7860,6 +7860,7 @@ bool wallet2::parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsi
     catch (const std::exception &e)
     {
       LOG_PRINT_L0("Failed to validate unsigned txs: " << e.what());
+      return false;
     }
   }
   else
