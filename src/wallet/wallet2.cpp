@@ -1314,6 +1314,16 @@ bool wallet2::has_password_option(const boost::program_options::variables_map& v
   return command_line::has_arg(vm, options().password);
 }
 
+bool wallet2::has_offline_option(const boost::program_options::variables_map& vm)
+{
+  return command_line::get_arg(vm, options().offline);
+}
+
+bool wallet2::has_dns_option(const boost::program_options::variables_map& vm)
+{
+  return !command_line::get_arg(vm, options().no_dns);
+}
+
 std::string wallet2::device_name_option(const boost::program_options::variables_map& vm)
 {
   return command_line::get_arg(vm, options().hw_device);
