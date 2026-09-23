@@ -67,6 +67,7 @@
 #include <stdexcept>
 #include "wallet/message_store.h"
 #include "QrCode.hpp"
+#include "net/parse.h"
 
 #ifdef WIN32
 #include <boost/locale.hpp>
@@ -180,7 +181,7 @@ namespace
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
 
   const char* USAGE_START_MINING("start_mining [<number_of_threads>] [bg_mining] [ignore_battery]");
-  const char* USAGE_SET_DAEMON("set_daemon <host>[:<port>] [trusted|untrusted|this-is-probably-a-spy-node]");
+  const char* USAGE_SET_DAEMON("set_daemon <host>[:<port>] [trusted|untrusted|this-is-probably-a-spy-node] [login=<username>[:<password>]] [proxy=<proxy>]");
   const char* USAGE_SHOW_BALANCE("balance [detail]");
   const char* USAGE_INCOMING_TRANSFERS("incoming_transfers [available|unavailable] [verbose] [uses] [index=<N1>[,<N2>[,...]]]");
   const char* USAGE_PAYMENTS("payments <PID_1> [<PID_2> ... <PID_N>]");
@@ -4659,8 +4660,8 @@ bool simple_wallet::try_connect_to_daemon(bool silent, uint32_t* version)
           "Please make sure the daemon is running the latest version or change the daemon address using the 'set_daemon' command.");
       else
         fail_msg_writer() << tr("wallet failed to connect to daemon: ") << m_wallet->get_daemon_address() << ". " <<
-          boost::format(tr("Daemon either is not started or the wrong port was passed. "
-          "Please make sure a %sdaemon is running or change the daemon address using the 'set_daemon' command."))
+          boost::format(tr("Daemon either is not started or the wrong port, wrong daemon login credentials or wrong proxy was passed. "
+          "Please make sure a %sdaemon is running or change the daemon settings using the 'set_daemon' command."))
             % (m_wallet->nettype() == TESTNET ? "testnet " : m_wallet->nettype() == STAGENET ? "stagenet " : "");
     }
     return false;
@@ -5466,7 +5467,7 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
 {
   std::string daemon_url;
 
-  if (args.size() < 1)
+  if (args.size() < 1 || args.size() > 4)
   {
     PRINT_USAGE(USAGE_SET_DAEMON);
     return true;
@@ -5500,17 +5501,49 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
     }
 
     std::string trusted;
-    if (args.size() == 2)
+
+    boost::optional<epee::net_utils::http::login> daemon_login = boost::none;
+    std::string proxy_address;
+    bool proxy_explicitly_set = false;
+    for (size_t i = 1; i < args.size(); ++i)
     {
-      if (args[1] == "trusted")
+      // trusted / untrusted
+      if (args[i] == "trusted" && trusted.empty())
         trusted = "trusted";
-      else if (args[1] == "untrusted")
+      else if (args[i] == "untrusted" && trusted.empty())
         trusted = "untrusted";
-      else if (args[1] == "this-is-probably-a-spy-node")
+      else if (args[i] == "this-is-probably-a-spy-node" && trusted.empty())
         trusted = "this-is-probably-a-spy-node";
+      // daemon RPC login
+      else if (args[i].rfind("login=", 0) == 0)
+      {
+        std::function<boost::optional<tools::password_container>(const char *, bool)> pw_prompter = password_prompter;
+        auto parsed_login = tools::login::parse(args[i].substr(6), /* verify */ false, [pw_prompter](bool verify) {
+            if (!pw_prompter)
+            {
+              MERROR("Password needed without prompt function");
+              return boost::optional<tools::password_container>();
+            }
+            return pw_prompter("Daemon client password", verify);
+          }
+        );
+
+        if (!parsed_login)
+        {
+          fail_msg_writer() << tr("Failed to parse daemon rpc login");
+          return true;
+        }
+        daemon_login.emplace(std::move(parsed_login->username), std::move(parsed_login->password).password());
+      }
+      // proxy address
+      else if (args[i].rfind("proxy=", 0) == 0)
+      {
+        proxy_address = args[i].substr(6);
+        proxy_explicitly_set = true;
+      }
       else
       {
-        fail_msg_writer() << tr("Expected trusted, untrusted or this-is-probably-a-spy-node got ") << args[1];
+        fail_msg_writer() << tr("Expected either one of `trusted`, `untrusted` or `this-is-probably-a-spy-node`, or `") << "login=" << tr("<username>[:<password>]`, or `") << "proxy=" << tr("[<ip>:]<port>`");
         return true;
       }
     }
@@ -5528,19 +5561,46 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
         message_writer(console_color_red) << tr("Warning: connecting to a non-local daemon without SSL, passive adversaries will be able to spy on you.");
     }
 
-    LOCK_IDLE_SCOPE();
-    m_wallet->init(daemon_url);
+    // Keep previous proxy setting if not explicitly set
+    if (proxy_address.empty() && !proxy_explicitly_set)
+      proxy_address = m_wallet->get_proxy();
 
-    if (!trusted.empty())
+    std::string proxy_msg;
+    if (!proxy_address.empty())
     {
-      m_wallet->set_trusted_daemon(trusted == "trusted");
+      auto proxy_endpoint = net::socks::endpoint::get(proxy_address);
+      if (proxy_endpoint)
+      {
+        std::stringstream ss;
+        ss << proxy_endpoint->address;
+        proxy_msg = ", over proxy @ " + ss.str();
+      }
+      else
+      {
+        fail_msg_writer() << tr("Failed to get proxy");
+        return true;
+      }
     }
-    else
+
+    LOCK_IDLE_SCOPE();
+    if (!m_wallet->set_daemon(
+            daemon_url,
+            daemon_login,
+            trusted == "trusted",
+            epee::net_utils::ssl_support_t::e_ssl_support_autodetect,
+            proxy_address))
     {
-      m_wallet->set_trusted_daemon(false);
+      fail_msg_writer() << tr("Failed to set daemon");
+      return true;
+    }
+
+    // if arg for trusted_daemon is provided, we use that above for set_daemon()
+    if (trusted.empty())
+    {
       try
       {
-        if (tools::is_local_address(m_wallet->get_daemon_address()))
+        // automatically set "trusted" iff the daemon is local and no proxy is used
+        if (tools::is_local_address(m_wallet->get_daemon_address()) && proxy_address.empty())
         {
           MINFO(tr("Daemon is local, assuming trusted"));
           m_wallet->set_trusted_daemon(true);
@@ -5555,7 +5615,7 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
       return true;
     }
 
-    success_msg_writer() << boost::format("Daemon set to %s, %s") % daemon_url % (m_wallet->is_trusted_daemon() ? tr("trusted") : tr("untrusted"));
+    success_msg_writer() << boost::format("Daemon set to %s, %s%s") % daemon_url % (m_wallet->is_trusted_daemon() ? tr("trusted") : tr("untrusted")) % proxy_msg;
   } else {
     fail_msg_writer() << tr("This does not seem to be a valid daemon URL.");
   }
