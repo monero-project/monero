@@ -235,10 +235,11 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
         return false;
       }
 
-      // if on last output and pmax_related_block_height not null pointer
-      if(++count == absolute_offsets.size() && pmax_related_block_height)
+      ++count;
+      // use the highest block of any ring member: absolute offsets are not guaranteed to be
+      // increasing, so the last member is not necessarily the most recent
+      if(pmax_related_block_height)
       {
-        // set *pmax_related_block_height to tx block height for this output
         auto h = output_index.height;
         if(*pmax_related_block_height < h)
         {
