@@ -66,7 +66,8 @@ namespace epee
       const std::size_t max_public_ip_connections = DEFAULT_RPC_MAX_CONNECTIONS_PER_PUBLIC_IP,
       const std::size_t max_private_ip_connections = DEFAULT_RPC_MAX_CONNECTIONS_PER_PRIVATE_IP,
       const std::size_t max_connections = DEFAULT_RPC_MAX_CONNECTIONS,
-      const std::size_t response_soft_limit = DEFAULT_RPC_SOFT_LIMIT_SIZE)
+      const std::size_t response_soft_limit = DEFAULT_RPC_SOFT_LIMIT_SIZE,
+      const bool disable_md5 = false)
     {
       if (max_connections < max_public_ip_connections)
         throw std::invalid_argument{"Max public IP connections cannot be more than max connections"};
@@ -88,6 +89,7 @@ namespace epee
       m_net_server.get_config_object().m_max_public_ip_connections = max_public_ip_connections;
       m_net_server.get_config_object().m_max_private_ip_connections = max_private_ip_connections;
       m_net_server.get_config_object().m_max_connections = max_connections;
+      m_net_server.get_config_object().m_disable_md5 = disable_md5;
       m_net_server.set_response_soft_limit(response_soft_limit);
       m_net_server.set_connection_limit(this);
 

@@ -742,6 +742,113 @@ TEST(HTTP_Server_Auth, Algorithms)
   }
 }
 
+TEST(HTTP_Server_Auth, DisableMD5_Algorithms)
+{
+  // With "--disable-md5", only SHA-256 and SHA-256-sess should be advertised
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng, true};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+
+  const auto parsed = parse_response(*response);
+  ASSERT_EQ(2u, parsed.size()); // sha256, sha256-sess only
+  EXPECT_STREQ(u8"SHA-256", parsed[0].at(u8"algorithm").c_str());
+  EXPECT_STREQ(u8"SHA-256-sess", parsed[1].at(u8"algorithm").c_str());
+
+  for (const auto& challenge : parsed)
+  {
+    EXPECT_STREQ(u8"auth", challenge.at(u8"qop").c_str());
+    EXPECT_STREQ(u8"monero-rpc", challenge.at(u8"realm").c_str());
+    EXPECT_EQ(24u, challenge.at(u8"nonce").size());
+    EXPECT_STREQ(u8"false", challenge.at(u8"stale").c_str());
+  }
+}
+
+TEST(HTTP_Server_Auth, DisableMD5_RejectsMD5)
+{
+  // With "--disable-md5", MD5 auth response must be rejected
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng, true};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+
+  const auto fields = parse_response(*response);
+  ASSERT_EQ(2u, fields.size());
+
+  const std::string& nonce = fields[0].at(u8"nonce");
+  const std::string uri{"/some_foo_thing"};
+
+  const std::string a1 = get_a1(user, fields);
+  const std::string a2 = get_a2(uri);
+
+  const std::string auth_code = md5_hex(
+    boost::join(std::vector<std::string>{md5_hex(a1), nonce, md5_hex(a2)}, u8":")
+  );
+
+  const auto request = make_request({
+    {u8"algorithm", u8"md5"},
+    {u8"nonce", quoted(nonce)},
+    {u8"realm", quoted(fields[0].at(u8"realm"))},
+    {u8"response", quoted(auth_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  }, uri);
+
+  // MD5 auth must be rejected
+  const auto rejected = auth.get_response(request);
+  ASSERT_TRUE(bool(rejected));
+  EXPECT_TRUE(is_unauthorized(*rejected));
+
+  const auto request_default = make_request({
+    {u8"nonce", quoted(nonce)},
+    {u8"realm", quoted(fields[0].at(u8"realm"))},
+    {u8"response", quoted(auth_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  }, uri);
+
+  const auto rejected_default = auth.get_response(request_default);
+  ASSERT_TRUE(bool(rejected_default));
+  EXPECT_TRUE(is_unauthorized(*rejected_default));
+}
+
+TEST(HTTP_Server_Auth, DisableMD5_AcceptsSHA256)
+{
+  // With "--disable-md5", SHA-256 auth must still succeed
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng, true};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+
+  const auto fields = parse_response(*response);
+  ASSERT_EQ(2u, fields.size());
+
+  const std::string& nonce = fields[0].at(u8"nonce");
+  const std::string uri{"/some_foo_thing"};
+
+  const std::string a1 = get_a1(user, fields);
+  const std::string a2 = get_a2(uri);
+
+  const std::string auth_code = sha256_hex(
+    boost::join(std::vector<std::string>{sha256_hex(a1), nonce, sha256_hex(a2)}, u8":")
+  );
+
+  const auto request = make_request({
+    {u8"algorithm", u8"sha-256"},
+    {u8"nonce", quoted(nonce)},
+    {u8"realm", quoted(fields[0].at(u8"realm"))},
+    {u8"response", quoted(auth_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  }, uri);
+
+  // SHA-256 auth must succeed
+  EXPECT_FALSE(bool(auth.get_response(request)));
+}
+
 TEST(HTTP_Server_Auth, SHA256)
 {
   http::login user{"foo", "bar"};
