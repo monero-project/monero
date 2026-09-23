@@ -7317,7 +7317,7 @@ void wallet2::get_payments(const crypto::hash& payment_id, std::list<wallet2::pa
 {
   auto range = m_payments.equal_range(payment_id);
   std::for_each(range.first, range.second, [&payments, &min_height, &subaddr_account, &subaddr_indices](const payment_container::value_type& x) {
-    if (min_height < x.second.m_block_height &&
+    if (min_height <= x.second.m_block_height &&
       (!subaddr_account || *subaddr_account == x.second.m_subaddr_index.major) &&
       (subaddr_indices.empty() || subaddr_indices.count(x.second.m_subaddr_index.minor) == 1))
     {
@@ -7330,7 +7330,7 @@ void wallet2::get_payments(std::list<std::pair<crypto::hash,wallet2::payment_det
 {
   auto range = std::make_pair(m_payments.begin(), m_payments.end());
   std::for_each(range.first, range.second, [&payments, &min_height, &max_height, &subaddr_account, &subaddr_indices](const payment_container::value_type& x) {
-    if (min_height < x.second.m_block_height && max_height >= x.second.m_block_height &&
+    if (min_height <= x.second.m_block_height && max_height >= x.second.m_block_height &&
       (!subaddr_account || *subaddr_account == x.second.m_subaddr_index.major) &&
       (subaddr_indices.empty() || subaddr_indices.count(x.second.m_subaddr_index.minor) == 1))
     {
@@ -7343,7 +7343,7 @@ void wallet2::get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirm
     uint64_t min_height, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
 {
   for (auto i = m_confirmed_txs.begin(); i != m_confirmed_txs.end(); ++i) {
-    if (i->second.m_block_height <= min_height || i->second.m_block_height > max_height)
+    if (i->second.m_block_height < min_height || i->second.m_block_height > max_height)
       continue;
     if (subaddr_account && *subaddr_account != i->second.m_subaddr_account)
       continue;
