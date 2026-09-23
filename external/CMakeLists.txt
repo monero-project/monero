@@ -34,3 +34,12 @@ add_subdirectory(qrcodegen)
 add_subdirectory(randomx EXCLUDE_FROM_ALL)
 add_subdirectory(polyseed EXCLUDE_FROM_ALL)
 add_subdirectory(utf8proc EXCLUDE_FROM_ALL)
+
+# RapidJSON hasn't been updated in a year, and their minimum CMake version is
+# out-of-date. Recreate their RapidJSON INTERFACE target here
+add_library(RapidJSON INTERFACE)
+target_include_directories(RapidJSON INTERFACE rapidjson/include)
+
+# Add an INTERFACE library for old Boost portable archive headers
+add_library(Boost_PORTABLE_ARCHIVE_LIBRARY INTERFACE)
+target_include_directories(Boost_PORTABLE_ARCHIVE_LIBRARY INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
