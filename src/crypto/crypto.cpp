@@ -276,6 +276,7 @@ namespace crypto {
     ge_add(&point4, &point1, &point3);
     ge_p1p1_to_p2(&point5, &point4);
     ge_tobytes(&derived_key, &point5);
+    memwipe(&scalar, sizeof(scalar));
     return true;
   }
 
@@ -285,6 +286,7 @@ namespace crypto {
     assert(sc_check(&base) == 0);
     derivation_to_scalar(derivation, output_index, scalar);
     sc_add(&unwrap(derived_key), &unwrap(base), &scalar);
+    memwipe(&scalar, sizeof(scalar));
   }
 
   bool crypto_ops::derive_subaddress_public_key(const public_key &out_key, const key_derivation &derivation, std::size_t output_index, public_key &derived_key) {
@@ -303,6 +305,7 @@ namespace crypto {
     ge_sub(&point4, &point1, &point3);
     ge_p1p1_to_p2(&point5, &point4);
     ge_tobytes(&derived_key, &point5);
+    memwipe(&scalar, sizeof(scalar));
     return true;
   }
 
