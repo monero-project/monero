@@ -14,7 +14,6 @@ monero_add_library(polyseed_wrapper
         ${polyseed_headers}
         ${polyseed_private_headers}
 )
-
 target_link_libraries(polyseed_wrapper
 PUBLIC
         polyseed_static
@@ -24,3 +23,7 @@ PUBLIC
 PRIVATE
         ${EXTRA_LIBRARIES}
 )
+target_include_directories(polyseed_wrapper
+PUBLIC
+        "${PROJECT_SOURCE_DIR}/external"
+        "${PROJECT_SOURCE_DIR}/external/polyseed/include")

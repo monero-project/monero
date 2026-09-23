@@ -146,25 +146,29 @@ target_link_libraries(rpc_pub
     ${Boost_THREAD_LIBRARY})
 
 target_link_libraries(daemon_messages
-  LINK_PRIVATE
+  PUBLIC
     cryptonote_core
     cryptonote_protocol
-    version
     serialization
+    RapidJSON
+    version
+  PRIVATE
     ${EXTRA_LIBRARIES})
 
 target_link_libraries(daemon_rpc_server
-  LINK_PRIVATE
+  PUBLIC
     rpc
     rpc_pub
     cryptonote_core
     cryptonote_protocol
     version
     daemon_messages
+    RapidJSON
     serialization
     wire-json
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+  PRIVATE
     PkgConfig::libzmq
     ${EXTRA_LIBRARIES})

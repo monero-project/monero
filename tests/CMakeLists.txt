@@ -122,6 +122,8 @@ endforeach ()
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/benchmark.h.in" "${MONERO_GENERATED_HEADERS_DIR}/tests/benchmark.h")
 monero_add_minimal_executable(monero-wallet-crypto-bench benchmark.cpp ${BENCH_OBJECTS})
 target_link_libraries(monero-wallet-crypto-bench cncrypto)
+target_include_directories(monero-wallet-crypto-bench
+  PRIVATE "${PROJECT_SOURCE_DIR}/external/supercop/include")
 
 add_test(NAME wallet-crypto-bench COMMAND monero-wallet-crypto-bench)
 
