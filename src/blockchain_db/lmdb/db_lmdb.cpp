@@ -356,6 +356,7 @@ typedef struct outtx {
 } outtx;
 
 std::atomic<uint64_t> mdb_txn_safe::num_active_txns{0};
+thread_local uint64_t mdb_txn_safe::num_active_txns_per_thread = 0;
 std::atomic_flag mdb_txn_safe::creation_gate = ATOMIC_FLAG_INIT;
 
 mdb_threadinfo::~mdb_threadinfo()
@@ -373,9 +374,12 @@ mdb_txn_safe::mdb_txn_safe(const bool check) : m_txn(NULL), m_tinfo(NULL), m_che
 {
   if (check)
   {
-    while (creation_gate.test_and_set());
-    num_active_txns++;
-    creation_gate.clear();
+    const bool nested = num_active_txns_per_thread != 0;
+    if (!nested)
+      while (creation_gate.test_and_set());
+    increment_txns(1);
+    if (!nested)
+      creation_gate.clear();
   }
 }
 
@@ -406,12 +410,12 @@ mdb_txn_safe::~mdb_txn_safe()
     }
     mdb_txn_abort(m_txn);
   }
-  num_active_txns--;
+  increment_txns(-1);
 }
 
 void mdb_txn_safe::uncheck()
 {
-  num_active_txns--;
+  increment_txns(-1);
   m_check = false;
 }
 
@@ -466,7 +470,8 @@ void mdb_txn_safe::allow_new_txns()
 
 void mdb_txn_safe::increment_txns(int i)
 {
-	num_active_txns += i;
+  num_active_txns_per_thread += i;
+  num_active_txns += i;
 }
 
 #define TXN_PREFIX(flags); \
