@@ -40,14 +40,16 @@ monero_add_library(serialization
   ${serialization_headers}
   ${serialization_private_headers})
 target_link_libraries(serialization
-  LINK_PRIVATE
+  PUBLIC
     cryptonote_basic
     cryptonote_core
     cryptonote_protocol
     epee
+    RapidJSON
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
+  PRIVATE
     ${EXTRA_LIBRARIES})
 add_dependencies(serialization
   version)

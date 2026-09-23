@@ -58,6 +58,7 @@ else ()
   monero_crypto_get_target(${MONERO_WALLET_CRYPTO_LIBRARY} CRYPTO_TARGET)
   add_library(wallet-crypto $<TARGET_OBJECTS:${CRYPTO_TARGET}>)
   target_link_libraries(wallet-crypto cncrypto)
+  target_include_directories(wallet-crypto INTERFACE "${PROJECT_SOURCE_DIR}/external/supercop/include")
 endif ()
 
 
