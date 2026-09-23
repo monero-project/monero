@@ -3667,7 +3667,7 @@ namespace tools
       command_line::add_arg(desc, arg_password);
       po::store(po::parse_command_line(argc, argv, desc), vm2);
     }
-    std::unique_ptr<tools::wallet2> wal = tools::wallet2::make_new(vm2, true, nullptr).first;
+    std::unique_ptr<tools::wallet2> wal = tools::wallet2::make_new(vm2, true, nullptr, m_pending_daemon).first;
     if (!wal)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
@@ -3783,7 +3783,7 @@ namespace tools
     }
     std::unique_ptr<tools::wallet2> wal = nullptr;
     try {
-      wal = tools::wallet2::make_from_file(vm2, true, wallet_file, nullptr).first;
+      wal = tools::wallet2::make_from_file(vm2, true, wallet_file, nullptr, m_pending_daemon).first;
     }
     catch (const std::exception& e)
     {
@@ -4017,8 +4017,7 @@ namespace tools
       command_line::add_arg(desc, arg_password);
       po::store(po::parse_command_line(argc, argv, desc), vm2);
     }
-
-    auto rc = tools::wallet2::make_new(vm2, true, nullptr);
+    auto rc = tools::wallet2::make_new(vm2, true, nullptr, m_pending_daemon);
     std::unique_ptr<wallet2> wal;
     wal = std::move(rc.first);
     if (!wal)
@@ -4241,8 +4240,7 @@ namespace tools
       command_line::add_arg(desc, arg_password);
       po::store(po::parse_command_line(argc, argv, desc), vm2);
     }
-
-    auto rc = tools::wallet2::make_new(vm2, true, nullptr);
+    auto rc = tools::wallet2::make_new(vm2, true, nullptr, m_pending_daemon);
     std::unique_ptr<wallet2> wal;
     wal = std::move(rc.first);
     if (!wal)
@@ -4877,7 +4875,14 @@ namespace tools
       er.message = "Command unavailable in restricted mode.";
       return false;
     }
-    if (!m_wallet) return not_open(er);
+
+    epee::net_utils::http::url_content parsed{};
+    if (!req.address.empty() && !epee::net_utils::parse_url(req.address, parsed))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+      er.message = "Failed to parse daemon address";
+      return false;
+    }
 
     std::vector<std::vector<uint8_t>> ssl_allowed_fingerprints;
     ssl_allowed_fingerprints.reserve(req.ssl_allowed_fingerprints.size());
@@ -4935,16 +4940,43 @@ namespace tools
       return false;
     }
 
-    boost::optional<epee::net_utils::http::login> daemon_login{};
-    if (!req.username.empty() || !req.password.empty())
-      daemon_login.emplace(req.username, req.password);
+    wallet2::daemon_config cfg;
+    cfg.address = req.address;
+    cfg.username = req.username;
+    cfg.password = req.password;
+    cfg.proxy = req.proxy;
+    cfg.trusted = req.trusted;
+    cfg.ssl_options = ssl_options;
 
-    if (!m_wallet->set_daemon(req.address, daemon_login, req.trusted, std::move(ssl_options), req.proxy))
+    // apply to the open wallet now; the config also seeds wallets opened/created later
+    if (m_wallet)
     {
-      er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
-      er.message = std::string("Unable to set daemon");
-      return false;
+      boost::optional<epee::net_utils::http::login> daemon_login{};
+      if (!req.username.empty() || !req.password.empty())
+        daemon_login.emplace(req.username, req.password);
+
+      if (!m_wallet->set_daemon(req.address, daemon_login, req.trusted, std::move(ssl_options), req.proxy))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+        er.message = std::string("Unable to set daemon");
+        return false;
+      }
     }
+    else
+    {
+      try
+      {
+        ssl_options.create_context();
+      }
+      catch (const std::exception &e)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+        er.message = std::string("Failed to set up SSL: ") + e.what();
+        return false;
+      }
+    }
+
+    m_pending_daemon = std::move(cfg);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
