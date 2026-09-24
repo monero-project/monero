@@ -42,6 +42,7 @@
 
 #include "net_peerlist_boost_serialization.h"
 #include "common/util.h"
+#include "file_io_utils.h"
 
 
 namespace nodetool
@@ -240,12 +241,10 @@ namespace nodetool
 
   bool peerlist_storage::store(const std::string& path, const peerlist_types& other) const
   {
-    std::ofstream dest_file{};
-    dest_file.open( path , std::ios_base::binary | std::ios_base::out| std::ios::trunc);
-    if(dest_file.fail())
-      return false;
-
-    return store(dest_file, other);
+    return epee::file_io_utils::save_stream_to_file(path, [this, &other](std::ostream& dest)
+    {
+      return store(dest, other);
+    });
   }
 
   peerlist_types peerlist_storage::take_zone(epee::net_utils::zone zone)
