@@ -29,9 +29,11 @@
 #pragma once
 #include "memwipe.h"
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/utility/string_view.hpp>
 
 #include <string>
+#include <string_view>
 #include <utility>
 #include <list>
 #include <stdint.h>
@@ -117,6 +119,7 @@ namespace net_utils
 			std::string m_cookie;			//"Cookie:"
 			std::string m_user_agent;	//"User-Agent:"
 			std::string m_origin;           //"Origin:"
+			std::string m_sec_fetch_site;   //"Sec-Fetch-Site:"
 			fields_list m_etc_fields;
 
 			void clear()
@@ -131,9 +134,19 @@ namespace net_utils
 				m_cookie.clear();
 				m_user_agent.clear();
 				m_origin.clear();
+				m_sec_fetch_site.clear();
 				m_etc_fields.clear();
 			}
 		};
+
+		// A cross origin page cannot set this without a CORS preflight.
+		inline bool is_json_content_type(std::string_view content_type)
+		{
+			content_type = content_type.substr(0, content_type.find(';'));
+			while(!content_type.empty() && (content_type.back() == ' ' || content_type.back() == '\t'))
+				content_type.remove_suffix(1);
+			return boost::iequals(content_type, "application/json");
+		}
 
     struct uri_content
     {
