@@ -720,9 +720,10 @@ namespace cryptonote
   {
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
+    const uint64_t now = time(nullptr);
     std::list<std::pair<crypto::hash, uint64_t>> remove;
-    m_blockchain.for_all_txpool_txes([this, &remove](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
-      uint64_t tx_age = time(nullptr) - meta.receive_time;
+    m_blockchain.for_all_txpool_txes([this, &remove, now](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
+      const uint64_t tx_age = now >= meta.receive_time ? now - meta.receive_time : 0;
 
       if((tx_age > CRYPTONOTE_MEMPOOL_TX_LIVETIME && !meta.kept_by_block) ||
          (tx_age > CRYPTONOTE_MEMPOOL_TX_FROM_ALT_BLOCK_LIVETIME && meta.kept_by_block) )
@@ -1149,13 +1150,14 @@ namespace cryptonote
       if (!meta.relayed)
         stats.num_not_relayed++;
       stats.fee_total += meta.fee;
-      if (!stats.oldest || meta.receive_time < stats.oldest)
-        stats.oldest = meta.receive_time;
-      if (meta.receive_time < now - 600)
+      const uint64_t receive_time = std::min(meta.receive_time, now);
+      if (!stats.oldest || receive_time < stats.oldest)
+        stats.oldest = receive_time;
+      if (receive_time < now - 600)
         stats.num_10m++;
       if (meta.last_failed_height)
         stats.num_failing++;
-      uint64_t age = now - meta.receive_time + (now == meta.receive_time);
+      const uint64_t age = now - receive_time + (now == receive_time);
       agebytes[age].txs++;
       agebytes[age].bytes += meta.weight;
       if (meta.double_spend_seen)

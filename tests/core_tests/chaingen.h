@@ -789,7 +789,7 @@ inline bool do_replay_events_get_core(std::vector<test_event_entry>& events, cry
     test_options_ = &test_options_tmp;
   }
 
-  if (!c.init(vm, test_options_))
+  if (!c.init(vm, test_options_, nullptr, false))
   {
     MERROR("Failed to init core");
     return false;
