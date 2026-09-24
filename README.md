@@ -21,7 +21,7 @@ Portions Copyright (c) 2012-2013 The Cryptonote developers.
     - [Guix builds](#guix-builds)
   - [Installing Monero from a package](#installing-monero-from-a-package)
   - [Running monerod](#running-monerod)
-  - [Using Tor](#using-tor)
+  - [Using Tor and I2P](#using-tor-and-i2p)
   - [Pruning](#pruning)
   - [Debugging](#debugging)
   - [Known issues](#known-issues)
@@ -540,32 +540,9 @@ To run as a systemd service, copy [monerod.service](utils/systemd/monerod.servic
 
 If you're on Mac, you may need to add the `--max-concurrency 1` option to monero-wallet-cli, and possibly monerod, if you get crashes refreshing.
 
-## Using Tor
+## Using Tor and I2P
 
-> There is a new, still experimental, [integration with Tor](docs/ANONYMITY_NETWORKS.md). The feature allows connecting over IPv4 and Tor simultaneously - IPv4 is used for relaying blocks and relaying transactions received by peers whereas Tor is used solely for relaying transactions received over local RPC. This provides privacy and better protection against surrounding node (sybil) attacks.
-
-While Monero isn't made to integrate with Tor, it can be used wrapped with torsocks, by setting the following configuration parameters and environment variables:
-
-* `--p2p-bind-ip 127.0.0.1` on the command line or `p2p-bind-ip=127.0.0.1` in monerod.conf to disable listening for connections on external interfaces.
-* If you use the wallet with a Tor daemon via the loopback IP (eg, 127.0.0.1:9050), then use `--untrusted-daemon` unless it is your own hidden service.
-
-Example command line to start monerod through Tor:
-
-```bash
-monerod --proxy 127.0.0.1:9050 --p2p-bind-ip 127.0.0.1
-```
-
-A helper script is in contrib/tor/monero-over-tor.sh. It assumes Tor is installed already, and runs Tor and Monero with the right configuration.
-
-### Using Tor on Tails
-
-TAILS ships with a very restrictive set of firewall rules. Therefore, you need to add a rule to allow this connection too, in addition to telling torsocks to allow inbound connections. Full example:
-
-```bash
-sudo iptables -I OUTPUT 2 -p tcp -d 127.0.0.1 -m tcp --dport 18081 -j ACCEPT
-DNS_PUBLIC=tcp torsocks ./monerod --p2p-bind-ip 127.0.0.1 --rpc-bind-ip 127.0.0.1 \
-    --data-dir /home/amnesia/Persistent/your/directory/to/the/blockchain
-```
+See [ANONYMITY_NETWORKS.md](docs/ANONYMITY_NETWORKS.md).
 
 ## Pruning
 
