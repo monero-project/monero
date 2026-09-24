@@ -42,6 +42,7 @@
 #include "serialization/binary_utils.h" // dump_binary(), parse_binary()
 #include "include_base_utils.h"
 #include "cryptonote_core/cryptonote_core.h"
+#include "cryptonote_protocol/block_entry_utils.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "bcutil"
@@ -168,29 +169,17 @@ int check_flush(cryptonote::core &core, std::vector<block_complete_entry> &block
   size_t blockidx = 0;
   for(const block_complete_entry& block_entry: blocks)
   {
-    // process transactions
-    for(auto& tx_blob: block_entry.txs)
+    pool_supplement ps{};
+    if (!make_full_pool_supplement_from_block_entry(block_entry, ps))
     {
-      tx_verification_context tvc = AUTO_VAL_INIT(tvc);
-      CHECK_AND_ASSERT_THROW_MES(tx_blob.prunable_hash == crypto::null_hash,
-        "block entry must not contain pruned txs");
-      core.handle_incoming_tx(tx_blob.blob, tvc, relay_method::block, true);
-      if(tvc.m_verifivation_failed)
-      {
-        cryptonote::transaction transaction;
-        if (cryptonote::parse_and_validate_tx_from_blob(tx_blob.blob, transaction))
-          MERROR("Transaction verification failed, tx_id = " << cryptonote::get_transaction_hash(transaction));
-        else
-          MERROR("Transaction verification failed, transaction is unparsable");
-        core.cleanup_handle_incoming_blocks();
-        return 1;
-      }
+      MERROR("Failed to make transaction pool supplement for imported block");
+      core.cleanup_handle_incoming_blocks();
+      return 1;
     }
 
     // process block
 
     block_verification_context bvc = {};
-    pool_supplement ps{};
 
     core.handle_incoming_block(block_entry.block, pblocks.empty() ? NULL : &pblocks[blockidx++], bvc, ps, false); // <--- process block
 
