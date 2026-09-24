@@ -945,6 +945,11 @@ if(STATIC)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${STATIC_FLAGS} ")
 endif()
 
+if(STATIC)
+  set(Boost_USE_STATIC_LIBS ON)
+  set(Boost_USE_STATIC_RUNTIME ON)
+endif()
+
 # Find Boost headers
 set(BOOST_MIN_VER 1.69)
 find_package(Boost ${BOOST_MIN_VER} QUIET REQUIRED CONFIG)
