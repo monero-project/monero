@@ -169,6 +169,29 @@ std::string Helios::to_string(const typename Helios::Point &point) const
     return epee::string_tools::pod_to_hex(this->to_bytes(point));
 }
 //----------------------------------------------------------------------------------------------------------------------
+template<typename C_POINTS, typename C_SCALARS>
+void extend_scalars_from_cycle_points(const std::unique_ptr<C_POINTS> &curve,
+    const std::vector<typename C_POINTS::Point> &points,
+    std::vector<typename C_SCALARS::Scalar> &scalars_out)
+{
+    scalars_out.reserve(scalars_out.size() + points.size());
+
+    for (const auto &point : points)
+    {
+        typename C_SCALARS::Scalar scalar = curve->point_to_cycle_scalar(point);
+        scalars_out.push_back(std::move(scalar));
+    }
+}
+
+// Explicit instantiations
+template void extend_scalars_from_cycle_points<Helios, Selene>(const std::unique_ptr<Helios> &curve,
+    const std::vector<Helios::Point> &points,
+    std::vector<Selene::Scalar> &scalars_out);
+
+template void extend_scalars_from_cycle_points<Selene, Helios>(const std::unique_ptr<Selene> &curve,
+    const std::vector<Selene::Point> &points,
+    std::vector<Helios::Scalar> &scalars_out);
+//----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 } //namespace tower_cycle
 } //namespace fcmp_pp
