@@ -30,6 +30,7 @@
 #pragma once
 
 #include <atomic>
+#include <memory>
 #include <string>
 #include <boost/version.hpp>
 #include <boost/asio/io_context.hpp>
@@ -266,6 +267,7 @@ namespace net_utils
 			try
 			{
 				m_ssl_socket->next_layer().close();
+				m_pending_read.reset();
 
 				// Set SSL options
 				// disable sslv2
@@ -309,14 +311,18 @@ namespace net_utils
 		inline 
 		bool disconnect()
 		{
+			m_connected = false;
 			try
 			{	
-				if(m_connected)
+				if(!shutdown_requested() && m_ssl_socket->next_layer().is_open())
 				{
-					m_connected = false;
 					if(m_ssl_options)
 						shutdown_ssl();
-					m_ssl_socket->next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+					// The peer or the TLS shutdown deadline may already have closed the connection.
+					boost::system::error_code ignored_ec;
+					m_ssl_socket->next_layer().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored_ec);
+					// shutdown() alone leaves is_open() true and repeats TLS shutdown on later calls.
+					m_ssl_socket->next_layer().close();
 				}
 			}
 			catch(const boost::system::system_error& /*er*/)
@@ -403,9 +409,61 @@ namespace net_utils
 		{
 			if (!m_connected || !m_ssl_socket->next_layer().is_open())
 				return false;
+
+			boost::system::error_code ec;
+			if (m_ssl_options)
+			{
+				// let Asio process TLS alerts and retain a byte of application data for recv
+				if (!m_pending_read)
+				{
+					const auto pending = std::make_shared<pending_read>();
+					// reconnect may replace the stream before this handler completes
+					const auto socket = m_ssl_socket;
+					socket->async_read_some(boost::asio::buffer(&pending->byte, 1),
+						[socket, pending](const boost::system::error_code& error, size_t) {
+							pending->error = error;
+							if (pending->handler)
+							{
+								auto handler = std::move(pending->handler);
+								handler(error, pending->byte);
+							}
+						});
+					m_pending_read = pending;
+				}
+				m_io_service.restart();
+				m_io_service.poll();
+				ec = m_pending_read->error;
+			}
+			else
+			{
+				// peek for EOF without consuming application data or changing the socket mode
+				auto& socket = m_ssl_socket->next_layer();
+				const bool non_blocking = socket.non_blocking();
+				socket.non_blocking(true, ec);
+				if (!ec)
+				{
+					char byte;
+					socket.receive(boost::asio::buffer(&byte, 1), boost::asio::ip::tcp::socket::message_peek, ec);
+					boost::system::error_code restore_error;
+					socket.non_blocking(non_blocking, restore_error);
+					if (restore_error)
+					{
+						m_connected = false;
+						return false;
+					}
+				}
+			}
+			if (ec && ec != boost::asio::error::would_block &&
+				ec != boost::asio::error::try_again && ec != boost::asio::error::interrupted)
+			{
+				MDEBUG("Peer closed idle connection, marking disconnected: " << ec.message());
+				m_connected = false;
+				return false;
+			}
+
 			if (ssl)
 				*ssl = m_ssl_options.support != ssl_support_t::e_ssl_support_disabled;
-			return true;
+			return m_connected;
 		}
 
 		inline 
@@ -438,7 +496,7 @@ namespace net_utils
 				static const size_t max_size = 16384;
 				buff.resize(max_size);
 				
-				async_read(&buff[0], max_size, boost::asio::transfer_at_least(1), hndlr);
+				async_read(&buff[0], max_size, hndlr);
 
 				// Block until the asynchronous operation has completed.
 				while (ec == boost::asio::error::would_block && !shutdown_requested())
@@ -462,6 +520,7 @@ namespace net_utils
 
 				if (ec)
 				{
+					m_connected = false;
                     MTRACE("READ ENDS: Connection err_code " << ec.value());
                     if(ec == boost::asio::error::eof)
                     {
@@ -472,7 +531,6 @@ namespace net_utils
                     }
 
 					MDEBUG("Problems at read: " << ec.message());
-                    m_connected = false;
 					return false;
 				}else
 				{
@@ -536,6 +594,13 @@ namespace net_utils
 		}
 
 	private:
+
+		struct pending_read
+		{
+			char byte = 0;
+			boost::system::error_code error = boost::asio::error::would_block;
+			std::function<void(const boost::system::error_code&, char)> handler;
+		};
 
 		bool shutdown_requested() const
 		{
@@ -605,12 +670,34 @@ namespace net_utils
 				boost::asio::async_write(m_ssl_socket->next_layer(), boost::asio::buffer(data, sz), boost::lambda::var(ec) = boost::lambda::_1);
 		}
 		
-		void async_read(char* buff, size_t sz, boost::asio::detail::transfer_at_least_t transfer_at_least, handler_obj& hndlr)
+		void async_read(char* buff, size_t sz, handler_obj& hndlr)
 		{
+			// finish the probe before starting another TLS read
+			if (sz && m_pending_read)
+			{
+				const auto pending = m_pending_read;
+				auto on_read = [buff, hndlr]
+					(const boost::system::error_code& error, char byte) mutable {
+						if (error)
+						{
+							hndlr(error, 0);
+							return;
+						}
+						buff[0] = byte;
+						// recv() only needs one byte; deliver it before observing any later EOF.
+						hndlr(error, 1);
+					};
+				if (pending->error == boost::asio::error::would_block)
+					pending->handler = std::move(on_read);
+				m_pending_read.reset();
+				if (pending->error != boost::asio::error::would_block)
+					on_read(pending->error, pending->byte);
+				return;
+			}
 			if(m_ssl_options.support == ssl_support_t::e_ssl_support_disabled)
-				boost::asio::async_read(m_ssl_socket->next_layer(), boost::asio::buffer(buff, sz), transfer_at_least, hndlr);
+				boost::asio::async_read(m_ssl_socket->next_layer(), boost::asio::buffer(buff, sz), boost::asio::transfer_at_least(1), hndlr);
 			else
-				boost::asio::async_read(*m_ssl_socket, boost::asio::buffer(buff, sz), transfer_at_least, hndlr);
+				boost::asio::async_read(*m_ssl_socket, boost::asio::buffer(buff, sz), boost::asio::transfer_at_least(1), hndlr);
 			
 		}
 		
@@ -618,6 +705,7 @@ namespace net_utils
 		boost::asio::io_context m_io_service;
 		boost::asio::ssl::context m_ctx;
 		std::shared_ptr<boost::asio::ssl::stream<boost::asio::ip::tcp::socket>> m_ssl_socket;
+		std::shared_ptr<pending_read> m_pending_read;
 		std::function<connect_func> m_connector;
 		ssl_options_t m_ssl_options;
 		std::atomic<bool> m_connected;
