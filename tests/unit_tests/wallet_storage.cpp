@@ -61,6 +61,42 @@ public:
     {
         return wallet.m_transfers.at(index).get_public_key();
     }
+    static tools::wallet2::unconfirmed_transfer_details &unconfirmed_tx(tools::wallet2 &wallet, const crypto::hash &txid)
+    {
+        return wallet.m_unconfirmed_txs[txid];
+    }
+
+    static const tools::wallet2::confirmed_transfer_details &confirm_outgoing(tools::wallet2 &wallet,
+        const crypto::hash &txid, const cryptonote::transaction &tx, uint64_t spent, uint64_t received,
+        const std::set<uint32_t> &indices)
+    {
+        wallet.process_unconfirmed(txid, tx, 100);
+        wallet.process_outgoing(txid, tx, 100, 200, spent, received, 0, indices);
+        return wallet.m_confirmed_txs.at(txid);
+    }
+
+    static void set_pool_state(tools::wallet2 &wallet, uint64_t query_time, uint64_t daemon_height)
+    {
+        wallet.m_pool_info_query_time = query_time;
+        wallet.m_node_rpc_proxy.set_height(daemon_height);
+    }
+
+    static const tools::wallet2::transfer_details &add_spent_output(tools::wallet2 &wallet, cryptonote::transaction &tx)
+    {
+        cryptonote::txin_to_key input = AUTO_VAL_INIT(input);
+        input.k_image = crypto::rand<crypto::key_image>();
+        tx.vin.push_back(input);
+        wallet.m_transfers.emplace_back();
+        auto &transfer = wallet.m_transfers.back();
+        transfer.m_amount = 9;
+        transfer.m_spent = true;
+        transfer.m_spent_height = 100;
+        transfer.m_key_image = input.k_image;
+        transfer.m_key_image_known = true;
+        transfer.m_subaddr_index = {0, 0};
+        wallet.m_key_images[input.k_image] = wallet.m_transfers.size() - 1;
+        return transfer;
+    }
 };
 
 TEST(wallet_storage, store_to_file2file)
@@ -670,4 +706,113 @@ TEST(wallet_keys_unlocker, construction_failure_rolls_back_lock_count)
         ASSERT_TRUE(verify_wallet_privkeys(w));
     }
     ASSERT_FALSE(verify_wallet_privkeys(w));
+}
+
+TEST(wallet_pool, reconciles_partial_outgoing_on_confirmation)
+{
+    tools::wallet2 w;
+    cryptonote::transaction tx;
+    tx.version = 2;
+    tx.rct_signatures.txnFee = 1;
+    const crypto::hash txid = crypto::null_hash;
+    auto &pending = wallet_accessor_test::unconfirmed_tx(w, txid);
+    pending.m_tx = tx;
+    pending.m_amount_in = 4;
+    pending.m_amount_out = 3;
+    pending.m_change = 2;
+    pending.m_subaddr_account = 0;
+    pending.m_subaddr_indices = {0};
+    pending.m_dests.resize(1);
+    pending.m_dests[0].amount = 6;
+    pending.m_payment_id = crypto::rand<crypto::hash>();
+    const crypto::hash payment_id = pending.m_payment_id;
+
+    const auto &confirmed = wallet_accessor_test::confirm_outgoing(w, txid, tx, 9, 2, {1});
+    EXPECT_EQ(9, confirmed.m_amount_in);
+    EXPECT_EQ(8, confirmed.m_amount_out);
+    EXPECT_EQ(6, confirmed.m_amount_out - confirmed.m_change);
+    EXPECT_EQ(std::set<uint32_t>({0, 1}), confirmed.m_subaddr_indices);
+    ASSERT_EQ(1, confirmed.m_dests.size());
+    EXPECT_EQ(6, confirmed.m_dests[0].amount);
+    EXPECT_EQ(payment_id, confirmed.m_payment_id);
+
+    // A later scan with fewer known key images must preserve the complete totals.
+    wallet_accessor_test::confirm_outgoing(w, txid, tx, 4, 2, {0});
+    EXPECT_EQ(9, confirmed.m_amount_in);
+    EXPECT_EQ(8, confirmed.m_amount_out);
+    EXPECT_EQ(2, confirmed.m_change);
+}
+
+TEST(wallet_pool, skips_confirmed_outgoing_in_stale_snapshot)
+{
+    tools::wallet2 w;
+    cryptonote::transaction tx;
+    tx.version = 2;
+    tx.rct_signatures.txnFee = 1;
+    const crypto::hash txid = crypto::null_hash;
+    const auto &transfer = wallet_accessor_test::add_spent_output(w, tx);
+    wallet_accessor_test::confirm_outgoing(w, txid, tx, 9, 2, {0});
+    w.process_pool_state({std::make_tuple(tx, txid, false)});
+    EXPECT_EQ(100, transfer.m_spent_height);
+    std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>> pending;
+    w.get_unconfirmed_payments_out(pending);
+    EXPECT_TRUE(pending.empty());
+}
+
+namespace
+{
+    class pool_http_client : public net::http::client
+    {
+        epee::net_utils::http::http_response_info response;
+        size_t &queries;
+
+    public:
+        explicit pool_http_client(size_t &queries) : queries(queries) {}
+
+        bool invoke(const boost::string_ref uri, const boost::string_ref method, const boost::string_ref body,
+            std::chrono::milliseconds timeout, const epee::net_utils::http::http_response_info **result,
+            const epee::net_utils::http::fields_list &headers) override
+        {
+            EXPECT_EQ("/getblocks.bin", uri);
+            cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request request = AUTO_VAL_INIT(request);
+            EXPECT_TRUE(epee::serialization::load_t_from_binary(request, std::string(body.data(), body.size())));
+            EXPECT_EQ(cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::POOL_ONLY, request.requested_info);
+            EXPECT_EQ(1, request.pool_info_since);
+            ++queries;
+            cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response pool = AUTO_VAL_INIT(pool);
+            pool.status = CORE_RPC_STATUS_OK;
+            pool.pool_info_extent = cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::FULL;
+            pool.daemon_time = 2;
+            response.m_response_code = 200;
+            const auto blob = epee::serialization::store_t_to_binary(pool);
+            response.m_body.assign(reinterpret_cast<const char *>(blob.data()), blob.size());
+            *result = &response;
+            return true;
+        }
+    };
+
+    class pool_http_client_factory : public epee::net_utils::http::http_client_factory
+    {
+        size_t &queries;
+
+    public:
+        explicit pool_http_client_factory(size_t &queries) : queries(queries) {}
+
+        std::unique_ptr<epee::net_utils::http::abstract_http_client> create() override
+        {
+            return std::unique_ptr<epee::net_utils::http::abstract_http_client>(new pool_http_client(queries));
+        }
+    };
+}
+
+TEST(wallet_pool, queries_pool_before_chain_catches_up)
+{
+    size_t queries = 0;
+    tools::wallet2 w(cryptonote::MAINNET, 1, true,
+        std::unique_ptr<epee::net_utils::http::http_client_factory>(new pool_http_client_factory(queries)));
+    wallet_accessor_test::set_pool_state(w, 1, 100);
+    std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> pool_txs;
+    w.update_pool_state(pool_txs, true, true);
+    EXPECT_EQ(1, queries);
+    EXPECT_TRUE(pool_txs.empty());
 }
