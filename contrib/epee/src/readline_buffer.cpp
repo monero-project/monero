@@ -1,23 +1,106 @@
 #include "readline_buffer.h"
-#include <readline/readline.h>
-#include <readline/history.h>
+#include <linenoise.h>
 #include <iostream>
-#include <memory>
+#include <cerrno>
+#include <csignal>
+#include <cstdlib>
+#include <cstdio>
+#include <thread>
+#include <system_error>
+#include <unistd.h>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
 #include <boost/algorithm/string.hpp>
 
-static bool same_as_last_line(const std::string&);
-static void install_line_handler();
-static void remove_line_handler();
-
-static boost::mutex sync_mutex;
-static rdln::linestatus line_stat;
-static char *the_line;
-
 namespace
 {
   rdln::readline_buffer* current = NULL;
+
+  std::string strip_unsafe_bytes(const std::string& line)
+  {
+    std::string out;
+    out.reserve(line.size());
+    for (size_t i = 0; i < line.size(); )
+    {
+      const unsigned char c = static_cast<unsigned char>(line[i]);
+      if (c == 0xC2 && i + 1 < line.size())
+      {
+        const unsigned char c1 = static_cast<unsigned char>(line[i + 1]);
+        if (c1 >= 0x80 && c1 <= 0x9F) { i += 2; continue; } // UTF-8 encoded C1 control
+      }
+      if ((c < 0x20 && c != '\n') || c == 0x7F) { ++i; continue; } // C0 (keep \n) / DEL
+      out += line[i];
+      ++i;
+    }
+    return out;
+  }
+}
+
+static const size_t LINE_BUFFER_MAX = 1024 * 1024;
+
+static boost::mutex sync_mutex;
+static linenoiseState line_state;
+static bool editing_active = false;
+static std::string current_prompt;
+
+static void completion_callback(const char* buf, linenoiseCompletions* lc)
+{
+  const std::string text(buf);
+
+  if (text.find(' ') != std::string::npos) return;
+
+  for (const std::string& cmd : rdln::readline_buffer::get_completions())
+  {
+    if (cmd.compare(0, text.size(), text) == 0)
+      linenoiseAddCompletion(lc, (cmd + " ").c_str());
+  }
+}
+
+static void begin_edit()
+{
+  if (editing_active) return;
+
+  char* buf = line_state.buf;
+  size_t buflen = line_state.buflen + 1;
+  if (!buf)
+  {
+    buflen = 4096;
+    buf = static_cast<char*>(malloc(buflen));
+    if (!buf) return;
+  }
+
+  if (linenoiseEditStart(&line_state, -1, -1, buf, buflen, current_prompt.c_str()) == 0)
+  {
+    editing_active = true;
+    line_state.buflen_max = LINE_BUFFER_MAX;
+  }
+}
+
+static void end_edit()
+{
+  if (!editing_active) return;
+  linenoiseEditStop(&line_state);
+  editing_active = false;
+}
+
+static void reset_line()
+{
+  if (editing_active && write(line_state.ofd, "\n", 1) == -1) {}
+  line_state.in_completion = 0;
+  line_state.completion_idx = 0;
+  line_state.buf[0] = '\0';
+  line_state.pos = 0;
+  line_state.oldpos = 0;
+  line_state.len = 0;
+  line_state.oldrows = 0;
+  line_state.oldrpos = 1;
+  line_state.history_index = 0;
+  line_state.fold_count = 0;
+  if (editing_active)
+  {
+    linenoiseHistoryAdd("");
+    linenoiseShow(&line_state);
+  }
 }
 
 rdln::suspend_readline::suspend_readline()
@@ -46,7 +129,7 @@ std::vector<std::string>& rdln::readline_buffer::completion_commands()
 }
 
 rdln::readline_buffer::readline_buffer()
-: std::stringbuf(), m_cout_buf(NULL), m_prompt_length(0)
+: std::stringbuf(), m_cout_buf(NULL)
 {
   current = this;
 }
@@ -56,9 +139,17 @@ void rdln::readline_buffer::start()
   boost::lock_guard<boost::mutex> lock(sync_mutex);
   if(m_cout_buf != NULL)
     return;
+  static bool stdin_unbuffered = false;
+  if (!stdin_unbuffered && !isatty(STDIN_FILENO))
+  {
+    setvbuf(stdin, NULL, _IONBF, 0);
+    stdin_unbuffered = true;
+  }
   m_cout_buf = std::cout.rdbuf();
   std::cout.rdbuf(this);
-  install_line_handler();
+  linenoiseSetCompletionCallback(&completion_callback);
+  linenoiseHistorySetMaxLen(500);
+  begin_edit();
 }
 
 void rdln::readline_buffer::stop()
@@ -68,26 +159,56 @@ void rdln::readline_buffer::stop()
     return;
   std::cout.rdbuf(m_cout_buf);
   m_cout_buf = NULL;
-  remove_line_handler();
+  if (editing_active)
+    linenoiseHide(&line_state);
+  end_edit();
 }
 
-rdln::linestatus rdln::readline_buffer::get_line(std::string& line) const
+rdln::linestatus rdln::readline_buffer::get_line(std::string& line)
 {
   boost::lock_guard<boost::mutex> lock(sync_mutex);
-  line_stat = rdln::partial;
   if (!m_cout_buf)
   {
     line = "";
     return rdln::full;
   }
-  rl_callback_read_char();
-  if (line_stat == rdln::full)
+
+  begin_edit();
+
+  errno = 0;
+  char* result = linenoiseEditFeed(&line_state);
+
+  if (result == linenoiseEditMore)
+    return rdln::partial;
+
+  if (result == NULL && errno == EINTR)
   {
-    line = the_line;
-    free(the_line);
-    the_line = NULL;
+    return rdln::partial;
   }
-  return line_stat;
+
+  const bool cancelled = (result == NULL && errno == EAGAIN);
+
+  if (result == NULL)
+  {
+    if (!cancelled)
+    {
+      end_edit();
+      return rdln::empty;
+    }
+    reset_line();
+    try { std::thread([]{ raise(SIGINT); }).detach(); }
+    catch (const std::system_error&) { raise(SIGINT); }
+    return rdln::partial;
+  }
+
+  line = strip_unsafe_bytes(result);
+  std::string test_line = line;
+  boost::trim_right(test_line);
+  if (!test_line.empty())
+    linenoiseHistoryAdd(test_line.c_str());
+  linenoiseFree(result);
+  reset_line();
+  return rdln::full;
 }
 
 void rdln::readline_buffer::set_prompt(const std::string& prompt)
@@ -95,11 +216,19 @@ void rdln::readline_buffer::set_prompt(const std::string& prompt)
   boost::lock_guard<boost::mutex> lock(sync_mutex);
   if(m_cout_buf == NULL)
     return;
-  rl_set_prompt(std::string(m_prompt_length, ' ').c_str());
-  rl_redisplay();
-  rl_set_prompt(prompt.c_str());
-  rl_redisplay();
-  m_prompt_length = prompt.size();
+  if (editing_active)
+  {
+    linenoiseHide(&line_state);
+    current_prompt = prompt;
+    line_state.prompt = current_prompt.c_str();
+    line_state.plen = current_prompt.size();
+    linenoiseShow(&line_state);
+  }
+  else
+  {
+    current_prompt = prompt;
+    begin_edit();
+  }
 }
 
 void rdln::readline_buffer::add_completion(const std::string& command)
@@ -123,27 +252,8 @@ int rdln::readline_buffer::sync()
     return -1;
   }
 
-#if RL_READLINE_VERSION < 0x0700
-  char lbuf[2] = {0,0};
-  char *line = NULL;
-  int end = 0, point = 0;
-#endif
-
-  if (rl_end || (rl_prompt && *rl_prompt))
-  {
-#if RL_READLINE_VERSION >= 0x0700
-    rl_clear_visible_line();
-#else
-    line = rl_line_buffer;
-    end = rl_end;
-    point = rl_point;
-    rl_line_buffer = lbuf;
-    rl_end = 0;
-    rl_point = 0;
-    rl_save_prompt();
-    rl_redisplay();
-#endif
-  }
+  if (editing_active)
+    linenoiseHide(&line_state);
 
   do
   {
@@ -151,113 +261,15 @@ int rdln::readline_buffer::sync()
   }
   while ( this->snextc() != EOF );
 
-#if RL_READLINE_VERSION < 0x0700
-  if (end || (rl_prompt && *rl_prompt))
-  {
-    rl_restore_prompt();
-    rl_line_buffer = line;
-    rl_end = end;
-    rl_point = point;
-  }
-#endif
-  rl_on_new_line();
-  rl_redisplay();
+  m_cout_buf->pubsync();
+
+  if (editing_active)
+    linenoiseShow(&line_state);
 
   return 0;
 }
 
-static void handle_line(char* line)
-{
-  bool exit = false;
-  if (line)
-  {
-    line_stat = rdln::full;
-    the_line = line;
-    std::string test_line = line;
-    boost::trim_right(test_line);
-    if(!test_line.empty())
-    {
-      if (!same_as_last_line(test_line))
-      {
-        add_history(test_line.c_str());
-        history_set_pos(history_length);
-      }
-      if (test_line == "exit" || test_line == "q")
-        exit = true;
-    }
-  } else
-  /* EOF */
-  {
-    line_stat = rdln::empty;
-    exit = true;
-  }
-  rl_done = 1;
-  if (exit)
-    rl_set_prompt("");
-  return;
-}
-
-// same_as_last_line returns true, if the last line in the history is
-// equal to test_line.
-static bool same_as_last_line(const std::string& test_line)
-{
-  // Note that state->offset == state->length, when a new line was entered.
-  auto state = std::unique_ptr<HISTORY_STATE, decltype(free)*>{history_get_history_state(), free};
-  return state->length > 0
-    && test_line.compare(state->entries[state->length-1]->line) == 0;
-}
-
-static char* completion_matches(const char* text, int state)
-{
-  static size_t list_index;
-  static size_t len;
-
-  if(state == 0)
-  {
-    list_index = 0;
-    len = strlen(text);
-  }
-
-  const std::vector<std::string>& completions = rdln::readline_buffer::get_completions();
-  for(; list_index<completions.size(); )
-  {
-    const std::string& cmd = completions[list_index++];
-    if(cmd.compare(0, len, text) == 0)
-    {
-      return strdup(cmd.c_str());
-    }
-  }
-
-  return NULL;
-}
-
-static char** attempted_completion(const char* text, int start, int end)
-{
-  rl_attempted_completion_over = 1;
-  return rl_completion_matches(text, completion_matches);
-}
-
-static void install_line_handler()
-{
-#if RL_READLINE_VERSION >= 0x0801
-  rl_variable_bind("enable-bracketed-paste", "off");
-#endif
-
-  rl_attempted_completion_function = attempted_completion;
-  rl_callback_handler_install("", handle_line);
-  stifle_history(500);
-}
-
-static void remove_line_handler()
-{
-  rl_replace_line("", 0);
-  rl_set_prompt("");
-  rl_redisplay();
-  rl_callback_handler_remove();
-}
-
 void rdln::clear_screen()
 {
-  rl_clear_screen(0, 0);
+  linenoiseClearScreen();
 }
-
