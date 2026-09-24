@@ -112,12 +112,41 @@ class BanTest():
         res = daemon.get_bans()
         assert 'bans' not in res or len(res.bans) == 0
 
+        rejected = False
+        try:
+            daemon.set_bans([{'host': '::ffff:192.0.2.0/120', 'ban': True, 'seconds': 100}])
+        except AssertionError:
+            rejected = True
+        assert rejected
+
+        daemon.set_bans([{'host': '2001:db8:abcd::/48', 'ban': True, 'seconds': 100}])
+        res = daemon.get_bans()
+        assert len(res.bans) == 1
+        assert res.bans[0].host == '2001:db8:abcd::/48'
+        assert res.bans[0].seconds >= 98 and res.bans[0].seconds <= 100 # allow for slow RPC
+
+        res = daemon.banned('2001:db8:abcd::1')
+        assert res.banned
+        res = daemon.banned('2001:db8:abce::1')
+        assert not res.banned
+
+        daemon.set_bans([{'host': '2001:db8:abcd:1234::/64', 'ban': False}])
+        res = daemon.banned('2001:db8:abcd:1234::1')
+        assert not res.banned
+        res = daemon.banned('2001:db8:abcd:1235::1')
+        assert res.banned
+
+        daemon.set_bans([{'host': '2001:db8:abcd::/48', 'ban': False}])
+        res = daemon.get_bans()
+        assert 'bans' not in res or len(res.bans) == 0
+
         daemon.set_bans([
             {'host': '1.2.3.4', 'ban': True, 'seconds': 100},
             {'host': '5.6.7.0/24', 'ban': True, 'seconds': 100},
+            {'host': '2001:db8:abcd::/48', 'ban': True, 'seconds': 100},
         ])
         res = daemon.get_bans()
-        assert len(res.bans) == 2
+        assert len(res.bans) == 3
         daemon.set_bans([{'host': 'all', 'ban': False}])
         res = daemon.get_bans()
         assert 'bans' not in res or len(res.bans) == 0
