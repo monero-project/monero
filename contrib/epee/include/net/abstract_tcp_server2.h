@@ -173,6 +173,8 @@ namespace net_utils
         struct {
           std::deque<epee::byte_slice> queue;
           std::size_t total_bytes;
+          bool timeout_extended;
+          bool reply_extended;
         } write;
       };
 
