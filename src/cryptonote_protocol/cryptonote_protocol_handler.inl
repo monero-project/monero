@@ -2015,9 +2015,9 @@ skip:
     const uint32_t local_stripe = tools::get_pruning_stripe(m_core.get_blockchain_pruning_seed());
     if (local_stripe == 0)
       return false;
-    // don't request pre-bulletproof pruned blocks, we can't reconstruct their weight (yet)
-    static const uint64_t bp_fork_height = m_core.get_earliest_ideal_height_for_version(HF_VERSION_SMALLER_BP + 1);
-    if (first_block_height < bp_fork_height)
+    // v1 txes are sent in full, so pruned sync is only useful once RingCT txes can occur
+    static const uint64_t rct_fork_height = m_core.get_earliest_ideal_height_for_version(HF_VERSION_DYNAMIC_FEE);
+    if (first_block_height < rct_fork_height)
       return false;
     // assumes the span size is less or equal to the stripe size
     bool full_data_needed = tools::get_pruning_stripe(first_block_height, context.m_remote_blockchain_height, CRYPTONOTE_PRUNING_LOG_STRIPES) == local_stripe
@@ -2240,8 +2240,8 @@ skip:
         }
 
         const uint64_t first_block_height = context.m_last_response_height - context.m_needed_objects.size() + 1;
-        static const uint64_t bp_fork_height = m_core.get_earliest_ideal_height_for_version(8);
-        bool sync_pruned_blocks = m_sync_pruned_blocks && first_block_height >= bp_fork_height && m_core.get_blockchain_pruning_seed();
+        static const uint64_t rct_fork_height = m_core.get_earliest_ideal_height_for_version(HF_VERSION_DYNAMIC_FEE);
+        bool sync_pruned_blocks = m_sync_pruned_blocks && first_block_height >= rct_fork_height && m_core.get_blockchain_pruning_seed();
         span = m_block_queue.reserve_span(first_block_height, context.m_last_response_height, l_m_bss, context.m_connection_id, context.m_remote_address, sync_pruned_blocks, m_core.get_blockchain_pruning_seed(), context.m_pruning_seed, context.m_remote_blockchain_height, context.m_needed_objects);
         MDEBUG(context << " span from " << first_block_height << ": " << span.first << "/" << span.second);
         if (span.second > 0)
