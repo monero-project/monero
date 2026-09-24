@@ -75,6 +75,17 @@ public:
         return wallet.m_confirmed_txs.at(txid);
     }
 
+    static void confirm_incoming(tools::wallet2 &wallet, const cryptonote::transaction &tx)
+    {
+        wallet.process_new_transaction(cryptonote::get_transaction_hash(tx), tx,
+            std::vector<uint64_t>(tx.vout.size()), 1, 1, 1, false, false, false, {});
+    }
+
+    static void detach_incoming(tools::wallet2 &wallet)
+    {
+        wallet.detach_blockchain(1);
+    }
+
     static void set_pool_state(tools::wallet2 &wallet, uint64_t query_time, uint64_t daemon_height)
     {
         wallet.m_pool_info_query_time = query_time;
@@ -757,6 +768,125 @@ TEST(wallet_pool, skips_confirmed_outgoing_in_stale_snapshot)
     std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>> pending;
     w.get_unconfirmed_payments_out(pending);
     EXPECT_TRUE(pending.empty());
+}
+
+namespace
+{
+    cryptonote::transaction make_pool_payment(const tools::wallet2 &wallet, size_t outputs = 1)
+    {
+        cryptonote::transaction tx;
+        tx.version = 1;
+        cryptonote::txin_to_key input = AUTO_VAL_INIT(input);
+        input.amount = 8 * outputs + 1;
+        input.k_image = crypto::rand<crypto::key_image>();
+        input.key_offsets = {0};
+        tx.vin.push_back(input);
+        const auto &address = wallet.get_account().get_keys().m_account_address;
+        crypto::public_key public_key;
+        crypto::secret_key secret_key;
+        crypto::generate_keys(public_key, secret_key);
+        EXPECT_TRUE(cryptonote::add_tx_pub_key_to_extra(tx, public_key));
+        crypto::key_derivation derivation;
+        EXPECT_TRUE(crypto::generate_key_derivation(address.m_view_public_key, secret_key, derivation));
+        for (size_t i = 0; i < outputs; ++i)
+        {
+            cryptonote::txout_to_key output;
+            EXPECT_TRUE(crypto::derive_public_key(derivation, i, address.m_spend_public_key, output.key));
+            tx.vout.push_back({8, output});
+        }
+        return tx;
+    }
+
+    class pool_progress_callback : public tools::i_wallet2_callback
+    {
+        tools::wallet2 &wallet;
+
+    public:
+        std::vector<uint64_t> confirmed_balances;
+        size_t pool_receipts = 0;
+        explicit pool_progress_callback(tools::wallet2 &wallet) : wallet(wallet) {}
+
+        void on_new_block(uint64_t height, const cryptonote::block &block) override
+        {
+            confirmed_balances.push_back(wallet.balance_all(true));
+        }
+
+        void on_unconfirmed_money_received(uint64_t height, const crypto::hash &txid,
+            const cryptonote::transaction &tx, uint64_t amount,
+            const cryptonote::subaddress_index &index) override
+        {
+            ++pool_receipts;
+        }
+    };
+}
+
+TEST(wallet_pool, skips_confirmed_incoming_in_stale_snapshot)
+{
+    tools::wallet2 w(cryptonote::MAINNET, 1, true);
+    w.set_offline(true);
+    w.generate("", "");
+    const auto tx = make_pool_payment(w);
+    const auto txid = cryptonote::get_transaction_hash(tx);
+    wallet_accessor_test::confirm_incoming(w, tx);
+    ASSERT_EQ(8, w.balance_all(true));
+    pool_progress_callback callback(w);
+    w.callback(&callback);
+
+    w.process_pool_state({std::make_tuple(tx, txid, false)});
+    std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> pending;
+    w.get_unconfirmed_payments(pending);
+    EXPECT_TRUE(pending.empty());
+    EXPECT_EQ(0, callback.pool_receipts);
+    EXPECT_EQ(8, w.balance_all(true));
+}
+
+TEST(wallet_pool, processes_incoming_with_reused_output_key)
+{
+    tools::wallet2 w(cryptonote::MAINNET, 1, true);
+    w.set_offline(true);
+    w.generate("", "");
+    const auto pool_tx = make_pool_payment(w, 2);
+    auto confirmed_tx = pool_tx;
+    confirmed_tx.vout.pop_back();
+    wallet_accessor_test::confirm_incoming(w, confirmed_tx);
+    ASSERT_EQ(8, w.balance_all(true));
+    const auto txid = cryptonote::get_transaction_hash(pool_tx);
+    ASSERT_NE(cryptonote::get_transaction_hash(confirmed_tx), txid);
+    pool_progress_callback callback(w);
+    w.callback(&callback);
+
+    w.process_pool_state({std::make_tuple(pool_tx, txid, false)});
+    std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> pending;
+    w.get_unconfirmed_payments(pending);
+    ASSERT_EQ(1, pending.size());
+    EXPECT_EQ(txid, pending.front().second.m_pd.m_tx_hash);
+    EXPECT_EQ(8, pending.front().second.m_pd.m_amount);
+    EXPECT_EQ(1, callback.pool_receipts);
+    EXPECT_EQ(8, w.balance_all(true));
+}
+
+TEST(wallet_pool, processes_incoming_after_detach)
+{
+    tools::wallet2 w(cryptonote::MAINNET, 1, true);
+    w.set_offline(true);
+    w.generate("", "");
+    const auto tx = make_pool_payment(w);
+    const auto txid = cryptonote::get_transaction_hash(tx);
+    wallet_accessor_test::confirm_incoming(w, tx);
+    ASSERT_EQ(8, w.balance_all(true));
+    wallet_accessor_test::detach_incoming(w);
+    ASSERT_EQ(0, w.balance_all(true));
+    pool_progress_callback callback(w);
+    w.callback(&callback);
+
+    w.process_pool_state({std::make_tuple(tx, txid, false)});
+    std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> pending;
+    w.get_unconfirmed_payments(pending);
+    ASSERT_EQ(1, pending.size());
+    EXPECT_EQ(txid, pending.front().second.m_pd.m_tx_hash);
+    EXPECT_EQ(8, pending.front().second.m_pd.m_amount);
+    EXPECT_EQ(1, callback.pool_receipts);
+    EXPECT_EQ(0, w.balance_all(true));
 }
 
 namespace
