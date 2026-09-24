@@ -30,7 +30,6 @@
 #include <boost/regex.hpp>
 #include "http_protocol_handler.h"
 #include "string_tools.h"
-#include "string_tools_lexical.h"
 #include "file_io_utils.h"
 #include "net_parse_helpers.h"
 #include "time_helper.h"
@@ -459,7 +458,7 @@ namespace net_utils
 		m_query_info.m_full_request_buf_size = pos;
     m_query_info.m_request_head.assign(m_cache.begin(), m_cache.begin()+pos); 
 
-		if(!parse_cached_header(m_query_info.m_header_info, m_cache, pos))
+		if(!parse_cached_header(m_query_info.m_header_info, m_cache, pos, m_len_summary))
 		{
 			LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): failed to anilize request header (" << pos << " bytes)");
 			m_state = http_state_error;
@@ -475,12 +474,6 @@ namespace net_utils
 		{
 			m_state = http_state_retriving_body;
 			m_body_transfer_type = http_body_transfer_measure;
-			if(!get_len_from_content_lenght(m_query_info.m_header_info.m_content_length, m_len_summary))
-			{
-				LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): Failed to get_len_from_content_lenght() (" << m_query_info.m_header_info.m_content_length.size() << " bytes)");
-				m_state = http_state_error;
-				return false;
-			}
 			if(0 == m_len_summary)
 			{	//current query finished, next will be next query
 				if(handle_request_and_send_response(m_query_info))
@@ -545,13 +538,15 @@ namespace net_utils
 	}
 	//--------------------------------------------------------------------------------------------
   template<class t_connection_context>
-	bool simple_http_connection_handler<t_connection_context>::parse_cached_header(http_header_info& body_info, const std::string& m_cache_to_process, size_t pos)
+	bool simple_http_connection_handler<t_connection_context>::parse_cached_header(http_header_info& body_info, const std::string& m_cache_to_process, size_t pos, size_t& content_length)
 	{ 
 		body_info.clear();
+		content_length = 0;
 		if(pos > m_cache_to_process.size() || pos > HTTP_MAX_HEADER_LEN)
 			return false;
 
 		size_t cur = 0;
+		bool has_content_length = false;
 
 		while(cur < pos)
 		{
@@ -576,11 +571,20 @@ namespace net_utils
 			else if(boost::iequals(name, "Referer"))
 				body_info.m_referer = std::string(value.data(), value.size());
 			else if(boost::iequals(name, "Content-Length"))
-				body_info.m_content_length = std::string(value.data(), value.size());
+			{
+				size_t parsed_length = 0;
+				if(!get_len_from_content_lenght(value, parsed_length) ||
+					(has_content_length && parsed_length != content_length))
+					return false;
+				if(!has_content_length)
+					body_info.m_content_length.assign(value.data(), value.size());
+				has_content_length = true;
+				content_length = parsed_length;
+			}
 			else if(boost::iequals(name, "Content-Type"))
 				body_info.m_content_type = std::string(value.data(), value.size());
 			else if(boost::iequals(name, "Transfer-Encoding"))
-				body_info.m_transfer_encoding = std::string(value.data(), value.size());
+				return false;
 			else if(boost::iequals(name, "Content-Encoding"))
 				body_info.m_content_encoding = std::string(value.data(), value.size());
 			else if(boost::iequals(name, "Host"))
@@ -598,13 +602,43 @@ namespace net_utils
 	}
 	//-----------------------------------------------------------------------------------
   template<class t_connection_context>
-	bool simple_http_connection_handler<t_connection_context>::get_len_from_content_lenght(const std::string& str, size_t& OUT len)
+	bool simple_http_connection_handler<t_connection_context>::get_len_from_content_lenght(boost::string_view str, size_t& OUT len)
 	{
-		// Content-Length must be 1*DIGIT (RFC 7230 3.3.2). Parse the whole value
-		// strictly, matching the client side, so a field such as "5abc" or "0x10"
-		// is rejected rather than silently yielding a body length from its leading
-		// digits.
-		return string_tools::get_xtype_from_string(len, str);
+		// Duplicate Content-Length fields can be combined into a comma-separated
+		// list. Accept the list only when every value is valid and identical.
+		bool has_length = false;
+		while(true)
+		{
+			const size_t comma = str.find(',');
+			boost::string_view value = str.substr(0, comma);
+			while(!value.empty() && (value.front() == ' ' || value.front() == '\t'))
+				value.remove_prefix(1);
+			while(!value.empty() && (value.back() == ' ' || value.back() == '\t'))
+				value.remove_suffix(1);
+
+			if(value.empty())
+				return false;
+
+			size_t parsed_length = 0;
+			for(const char c : value)
+			{
+				if(c < '0' || c > '9')
+					return false;
+				const size_t digit = c - '0';
+				if(parsed_length > (std::numeric_limits<size_t>::max() - digit) / 10)
+					return false;
+				parsed_length = parsed_length * 10 + digit;
+			}
+			if(has_length && parsed_length != len)
+				return false;
+			has_length = true;
+			len = parsed_length;
+
+			if(comma == boost::string_view::npos)
+				break;
+			str.remove_prefix(comma + 1);
+		}
+		return has_length;
 	}
 	//-----------------------------------------------------------------------------------
   template<class t_connection_context>
