@@ -3948,8 +3948,17 @@ void wallet2::process_pool_state(const std::vector<std::tuple<cryptonote::transa
     const cryptonote::transaction &tx = std::get<0>(e);
     const crypto::hash &tx_hash = std::get<1>(e);
     const bool double_spend_seen = std::get<2>(e);
-    // do not recreate confirmed outgoing transfers from an older pool snapshot
-    if (m_confirmed_txs.count(tx_hash))
+    // do not recreate confirmed transfers from an older pool snapshot
+    const bool confirmed = m_confirmed_txs.count(tx_hash) || std::any_of(tx.vout.begin(), tx.vout.end(),
+      [this, &tx_hash](const cryptonote::tx_out &out)
+      {
+        crypto::public_key key;
+        if (!get_output_public_key(out, key))
+          return false;
+        const auto it = m_pub_keys.find(key);
+        return it != m_pub_keys.end() && m_transfers.at(it->second).m_txid == tx_hash;
+      });
+    if (confirmed)
       continue;
     process_new_transaction(tx_hash, tx, std::vector<uint64_t>(), 0, 0, now, false, true, double_spend_seen, {});
     m_scanned_pool_txs[0].insert(tx_hash);
