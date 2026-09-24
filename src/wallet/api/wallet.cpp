@@ -547,9 +547,15 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
         // Generate view only wallet
         view_wallet->generate(path, password, address, viewkey);
 
-        // Export/Import outputs
-        auto outputs = m_wallet->export_outputs(true/*all*/);
-        view_wallet->import_outputs(outputs);
+        // Preserve complete output metadata
+        tools::wallet2::transfer_container transfers;
+        m_wallet->get_transfers(transfers);
+        for (auto &td : transfers)
+        {
+            memwipe(td.m_multisig_k.data(), td.m_multisig_k.size() * sizeof(td.m_multisig_k[0]));
+            td.m_multisig_k.clear();
+        }
+        view_wallet->import_outputs(std::make_tuple(uint64_t{0}, uint64_t{transfers.size()}, transfers));
 
         // Copy scanned blockchain
         auto bc = m_wallet->export_blockchain();
