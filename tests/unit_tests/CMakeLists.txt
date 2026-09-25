@@ -54,6 +54,7 @@ set(unit_tests_sources
   epee_serialization.cpp
   epee_utils.cpp
   expect.cpp
+  fcmp_pp.cpp
   json_serialization.cpp
   get_xtype_from_string.cpp
   hashchain.cpp
@@ -130,6 +131,7 @@ target_link_libraries(unit_tests
     serialization
     wallet
     p2p
+    tests_common
     version
     ${Boost_CHRONO_LIBRARY}
     ${Boost_THREAD_LIBRARY}
