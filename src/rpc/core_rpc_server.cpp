@@ -762,8 +762,13 @@ namespace cryptonote
             assert(pruned_tx_blob.size() <= prunable_tx_blob.size());
             prunable_tx_blob.erase(prunable_tx_blob.cbegin(), prunable_tx_blob.cbegin() + pruned_tx_blob.size());
 
-            // calculate unprunable hash if applicable
+            // Use the cached prunable hash if available, otherwise, fall back to calculating it here
             crypto::hash prunable_hash = crypto::null_hash;
+            if (td.prunable_hash_valid)
+            {
+              prunable_hash = td.prunable_hash;
+            }
+            else
             {
               const std::size_t tx_version = get_tx_version(pruned_tx_blob);
               if (1 != tx_version && !calculate_transaction_prunable_hash(tx_version, prunable_tx_blob, prunable_hash))
