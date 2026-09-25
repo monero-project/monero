@@ -87,6 +87,12 @@ class ColdSigningTest():
         except: ok = True
         assert ok
         assert self.cold_wallet.query_key("view_key").key == view_key
+        assert self.hot_wallet.query_key("public_view_key").key == self.cold_wallet.query_key("public_view_key").key
+        assert self.cold_wallet.query_key("public_spend_key").key == '1b3bd040020d3712ab84992b773d0a965134eb2df0392fb84af95de8a17be2ab'
+        ok = False
+        try: self.hot_wallet.query_key("public_spend_key")
+        except: ok = True
+        assert ok
         assert self.cold_wallet.get_address().address == self.hot_wallet.get_address().address
         assert self.cold_wallet.get_address().address == STANDARD_ADDRESS
 
