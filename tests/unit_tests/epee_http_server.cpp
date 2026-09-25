@@ -266,3 +266,41 @@ TEST(http_server, read_then_close)
 
   server.send_stop_signal();
 }
+
+namespace
+{
+  class rpc_idle_timeout : public testing::TestWithParam<bool> {};
+}
+
+TEST_P(rpc_idle_timeout, incomplete_request_expires)
+{
+  using tcp = boost::asio::ip::tcp;
+  using handler_t = epee::net_utils::http::http_custom_handler<>;
+  using connection_t = epee::net_utils::connection<handler_t>;
+
+  boost::asio::io_context context;
+  tcp::acceptor acceptor{context, tcp::endpoint{boost::asio::ip::make_address("127.0.0.1"), 0}};
+  tcp::socket peer{context};
+  peer.connect(acceptor.local_endpoint());
+  tcp::socket socket{context};
+  acceptor.accept(socket);
+  const auto shared = std::make_shared<connection_t::shared_state>();
+  const auto connection = boost::make_shared<connection_t>(context, std::move(socket), shared,
+    epee::net_utils::e_connection_type_RPC, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+  uint32_t ip = 0;
+  ASSERT_TRUE(epee::string_tools::get_ip_int32_from_string(ip, "8.8.8.8"));
+  ASSERT_TRUE(connection->start(true, false,
+    epee::net_utils::ipv4_network_address{ip, acceptor.local_endpoint().port()}));
+
+  if (GetParam())
+  {
+    const std::string partial = "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 5\r\n\r\nx";
+    boost::asio::write(peer, boost::asio::buffer(partial));
+  }
+  // Idle sockets and partially received requests must retain their remote timeout.
+  context.run_for(std::chrono::seconds{12});
+  EXPECT_EQ(connection_t::WASTED, connection->get_status());
+  context.stop();
+}
+
+INSTANTIATE_TEST_CASE_P(http_server, rpc_idle_timeout, testing::Bool());
