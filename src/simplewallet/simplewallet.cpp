@@ -2345,8 +2345,9 @@ bool simple_wallet::public_nodes(const std::vector<std::string> &args)
       const float cph = node.rpc_credits_per_hash / RPC_CREDITS_PER_HASH_SCALE;
       char cphs[9];
       snprintf(cphs, sizeof(cphs), "%.3f", cph);
-      const std::string last_seen = node.last_seen == 0 ? tr("never") : get_human_readable_timespan(std::chrono::seconds(now - node.last_seen));
-      std::string host = node.host + ":" + std::to_string(node.rpc_port);
+      const std::string last_seen = node.last_seen == 0 ? tr("never") : get_human_readable_timespan(std::chrono::seconds(now - std::min(now, node.last_seen)));
+      const std::string host = (node.host.find(':') == std::string::npos ? node.host : "[" + node.host + "]")
+          + ":" + std::to_string(node.rpc_port);
       message_writer() << boost::format("%32s %12s %16s") % host % cphs % last_seen;
       m_claimed_cph[host] = node.rpc_credits_per_hash;
     }
