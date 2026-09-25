@@ -95,17 +95,20 @@ public:
     {
       m_flush = false;
 
-      MCLOG_FILE(m_log_level, "msgwriter", m_oss.str());
+      std::string message = m_oss.str();
+      MCLOG_FILE(m_log_level, "msgwriter", message);
+      try { el::base::sanitize(message); }
+      catch (const std::exception&) { message = "<Invalid UTF-8 in message>"; }
 
       PAUSE_READLINE();
       if (epee::console_color_default == m_color)
       {
-        std::cout << m_oss.str();
+        std::cout << message;
       }
       else
       {
         set_console_color(m_color, m_bright);
-        std::cout << m_oss.str();
+        std::cout << message;
         epee::reset_console_color();
       }
       std::cout << std::endl;
