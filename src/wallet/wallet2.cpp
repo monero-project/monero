@@ -1692,46 +1692,55 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
     THROW_WALLET_EXCEPTION_IF(cannot_label_index, error::wallet_internal_error, "subaddress index out of range");
   }
 
+  const bool rebuild_ranges = !m_subaddress_ranges_valid;
+  const auto lookahead = std::make_pair(m_subaddress_lookahead_major, m_subaddress_lookahead_minor);
+  const bool expand_all = rebuild_ranges || lookahead != m_subaddress_lookahead_done;
+  if (!expand_all && index.major < m_subaddress_labels.size() &&
+      index.minor < m_subaddress_labels[index.major].size())
+    return;
+
+  const uint32_t old_major_end = get_subaddress_clamped_sum(
+    std::max<uint32_t>(m_subaddress_labels.size(), 1) - 1, m_subaddress_lookahead_major);
+  // A failed expansion may have changed labels or only part of the scanning map.
+  m_subaddress_ranges_valid = false;
+
   // resize subaddress labels just big enough that `m_subaddress_labels[index.major][index.minor]` is present
-  if (m_subaddress_labels.size() <= index.major)
+  const bool new_accounts = m_subaddress_labels.size() <= index.major;
+  if (new_accounts)
     m_subaddress_labels.resize(index.major + 1, {"Untitled account"});
   auto &subaddr_labels_in_account = m_subaddress_labels[index.major];
   if (subaddr_labels_in_account.size() <= index.minor)
     subaddr_labels_in_account.resize(index.minor + 1);
-  get_account_tags(); //trigger m_account_tags integrity checks
-
-  // compile all indices present in subaddress scanning map, as well as every major index
-  std::unordered_set<cryptonote::subaddress_index> all_indices;
-  std::unordered_map<std::uint32_t, std::uint32_t> lowest_missing_minor;
-  for (const auto &p : m_subaddresses)
+  if (new_accounts || rebuild_ranges)
+    get_account_tags(); // Also repair tags after loading or an interrupted expansion.
+  if (rebuild_ranges)
   {
-    all_indices.insert(p.second);
-    lowest_missing_minor[p.second.major];
-  }
-
-  // find lowest "missing" minor index in map, for all major indices
-  // this is an optimization which allows us to skip re-generating pubkeys that we already have
-  for (auto &p : lowest_missing_minor)
-  {
-    const std::uint32_t major = p.first;
-    std::uint32_t &minor = p.second;
-    while (all_indices.count({major, minor}) && minor < std::numeric_limits<std::uint32_t>::max())
-      ++minor;
+    // Rebuild after loading/resetting the wallet, preserving repair of sparse maps.
+    m_subaddress_ranges.clear();
+    std::unordered_set<cryptonote::subaddress_index> all_indices;
+    for (const auto &p : m_subaddresses)
+    {
+      all_indices.insert(p.second);
+      m_subaddress_ranges[p.second.major];
+    }
+    for (auto &p : m_subaddress_ranges)
+      while (p.second < std::numeric_limits<uint32_t>::max() && all_indices.count({p.first, p.second}))
+        ++p.second;
   }
 
   // resize subaddress scanning map to highest historical received subaddress index plus lookahead
   hw::device &hwdev = m_account.get_device();
   const std::uint32_t major_base = std::max<std::uint32_t>(m_subaddress_labels.size(), 1) - 1;
   const std::uint32_t major_end = get_subaddress_clamped_sum(major_base, m_subaddress_lookahead_major);
-  for (std::uint32_t major = 0; major < major_end; ++major)
+  const auto expand_major = [&](const uint32_t major)
   {
     const std::size_t n_minor_labels = (major < m_subaddress_labels.size()) ? m_subaddress_labels.at(major).size() : 0;
     const std::uint32_t minor_base = std::max<std::uint32_t>(n_minor_labels, 1) - 1;
     const std::uint32_t minor_end = get_subaddress_clamped_sum(minor_base, m_subaddress_lookahead_minor);
-    const auto lowest_missing_minor_it = lowest_missing_minor.find(major);
-    const std::uint32_t minor_begin = lowest_missing_minor_it != lowest_missing_minor.end() ? lowest_missing_minor_it->second : 0;
+    uint32_t &range_end = m_subaddress_ranges[major];
+    const uint32_t minor_begin = range_end;
     if (minor_begin >= minor_end)
-      continue;
+      return;
     const std::vector<crypto::public_key> pkeys
       = hwdev.get_subaddress_spend_public_keys(m_account.get_keys(), major, minor_begin, minor_end);
     for (std::uint32_t minor = minor_begin; minor < minor_end; ++minor)
@@ -1739,13 +1748,22 @@ void wallet2::expand_subaddresses(const cryptonote::subaddress_index& index)
       const crypto::public_key &D = pkeys.at(minor - minor_begin);
       m_subaddresses[D] = {major, minor};
     }
-  }
+    range_end = minor_end;
+  };
+  if (!expand_all && index.major < old_major_end && index.major < major_end)
+    expand_major(index.major);
+  for (uint32_t major = expand_all ? 0 : old_major_end; major < major_end; ++major)
+    expand_major(major);
+  m_subaddress_lookahead_done = lookahead;
+  m_subaddress_ranges_valid = true;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::create_one_off_subaddress(const cryptonote::subaddress_index& index)
 {
   const crypto::public_key pkey = get_subaddress_spend_public_key(index);
   m_subaddresses[pkey] = index;
+  // Rebuild ranges to avoid re-deriving already cached keys on the device.
+  m_subaddress_ranges_valid = false;
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::get_subaddress_label(const cryptonote::subaddress_index& index) const
@@ -4587,6 +4605,8 @@ bool wallet2::clear()
   m_scanned_pool_txs[1].clear();
   m_address_book.clear();
   m_subaddresses.clear();
+  m_subaddress_ranges.clear();
+  m_subaddress_ranges_valid = false;
   m_subaddress_labels.clear();
   m_multisig_rounds_passed = 0;
   m_device_last_key_image_sync = 0;
@@ -4633,6 +4653,7 @@ void wallet2::clear_user_data()
   m_address_book.clear();
   m_subaddress_labels.clear();
   m_attributes.clear();
+  m_subaddress_ranges_valid = false;
   m_account_tags = std::pair<std::map<std::string, std::string>, std::vector<std::string>>();
 }
 //----------------------------------------------------------------------------------------------------
@@ -6246,6 +6267,8 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
     }
 
     m_subaddresses.clear();
+    m_subaddress_ranges.clear();
+    m_subaddress_ranges_valid = false;
     m_subaddress_labels.clear();
     this->add_subaddress_account(tr("Primary account"));
 
