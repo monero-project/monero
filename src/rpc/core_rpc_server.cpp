@@ -385,7 +385,7 @@ namespace cryptonote
       : COMMAND_RPC_GET_BLOCKS_FAST_MAX_BLOCK_COUNT;
 
     std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, cryptonote::blobdata> > > > bs;
-    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.top_block_hash, res.start_height, req.prune, !req.no_miner_tx, req.block_ids_exclusive, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT))
+    if(!m_core.find_blockchain_supplement(req.start_height, req.block_ids, bs, res.current_height, res.top_block_hash, res.start_height, req.prune, !req.no_miner_tx, req.block_ids_exclusive, max_blocks, COMMAND_RPC_GET_BLOCKS_FAST_MAX_TX_COUNT, req.verifiable))
     {
       add_host_fail(ctx);
       return false;
@@ -398,7 +398,8 @@ namespace cryptonote
     for(auto& bd: bs)
     {
       res.blocks.resize(res.blocks.size()+1);
-      res.blocks.back().pruned = req.prune;
+      // In verifiable mode, V2+ txs carry a prunable_hash, so use the pruned serialization format
+      res.blocks.back().pruned = req.prune || req.verifiable;
       cumul_block_data_size += bd.first.first.size();
       res.blocks.back().block = std::move(bd.first.first);
       res.output_indices.push_back(COMMAND_RPC_GET_BLOCKS_FAST::block_output_indices());
@@ -842,17 +843,18 @@ namespace cryptonote
           pruned = false;
       }
 
-      if (req.split || req.prune || pruned)
+      if (req.split || req.prune || req.verifiable || pruned)
       {
-        // use split form with pruned and prunable (filled only when prune=false and the daemon has it), leaving as_hex as empty
+        // use split form, leaving as_hex as empty; with "verifiable", only V1 txs get their prunable data
         e.pruned_as_hex = string_tools::buff_to_hex_nodelimer(std::get<1>(tx));
-        if (!req.prune)
+        const bool fill_prunable = req.verifiable ? is_v1_tx(std::get<1>(tx)) : !req.prune;
+        if (fill_prunable)
           e.prunable_as_hex = string_tools::buff_to_hex_nodelimer(std::get<3>(tx));
         if (req.decode_as_json)
         {
           cryptonote::blobdata tx_data;
           cryptonote::transaction t;
-          if (req.prune || std::get<3>(tx).empty())
+          if (!fill_prunable || std::get<3>(tx).empty())
           {
             // decode pruned tx to JSON
             tx_data = std::get<1>(tx);
