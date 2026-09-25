@@ -30,7 +30,8 @@ set(fcmp_pp_sources
   curve_trees.cpp
   fcmp_pp_crypto.cpp
   fcmp_pp_types.cpp
-  tower_cycle.cpp)
+  tower_cycle.cpp
+  verify.cpp)
 
 monero_find_all_headers(fcmp_pp_headers "${CMAKE_CURRENT_SOURCE_DIR}")
 
