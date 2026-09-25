@@ -296,5 +296,6 @@ namespace tools
       const boost::program_options::variables_map *m_vm;
       std::atomic<uint32_t> m_auto_refresh_period;
       std::chrono::time_point<std::chrono::steady_clock> m_last_auto_refresh_time;
+      bool m_auto_refresh_at_tip = true;
   };
 }

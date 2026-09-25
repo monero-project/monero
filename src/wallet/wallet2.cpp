@@ -3093,7 +3093,7 @@ bool wallet2::should_skip_block(const cryptonote::block &b, uint64_t height) con
     && height >= m_skip_to_height);
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
+void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset, std::unordered_set<crypto::hash> &pending_txids, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
 {
   THROW_WALLET_EXCEPTION_IF(bche.txs.size() + 1 != parsed_block.o_indices.indices.size(), error::wallet_internal_error,
       "block transactions=" + std::to_string(bche.txs.size()) +
@@ -3120,6 +3120,7 @@ void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cry
     for (size_t idx = 0; idx < b.tx_hashes.size(); ++idx)
     {
       process_new_transaction(b.tx_hashes[idx], parsed_block.txes[idx], parsed_block.o_indices.indices[idx+1].indices, height, b.major_version, b.timestamp, false, false, false, tx_cache_data[tx_cache_data_offset++], output_tracker_cache);
+      pending_txids.erase(b.tx_hashes[idx]);
     }
     TIME_MEASURE_FINISH(txs_handle_time);
     m_last_block_reward = cryptonote::get_outs_money_amount(b.miner_tx);
@@ -3497,6 +3498,20 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
 
   hwdev.set_mode(hw::device::NONE);
 
+  // Reconcile completed transactions even if a later transaction or block throws.
+  std::unordered_set<crypto::hash> pending_txids;
+  for (const auto &payment : m_unconfirmed_payments)
+    pending_txids.insert(payment.second.m_pd.m_tx_hash);
+  const epee::scope_guard reconcile_pool([&]() {
+    if (m_unconfirmed_payments.empty())
+      return;
+    for (size_t i = 0; i < parsed_blocks.size(); ++i)
+      if (m_blockchain.is_in_bounds(start_height + i) && m_blockchain[start_height + i] == parsed_blocks[i].hash)
+        for (const auto &txid : parsed_blocks[i].block.tx_hashes)
+          pending_txids.erase(txid);
+    remove_obsolete_pool_txs(pending_txids, false);
+  });
+
   size_t current_index = start_height;
   size_t tx_cache_data_offset = 0;
   for (size_t i = 0; i < blocks.size(); ++i)
@@ -3506,7 +3521,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
 
     if(current_index >= m_blockchain.size())
     {
-      process_new_blockchain_entry(bl, blocks[i], parsed_blocks[i], bl_id, current_index, tx_cache_data, tx_cache_data_offset, output_tracker_cache);
+      process_new_blockchain_entry(bl, blocks[i], parsed_blocks[i], bl_id, current_index, tx_cache_data, tx_cache_data_offset, pending_txids, output_tracker_cache);
       ++blocks_added;
     }
     else if(bl_id != m_blockchain[current_index])
@@ -3523,7 +3538,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
         std::to_string(reorg_depth));
 
       handle_reorg(current_index, output_tracker_cache);
-      process_new_blockchain_entry(bl, blocks[i], parsed_blocks[i], bl_id, current_index, tx_cache_data, tx_cache_data_offset, output_tracker_cache);
+      process_new_blockchain_entry(bl, blocks[i], parsed_blocks[i], bl_id, current_index, tx_cache_data, tx_cache_data_offset, pending_txids, output_tracker_cache);
     }
     else
     {
@@ -3532,6 +3547,7 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
     ++current_index;
     tx_cache_data_offset += 1 + parsed_blocks[i].txes.size();
   }
+
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::refresh(bool trusted_daemon)
@@ -3675,6 +3691,8 @@ void wallet2::remove_obsolete_pool_txs(const std::unordered_set<crypto::hash> &t
     if ((!remove_if_found && !found) || (remove_if_found && found))
     {
       MDEBUG("Removing " << txid << " from unconfirmed payments");
+      m_scanned_pool_txs[0].erase(txid);
+      m_scanned_pool_txs[1].erase(txid);
       m_unconfirmed_payments.erase(pit);
     }
   }
@@ -4137,7 +4155,7 @@ std::shared_ptr<std::map<std::pair<uint64_t, uint64_t>, size_t>> wallet2::create
   return cache;
 }
 //----------------------------------------------------------------------------------------------------
-void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool, bool try_incremental, uint64_t max_blocks)
+void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blocks_fetched, bool& received_money, bool check_pool, bool try_incremental, uint64_t max_blocks, bool fetch_pool)
 {
   if (m_offline)
   {
@@ -4243,7 +4261,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         break;
       }
       if (!last)
-        tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(first, try_incremental, start_height, next_blocks_start_height, short_chain_history, blocks, parsed_blocks, next_blocks, next_parsed_blocks, process_pool_txs, last, error, exception);});
+        tpool.submit(&waiter, [&]{pull_and_parse_next_blocks(first && fetch_pool, try_incremental, start_height, next_blocks_start_height, short_chain_history, blocks, parsed_blocks, next_blocks, next_parsed_blocks, process_pool_txs, last, error, exception);});
 
       if (!first)
       {
