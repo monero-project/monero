@@ -150,7 +150,7 @@ class ColdSigningTest():
             for i in range(len(hot_transfers_list)):
                 assert len(hot_transfers_list[i]['tx_hash']) == 64
                 assert hot_transfers_list[i]['tx_hash'] != '0' * 64
-                assert cold_transfers_list[i]['tx_hash'] == '', cold_transfers_list[i]['tx_hash']
+                assert cold_transfers_list[i]['tx_hash'] == hot_transfers_list[i]['tx_hash']
                 for attr in attributes_to_cmp:
                     hot_val = hot_transfers_list[i][attr]
                     cold_val = cold_transfers_list[i][attr]
