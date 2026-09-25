@@ -983,6 +983,8 @@ private:
     template <class t_archive>
     inline void serialize(t_archive &a, const unsigned int ver)
     {
+      if constexpr (t_archive::is_loading::value)
+        m_subaddress_ranges_valid = false;
       uint64_t dummy_refresh_height = 0; // moved to keys file
       if(ver < 5)
         return;
@@ -1115,6 +1117,8 @@ private:
 
     BEGIN_SERIALIZE_OBJECT()
       MAGIC_FIELD("monero wallet cache")
+      if (!W)
+        m_subaddress_ranges_valid = false;
       VERSION_FIELD(2)
       FIELD(m_blockchain)
       FIELD(m_transfers)
@@ -1688,6 +1692,10 @@ private:
     std::unordered_map<crypto::public_key, size_t> m_pub_keys;
     cryptonote::account_public_address m_account_public_address;
     std::unordered_map<crypto::public_key, cryptonote::subaddress_index> m_subaddresses;
+    // Derived, unserialized lower bounds on contiguous minor ranges [0, end).
+    std::unordered_map<uint32_t, uint32_t> m_subaddress_ranges;
+    bool m_subaddress_ranges_valid = false;
+    std::pair<size_t, size_t> m_subaddress_lookahead_done{0, 0};
     std::vector<std::vector<std::string>> m_subaddress_labels;
     std::unordered_map<crypto::hash, std::string> m_tx_notes;
     std::unordered_map<std::string, std::string> m_attributes;
