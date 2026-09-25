@@ -29,6 +29,7 @@
 #pragma once
 
 #include <cstring>
+#include <memory>
 #include <type_traits>
 #include <variant>
 #include <vector>
@@ -67,6 +68,36 @@ struct HeliosT final
 using OutputTuple = ::OutputTuple;
 //----------------------------------------------------------------------------------------------------------------------
 OutputTuple output_tuple_from_bytes(const crypto::ec_point &O, const crypto::ec_point &I, const crypto::ec_point &C);
+//----------------------------------------------------------------------------------------------------------------------
+// Define FCMP++ prove/verify C++ type here so it can be used in FFI types
+using FcmpPpProof = std::vector<uint8_t>;
+//----------------------------------------------------------------------------------------------------------------------
+//----------------------------------------------------------------------------------------------------------------------
+// FFI types
+//----------------------------------------------------------------------------------------------------------------------
+// Macro to instantiate an FFI-compatible slice from a vector of FCMP FFI type. Instantiates a vector in local scope
+// so it remains in scope while the slice points to it, making sure memory addresses remain contiguous. The slice is
+// only usable within local scope, hence "TEMP".
+#define MAKE_TEMP_FFI_SLICE(raw_t, vec, slice_name)                              \
+    std::vector<const raw_t##Unsafe *> raw_t##Vector;                            \
+    raw_t##Vector.reserve(vec.size());                                           \
+    for (const raw_t &elem : vec)                                                \
+        raw_t##Vector.push_back(elem.get());                                     \
+    ::raw_t##SliceUnsafe slice_name{raw_t##Vector.data(), raw_t##Vector.size()};
+
+// Use a shared pointer so we can reference the same underlying tree root in multiple places
+using TreeRootShared = std::shared_ptr<TreeRootUnsafe>;
+TreeRootShared helios_tree_root(const HeliosPoint &);
+TreeRootShared selene_tree_root(const SelenePoint &);
+
+struct FcmpPpVerifyInputDeleter { void operator()(FcmpPpVerifyInputUnsafe *p) const noexcept; };
+using FcmpPpVerifyInput = std::unique_ptr<FcmpPpVerifyInputUnsafe, FcmpPpVerifyInputDeleter>;
+FcmpPpVerifyInput fcmp_pp_verify_input_new(const crypto::hash &signable_tx_hash,
+        const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
+        const std::size_t n_tree_layers,
+        const fcmp_pp::TreeRootShared &tree_root,
+        const std::vector<crypto::ec_point> &pseudo_outs,
+        const std::vector<crypto::key_image> &key_images);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 // C++ types
@@ -141,6 +172,8 @@ struct UnifiedOutput final
     }
 };
 
+#define SIZEOF_SERIALIZED_UNIFIED_OUTPUT 73 // 8+1+32+32
+
 // Contiguous leaves in the tree, starting at a specified start_idx in the leaf layer
 struct ContiguousLeaves final
 {
@@ -149,6 +182,17 @@ struct ContiguousLeaves final
     // Contiguous leaves in a tree that start at the start_idx
     std::vector<UnifiedOutput> tuples;
 };
+//----------------------------------------------------------------------------------------------------------------------
+//   FCMP++ prove/verify types
+//----------------------------------------------------------------------------------------------------------------------
+// Size of the membership proof alone
+std::size_t membership_proof_len(const std::size_t n_inputs, const uint8_t n_layers);
+
+// Size of the FCMP++ proof (membership proof + spend-auth + linkability proofs & input tuples)
+std::size_t fcmp_pp_proof_len(const std::size_t n_inputs, const uint8_t n_layers);
+
+// Get the number of inputs included in the FCMP++ verify input
+std::size_t n_inputs_in_fcmp_pp(const FcmpPpVerifyInput &fcmp_pp_verify_input);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp
