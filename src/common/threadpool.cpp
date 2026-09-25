@@ -30,6 +30,7 @@
 
 #include "cryptonote_config.h"
 #include "common/util.h"
+#include "scope_guard.h"
 
 static thread_local int depth = 0;
 static thread_local bool is_leaf = false;
@@ -91,9 +92,8 @@ void threadpool::submit(waiter *obj, std::function<void()> f, bool leaf) {
     lock.unlock();
     ++depth;
     is_leaf = leaf;
+    const epee::scope_guard restore_state([] { --depth; is_leaf = false; });
     f();
-    --depth;
-    is_leaf = false;
   } else {
     if (obj)
       obj->inc();
