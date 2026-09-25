@@ -65,5 +65,7 @@ namespace multisig
     const std::vector<crypto::public_key> &additional_tx_public_keys,
     std::size_t real_output_index,
     const std::vector<crypto::key_image> &pkis,
+    std::size_t num_signers,
+    std::size_t threshold,
     crypto::key_image &ki);
 } //namespace multisig
