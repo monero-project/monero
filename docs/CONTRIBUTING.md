@@ -150,3 +150,12 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 - Administrators MAY remove Maintainers who are inactive for an extended period of time, or who repeatedly fail to apply this process accurately.
 - Administrators SHOULD block or ban "bad actors" who cause stress and pain to others in the project. This should be done after public discussion, with a chance for all parties to speak. A bad actor is someone who repeatedly ignores the rules and culture of the project, who is needlessly argumentative or hostile, or who is offensive, and who is unable to self-correct their behavior when asked to do so by others.
 - Maintainers MUST NOT merge changes to this specification unless they are also Administrators.
+
+### AI policy
+
+- Contributors SHOULD disclose that a patch includes AI-generated content.
+- Contributors SHOULD NOT submit AI-generated code that they do not understand sufficiently to explain, review and test themselves.
+- Contributors SHOULD personally review any AI-generated content before submission.
+- Contributors are personally responsible for ensuring that any AI-generated content they submit does not infringe third-party rights.
+- Commit messages and comments in the code SHOULD NOT be AI-generated.
+- Descriptions and comments in a Platform pull request or issue SHOULD NOT be AI-generated. AI generated content MAY be used if it adds context to the discussion and is enclosed in a quote block.
