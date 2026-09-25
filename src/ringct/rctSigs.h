@@ -46,7 +46,7 @@ extern "C" {
 #include "crypto/keccak.h"
 }
 #include "crypto/crypto.h"
-
+#include "fcmp_pp/fcmp_pp_types.h"
 
 #include "rctTypes.h"
 #include "rctOps.h"
@@ -139,6 +139,9 @@ namespace rct {
 
     // Make sure points are valid points, don't have torsion, and are not equal to identity
     bool verPointsForTorsion(const std::vector<key> & pts);
+
+    // Split into batches and verify each batch in parallel
+    bool batchVerifyFcmpPpProofs(std::vector<fcmp_pp::FcmpPpVerifyInput> &&fcmp_pp_verify_inputs);
 }
 #endif  /* RCTSIGS_H */
 

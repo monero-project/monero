@@ -172,6 +172,9 @@ public:
     // Doesn't include the leaf layer.
     std::size_t n_layers(const uint64_t n_leaf_tuples) const;
 
+    // Get the decompressed tree root from compressed encoding
+    TreeRootShared get_tree_root_from_bytes(const std::size_t n_layers, const crypto::ec_point &tree_root) const;
+
 private:
     // Multithreaded helper function to convert valid outputs to leaf tuples ready for insertion to the tree & db
     void outputs_to_leaves(std::vector<UnifiedOutput> &&new_outputs,
@@ -219,7 +222,7 @@ using Selene       = tower_cycle::Selene;
 using Helios       = tower_cycle::Helios;
 using CurveTreesV1 = CurveTrees<Selene, Helios>;
 
-// https://github.com/monero-oxide/monero-oxide/blob/31c26d96eaadbba910ffe3613ad8b4cf9c598a93/crypto/fcmps/src/lib.rs#L54-L59
+// https://github.com/monero-oxide/monero-oxide/blob/77788c368145127f2dde2ac3e2ddce919f3ddd01/crypto/fcmps/src/lib.rs#L54-L59
 const std::size_t SELENE_CHUNK_WIDTH = 38;
 const std::size_t HELIOS_CHUNK_WIDTH = 18;
 
