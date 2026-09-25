@@ -820,7 +820,6 @@ namespace tools
     {
       res.total_balance = 0;
       res.total_unlocked_balance = 0;
-      cryptonote::subaddress_index subaddr_index = {0,0};
       const std::pair<std::map<std::string, std::string>, std::vector<std::string>> account_tags = m_wallet->get_account_tags();
       if (!req.tag.empty() && account_tags.first.count(req.tag) == 0 && !req.regexp)
       {
@@ -828,28 +827,37 @@ namespace tools
         er.message = (boost::format(tr("Tag %s is unregistered.")) % req.tag).str();
         return false;
       }
-      for (; subaddr_index.major < m_wallet->get_num_subaddress_accounts(); ++subaddr_index.major)
+      std::vector<uint32_t> account_indices;
+      for (uint32_t index = 0; index < m_wallet->get_num_subaddress_accounts(); ++index)
       {
-        bool no_match = !req.regexp ? (!req.tag.empty() && req.tag != account_tags.second[subaddr_index.major])
-          : (!req.tag.empty() && !boost::regex_match(account_tags.second[subaddr_index.major], boost::regex(req.tag)));
-        if (no_match)
-          continue;
-        wallet_rpc::COMMAND_RPC_GET_ACCOUNTS::subaddress_account_info info;
-        info.account_index = subaddr_index.major;
-        info.base_address = m_wallet->get_subaddress_as_str(subaddr_index);
-        info.balance = m_wallet->balance(subaddr_index.major, req.strict_balances);
-        info.unlocked_balance = m_wallet->unlocked_balance(subaddr_index.major, req.strict_balances);
-        info.label = m_wallet->get_subaddress_label(subaddr_index);
-        info.tag = account_tags.second[subaddr_index.major];
-        res.subaddress_accounts.push_back(info);
-        res.total_balance += info.balance;
-        res.total_unlocked_balance += info.unlocked_balance;
+        bool no_match = !req.regexp ? (!req.tag.empty() && req.tag != account_tags.second[index])
+          : (!req.tag.empty() && !boost::regex_match(account_tags.second[index], boost::regex(req.tag)));
+        if (!no_match)
+          account_indices.push_back(index);
       }
-      if (res.subaddress_accounts.size() == 0 && req.regexp)
+      if (account_indices.empty() && req.regexp)
       {
         er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
         er.message = (boost::format(tr("No matches for regex filter %s .")) % req.tag).str();
         return false;
+      }
+      if (account_indices.empty())
+        return true;
+
+      const auto balances = m_wallet->balances_per_account(account_indices, req.strict_balances);
+      for (uint32_t index: account_indices)
+      {
+        const cryptonote::subaddress_index subaddr_index = {index, 0};
+        wallet_rpc::COMMAND_RPC_GET_ACCOUNTS::subaddress_account_info info;
+        info.account_index = index;
+        info.base_address = m_wallet->get_subaddress_as_str(subaddr_index);
+        info.balance = balances[index].balance;
+        info.unlocked_balance = balances[index].unlocked_balance;
+        info.label = m_wallet->get_subaddress_label(subaddr_index);
+        info.tag = account_tags.second[index];
+        res.subaddress_accounts.push_back(info);
+        res.total_balance += info.balance;
+        res.total_unlocked_balance += info.unlocked_balance;
       }
     }
     catch (const std::exception& e)
