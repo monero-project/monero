@@ -1493,6 +1493,7 @@ namespace cryptonote
           if (!m_core.prepare_handle_incoming_blocks(blocks, pblocks))
           {
             LOG_ERROR_CCONTEXT("Failure in prepare_handle_incoming_blocks");
+            m_block_queue.flush_spans(span_connection_id, true);
             drop_connections(span_origin);
             return 1;
           }
@@ -2848,6 +2849,7 @@ skip:
   template<class t_core>
   void t_cryptonote_protocol_handler<t_core>::drop_connection(const boost::uuids::uuid& id)
   {
+    m_block_queue.flush_spans(id, true);
     m_p2p->for_connection(id, [this](cryptonote_connection_context& context, nodetool::peerid_type peer_id, uint32_t f)->bool{
       // This _could be_ outside of strand, so careful on actions
       drop_connection(context, true, false);
