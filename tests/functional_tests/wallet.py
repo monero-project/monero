@@ -49,6 +49,7 @@ class WalletTest():
       self.update_lookahead()
       self.attributes()
       self.open_close()
+      self.wallet_exists()
       self.languages()
       self.generate_from_keys()
       self.change_password()
@@ -330,6 +331,37 @@ class WalletTest():
         wallet.restore_deterministic_wallet(seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted')
         res = wallet.get_address()
         assert res.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+
+    def wallet_exists(self):
+        print('Testing wallet_exists')
+        wallet = Wallet()
+
+        try: wallet.close_wallet()
+        except: pass
+
+        util_resources.remove_wallet_files('test1')
+
+        res = wallet.wallet_exists('test1')
+        assert not res.keys_file_exists
+        assert not res.wallet_file_exists
+
+        seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
+        res = wallet.restore_deterministic_wallet(seed = seed, filename = 'test1')
+        assert res.address == '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        assert res.seed == seed
+
+        util_resources.remove_file('test1')
+        res = wallet.wallet_exists('test1')
+        assert res.keys_file_exists
+        assert not res.wallet_file_exists
+
+        wallet.store()
+        res = wallet.wallet_exists('test1')
+        assert res.keys_file_exists
+        assert res.wallet_file_exists
+
+        wallet.close_wallet()
+        util_resources.remove_wallet_files('test1')
 
     def languages(self):
         print('Testing languages')

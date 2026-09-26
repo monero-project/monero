@@ -361,6 +361,17 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(open_wallet)
 
+    def wallet_exists(self, filename):
+        wallet_exists = {
+            'method': 'wallet_exists',
+            'params' : {
+                'filename': filename,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(wallet_exists)
+
     def close_wallet(self, autosave_current = True):
         close_wallet = {
             'method': 'close_wallet',
