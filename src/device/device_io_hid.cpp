@@ -219,6 +219,7 @@ namespace hw {
         if (result != 0) {
           break;
         }
+        ASSERT_X(offset + MAX_BLOCK <= sizeof(buffer), "HID response too large for buffer");
         hid_ret = hid_read_timeout(this->usb_device, buffer + offset, MAX_BLOCK, this->timeout);
         ASSERT_X(hid_ret>=0, "Unable to receive hidapi response. Error "+std::to_string(result)+": "+ safe_hid_error(this->usb_device));
         result = (unsigned int)hid_ret;
