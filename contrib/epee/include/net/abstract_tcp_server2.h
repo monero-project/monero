@@ -175,6 +175,7 @@ namespace net_utils
           std::deque<epee::byte_slice> queue;
           std::size_t total_bytes;
           bool wait_consume;
+          bool timeout_extended;
         } write;
       };
 

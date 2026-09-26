@@ -28,12 +28,17 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <algorithm>
 #include <boost/asio/post.hpp>
 #include <boost/chrono/chrono.hpp>
 #include <boost/thread/condition_variable.hpp>
 #include <boost/thread/mutex.hpp>
 #include <condition_variable>
+#include <future>
+#include <memory>
 #include <mutex>
+#include <thread>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -913,3 +918,314 @@ TEST(boosted_tcp_server, write_failure)
   EXPECT_EQ(connection_t::WASTED, out_connection->get_status());
 }
 
+
+namespace
+{
+  struct rpc_timeout_config
+  {
+    std::chrono::milliseconds delay{0};
+    bool pipelined = false;
+    size_t response_size = 64 * 1024;
+    size_t received = 0;
+    std::promise<void> queued;
+  };
+
+  struct slow_rpc_handler
+  {
+    using config_type = rpc_timeout_config;
+    using connection_context = epee::net_utils::connection_context_base;
+
+    slow_rpc_handler(epee::net_utils::i_service_endpoint* socket, config_type& config, connection_context&):
+      socket(socket), config(config)
+    {}
+
+    void after_init_connection() {}
+    void handle_qued_callback() {}
+    void release_protocol() {}
+
+    bool handle_recv(const void*, size_t bytes)
+    {
+      config.received += bytes;
+      if (!config.response_size)
+        return true;
+      const auto reply = [this](size_t size) {
+        EXPECT_TRUE(socket->do_send(epee::byte_slice{std::string(size, '.')}));
+      };
+      if (config.pipelined)
+        reply(config.response_size);
+      std::this_thread::sleep_for(config.delay);
+      reply(config.pipelined ? 1 : config.response_size);
+      config.queued.set_value();
+      return true;
+    }
+
+    epee::net_utils::i_service_endpoint* socket;
+    config_type& config;
+  };
+
+  struct rpc_timeout_load
+  {
+    using tcp = boost::asio::ip::tcp;
+    using connection_t = epee::net_utils::connection<slow_rpc_handler>;
+
+    rpc_timeout_load(tcp::acceptor& acceptor, const std::shared_ptr<connection_t::shared_state>& shared,
+      const epee::net_utils::ipv4_network_address& remote, unsigned same_host)
+    {
+      // Create enough connections to apply the per-IP timeout cap. Only the
+      // same-host peers need to be connected; keep their workers idle.
+      for (unsigned i = 0; i < 120; ++i)
+      {
+        tcp::socket socket{context};
+        if (i < same_host)
+        {
+          peers.emplace_back(context);
+          peers.back().connect(acceptor.local_endpoint());
+          acceptor.accept(socket);
+        }
+        connections.push_back(boost::make_shared<connection_t>(context, std::move(socket), shared,
+          epee::net_utils::e_connection_type_RPC, epee::net_utils::ssl_support_t::e_ssl_support_disabled));
+        if (i < same_host)
+        {
+          EXPECT_TRUE(connections.back()->start(true, false, remote));
+        }
+      }
+    }
+
+    ~rpc_timeout_load()
+    {
+      for (auto& connection : connections)
+        static_cast<epee::net_utils::i_service_endpoint&>(*connection).close(false);
+      context.run_for(std::chrono::seconds{1});
+      context.stop();
+    }
+
+    boost::asio::io_context context;
+    std::vector<boost::shared_ptr<connection_t>> connections;
+    std::vector<tcp::socket> peers;
+  };
+
+  enum class rpc_handler_case { two_workers, pipelined, one_worker, slow_reader };
+  class rpc_handler_timeout : public testing::TestWithParam<rpc_handler_case> {};
+}
+
+TEST_P(rpc_handler_timeout, response_is_not_dropped)
+{
+  using tcp = boost::asio::ip::tcp;
+  using connection_t = epee::net_utils::connection<slow_rpc_handler>;
+
+  boost::asio::io_context context;
+  tcp::acceptor acceptor{context, tcp::endpoint{boost::asio::ip::make_address("127.0.0.1"), 0}};
+  // Set the peer's receive buffer before connecting so the response cannot fit
+  // in the advertised window.
+  tcp::socket peer{context};
+  peer.open(tcp::v4());
+  peer.set_option(tcp::socket::receive_buffer_size{4096});
+  peer.connect(acceptor.local_endpoint());
+  tcp::socket socket{context};
+  acceptor.accept(socket);
+  socket.set_option(tcp::socket::send_buffer_size{4096});
+
+  const bool one_worker = GetParam() == rpc_handler_case::one_worker;
+  const bool slow_reader = GetParam() == rpc_handler_case::slow_reader;
+  const auto shared = std::make_shared<connection_t::shared_state>();
+  shared->pipelined = GetParam() == rpc_handler_case::pipelined;
+  // With one worker, adding the write allowance still leaves the old deadline
+  // less than 1s overdue, so late-timer recovery cannot hide a missing clamp.
+  shared->delay = std::chrono::milliseconds{shared->pipelined ? 74000 : one_worker ? 33500 : 12000};
+  if (shared->pipelined)
+    shared->response_size = 8 * 1024 * 1024;
+  if (slow_reader)
+  {
+    shared->delay = std::chrono::seconds{0};
+    shared->response_size = 8 * 1024 * 1024;
+  }
+  auto queued = shared->queued.get_future();
+  const auto connection = boost::make_shared<connection_t>(context, std::move(socket), shared,
+    epee::net_utils::e_connection_type_RPC, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+  uint32_t ip = 0;
+  ASSERT_TRUE(epee::string_tools::get_ip_int32_from_string(ip, "8.8.4.4"));
+  const epee::net_utils::ipv4_network_address remote{ip, acceptor.local_endpoint().port()};
+  // Four same-host connections cap timeouts at 37.5s. Finish just before
+  // the second full write allowance ends, then drain the replies at 512 KiB/s.
+  std::unique_ptr<rpc_timeout_load> load;
+  if (shared->pipelined)
+    load.reset(new rpc_timeout_load(acceptor, shared, remote, 3));
+  ASSERT_TRUE(connection->start(true, true, remote));
+  boost::asio::write(peer, boost::asio::buffer("?", 1));
+
+  std::vector<std::thread> workers;
+  for (unsigned i = 0; i < (one_worker ? 1u : 2u); ++i)
+    workers.emplace_back([&context] { context.run(); });
+
+  const auto ready = queued.wait_for(std::chrono::seconds{90});
+  EXPECT_EQ(std::future_status::ready, ready);
+  if (ready == std::future_status::ready)
+  {
+    // Let an overdue timer run before draining the response, including on slow CI.
+    std::this_thread::sleep_for(std::chrono::seconds{slow_reader ? 12 : 1});
+    // A tiny second reply must also grant time for the first reply still in flight.
+    peer.non_blocking(true);
+    std::string reply(shared->response_size + (shared->pipelined ? 1 : 0), '\0');
+    size_t received = 0;
+    boost::system::error_code error;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{45};
+    while (received < reply.size() && std::chrono::steady_clock::now() < deadline)
+    {
+      const size_t bytes = peer.read_some(boost::asio::buffer(&reply[received], std::min(reply.size() - received, size_t{4096})), error);
+      received += bytes;
+      if (error == boost::asio::error::would_block || error == boost::asio::error::try_again)
+        std::this_thread::sleep_for(std::chrono::milliseconds{1});
+      else if (error)
+        break;
+      else if (shared->pipelined || one_worker)
+        std::this_thread::sleep_for(std::chrono::duration<double>{bytes / ((one_worker ? 40.0 : 512.0) * 1024)});
+    }
+    EXPECT_EQ(reply.size(), received);
+    EXPECT_EQ(reply.size(), std::count(reply.begin(), reply.end(), '.'));
+  }
+
+  context.stop();
+  for (auto& worker : workers)
+    worker.join();
+  static_cast<epee::net_utils::i_service_endpoint&>(*connection).close(false);
+  context.restart();
+  context.run_for(std::chrono::seconds{1});
+  context.stop();
+}
+
+INSTANTIATE_TEST_CASE_P(boosted_tcp_server, rpc_handler_timeout,
+  testing::Values(rpc_handler_case::two_workers, rpc_handler_case::pipelined, rpc_handler_case::one_worker, rpc_handler_case::slow_reader));
+
+namespace
+{
+  enum class rpc_write_case { delayed_completion, delayed_timer, unresponsive_peer, delayed_read, unresponsive_busy, delayed_read_large };
+  class rpc_write_timeout : public testing::TestWithParam<rpc_write_case> {};
+}
+
+TEST_P(rpc_write_timeout, pending_response)
+{
+  using tcp = boost::asio::ip::tcp;
+  using connection_t = epee::net_utils::connection<slow_rpc_handler>;
+
+  boost::asio::io_context context;
+  tcp::acceptor acceptor{context, tcp::endpoint{boost::asio::ip::make_address("127.0.0.1"), 0}};
+  tcp::socket peer{context};
+  peer.open(tcp::v4());
+  peer.set_option(tcp::socket::receive_buffer_size{4096});
+  peer.connect(acceptor.local_endpoint());
+  tcp::socket socket{context};
+  acceptor.accept(socket);
+  socket.set_option(tcp::socket::send_buffer_size{4096});
+
+  const auto shared = std::make_shared<connection_t::shared_state>();
+  uint32_t ip = 0;
+  ASSERT_TRUE(epee::string_tools::get_ip_int32_from_string(ip, "8.8.4.4"));
+  const epee::net_utils::ipv4_network_address remote{ip, acceptor.local_endpoint().port()};
+  const auto connection = boost::make_shared<connection_t>(context, std::move(socket), shared,
+    epee::net_utils::e_connection_type_RPC, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+
+  const bool delayed_completion = GetParam() == rpc_write_case::delayed_completion;
+  const bool delayed_read = GetParam() == rpc_write_case::delayed_read || GetParam() == rpc_write_case::delayed_read_large;
+  const size_t request_size = GetParam() == rpc_write_case::delayed_read_large ? 8000 : 100;
+  const bool unresponsive_busy = GetParam() == rpc_write_case::unresponsive_busy;
+  const bool unresponsive = GetParam() == rpc_write_case::unresponsive_peer || unresponsive_busy;
+  // Nine same-host connections cap the timeout at 300s / 256.
+  std::unique_ptr<rpc_timeout_load> load;
+  if (delayed_completion || delayed_read || unresponsive)
+    load.reset(new rpc_timeout_load(acceptor, shared, remote, 8));
+  ASSERT_TRUE(connection->start(true, false, remote));
+
+  epee::net_utils::i_service_endpoint& endpoint = *connection;
+  // A drained reply must restore the allowance for another worker stall.
+  for (unsigned round = 0; round < (delayed_read ? 2u : 1u); ++round)
+  {
+    // The small first write completes in the kernel, but its callback cannot run
+    // until workers resume. The second response must then receive a fresh timeout.
+    if (delayed_completion)
+    {
+      ASSERT_TRUE(endpoint.do_send(epee::byte_slice{std::string(1, '.')}));
+    }
+    // Leave a write pending even if the OS enlarges the socket buffers.
+    const size_t response_size = delayed_read ? 1024 * 1024 : unresponsive ? 256 * 1024 : 64 * 1024;
+    ASSERT_TRUE(endpoint.do_send(epee::byte_slice{std::string(response_size, '.')}));
+
+    if (unresponsive)
+    {
+      if (unresponsive_busy)
+      {
+        context.poll();
+        // Repeated worker stalls must not keep an unread response alive forever.
+        for (unsigned i = 0; i < 2; ++i)
+        {
+          std::this_thread::sleep_for(std::chrono::milliseconds{2500});
+          context.restart();
+          context.run_for(std::chrono::milliseconds{200});
+          if (i == 0)
+          {
+            EXPECT_EQ(connection_t::RUNNING, connection->get_status());
+          }
+        }
+      }
+      else
+        context.run_for(std::chrono::seconds{5});
+      EXPECT_EQ(connection_t::WASTED, connection->get_status());
+    }
+    else
+    {
+      // An idle event loop models all workers occupied by other RPC handlers.
+      // Leave the first write completion queued, or let the incomplete write wait.
+      if (delayed_read)
+        context.run_for(std::chrono::milliseconds{500});
+      else if (!delayed_completion)
+        context.poll();
+      if (delayed_read)
+      {
+        // A partial next request must not hide lateness or grant write time.
+        shared->response_size = 0;
+        boost::asio::write(peer, boost::asio::buffer(std::string(request_size, '?')));
+      }
+      // Keep the completion less than 1s overdue after adding the capped timeout,
+      // so recovery for a late timer cannot conceal a broken write allowance.
+      std::this_thread::sleep_for(std::chrono::milliseconds{(delayed_completion || delayed_read) ? 2700 : 35000});
+      context.restart();
+      context.run_for(std::chrono::milliseconds{200});
+      EXPECT_EQ(connection_t::RUNNING, connection->get_status());
+      if (delayed_read)
+      {
+        EXPECT_EQ(request_size * (round + 1), shared->received);
+      }
+      context.restart();
+      std::thread worker([&context] { context.run(); });
+      peer.non_blocking(true);
+      std::string reply(response_size + (delayed_completion ? 1 : 0), '\0');
+      size_t received = 0;
+      boost::system::error_code error;
+      const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{10};
+      while (received < reply.size() && std::chrono::steady_clock::now() < deadline)
+      {
+        received += peer.read_some(boost::asio::buffer(&reply[received], reply.size() - received), error);
+        if (error == boost::asio::error::would_block || error == boost::asio::error::try_again)
+          std::this_thread::sleep_for(std::chrono::milliseconds{1});
+        else if (error)
+          break;
+      }
+      EXPECT_EQ(reply.size(), received);
+      EXPECT_EQ(reply.size(), std::count(reply.begin(), reply.end(), '.'));
+      context.stop();
+      worker.join();
+      // Process the completed write before stalling the next reply.
+      context.restart();
+      context.run_for(std::chrono::milliseconds{50});
+    }
+  }
+
+  endpoint.close(false);
+  context.restart();
+  context.run_for(std::chrono::seconds{1});
+  context.stop();
+}
+
+INSTANTIATE_TEST_CASE_P(boosted_tcp_server, rpc_write_timeout,
+  testing::Values(rpc_write_case::delayed_completion, rpc_write_case::delayed_timer,
+    rpc_write_case::unresponsive_peer, rpc_write_case::delayed_read, rpc_write_case::unresponsive_busy,
+    rpc_write_case::delayed_read_large));
