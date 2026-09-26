@@ -236,7 +236,8 @@ namespace cryptonote
       std::move(bind_ipv6_str), std::move(rpc_config->use_ipv6), std::move(rpc_config->require_ipv4),
       std::move(rpc_config->access_control_origins), std::move(http_login), std::move(rpc_config->ssl_options),
       max_connections_public, max_connections_private, max_connections,
-      command_line::get_arg(vm, arg_rpc_response_soft_limit)
+      command_line::get_arg(vm, arg_rpc_response_soft_limit),
+      rpc_config->disable_md5
     );
 
     m_net_server.get_config_object().m_max_content_length = MAX_RPC_CONTENT_LENGTH;

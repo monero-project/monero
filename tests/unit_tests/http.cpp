@@ -64,6 +64,7 @@
 #include <vector>
 
 #include "string_tools.h"
+#include "common/util.h"
 #include "crypto/crypto.h"
 
 namespace {
@@ -323,6 +324,14 @@ std::string md5_hex(const std::string& in)
   return epee::string_tools::pod_to_hex(digest);
 }
 
+std::string sha256_hex(const std::string& in)
+{
+  crypto::hash hash;
+  if (!tools::sha256sum(reinterpret_cast<const uint8_t*>(in.data()), in.size(), hash))
+    return {};
+  return epee::string_tools::pod_to_hex(hash);
+}
+
 std::string get_a1(const http::login& user, const fields& src)
 {
   const std::string& realm = src.at(u8"realm");
@@ -341,6 +350,14 @@ std::string get_a1_sess(const http::login& user, const std::string& cnonce, cons
   const std::string& nonce = responses.at(0).at(u8"nonce");
   return boost::join(
     std::vector<std::string>{md5_hex(get_a1(user, responses)), nonce, cnonce}, u8":"
+  );
+}
+
+std::string get_sha256_a1_sess(const http::login& user, const std::string& cnonce, const auth_responses& responses)
+{
+  const std::string& nonce = responses.at(0).at(u8"nonce");
+  return boost::join(
+    std::vector<std::string>{sha256_hex(get_a1(user, responses)), nonce, cnonce}, u8":"
   );
 }
 
@@ -700,6 +717,396 @@ TEST(HTTP_Server_Auth, MD5_sess_auth)
   EXPECT_STREQ(u8"true", parsed_replay[0].at(u8"stale").c_str());
 }
 
+TEST(HTTP_Server_Auth, Algorithms)
+{
+  // RFC 7616 3.7: a server may send multiple challenges; strongest first
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+
+  const auto parsed = parse_response(*response);
+  ASSERT_EQ(4u, parsed.size()); // sha256, sha256-sess, md5, md5-sess
+  EXPECT_STREQ(u8"SHA-256", parsed[0].at(u8"algorithm").c_str());
+  EXPECT_STREQ(u8"SHA-256-sess", parsed[1].at(u8"algorithm").c_str());
+  EXPECT_STREQ(u8"MD5", parsed[2].at(u8"algorithm").c_str());
+  EXPECT_STREQ(u8"MD5-sess", parsed[3].at(u8"algorithm").c_str());
+
+  for (const auto& challenge : parsed)
+  {
+    EXPECT_STREQ(u8"auth", challenge.at(u8"qop").c_str()); // RFC 7616: qop MUST be used
+    EXPECT_STREQ(u8"monero-rpc", challenge.at(u8"realm").c_str());
+    EXPECT_EQ(24u, challenge.at(u8"nonce").size());
+    EXPECT_STREQ(u8"false", challenge.at(u8"stale").c_str());
+  }
+}
+
+TEST(HTTP_Server_Auth, DisableMD5_Algorithms)
+{
+  // With "--disable-md5", only SHA-256 and SHA-256-sess should be advertised
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng, true};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+
+  const auto parsed = parse_response(*response);
+  ASSERT_EQ(2u, parsed.size()); // sha256, sha256-sess only
+  EXPECT_STREQ(u8"SHA-256", parsed[0].at(u8"algorithm").c_str());
+  EXPECT_STREQ(u8"SHA-256-sess", parsed[1].at(u8"algorithm").c_str());
+
+  for (const auto& challenge : parsed)
+  {
+    EXPECT_STREQ(u8"auth", challenge.at(u8"qop").c_str());
+    EXPECT_STREQ(u8"monero-rpc", challenge.at(u8"realm").c_str());
+    EXPECT_EQ(24u, challenge.at(u8"nonce").size());
+    EXPECT_STREQ(u8"false", challenge.at(u8"stale").c_str());
+  }
+}
+
+TEST(HTTP_Server_Auth, DisableMD5_RejectsMD5)
+{
+  // With "--disable-md5", MD5 auth response must be rejected
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng, true};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+
+  const auto fields = parse_response(*response);
+  ASSERT_EQ(2u, fields.size());
+
+  const std::string& nonce = fields[0].at(u8"nonce");
+  const std::string uri{"/some_foo_thing"};
+
+  const std::string a1 = get_a1(user, fields);
+  const std::string a2 = get_a2(uri);
+
+  const std::string auth_code = md5_hex(
+    boost::join(std::vector<std::string>{md5_hex(a1), nonce, md5_hex(a2)}, u8":")
+  );
+
+  const auto request = make_request({
+    {u8"algorithm", u8"md5"},
+    {u8"nonce", quoted(nonce)},
+    {u8"realm", quoted(fields[0].at(u8"realm"))},
+    {u8"response", quoted(auth_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  }, uri);
+
+  // MD5 auth must be rejected
+  const auto rejected = auth.get_response(request);
+  ASSERT_TRUE(bool(rejected));
+  EXPECT_TRUE(is_unauthorized(*rejected));
+
+  const auto request_default = make_request({
+    {u8"nonce", quoted(nonce)},
+    {u8"realm", quoted(fields[0].at(u8"realm"))},
+    {u8"response", quoted(auth_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  }, uri);
+
+  const auto rejected_default = auth.get_response(request_default);
+  ASSERT_TRUE(bool(rejected_default));
+  EXPECT_TRUE(is_unauthorized(*rejected_default));
+}
+
+TEST(HTTP_Server_Auth, DisableMD5_AcceptsSHA256)
+{
+  // With "--disable-md5", SHA-256 auth must still succeed
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng, true};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+
+  const auto fields = parse_response(*response);
+  ASSERT_EQ(2u, fields.size());
+
+  const std::string& nonce = fields[0].at(u8"nonce");
+  const std::string uri{"/some_foo_thing"};
+
+  const std::string a1 = get_a1(user, fields);
+  const std::string a2 = get_a2(uri);
+
+  const std::string auth_code = sha256_hex(
+    boost::join(std::vector<std::string>{sha256_hex(a1), nonce, sha256_hex(a2)}, u8":")
+  );
+
+  const auto request = make_request({
+    {u8"algorithm", u8"sha-256"},
+    {u8"nonce", quoted(nonce)},
+    {u8"realm", quoted(fields[0].at(u8"realm"))},
+    {u8"response", quoted(auth_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  }, uri);
+
+  // SHA-256 auth must succeed
+  EXPECT_FALSE(bool(auth.get_response(request)));
+}
+
+TEST(HTTP_Server_Auth, SHA256)
+{
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+  EXPECT_TRUE(is_unauthorized(*response));
+
+  const auto fields = parse_response(*response);
+  ASSERT_EQ(4u, fields.size());
+  EXPECT_TRUE(has_same_fields(fields));
+
+  const std::string& nonce = fields[0].at(u8"nonce");
+  EXPECT_EQ(24, nonce.size());
+
+  const std::string uri{"/some_foo_thing"};
+
+  const std::string a1 = get_a1(user, fields);
+  const std::string a2 = get_a2(uri);
+
+  const std::string auth_code = sha256_hex(
+    boost::join(std::vector<std::string>{sha256_hex(a1), nonce, sha256_hex(a2)}, u8":")
+  );
+
+  const auto request = make_request({
+    {u8"algorithm", u8"sha-256"},
+    {u8"nonce", quoted(nonce)},
+    {u8"realm", quoted(fields[0].at(u8"realm"))},
+    {u8"response", quoted(auth_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  }, uri);
+
+  EXPECT_FALSE(bool(auth.get_response(request)));
+
+  const auto response2 = auth.get_response(request);
+  ASSERT_TRUE(bool(response2));
+  EXPECT_TRUE(is_unauthorized(*response2));
+
+  const auto fields2 = parse_response(*response2);
+  ASSERT_EQ(4u, fields2.size());
+  EXPECT_TRUE(has_same_fields(fields2));
+
+  EXPECT_NE(nonce, fields2[0].at(u8"nonce"));
+  EXPECT_STREQ(u8"true", fields2[0].at(u8"stale").c_str());
+}
+
+TEST(HTTP_Server_Auth, SHA256_sess)
+{
+  constexpr const char cnonce[] = "not a good cnonce";
+
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+  EXPECT_TRUE(is_unauthorized(*response));
+
+  const auto fields = parse_response(*response);
+  ASSERT_EQ(4u, fields.size());
+  EXPECT_TRUE(has_same_fields(fields));
+
+  const std::string& nonce = fields[0].at(u8"nonce");
+  EXPECT_EQ(24, nonce.size());
+
+  const std::string uri{"/some_foo_thing"};
+
+  const std::string a1 = get_sha256_a1_sess(user, cnonce, fields);
+  const std::string a2 = get_a2(uri);
+
+  const std::string auth_code = sha256_hex(
+    boost::join(std::vector<std::string>{sha256_hex(a1), nonce, sha256_hex(a2)}, u8":")
+  );
+
+  const auto request = make_request({
+    {u8"algorithm", u8"sha-256-sess"},
+    {u8"cnonce", quoted(cnonce)},
+    {u8"nonce", quoted(nonce)},
+    {u8"realm", quoted(fields[0].at(u8"realm"))},
+    {u8"response", quoted(auth_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  }, uri);
+
+  EXPECT_FALSE(bool(auth.get_response(request)));
+
+  const auto response2 = auth.get_response(request);
+  ASSERT_TRUE(bool(response2));
+  EXPECT_TRUE(is_unauthorized(*response2));
+
+  const auto fields2 = parse_response(*response2);
+  ASSERT_EQ(4u, fields2.size());
+  EXPECT_TRUE(has_same_fields(fields2));
+
+  EXPECT_NE(nonce, fields2[0].at(u8"nonce"));
+  EXPECT_STREQ(u8"true", fields2[0].at(u8"stale").c_str());
+}
+
+TEST(HTTP_Server_Auth, SHA256_auth)
+{
+  constexpr const char cnonce[] = "not a nonce";
+  constexpr const char qop[] = "auth";
+
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+  EXPECT_TRUE(is_unauthorized(*response));
+
+  const auto parsed = parse_response(*response);
+  ASSERT_EQ(4u, parsed.size());
+  EXPECT_TRUE(has_same_fields(parsed));
+
+  const std::string& nonce = parsed[0].at(u8"nonce");
+  EXPECT_EQ(24, nonce.size());
+
+  const std::string uri{"/some_foo_thing"};
+
+  const std::string a1 = get_a1(user, parsed);
+  const std::string a2 = get_a2(uri);
+  std::string nc = get_nc(1);
+
+  const auto generate_auth = [&] {
+    return sha256_hex(
+      boost::join(
+        std::vector<std::string>{sha256_hex(a1), nonce, nc, cnonce, qop, sha256_hex(a2)}, u8":"
+      )
+    );
+  };
+
+  fields args{
+    {u8"algorithm", quoted(u8"sha-256")},
+    {u8"cnonce", quoted(cnonce)},
+    {u8"nc", nc},
+    {u8"nonce", quoted(nonce)},
+    {u8"qop", quoted(qop)},
+    {u8"realm", quoted(parsed[0].at(u8"realm"))},
+    {u8"response", quoted(generate_auth())},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  };
+
+  const auto request = make_request(args, uri);
+  EXPECT_FALSE(bool(auth.get_response(request)));
+
+  for (unsigned i = 2; i < 20; ++i)
+  {
+    nc = get_nc(i);
+    args.at(u8"nc") = nc;
+    args.at(u8"response") = quoted(generate_auth());
+    EXPECT_FALSE(auth.get_response(make_request(args, uri)));
+  }
+
+  const auto replay = auth.get_response(request);
+  ASSERT_TRUE(bool(replay));
+  EXPECT_TRUE(is_unauthorized(*replay));
+
+  const auto parsed_replay = parse_response(*replay);
+  ASSERT_EQ(4u, parsed_replay.size());
+  EXPECT_TRUE(has_same_fields(parsed_replay));
+
+  EXPECT_NE(nonce, parsed_replay[0].at(u8"nonce"));
+  EXPECT_STREQ(u8"true", parsed_replay[0].at(u8"stale").c_str());
+}
+
+TEST(HTTP_Server_Auth, SHA256_sess_auth)
+{
+  constexpr const char cnonce[] = "not a nonce";
+  constexpr const char qop[] = "auth";
+
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+  EXPECT_TRUE(is_unauthorized(*response));
+
+  const auto parsed = parse_response(*response);
+  ASSERT_EQ(4u, parsed.size());
+  EXPECT_TRUE(has_same_fields(parsed));
+
+  const std::string& nonce = parsed[0].at(u8"nonce");
+  EXPECT_EQ(24, nonce.size());
+
+  const std::string uri{"/some_foo_thing"};
+
+  const std::string a1 = get_sha256_a1_sess(user, cnonce, parsed);
+  const std::string a2 = get_a2(uri);
+  std::string nc = get_nc(1);
+
+  const auto generate_auth = [&] {
+    return sha256_hex(
+      boost::join(
+        std::vector<std::string>{sha256_hex(a1), nonce, nc, cnonce, qop, sha256_hex(a2)}, u8":"
+      )
+    );
+  };
+
+  fields args{
+    {u8"algorithm", u8"sha-256-sess"},
+    {u8"cnonce", quoted(cnonce)},
+    {u8"nc", nc},
+    {u8"nonce", quoted(nonce)},
+    {u8"qop", qop},
+    {u8"realm", quoted(parsed[0].at(u8"realm"))},
+    {u8"response", quoted(generate_auth())},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  };
+
+  const auto request = make_request(args, uri);
+  EXPECT_FALSE(bool(auth.get_response(request)));
+
+  for (unsigned i = 2; i < 20; ++i)
+  {
+    nc = get_nc(i);
+    args.at(u8"nc") = nc;
+    args.at(u8"response") = quoted(generate_auth());
+    EXPECT_FALSE(auth.get_response(make_request(args, uri)));
+  }
+
+  const auto replay = auth.get_response(request);
+  ASSERT_TRUE(bool(replay));
+  EXPECT_TRUE(is_unauthorized(*replay));
+
+  const auto parsed_replay = parse_response(*replay);
+  ASSERT_EQ(4u, parsed_replay.size());
+  EXPECT_TRUE(has_same_fields(parsed_replay));
+
+  EXPECT_NE(nonce, parsed_replay[0].at(u8"nonce"));
+  EXPECT_STREQ(u8"true", parsed_replay[0].at(u8"stale").c_str());
+}
+
+TEST(HTTP_Auth, RFC7616_SHA256_Vector)
+{
+  // Official test vector from RFC 7616 section 3.9.1
+  constexpr char username[] = "Mufasa";
+  constexpr char realm[] = "http-auth@example.org";
+  constexpr char password[] = "Circle of Life";
+  constexpr char nonce[] = "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v";
+  constexpr char cnonce[] = "f2/wE4q74E6zIJEtWaHKaf5wv/H5QzzpXusqGemxURZJ";
+  constexpr char uri[] = "/dir/index.html";
+  constexpr char expected_response[] =
+    "753927fa0e85d155564e2e272a28d1802ca10daf4496794697cf8db5856cb6c1";
+
+  const std::string ha1 = sha256_hex(
+    boost::join(std::vector<std::string>{username, realm, password}, u8":")
+  );
+  const std::string ha2 = sha256_hex(
+    boost::join(std::vector<std::string>{"GET", uri}, u8":")
+  );
+  const std::string response = sha256_hex(
+    boost::join(std::vector<std::string>{ha1, nonce, u8"00000001", cnonce, u8"auth", ha2}, u8":")
+  );
+  EXPECT_STREQ(expected_response, response.c_str());
+}
 
 TEST(HTTP_Auth, RequestTargetBinding)
 {
@@ -930,6 +1337,71 @@ TEST(HTTP_Client_Auth, MD5_auth)
   EXPECT_EQ(http::http_client_auth::kSuccess, auth.handle_401(response));
 }
 
+TEST(HTTP_Client_Auth, SHA256_auth_RFC7616)
+{
+  // Inputs taken from RFC 7616 section 3.9.1; the client must select
+  constexpr char method[] = "GET";
+  constexpr char nonce[] = "7ypf/xlj9XXwfDPEoM4URrv/xwf94BcCAzFZH4GiTo0v";
+  constexpr char opaque[] = "FQhe/qaU925kfnzjCev0ciny7QMkPqMAFRtzCUYo5tdS";
+  constexpr char realm[] = "http-auth@example.org";
+  constexpr char uri[] = "/dir/index.html";
+
+  const http::login user{"Mufasa", "Circle of Life"};
+  http::http_client_auth auth{user};
+
+  auto response = make_response({
+    {
+      {u8"algorithm", u8"MD5"},
+      {u8"nonce", quoted(std::string{"e"} + nonce)},
+      {u8"opaque", quoted(std::string{"e"} + opaque)},
+      {u8"realm", quoted(std::string{"e"} + realm)},
+      {u8"qop", quoted(u8"auth")}
+    },
+    {
+      {u8"algorithm", u8"SHA-256"},
+      {u8"nonce", quoted(nonce)},
+      {u8"opaque", quoted(opaque)},
+      {u8"realm", quoted(realm)},
+      {u8"qop", quoted(u8"auth, auth-int")}
+    }
+  });
+
+  EXPECT_EQ(http::http_client_auth::kSuccess, auth.handle_401(response));
+
+  const std::string a1 =
+    boost::join(std::vector<std::string>{user.username, realm, std::string(user.password.data(), user.password.size())}, u8":");
+  const std::string a2 = boost::join(std::vector<std::string>{method, uri}, u8":");
+
+  for (unsigned i = 1; i <= 10; ++i)
+  {
+    const std::string nc = get_nc(i);
+
+    const auto auth_field = auth.get_auth_field(method, uri);
+    ASSERT_TRUE(bool(auth_field));
+
+    const auto parsed = parse_fields(auth_field->second);
+    EXPECT_STREQ(u8"Authorization", auth_field->first.c_str());
+    EXPECT_STREQ(u8"SHA-256", parsed.at(u8"algorithm").c_str());
+    EXPECT_STREQ(nonce, parsed.at(u8"nonce").c_str());
+    EXPECT_STREQ(opaque, parsed.at(u8"opaque").c_str());
+    EXPECT_STREQ(u8"auth", parsed.at(u8"qop").c_str());
+    EXPECT_STREQ(uri, parsed.at(u8"uri").c_str());
+    EXPECT_EQ(user.username, parsed.at(u8"username"));
+    EXPECT_STREQ(realm, parsed.at(u8"realm").c_str());
+    EXPECT_EQ(nc, parsed.at(u8"nc"));
+
+    const std::string auth_code = sha256_hex(
+      boost::join(
+        std::vector<std::string>{sha256_hex(a1), nonce, nc, parsed.at(u8"cnonce"), u8"auth", sha256_hex(a2)},
+        u8":")
+    );
+    EXPECT_TRUE(boost::iequals(auth_code, parsed.at(u8"response")));
+  }
+
+  EXPECT_EQ(http::http_client_auth::kBadPassword, auth.handle_401(response));
+  response.m_header_info.m_etc_fields.back().second.append(u8"," + write_fields({{u8"stale", u8"true"}}));
+  EXPECT_EQ(http::http_client_auth::kSuccess, auth.handle_401(response));
+}
 
 TEST(HTTP, Parse_Header_Line)
 {

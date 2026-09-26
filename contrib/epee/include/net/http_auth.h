@@ -56,7 +56,7 @@ namespace net_utils
       wipeable_string password;
     };
 
-    //! Implements RFC 2617 digest auth. Digests from RFC 7616 can be added.
+    //! Implements RFC 7616 Digest Auth. Supports SHA-256 and MD5
     class http_server_auth
     {
     public:
@@ -71,8 +71,8 @@ namespace net_utils
         std::uint32_t counter;
       };
 
-      http_server_auth() : user(), rng() {}
-      http_server_auth(login credentials, std::function<void(size_t, uint8_t*)> r);
+      http_server_auth() : user(), rng(), disable_md5(false) {}
+      http_server_auth(login credentials, std::function<void(size_t, uint8_t*)> r, bool disable_md5 = false);
 
       //! \return Auth response, or `boost::none` iff `request` had valid auth.
       boost::optional<http_response_info> get_response(const http_request_info& request)
@@ -88,9 +88,10 @@ namespace net_utils
       boost::optional<session> user;
 
       std::function<void(size_t, uint8_t*)> rng;
+      bool disable_md5;
     };
 
-    //! Implements RFC 2617 digest auth. Digests from RFC 7616 can be added.
+    //! Implements RFC 7616 Digest Auth. Supports SHA-256 and MD5
     class http_client_auth
     {
     public:
