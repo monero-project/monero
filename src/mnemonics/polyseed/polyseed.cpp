@@ -60,11 +60,11 @@ namespace polyseed {
     }
 
     static size_t utf8_nfc(const char* str, polyseed_str norm) {
-        return utf8_norm(str, norm, (utf8proc_option_t)(UTF8PROC_NULLTERM | UTF8PROC_STABLE | UTF8PROC_COMPOSE | UTF8PROC_STRIPNA));
+        return utf8_norm(str, norm, (utf8proc_option_t)(UTF8PROC_NULLTERM | UTF8PROC_STABLE | UTF8PROC_COMPOSE));
     }
 
     static size_t utf8_nfkd(const char* str, polyseed_str norm) {
-        return utf8_norm(str, norm, (utf8proc_option_t)(UTF8PROC_NULLTERM | UTF8PROC_STABLE | UTF8PROC_DECOMPOSE | UTF8PROC_COMPAT | UTF8PROC_STRIPNA));
+        return utf8_norm(str, norm, (utf8proc_option_t)(UTF8PROC_NULLTERM | UTF8PROC_STABLE | UTF8PROC_DECOMPOSE | UTF8PROC_COMPAT));
     }
 
     struct dependency {
