@@ -51,6 +51,7 @@ class WalletTest():
       self.open_close()
       self.languages()
       self.generate_from_keys()
+      self.generate_from_json()
       self.change_password()
       self.store()
 
@@ -394,6 +395,17 @@ class WalletTest():
 
         wallet.close_wallet()
         util_resources.remove_wallet_files(filename)
+
+    def generate_from_json(self):
+        print('Testing wallet generated from JSON with a Polyseed and a seed passphrase')
+        wallet = Wallet(idx = 7)
+        res = wallet.get_address()
+        # 455jFA8H... without the passphrase, see create()
+        assert res.address == '49PemLZHxP1hCUsbcRZVrAJWBjn7dYi9UQGEqTVAo3hWY1a8PD14Mdcf2fNC5QN3iM6XahTc9qdMi2W3i75C2KU5B7ZDiqn'
+        res = wallet.query_key('mnemonic')
+        assert res.key == 'pulse tone truth head invite orphan sock wet crumble oven price corn pilot antenna luxury strategy'
+        assert res.polyseed_birthday == 1783033776
+        assert not res.polyseed_is_encrypted
 
     def change_password(self):
         print('Testing password change')
