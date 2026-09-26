@@ -1425,7 +1425,6 @@ bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_u
   }
 
   CHECK_AND_ASSERT_MES(set_proxy(proxy), false, "failed to set proxy address");
-  m_proxy = proxy;
   const bool changed = m_daemon_address != daemon_address;
   m_daemon_address = std::move(daemon_address);
   m_daemon_login = std::move(daemon_login);
@@ -1446,7 +1445,13 @@ bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_u
 //----------------------------------------------------------------------------------------------------
 bool wallet2::set_proxy(const std::string &address)
 {
+  m_proxy = address;
   return m_http_client->set_proxy(address);
+}
+//----------------------------------------------------------------------------------------------------
+std::string wallet2::get_proxy() const
+{
+  return m_proxy;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, const std::string &proxy_address, uint64_t upper_transaction_weight_limit, bool trusted_daemon, epee::net_utils::ssl_options_t ssl_options)
