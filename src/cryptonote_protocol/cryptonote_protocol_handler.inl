@@ -638,7 +638,7 @@ namespace cryptonote
 
     // Pause mining and resume after block verification to prevent wasted mining cycles while
     // validating the next block. Needs more research into if this is a DoS vector or not. Invalid
-    // block validation will cause disconnects and bans, so it might not be that bad.
+    // block validation before the PoW check will cause disconnects and bans, so it might not be that bad.
     m_core.pause_mine();
     const epee::scope_guard resume_mine_on_leave([this](){ m_core.resume_mine(); });
 
@@ -730,6 +730,16 @@ namespace cryptonote
         MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_FLUFFY_MISSING_TX: missing_tx_indices.size()=" << missing_tx_req.missing_tx_indices.size() );
         post_notify<NOTIFY_REQUEST_FLUFFY_MISSING_TX>(missing_tx_req, context);
       }
+      else if (bvc.m_no_drop_offense)
+      {
+        // Let it fall through in this case.
+        // Some nodes in the future may re-relay blocks immediately after PoW checks pass, but before expensive
+        // validation occurs, in order to speed up block propagation around the network. Therefore an honest
+        // node may re-relay an invalid block that has valid PoW.
+        // At time of writing, this isn't implemented for monerod, but it may be implemented in the future.
+        // So we get ahead of it by avoiding dropping what could be honest peers.
+        LOG_PRINT_CCONTEXT_L1("Block verification failed, but not dropping peer");
+      }
       else // failure for some other reason besides missing txs...
       {
         // drop connection and punish peer
@@ -760,7 +770,7 @@ namespace cryptonote
       MLOG_PEER_STATE("requesting chain");
     }
 
-    if (bvc.m_added_to_main_chain || bvc.m_already_exists)
+    if (bvc.m_added_to_main_chain || (bvc.m_already_exists && !bvc.m_verifivation_failed))
     {
       // Update peer's sync height using this block we just validated
       // Note: peer_height is not guaranteed to be the height of the block we just validated + 1.
