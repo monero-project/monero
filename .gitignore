@@ -26,6 +26,9 @@ ClangBuildAnalyzerSession.txt
 # guix
 /guix
 
+# stagex
+/stagex
+
 # Created by https://www.gitignore.io
 
 ### C++ ###
