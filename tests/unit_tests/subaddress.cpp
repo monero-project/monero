@@ -37,6 +37,7 @@
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "wallet/api/subaddress.h"
+#include "device/device_default.hpp"
 
 class WalletSubaddress : public ::testing::Test 
 {
@@ -212,4 +213,91 @@ TEST_F(WalletSubaddress, ExpandThenSetIncreaseBoth)
   check_expected_max(w1, {40,449});
   check_expected_max(w1, {99,299});
   EXPECT_EQ(boost::none, w1.get_subaddress_index(w1.get_subaddress({100,0})));
+}
+
+TEST(WalletSubaddressRanges, ConsecutiveAddressesAndSparseEntries)
+{
+  tools::wallet2 w(cryptonote::MAINNET, 1, true);
+  w.set_subaddress_lookahead(2, 3);
+  w.generate("", "");
+  w.create_one_off_subaddress({0, 1000});
+  w.create_one_off_subaddress({1000, 1000});
+  for (uint32_t minor = 1; minor <= 100; ++minor)
+  {
+    w.add_subaddress(0, "");
+    ASSERT_EQ(minor + 1, w.get_num_subaddresses(0));
+    check_expected_max(w, {0, minor + 2});
+    w.expand_subaddresses({0, minor});
+  }
+  check_expected_max(w, {1, 2});
+  EXPECT_NE(boost::none, w.get_subaddress_index(w.get_subaddress({0, 1000})));
+  EXPECT_NE(boost::none, w.get_subaddress_index(w.get_subaddress({1000, 1000})));
+  EXPECT_EQ(boost::none, w.get_subaddress_index(w.get_subaddress({1000, 0})));
+
+  w.add_subaddress_account("");
+  check_expected_max(w, {2, 2});
+  w.set_subaddress_lookahead(1, 1);
+  w.expand_subaddresses({1, 4});
+  check_expected_max(w, {1, 4});
+  w.set_subaddress_lookahead(3, 5);
+  check_expected_max(w, {0, 104});
+  check_expected_max(w, {1, 8});
+  check_expected_max(w, {3, 4});
+}
+
+TEST(WalletSubaddressRanges, OneOffAddressAvoidsRedundantDeviceDerivation)
+{
+  struct failing_device : hw::core::device_default
+  {
+    std::vector<crypto::public_key> get_subaddress_spend_public_keys(
+      const cryptonote::account_keys &, uint32_t, uint32_t, uint32_t) override
+    {
+      throw std::runtime_error("test device unavailable");
+    }
+  } device;
+  tools::wallet2 w(cryptonote::MAINNET, 1, true);
+  w.set_subaddress_lookahead(1, 1);
+  w.generate("", "");
+  w.create_one_off_subaddress({0, 1});
+  const auto address = w.get_subaddress({0, 1});
+  w.get_account().set_device(device);
+
+  EXPECT_NO_THROW(w.set_subaddress_lookahead(1, 2));
+  const auto index = w.get_subaddress_index(address);
+  ASSERT_TRUE(index);
+  EXPECT_EQ(0u, index->major);
+  EXPECT_EQ(1u, index->minor);
+  EXPECT_THROW(w.set_subaddress_lookahead(1, 3), std::runtime_error);
+}
+
+TEST(WalletSubaddressRanges, RetryAfterPartialExpansion)
+{
+  struct failing_device : hw::core::device_default
+  {
+    bool fail = true;
+    std::vector<crypto::public_key> get_subaddress_spend_public_keys(
+      const cryptonote::account_keys &keys, uint32_t major, uint32_t begin, uint32_t end) override
+    {
+      if (fail && major == 1)
+        throw std::runtime_error("test device failure");
+      return hw::core::device_default::get_subaddress_spend_public_keys(keys, major, begin, end);
+    }
+  } device;
+  tools::wallet2 w(cryptonote::MAINNET, 1, true);
+  w.set_subaddress_lookahead(1, 2);
+  w.generate("", "");
+  w.get_account().set_device(device);
+  EXPECT_THROW(w.set_subaddress_lookahead(3, 4), std::runtime_error);
+  device.fail = false;
+  w.expand_subaddresses({0, 0});
+  for (uint32_t major = 0; major < 3; ++major)
+    check_expected_max(w, {major, 3});
+
+  // The lookahead is unchanged: only invalidation can prevent an incorrect early return.
+  device.fail = true;
+  EXPECT_THROW(w.expand_subaddresses({1, 4}), std::runtime_error);
+  device.fail = false;
+  w.expand_subaddresses({1, 4});
+  check_expected_max(w, {1, 7});
+  check_expected_max(w, {3, 3});
 }
