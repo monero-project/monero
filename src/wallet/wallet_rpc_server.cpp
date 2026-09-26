@@ -4057,8 +4057,7 @@ namespace tools
     {
       try
       {
-        if (!wallet_file.empty())
-          m_wallet->store();
+        m_wallet->store();
       }
       catch (const std::exception &e)
       {
