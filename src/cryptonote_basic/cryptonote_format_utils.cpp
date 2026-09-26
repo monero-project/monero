@@ -1586,7 +1586,8 @@ namespace cryptonote
     blobdata blob = t_serializable_object_to_blob(static_cast<block_header>(b));
     crypto::hash tree_root_hash = get_tx_tree_hash(b);
     blob.append(reinterpret_cast<const char*>(&tree_root_hash), sizeof(tree_root_hash));
-    blob.append(tools::get_varint_data(b.tx_hashes.size()+1));
+    if (b.major_version < HF_VERSION_POW_COMMITMENT)
+      blob.append(tools::get_varint_data(b.tx_hashes.size()+1));
     return blob;
   }
   //---------------------------------------------------------------
@@ -1775,10 +1776,16 @@ namespace cryptonote
     return false;
   }
   //---------------------------------------------------------------
+  int get_randomx_variant_for_hf_version(const std::uint8_t hf_version)
+  {
+    return (hf_version >= HF_VERSION_RANDOMX_V2) ? RX_VARIANT_2 : RX_VARIANT_1;
+  }
+  //---------------------------------------------------------------
   crypto::hash get_block_longhash(const blobdata_ref block_hashing_blob,
     const uint64_t height,
     const uint8_t major_version,
-    const crypto::hash &seed_hash)
+    const crypto::hash &seed_hash,
+    crypto::hash &intermediate_hash_out)
   {
     crypto::hash res;
 
@@ -1787,7 +1794,12 @@ namespace cryptonote
 
     if (major_version >= RX_BLOCK_VERSION) // RandomX
     {
-      crypto::rx_slow_hash(seed_hash.data, block_hashing_blob.data(), block_hashing_blob.size(), res.data);
+      const int rx_variant = get_randomx_variant_for_hf_version(major_version);
+      crypto::rx_slow_hash(seed_hash.data, rx_variant,
+        block_hashing_blob.data(), block_hashing_blob.size(), res.data);
+      intermediate_hash_out = res;
+      if (major_version >= HF_VERSION_POW_COMMITMENT)
+        crypto::rx_commitment(block_hashing_blob.data(), block_hashing_blob.size(), res.data, res.data);
     }
     else // CryptoNight
     {
@@ -1798,6 +1810,15 @@ namespace cryptonote
     }
 
     return res;
+  }
+  //---------------------------------------------------------------
+  crypto::hash get_block_longhash(const blobdata_ref block_hashing_blob,
+    const uint64_t height,
+    const uint8_t major_version,
+    const crypto::hash &seed_hash)
+  {
+    crypto::hash intermediate_hash;
+    return get_block_longhash(block_hashing_blob, height, major_version, seed_hash, intermediate_hash);
   }
   //---------------------------------------------------------------
   bool is_valid_decomposed_amount(uint64_t amount)
