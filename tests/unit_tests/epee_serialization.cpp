@@ -139,6 +139,18 @@ TEST(epee_json, keyword_values)
   EXPECT_FALSE(epee::serialization::load_t_from_json(o, std::string("{\"b\": \xc3\x28}")));
 }
 
+TEST(epee_json, rejects_incomplete_and_trailing_documents)
+{
+  epee::serialization::portable_storage storage;
+
+  EXPECT_FALSE(storage.load_from_json("{"));
+  EXPECT_FALSE(storage.load_from_json("{\"x\": 1 "));
+  EXPECT_FALSE(storage.load_from_json("{\"x\": 1,"));
+  EXPECT_FALSE(storage.load_from_json("{}garbage"));
+  EXPECT_FALSE(storage.load_from_json("{}{}"));
+  EXPECT_TRUE(storage.load_from_json("{} \t\r\n"));
+}
+
 TEST(epee_json, escape_control_characters)
 {
   using epee::misc_utils::parse::transform_to_escape_sequence;
