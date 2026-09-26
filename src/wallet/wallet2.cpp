@@ -2589,24 +2589,17 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           // We got a payment ID to go with this tx
           LOG_PRINT_L2("Found encrypted payment ID: " << payment_id8);
           MINFO("Consider using subaddresses instead of encrypted payment IDs");
-          if (tx_pub_key != null_pkey)
+          if (!m_account.get_device().decrypt_payment_id(payment_id8, crypto::pubkey_clear_torsion(tx_pub_key), m_account.get_keys().m_view_secret_key))
           {
-            if (!m_account.get_device().decrypt_payment_id(payment_id8, tx_pub_key, m_account.get_keys().m_view_secret_key))
-            {
-              LOG_PRINT_L0("Failed to decrypt payment ID: " << payment_id8);
-            }
-            else
-            {
-              LOG_PRINT_L2("Decrypted payment ID: " << payment_id8);
-              // put the 64 bit decrypted payment id in the first 8 bytes
-              memcpy(payment_id.data, payment_id8.data, 8);
-              // rest is already 0, but guard against code changes above
-              memset(payment_id.data + 8, 0, 24);
-            }
+            LOG_PRINT_L0("Failed to decrypt payment ID: " << payment_id8);
           }
           else
           {
-            LOG_PRINT_L1("No public key found in tx, unable to decrypt payment id");
+            LOG_PRINT_L2("Decrypted payment ID: " << payment_id8);
+            // put the 64 bit decrypted payment id in the first 8 bytes
+            memcpy(payment_id.data, payment_id8.data, 8);
+            // rest is already 0, but guard against code changes above
+            memset(payment_id.data + 8, 0, 24);
           }
         }
         else if (get_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id))
@@ -12337,7 +12330,7 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
 
   THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error,
     "Failed to get the right transaction from daemon");
-  THROW_WALLET_EXCEPTION_IF(!additional_derivations.empty() && additional_derivations.size() != tx.vout.size(), error::wallet_internal_error,
+  THROW_WALLET_EXCEPTION_IF(additional_derivations.size() > tx.vout.size(), error::wallet_internal_error,
     "The size of additional derivations is wrong");
 
   check_tx_key_helper(tx, derivation, additional_derivations, address, received);
@@ -12499,10 +12492,16 @@ std::string wallet2::get_tx_proof(const cryptonote::transaction &tx, const crypt
   }
   else
   {
-    crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
-    THROW_WALLET_EXCEPTION_IF(tx_pub_key == null_pkey, error::wallet_internal_error, "Tx pubkey was not found");
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx.extra, tx_extra_fields);
+    tx_extra_pub_key pub_key_field;
+    THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field),
+      error::wallet_internal_error, "Tx pubkey was not found");
+    crypto::public_key tx_pub_key = crypto::pubkey_clear_torsion(pub_key_field.pub_key);
 
     std::vector<crypto::public_key> additional_tx_pub_keys = get_additional_tx_pub_keys_from_extra(tx);
+    for (crypto::public_key &key : additional_tx_pub_keys)
+      key = crypto::pubkey_clear_torsion(key);
     const size_t num_sigs = 1 + additional_tx_pub_keys.size();
     shared_secret.resize(num_sigs);
     sig.resize(num_sigs);
@@ -12510,6 +12509,33 @@ std::string wallet2::get_tx_proof(const cryptonote::transaction &tx, const crypt
     const crypto::secret_key& a = m_account.get_keys().m_view_secret_key;
     hwdev.scalarmultKey(aP, rct::pk2rct(tx_pub_key), rct::sk2rct(a));
     shared_secret[0] =  rct2pk(aP);
+
+    const auto has_received = [&](const crypto::public_key &candidate_shared_secret) {
+      crypto::key_derivation derivation;
+      THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(candidate_shared_secret, rct::rct2sk(rct::I), derivation),
+        error::wallet_internal_error, "Failed to generate key derivation");
+      uint64_t received;
+      check_tx_key_helper(tx, derivation, {}, address, received);
+      return received > 0;
+    };
+
+    size_t pk_index = 1;
+    if (find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index) && !has_received(shared_secret[0]))
+    {
+      do
+      {
+        const crypto::public_key candidate = crypto::pubkey_clear_torsion(pub_key_field.pub_key);
+        hwdev.scalarmultKey(aP, rct::pk2rct(candidate), rct::sk2rct(a));
+        const crypto::public_key candidate_shared_secret = rct2pk(aP);
+        if (has_received(candidate_shared_secret))
+        {
+          tx_pub_key = candidate;
+          shared_secret[0] = candidate_shared_secret;
+          break;
+        }
+      } while (find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, ++pk_index));
+    }
+
     if (is_subaddress)
     {
       hwdev.generate_tx_proof(prefix_hash, address.m_view_public_key, tx_pub_key, address.m_spend_public_key, shared_secret[0], a, sig[0]);
@@ -12632,10 +12658,16 @@ bool wallet2::check_tx_proof(const cryptonote::transaction &tx, const cryptonote
     memcpy(&sig[i], sig_decoded.data(), sizeof(crypto::signature));
   }
 
-  crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
-  THROW_WALLET_EXCEPTION_IF(tx_pub_key == null_pkey, error::wallet_internal_error, "Tx pubkey was not found");
+  std::vector<tx_extra_field> tx_extra_fields;
+  parse_tx_extra(tx.extra, tx_extra_fields);
+  tx_extra_pub_key pub_key_field;
+  THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field),
+    error::wallet_internal_error, "Tx pubkey was not found");
 
   std::vector<crypto::public_key> additional_tx_pub_keys = get_additional_tx_pub_keys_from_extra(tx);
+  if (!is_out)
+    for (crypto::public_key &key : additional_tx_pub_keys)
+      key = crypto::pubkey_clear_torsion(key);
   THROW_WALLET_EXCEPTION_IF(additional_tx_pub_keys.size() + 1 != num_sigs, error::wallet_internal_error, "Signature size mismatch with additional tx pubkeys");
 
   const crypto::hash txid = cryptonote::get_transaction_hash(tx);
@@ -12646,12 +12678,31 @@ bool wallet2::check_tx_proof(const cryptonote::transaction &tx, const cryptonote
 
   // check signature
   std::vector<int> good_signature(num_sigs, 0);
+  size_t pk_index = 0;
+  bool has_tx_pub_key = false;
+  while (!good_signature[0] && find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index++))
+  {
+    const crypto::public_key tx_pub_key = is_out ? pub_key_field.pub_key : crypto::pubkey_clear_torsion(pub_key_field.pub_key);
+    if (is_out && tx_pub_key == null_pkey)
+      continue;
+    has_tx_pub_key = true;
+    if (is_out)
+    {
+      good_signature[0] = is_subaddress ?
+        crypto::check_tx_proof(prefix_hash, tx_pub_key, address.m_view_public_key, address.m_spend_public_key, shared_secret[0], sig[0], version) :
+        crypto::check_tx_proof(prefix_hash, tx_pub_key, address.m_view_public_key, boost::none, shared_secret[0], sig[0], version);
+    }
+    else
+    {
+      good_signature[0] = is_subaddress ?
+        crypto::check_tx_proof(prefix_hash, address.m_view_public_key, tx_pub_key, address.m_spend_public_key, shared_secret[0], sig[0], version) :
+        crypto::check_tx_proof(prefix_hash, address.m_view_public_key, tx_pub_key, boost::none, shared_secret[0], sig[0], version);
+    }
+  }
+  THROW_WALLET_EXCEPTION_IF(!has_tx_pub_key, error::wallet_internal_error, "Tx pubkey was not found");
+
   if (is_out)
   {
-    good_signature[0] = is_subaddress ?
-      crypto::check_tx_proof(prefix_hash, tx_pub_key, address.m_view_public_key, address.m_spend_public_key, shared_secret[0], sig[0], version) :
-      crypto::check_tx_proof(prefix_hash, tx_pub_key, address.m_view_public_key, boost::none, shared_secret[0], sig[0], version);
-
     for (size_t i = 0; i < additional_tx_pub_keys.size(); ++i)
     {
       good_signature[i + 1] = is_subaddress ?
@@ -12661,10 +12712,6 @@ bool wallet2::check_tx_proof(const cryptonote::transaction &tx, const cryptonote
   }
   else
   {
-    good_signature[0] = is_subaddress ?
-      crypto::check_tx_proof(prefix_hash, address.m_view_public_key, tx_pub_key, address.m_spend_public_key, shared_secret[0], sig[0], version) :
-      crypto::check_tx_proof(prefix_hash, address.m_view_public_key, tx_pub_key, boost::none, shared_secret[0], sig[0], version);
-
     for (size_t i = 0; i < additional_tx_pub_keys.size(); ++i)
     {
       good_signature[i + 1] = is_subaddress ?
@@ -12757,16 +12804,20 @@ std::string wallet2::get_reserve_proof(const boost::optional<std::pair<uint32_t,
     proof.key_image = td.m_key_image;
     subaddr_indices.insert(td.m_subaddr_index);
 
-    // get tx pub key 
-    const crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
-    THROW_WALLET_EXCEPTION_IF(tx_pub_key == crypto::null_pkey, error::wallet_internal_error, "The tx public key isn't found");
+    // get tx pub key
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(td.m_tx.extra, tx_extra_fields);
+    tx_extra_pub_key pub_key_field;
+    THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, td.m_pk_index),
+      error::wallet_internal_error, "The tx public key isn't found");
+    const crypto::public_key tx_pub_key = pub_key_field.pub_key;
     const std::vector<crypto::public_key> additional_tx_pub_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
 
     // determine which tx pub key was used for deriving the output key
-    const crypto::public_key *tx_pub_key_used = &tx_pub_key;
+    crypto::public_key tx_pub_key_used = crypto::pubkey_clear_torsion(tx_pub_key);
     for (int i = 0; i < 2; ++i)
     {
-      proof.shared_secret = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(*tx_pub_key_used), rct::sk2rct(m_account.get_keys().m_view_secret_key)));
+      proof.shared_secret = rct::rct2pk(rct::scalarmultKey(rct::pk2rct(tx_pub_key_used), rct::sk2rct(m_account.get_keys().m_view_secret_key)));
       crypto::key_derivation derivation;
       THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(proof.shared_secret, rct::rct2sk(rct::I), derivation),
         error::wallet_internal_error, "Failed to generate key derivation");
@@ -12779,11 +12830,11 @@ std::string wallet2::get_reserve_proof(const boost::optional<std::pair<uint32_t,
         "Normal tx pub key doesn't derive the expected output, and no additional tx pub key exists for this output index");
       THROW_WALLET_EXCEPTION_IF(i == 1, error::wallet_internal_error,
         "Neither normal tx pub key nor additional tx pub key derive the expected output key");
-      tx_pub_key_used = &additional_tx_pub_keys[proof.index_in_tx];
+      tx_pub_key_used = crypto::pubkey_clear_torsion(additional_tx_pub_keys[proof.index_in_tx]);
     }
 
     // generate signature for shared secret
-    crypto::generate_tx_proof(prefix_hash, m_account.get_keys().m_account_address.m_view_public_key, *tx_pub_key_used, boost::none, proof.shared_secret, m_account.get_keys().m_view_secret_key, proof.shared_secret_sig);
+    crypto::generate_tx_proof(prefix_hash, m_account.get_keys().m_account_address.m_view_public_key, tx_pub_key_used, boost::none, proof.shared_secret, m_account.get_keys().m_view_secret_key, proof.shared_secret_sig);
 
     // derive ephemeral secret key
     crypto::key_image ki;
@@ -12927,14 +12978,19 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
     THROW_WALLET_EXCEPTION_IF(!get_output_public_key(tx.vout[proof.index_in_tx], output_public_key), error::wallet_internal_error, "Output key wasn't found");
 
     // get tx pub key
-    const crypto::public_key tx_pub_key = get_tx_pub_key_from_extra(tx);
-    THROW_WALLET_EXCEPTION_IF(tx_pub_key == crypto::null_pkey, error::wallet_internal_error, "The tx public key isn't found");
+    std::vector<tx_extra_field> tx_extra_fields;
+    parse_tx_extra(tx.extra, tx_extra_fields);
+    tx_extra_pub_key tx_pub_key;
+    THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, tx_pub_key), error::wallet_internal_error, "The tx public key isn't found");
     const std::vector<crypto::public_key> additional_tx_pub_keys = get_additional_tx_pub_keys_from_extra(tx);
 
     // check signature for shared secret
-    ok = crypto::check_tx_proof(prefix_hash, address.m_view_public_key, tx_pub_key, boost::none, proof.shared_secret, proof.shared_secret_sig, version);
-    if (!ok && additional_tx_pub_keys.size() == tx.vout.size())
-      ok = crypto::check_tx_proof(prefix_hash, address.m_view_public_key, additional_tx_pub_keys[proof.index_in_tx], boost::none, proof.shared_secret, proof.shared_secret_sig, version);
+    ok = false;
+    size_t tx_pub_key_index = 0;
+    while (!ok && find_tx_extra_field_by_type(tx_extra_fields, tx_pub_key, tx_pub_key_index++))
+      ok = crypto::check_tx_proof(prefix_hash, address.m_view_public_key, crypto::pubkey_clear_torsion(tx_pub_key.pub_key), boost::none, proof.shared_secret, proof.shared_secret_sig, version);
+    if (!ok && proof.index_in_tx < additional_tx_pub_keys.size())
+      ok = crypto::check_tx_proof(prefix_hash, address.m_view_public_key, crypto::pubkey_clear_torsion(additional_tx_pub_keys[proof.index_in_tx]), boost::none, proof.shared_secret, proof.shared_secret_sig, version);
     if (!ok)
       return false;
 
@@ -13340,44 +13396,11 @@ crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::walle
     // Extra may only be partially parsed, it's OK if tx_extra_fields contains public key
   }
 
-  // Due to a previous bug, there might be more than one tx pubkey in extra, one being
-  // the result of a previously discarded signature.
-  // For speed, since scanning for outputs is a slow process, we check whether extra
-  // contains more than one pubkey. If not, the first one is returned. If yes, they're
-  // checked for whether they yield at least one output
+  // Use the tx pubkey index recorded for this output.
   tx_extra_pub_key pub_key_field;
-  THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, 0), error::wallet_internal_error,
+  THROW_WALLET_EXCEPTION_IF(!find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, td.m_pk_index), error::wallet_internal_error,
       "Public key wasn't found in the transaction extra");
-  const crypto::public_key tx_pub_key = pub_key_field.pub_key;
-  bool two_found = find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, 1);
-  if (!two_found) {
-    // easy case, just one found
-    return tx_pub_key;
-  }
-
-  // more than one, loop and search
-  const cryptonote::account_keys& keys = m_account.get_keys();
-  size_t pk_index = 0;
-  hw::device &hwdev = m_account.get_device();
-
-  while (find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index++)) {
-    const crypto::public_key tx_pub_key = pub_key_field.pub_key;
-    crypto::key_derivation derivation;
-    bool r = hwdev.generate_key_derivation(tx_pub_key, keys.m_view_secret_key, derivation);
-    THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key derivation");
-
-    for (size_t i = 0; i < td.m_tx.vout.size(); ++i)
-    {
-      tx_scan_info_t tx_scan_info;
-      check_acc_out_precomp(td.m_tx.vout[i], derivation, {}, i, tx_scan_info);
-      if (!tx_scan_info.error && tx_scan_info.received)
-        return tx_pub_key;
-    }
-  }
-
-  // we found no key yielding an output, but it might be in the additional
-  // tx pub keys only, which we do not need to check, so return the first one
-  return tx_pub_key;
+  return pub_key_field.pub_key;
 }
 
 bool wallet2::export_key_images(const std::string &filename, bool all) const
