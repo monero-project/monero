@@ -2059,7 +2059,8 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
     // pruned already
     if (v.mv_size != sizeof(uint32_t))
       throw0(DB_ERROR("Failed to retrieve or create pruning seed: unexpected value size"));
-    const uint32_t data = *(const uint32_t*)v.mv_data;
+    uint32_t data;
+    memcpy(&data, v.mv_data, sizeof(data));
     if (pruning_seed == 0)
       pruning_seed = tools::get_pruning_stripe(data);
     if (tools::get_pruning_stripe(data) != pruning_seed)
