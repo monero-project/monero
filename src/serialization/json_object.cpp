@@ -146,7 +146,7 @@ void fromJsonValue(const rapidjson::Value& val, std::string& str)
     throw WRONG_TYPE("string");
   }
 
-  str = val.GetString();
+  str.assign(val.GetString(), val.GetStringLength());
 }
 
 void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const std::vector<std::uint8_t>& src)
