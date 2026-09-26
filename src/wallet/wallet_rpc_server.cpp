@@ -40,6 +40,7 @@
 #include "version.h"
 #include "wallet_rpc_server.h"
 #include "wallet/wallet_args.h"
+#include "wallet/uri.h"
 #include "common/command_line.h"
 #include "common/i18n.h"
 #include "common/scoped_message_writer.h"
@@ -3305,6 +3306,63 @@ namespace tools
       er.message = "Error parsing URI: " + error;
       return false;
     }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  namespace
+  {
+    bool uri_network_type(const std::string& name, cryptonote::network_type& nettype, epee::json_rpc::error& er)
+    {
+      if (name == "mainnet") nettype = cryptonote::MAINNET;
+      else if (name == "testnet") nettype = cryptonote::TESTNET;
+      else if (name == "stagenet") nettype = cryptonote::STAGENET;
+      else
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+        er.message = "network_type must be mainnet, testnet or stagenet";
+        return false;
+      }
+      return true;
+    }
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_make_uri_multi(const wallet_rpc::COMMAND_RPC_MAKE_URI_MULTI::request& req, wallet_rpc::COMMAND_RPC_MAKE_URI_MULTI::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    cryptonote::network_type nettype;
+    if (!uri_network_type(req.network_type, nettype, er)) return false;
+    wallet::payment_uri payment;
+    payment.tx_description = req.tx_description;
+    for (const auto& recipient : req.recipients)
+      payment.recipients.push_back({recipient.address, recipient.amount, recipient.currency, recipient.label});
+    std::string error;
+    res.uri = wallet::make_uri_multi(payment, nettype, error);
+    if (res.uri.empty())
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+      er.message = "Cannot make URI from supplied parameters: " + error;
+      return false;
+    }
+    return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_parse_uri_multi(const wallet_rpc::COMMAND_RPC_PARSE_URI_MULTI::request& req, wallet_rpc::COMMAND_RPC_PARSE_URI_MULTI::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    res.uri = {};
+    res.unknown_parameters.clear();
+    cryptonote::network_type nettype;
+    if (!uri_network_type(req.network_type, nettype, er)) return false;
+    wallet::payment_uri payment;
+    std::string error;
+    if (!wallet::parse_uri_multi(req.uri, nettype, payment, error))
+    {
+      er.code = WALLET_RPC_ERROR_CODE_WRONG_URI;
+      er.message = "Error parsing URI: " + error;
+      return false;
+    }
+    res.uri.tx_description = std::move(payment.tx_description);
+    for (const auto& recipient : payment.recipients)
+      res.uri.recipients.push_back({recipient.address, recipient.amount, recipient.currency, recipient.label});
+    res.unknown_parameters = std::move(payment.unknown_parameters);
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

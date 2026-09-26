@@ -31,6 +31,8 @@
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 set(wallet_sources
+  uri.cpp
+  uri_syntax.cpp
   wallet2.cpp
   wallet_args.cpp
   pending_tx_validation.cpp
