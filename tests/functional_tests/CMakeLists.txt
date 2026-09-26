@@ -52,6 +52,12 @@ monero_add_minimal_executable(cpu_power_test cpu_power_test.cpp)
 
 find_package(Python3 REQUIRED)
 
+if(TARGET wallet_rpc_server)
+  add_test(
+    NAME    wallet_rpc_bind_before_load
+    COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/wallet_rpc_bind_before_load.py" $<TARGET_FILE:wallet_rpc_server>)
+endif()
+
 execute_process(COMMAND ${Python3_EXECUTABLE} "-c" "import requests; import zmq; import deepdiff; print('OK')" OUTPUT_VARIABLE REQUESTS_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
 if (REQUESTS_OUTPUT STREQUAL "OK")
   add_test(
