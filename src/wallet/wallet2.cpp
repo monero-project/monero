@@ -15387,11 +15387,12 @@ uint64_t wallet2::get_blockchain_height_by_timestamp(uint64_t timestamp_target) 
     throw std::runtime_error("failed to get blockchain height");
   }
   height_max--;
-  while (true)
+  // the range halves every iteration, so 64 steps always suffice
+  for (unsigned iterations = 0; iterations < 64; ++iterations)
   {
     COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::request req;
     COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::response res;
-    uint64_t height_mid = (height_min + height_max) / 2;
+    uint64_t height_mid = height_min + (height_max - height_min) / 2;
     req.heights =
     {
       height_min,
@@ -15451,6 +15452,7 @@ uint64_t wallet2::get_blockchain_height_by_timestamp(uint64_t timestamp_target) 
       return height_min;
     }
   }
+  throw std::runtime_error("failed to find the blockchain height for the given timestamp");
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_synced()
