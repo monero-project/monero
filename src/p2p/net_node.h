@@ -57,6 +57,7 @@
 #include "net/enums.h"
 #include "net/parse.h"
 #include "common/command_line.h"
+#include "net/i2p_sam.h"
 
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
@@ -95,8 +96,22 @@ namespace nodetool
     epee::net_utils::network_address default_remote;
   };
 
+  struct i2p_sam_config
+  {
+    i2p_sam_config()
+      : endpoint(),
+        max_out_connections(-1),
+        max_in_connections(-1)
+    {}
+
+    std::string endpoint;
+    std::int64_t max_out_connections;
+    std::int64_t max_in_connections;
+  };
+
   boost::optional<std::vector<proxy>> get_proxies(const boost::program_options::variables_map& vm);
   boost::optional<std::vector<anonymous_inbound>> get_anonymous_inbounds(const boost::program_options::variables_map& vm);
+  boost::optional<i2p_sam_config> get_i2p_sam_config(const boost::program_options::variables_map& vm);
 
   //! \return True if `command` is filtered (ignored/dropped) for `address`
   bool is_filtered_command(epee::net_utils::network_address const& address, int command);
@@ -104,6 +119,8 @@ namespace nodetool
   // hides boost::future and chrono stuff from mondo template file
   boost::optional<boost::asio::ip::tcp::socket>
   socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const epee::net_utils::network_address& remote);
+  [[nodiscard]] boost::optional<std::pair<boost::asio::ip::tcp::socket, std::string>>
+  sam_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const boost::asio::ip::tcp::endpoint& router, const net::i2p_address& remote, const std::string& session_id);
 
 
   template<class base_type>
@@ -167,7 +184,6 @@ namespace nodetool
           m_port(),
           m_port_ipv6(),
           m_notifier(),
-          m_our_address(),
           m_peerlist(),
           m_config{},
           m_proxy_address(),
@@ -189,7 +205,6 @@ namespace nodetool
           m_port(),
           m_port_ipv6(),
           m_notifier(),
-          m_our_address(),
           m_peerlist(),
           m_config{},
           m_proxy_address(),
@@ -210,17 +225,39 @@ namespace nodetool
       std::string m_port;
       std::string m_port_ipv6;
       cryptonote::levin::notify m_notifier;
-      epee::net_utils::network_address m_our_address; // in anonymity networks
       peerlist_manager m_peerlist;
       config m_config;
       net::socks::endpoint m_proxy_address;
+
+      std::string m_sam_session_id;
+      boost::asio::ip::tcp::endpoint m_sam_router_endpoint;
+      std::shared_ptr<net::sam::control_socket> m_sam_control_socket;
+
       std::atomic<unsigned int> m_current_number_of_out_peers;
       std::atomic<unsigned int> m_current_number_of_in_peers;
       boost::shared_mutex m_seed_nodes_lock;
       bool m_can_pingback;
       bool m_seed_nodes_initialized;
 
+      /* `m_our_address` is set from the I2P SAM control socket's strand after the destination
+         is established, which races with reads from other threads once the zone's io_context
+         is running; all access goes through lock-guarded accessors. */
+      epee::net_utils::network_address get_our_address() const
+      {
+        CRITICAL_REGION_LOCAL(m_our_address_lock);
+        return m_our_address;
+      }
+
+      void set_our_address(epee::net_utils::network_address address)
+      {
+        CRITICAL_REGION_LOCAL(m_our_address_lock);
+        m_our_address = std::move(address);
+      }
+
     private:
+      epee::net_utils::network_address m_our_address; // in anonymity networks
+      mutable epee::critical_section m_our_address_lock;
+
       void set_config_defaults() noexcept
       {
         // at this moment we have a hardcoded config
@@ -456,6 +493,7 @@ namespace nodetool
 
     static boost::optional<p2p_connection_context> public_connect(network_zone&, epee::net_utils::network_address const&, epee::net_utils::ssl_support_t);
     static boost::optional<p2p_connection_context> socks_connect(network_zone&, epee::net_utils::network_address const&, epee::net_utils::ssl_support_t);
+    static boost::optional<p2p_connection_context> sam_connect(network_zone&, const epee::net_utils::network_address&, epee::net_utils::ssl_support_t);
 
 
     /* A `std::map` provides constant iterators and key/value pointers even with
@@ -505,6 +543,7 @@ namespace nodetool
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_exclusive_node;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_tx_proxy;
+    extern const command_line::arg_descriptor<std::string> arg_i2p_sam;
     extern const command_line::arg_descriptor<std::vector<std::string> > arg_anonymous_inbound;
     extern const command_line::arg_descriptor<std::string> arg_ban_list;
     extern const command_line::arg_descriptor<bool> arg_p2p_hide_my_port;
