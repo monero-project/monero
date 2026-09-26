@@ -14673,8 +14673,9 @@ void wallet2::get_multisig_k(size_t idx, const std::unordered_set<rct::key> &use
 {
   CHECK_AND_ASSERT_THROW_MES(m_multisig, "Wallet is not multisig");
   CHECK_AND_ASSERT_THROW_MES(idx < m_transfers.size(), "idx out of range");
-  for (auto &k: m_transfers[idx].m_multisig_k)
+  for (size_t i = 0; i < m_transfers[idx].m_multisig_k.size(); ++i)
   {
+    auto &k = m_transfers[idx].m_multisig_k[i];
     if (k == rct::zero())
       continue;
 
@@ -14685,6 +14686,12 @@ void wallet2::get_multisig_k(size_t idx, const std::unordered_set<rct::key> &use
     {
       nonce = k;
       memwipe(static_cast<rct::key *>(&k), sizeof(rct::key));  //CRITICAL: a nonce may only be used once!
+
+      if (idx < m_multisig_rescan_k.size() && i < m_multisig_rescan_k[idx].size())
+      {
+        memwipe(static_cast<rct::key *>(&m_multisig_rescan_k[idx][i]), sizeof(rct::key));
+      }
+
       return;
     }
   }
