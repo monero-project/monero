@@ -218,6 +218,7 @@ namespace tools
   bool wallet_rpc_server::run()
   {
     m_stop = false;
+    check_background_mining();
 
     const auto auto_refresh_evaluation_ms = std::chrono::milliseconds(200);
 
@@ -410,8 +411,6 @@ namespace tools
     m_auto_refresh_period.store(DEFAULT_AUTO_REFRESH_PERIOD, std::memory_order_relaxed);
     const auto over_one_period_ago = std::chrono::steady_clock::now() - std::chrono::seconds(m_auto_refresh_period.load(std::memory_order_relaxed) * 2);
     m_last_auto_refresh_time = over_one_period_ago;
-
-    check_background_mining();
 
     const auto max_connections_public = command_line::get_arg(vm, arg_rpc_max_connections_per_public_ip);
     const auto max_connections_private = command_line::get_arg(vm, arg_rpc_max_connections_per_private_ip);
@@ -5132,15 +5131,21 @@ public:
           LOG_ERROR(tools::wallet_rpc_server::tr("Invalid configuration: ") << e.what());
           return false;
         }
-        wal = NULL;
-        goto just_dir;
       }
-
-      if (wallet_file.empty() && from_json.empty())
+      else if (wallet_file.empty() && from_json.empty())
       {
         LOG_ERROR(tools::wallet_rpc_server::tr("Must specify --wallet-file or --generate-from-json or --wallet-dir"));
         return false;
       }
+
+      if (!wrpc->init(&vm))
+      {
+        LOG_ERROR(tools::wallet_rpc_server::tr("Failed to initialize wallet RPC server"));
+        return false;
+      }
+
+      if (!wallet_dir.empty())
+        goto just_dir;
 
       LOG_PRINT_L0(tools::wallet_rpc_server::tr("Loading wallet..."));
       if(!wallet_file.empty())
@@ -5200,8 +5205,6 @@ public:
     }
   just_dir:
     if (wal) wrpc->set_wallet(wal.release());
-    bool r = wrpc->init(&vm);
-    CHECK_AND_ASSERT_MES(r, false, tools::wallet_rpc_server::tr("Failed to initialize wallet RPC server"));
     tools::signal_handler::install([this](int) {
       wrpc->stop_refresh(); // a running refresh blocks server exit
       wrpc->send_stop_signal();
