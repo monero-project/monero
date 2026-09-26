@@ -65,6 +65,7 @@
 #define DEFAULT_TIMEOUT_MS_LOCAL 1800000 // 30 minutes
 #define DEFAULT_TIMEOUT_MS_REMOTE 300000 // 5 minutes
 #define TIMEOUT_EXTRA_MS_PER_BYTE 0.2
+#define RPC_TIMEOUT_LAG_MS 1000 // 1 second
 
 
 namespace epee
@@ -192,8 +193,22 @@ namespace net_utils
         else if (m_state.status == status_t::TERMINATING)
           on_terminating();
       }
-      else if (m_state.status == status_t::RUNNING)
-        interrupt();
+      else if (m_state.status == status_t::RUNNING) {
+        // Timing out cannot stop a handler. Give a pending reply one extra
+        // allowance when busy workers delayed the timeout callback.
+        if (m_connection_type == e_connection_type_RPC && (m_state.socket.handle_read ||
+            (!m_state.data.write.queue.empty() && !m_state.data.write.timeout_extended &&
+              std::chrono::steady_clock::now() - m_timers.general.expiry() >
+                std::chrono::milliseconds{RPC_TIMEOUT_LAG_MS}))) {
+          if (!m_state.socket.handle_read)
+            m_state.data.write.timeout_extended = true;
+          start_timer(std::chrono::milliseconds(
+            m_local ? NEW_CONNECTION_TIMEOUT_LOCAL : NEW_CONNECTION_TIMEOUT_REMOTE
+          ) + get_timeout_from_bytes_read(m_state.data.write.total_bytes));
+        }
+        else
+          interrupt();
+      }
       else if (m_state.status == status_t::INTERRUPTED)
         terminate();
     };
@@ -388,7 +403,9 @@ namespace net_utils
           connection_basic::logger_handle_net_read(bytes_transferred);
           get_context().m_last_recv = time(NULL);
           get_context().m_recv_cnt += bytes_transferred;
-          start_timer(get_timeout_from_bytes_read(bytes_transferred), true);
+          // Preserve overdue RPC deadlines so reads cannot hide worker delays.
+          if (m_connection_type != e_connection_type_RPC || m_timers.general.expiry() > std::chrono::steady_clock::now())
+            start_timer(get_timeout_from_bytes_read(bytes_transferred), true);
         }
         handle_read(bytes_transferred);
       }
@@ -531,13 +548,6 @@ namespace net_utils
     }
 
     m_state.socket.wait_write = true;
-    if (m_connection_type == e_connection_type_RPC)
-    {
-      const duration_t base = std::chrono::milliseconds(
-        m_local ? NEW_CONNECTION_TIMEOUT_LOCAL : NEW_CONNECTION_TIMEOUT_REMOTE
-      );
-      start_timer(base + get_timeout_from_bytes_read(m_state.data.write.queue.back().size()), true);
-    }
     auto on_write = [this, self](const ec_t &ec, size_t bytes_transferred){
       std::lock_guard<std::mutex> guard(m_state.lock);
       m_state.socket.wait_write = false;
@@ -572,7 +582,8 @@ namespace net_utils
           get_context().m_last_send = time(NULL);
           get_context().m_send_cnt += bytes_transferred;
 
-          start_timer(get_default_timeout(), true);
+          m_state.data.write.timeout_extended = false;
+          start_timer(get_default_timeout(), m_connection_type != e_connection_type_RPC);
         }
         const std::size_t byte_count = m_state.data.write.queue.back().size();
         assert(bytes_transferred == byte_count);
@@ -919,6 +930,15 @@ namespace net_utils
       const std::size_t byte_count = message.size();
       m_state.data.write.queue.emplace_front(std::move(message));
       m_state.data.write.total_bytes += byte_count;
+      if (m_connection_type == e_connection_type_RPC) {
+        // A slow handler can leave an overdue timer when all workers are busy.
+        // Arm it here even if an earlier response is still being written.
+        const duration_t base = std::chrono::milliseconds(
+          m_local ? NEW_CONNECTION_TIMEOUT_LOCAL : NEW_CONNECTION_TIMEOUT_REMOTE
+        );
+        const duration_t left = m_timers.general.expiry() - std::chrono::steady_clock::now();
+        start_timer(std::max(left, duration_t{}) + base + get_timeout_from_bytes_read(m_state.data.write.total_bytes));
+      }
       start_write();
     }
     else {
