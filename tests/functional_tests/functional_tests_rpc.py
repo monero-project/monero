@@ -66,7 +66,7 @@ wallet_extra = [
   ["--daemon-port", "18180", "--disable-rpc-login"],
   ["--daemon-port", "18180", "--disable-rpc-login"],
   ["--daemon-port", "18180", "--disable-rpc-login"],
-  ["--daemon-port", "18182", "--disable-rpc-login"],
+  ["--daemon-port", "18182", "--disable-rpc-login", "--no-dns"],
   ["--offline", "--disable-rpc-login"],
   ["--daemon-port", "18184", "--daemon-login", "md5_lover:Z1ON0101", "--rpc-login", "kyle:reveille"],
 ]
