@@ -1995,9 +1995,10 @@ uint64_t WalletImpl::estimateTransactionFee(const std::vector<std::pair<std::str
     const size_t pubkey_size = 33;
     const size_t encrypted_paymentid_size = 11;
     const size_t extra_size = pubkey_size + encrypted_paymentid_size;
+    const bool use_per_byte_fee = m_wallet->use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0);
 
     return m_wallet->estimate_fee(
-        m_wallet->use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0),
+        use_per_byte_fee,
         m_wallet->use_fork_rules(4, 0),
         1,
         m_wallet->get_min_ring_size() - 1,
@@ -2007,7 +2008,7 @@ uint64_t WalletImpl::estimateTransactionFee(const std::vector<std::pair<std::str
         m_wallet->use_fork_rules(HF_VERSION_CLSAG, 0),
         m_wallet->use_fork_rules(HF_VERSION_BULLETPROOF_PLUS, 0),
         m_wallet->use_fork_rules(HF_VERSION_VIEW_TAGS, 0),
-        m_wallet->get_base_fee(static_cast<uint32_t>(priority)),
+        m_wallet->get_base_fee(static_cast<uint32_t>(priority), use_per_byte_fee),
         m_wallet->get_fee_quantization_mask());
 }
 

@@ -1406,7 +1406,7 @@ private:
 
     static uint64_t estimate_fee(bool use_per_byte_fee, bool use_rct, int n_inputs, int mixin, int n_outputs, size_t extra_size, bool bulletproof, bool clsag, bool bulletproof_plus, bool use_view_tags, uint64_t base_fee, uint64_t fee_quantization_mask);
     uint64_t get_fee_multiplier(fee_priority priority, fee_algorithm fee_algorithm = fee_algorithm::Unset);
-    uint64_t get_base_fee(fee_priority priority);
+    uint64_t get_base_fee(fee_priority priority, boost::optional<bool> use_per_byte_fee = boost::none);
     uint64_t get_base_fee();
     uint64_t get_fee_quantization_mask();
     uint64_t get_min_ring_size();
@@ -1420,7 +1420,7 @@ private:
       after casting from a type (PendingTransaction::FeePriority) which I don't want to touch.
     */
     fee_priority adjust_priority(uint32_t priority);
-    uint64_t get_base_fee(uint32_t);
+    uint64_t get_base_fee(uint32_t priority, boost::optional<bool> use_per_byte_fee = boost::none);
 
     bool is_unattended() const { return m_unattended; }
 
