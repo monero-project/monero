@@ -45,8 +45,9 @@
 
 static int compare_hash32(const MDB_val *a, const MDB_val *b)
 {
-  uint32_t *va = (uint32_t*) a->mv_data;
-  uint32_t *vb = (uint32_t*) b->mv_data;
+  uint32_t va[8], vb[8];
+  memcpy(va, a->mv_data, sizeof(va));
+  memcpy(vb, b->mv_data, sizeof(vb));
   for (int n = 7; n >= 0; n--)
   {
     if (va[n] == vb[n])
