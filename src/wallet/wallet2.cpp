@@ -7769,6 +7769,24 @@ void wallet2::commit_tx(pending_tx& ptx)
 {
   using namespace cryptonote;
 
+  // Record the rings before relaying. A rebuild after a failed submission reuses them only
+  // if every input it selects has a stored ring. The transaction may have been built
+  // elsewhere, so only record rings of this wallet's selected outputs with a usable size.
+  try
+  {
+    sanity_check_pending_tx(ptx, false, true, std::nullopt, false);
+    const uint64_t max_ring_size = get_max_ring_size();
+    const bool ring_sizes_ok = std::all_of(ptx.tx.vin.begin(), ptx.tx.vin.end(), [max_ring_size](const txin_v &in) {
+      return in.type() != typeid(txin_to_key) || !max_ring_size || boost::get<txin_to_key>(in).key_offsets.size() <= max_ring_size;
+    });
+    if (ring_sizes_ok)
+      add_rings(ptx.tx);
+  }
+  catch (const std::exception &e)
+  {
+    MINFO("Not recording rings before relay: " << e.what());
+  }
+
   // Normal submit
   COMMAND_RPC_SEND_RAW_TX::request req;
   req.tx_as_hex = epee::string_tools::buff_to_hex_nodelimer(tx_to_blob(ptx.tx));
