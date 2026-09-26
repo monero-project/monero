@@ -48,3 +48,15 @@ TEST(LocalAddress, valid_domain) { ASSERT_FALSE(tools::is_local_address("getmone
 TEST(LocalAddress, local_prefix) { ASSERT_FALSE(tools::is_local_address("localhost.com")); }
 TEST(LocalAddress, invalid) { ASSERT_FALSE(tools::is_local_address("test")); }
 TEST(LocalAddress, empty) { ASSERT_FALSE(tools::is_local_address("")); }
+
+TEST(PrivacyPreservingNetwork, onion) { ASSERT_TRUE(tools::is_privacy_preserving_network("vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion")); }
+TEST(PrivacyPreservingNetwork, onion_uppercase) { ASSERT_TRUE(tools::is_privacy_preserving_network("VWW6YBAL4BD7SZMGNCYRUUCPGFKQAHZDDI37KTCEO3AH7NGMCOPNPYYD.ONION")); }
+TEST(PrivacyPreservingNetwork, onion_mixed_case) { ASSERT_TRUE(tools::is_privacy_preserving_network("vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.OnIoN")); }
+TEST(PrivacyPreservingNetwork, onion_subdomain) { ASSERT_TRUE(tools::is_privacy_preserving_network("www.vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion")); }
+TEST(PrivacyPreservingNetwork, i2p) { ASSERT_TRUE(tools::is_privacy_preserving_network("xmrto2bturnore26xmrto2bturnore26xmrto2bturnore26xmr2.b32.i2p")); }
+TEST(PrivacyPreservingNetwork, i2p_uppercase) { ASSERT_TRUE(tools::is_privacy_preserving_network("XMRTO2BTURNORE26XMRTO2BTURNORE26XMRTO2BTURNORE26XMR2.B32.I2P")); }
+TEST(PrivacyPreservingNetwork, trailing_dot) { ASSERT_FALSE(tools::is_privacy_preserving_network("vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion.")); }
+TEST(PrivacyPreservingNetwork, embedded_label) { ASSERT_FALSE(tools::is_privacy_preserving_network("x.onion.example.com")); }
+TEST(PrivacyPreservingNetwork, suffix_without_dot) { ASSERT_FALSE(tools::is_privacy_preserving_network("xonion")); }
+TEST(PrivacyPreservingNetwork, clearnet) { ASSERT_FALSE(tools::is_privacy_preserving_network("getmonero.org")); }
+TEST(PrivacyPreservingNetwork, empty) { ASSERT_FALSE(tools::is_privacy_preserving_network("")); }

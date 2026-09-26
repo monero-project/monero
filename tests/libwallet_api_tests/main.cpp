@@ -34,6 +34,7 @@
 #include "wallet/wallet2.h"
 #include "include_base_utils.h"
 #include "common/util.h"
+#include "net/net_ssl.h"
 
 #include <boost/chrono/chrono.hpp>
 #include <boost/filesystem.hpp>
@@ -67,6 +68,7 @@ const char * WALLET_NAME_WITH_DIR_NON_WRITABLE = "not_a_directory/testwallet_tes
 const char * WALLET_PASS = "password";
 const char * WALLET_PASS2 = "password22";
 const char * WALLET_LANG = "English";
+const char * ONION_DAEMON_ADDRESS = "6dsdenlu6pc7feyi7d7fkxkfbenpj7cca5dvbdfayvmz2ykwixnztqad.onion:18081";
 
 std::string WALLETS_ROOT_DIR = "/var/monero/testnet_pvt";
 std::string TESTNET_WALLET1_NAME;
@@ -252,6 +254,186 @@ struct WalletTest2 : public testing::Test
     }
 
 };
+
+struct FirstBytesListener
+{
+    boost::asio::io_context ioc;
+    boost::asio::ip::tcp::acceptor acceptor;
+    boost::asio::ip::tcp::socket sock;
+    const uint16_t port;
+    boost::thread worker;
+    std::vector<unsigned char> first_bytes;
+
+    explicit FirstBytesListener(bool speak_socks5)
+        : acceptor(ioc, boost::asio::ip::tcp::endpoint(boost::asio::ip::address_v4::loopback(), 0))
+        , sock(ioc)
+        , port(acceptor.local_endpoint().port())
+    {
+        worker = boost::thread([this, speak_socks5] {
+            boost::system::error_code ec;
+            acceptor.accept(sock, ec);
+            // refuse the wallet's retry rather than sit out its RPC timeout
+            boost::system::error_code ignored;
+            acceptor.close(ignored);
+            if (ec)
+                return;
+            if (speak_socks5 && !grant_socks5(sock))
+                return;
+            unsigned char buffer[epee::net_utils::get_ssl_magic_size()] = {};
+            const size_t received = boost::asio::read(sock, boost::asio::buffer(buffer, sizeof(buffer)), ec);
+            first_bytes.assign(buffer, buffer + received);
+            sock.close(ignored);
+        });
+    }
+
+    ~FirstBytesListener()
+    {
+        unblock_and_join();
+    }
+
+    std::string address() const
+    {
+        return "127.0.0.1:" + std::to_string(port);
+    }
+
+    const std::vector<unsigned char> &wait()
+    {
+        if (!worker.try_join_for(boost::chrono::seconds(60)))
+            unblock_and_join();
+        return first_bytes;
+    }
+
+private:
+    void unblock_and_join()
+    {
+        boost::system::error_code ignored;
+        {
+            // closing the acceptor does not return a worker blocked in accept(); a connection
+            // does, and its close then ends the read
+            boost::asio::ip::tcp::socket wake(ioc);
+            wake.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address_v4::loopback(), port), ignored);
+        }
+        // racy cross-thread call, but nothing else here can return a read() blocked on sock
+        sock.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignored);
+        if (worker.joinable())
+            worker.join();
+    }
+
+    static bool grant_socks5(boost::asio::ip::tcp::socket &sock)
+    {
+        boost::system::error_code ec;
+        unsigned char greeting[2] = {};
+        boost::asio::read(sock, boost::asio::buffer(greeting), ec);
+        std::vector<unsigned char> methods(greeting[1]);
+        if (!ec && !methods.empty())
+            boost::asio::read(sock, boost::asio::buffer(methods), ec);
+        const unsigned char no_auth[2] = {5, 0};
+        if (!ec)
+            boost::asio::write(sock, boost::asio::buffer(no_auth), ec);
+
+        unsigned char request[5] = {};
+        if (!ec)
+            boost::asio::read(sock, boost::asio::buffer(request), ec);
+        if (ec || request[3] != 3) // domain type, request[4] is its length
+            return false;
+
+        std::vector<unsigned char> target(request[4] + 2u);
+        boost::asio::read(sock, boost::asio::buffer(target), ec);
+
+        const unsigned char granted[10] = {5, 0, 0, 1, 0, 0, 0, 0, 0, 0};
+        if (!ec)
+            boost::asio::write(sock, boost::asio::buffer(granted), ec);
+        return !ec;
+    }
+};
+
+static std::vector<unsigned char> first_bytes_on_init(
+        Monero::WalletManager *wmgr, const std::string &onion_address, bool use_ssl)
+{
+    const bool over_socks = !onion_address.empty();
+    Utils::deleteWallet(WALLET_NAME);
+    FirstBytesListener listener(over_socks);
+    Monero::Wallet *wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
+    EXPECT_TRUE(wallet->init(over_socks ? onion_address : listener.address(), 0, "", "", use_ssl,
+            false, over_socks ? "socks5://" + listener.address() : std::string()));
+    wallet->connected();
+    const std::vector<unsigned char> sent = listener.wait();
+    EXPECT_TRUE(wmgr->closeWallet(wallet));
+    return sent;
+}
+
+TEST_F(WalletManagerTest, WalletInitSkipsTlsOnAnonymityNetwork)
+{
+    const std::vector<unsigned char> plain = first_bytes_on_init(wmgr, ONION_DAEMON_ADDRESS, false);
+    ASSERT_EQ(epee::net_utils::get_ssl_magic_size(), plain.size());
+    EXPECT_FALSE(epee::net_utils::is_ssl(plain.data(), plain.size()));
+}
+
+// Tor lowercases the name it is handed, so an uppercase spelling reaches the same daemon
+TEST_F(WalletManagerTest, WalletInitSkipsTlsOnUppercaseAnonymityHost)
+{
+    const std::vector<unsigned char> plain =
+            first_bytes_on_init(wmgr, boost::to_upper_copy<std::string>(ONION_DAEMON_ADDRESS), false);
+    ASSERT_EQ(epee::net_utils::get_ssl_magic_size(), plain.size());
+    EXPECT_FALSE(epee::net_utils::is_ssl(plain.data(), plain.size()));
+}
+
+TEST_F(WalletManagerTest, WalletInitAttemptsTlsOnAnonymityNetworkWhenAsked)
+{
+    const std::vector<unsigned char> encrypted = first_bytes_on_init(wmgr, ONION_DAEMON_ADDRESS, true);
+    ASSERT_EQ(epee::net_utils::get_ssl_magic_size(), encrypted.size());
+    EXPECT_TRUE(epee::net_utils::is_ssl(encrypted.data(), encrypted.size()));
+}
+
+TEST_F(WalletManagerTest, WalletInitHonoursHttpsSchemeOnAnonymityNetwork)
+{
+    const std::vector<unsigned char> encrypted =
+            first_bytes_on_init(wmgr, std::string("https://") + ONION_DAEMON_ADDRESS, false);
+    ASSERT_EQ(epee::net_utils::get_ssl_magic_size(), encrypted.size());
+    EXPECT_TRUE(epee::net_utils::is_ssl(encrypted.data(), encrypted.size()));
+}
+
+TEST_F(WalletManagerTest, WalletInitKeepsAutodetectOnClearnet)
+{
+    const std::vector<unsigned char> encrypted = first_bytes_on_init(wmgr, "", false);
+    ASSERT_EQ(epee::net_utils::get_ssl_magic_size(), encrypted.size());
+    EXPECT_TRUE(epee::net_utils::is_ssl(encrypted.data(), encrypted.size()));
+}
+
+static std::vector<unsigned char> first_bytes_on_manager(Monero::WalletManager *wmgr, const std::string &onion_address, bool use_ssl)
+{
+    FirstBytesListener listener(true);
+    EXPECT_TRUE(wmgr->setProxy("socks5://" + listener.address()));
+    wmgr->setDaemonAddress(onion_address, use_ssl);
+    wmgr->connected();
+    const std::vector<unsigned char> sent = listener.wait();
+    // the manager is shared with later tests
+    EXPECT_TRUE(wmgr->setProxy(""));
+    wmgr->setDaemonAddress(DAEMON_ADDRESS);
+    return sent;
+}
+
+TEST_F(WalletManagerTest, WalletManagerSkipsTlsOnAnonymityNetwork)
+{
+    const std::vector<unsigned char> plain = first_bytes_on_manager(wmgr, ONION_DAEMON_ADDRESS, false);
+    ASSERT_EQ(epee::net_utils::get_ssl_magic_size(), plain.size());
+    EXPECT_FALSE(epee::net_utils::is_ssl(plain.data(), plain.size()));
+}
+
+TEST_F(WalletManagerTest, WalletManagerAttemptsTlsOnAnonymityNetworkWhenAsked)
+{
+    const std::vector<unsigned char> encrypted = first_bytes_on_manager(wmgr, ONION_DAEMON_ADDRESS, true);
+    ASSERT_EQ(epee::net_utils::get_ssl_magic_size(), encrypted.size());
+    EXPECT_TRUE(epee::net_utils::is_ssl(encrypted.data(), encrypted.size()));
+}
+
+TEST_F(WalletManagerTest, WalletManagerHonoursHttpsSchemeOnAnonymityNetwork)
+{
+    const std::vector<unsigned char> encrypted =
+            first_bytes_on_manager(wmgr, std::string("https://") + ONION_DAEMON_ADDRESS, false);
+    ASSERT_EQ(epee::net_utils::get_ssl_magic_size(), encrypted.size());
+    EXPECT_TRUE(epee::net_utils::is_ssl(encrypted.data(), encrypted.size()));
+}
 
 TEST_F(WalletManagerTest, WalletManagerCreatesWallet)
 {
