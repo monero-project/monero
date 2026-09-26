@@ -2192,7 +2192,10 @@ void wallet2::check_acc_out_precomp_once(const tx_out &o, const crypto::key_deri
 {
   tx_scan_info.received = boost::none;
   if (already_seen)
+  {
+    tx_scan_info.error = false;
     return;
+  }
   check_acc_out_precomp(o, derivation, additional_derivations, i, is_out_data, tx_scan_info);
   if (tx_scan_info.received)
     already_seen = true;
