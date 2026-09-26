@@ -7180,6 +7180,54 @@ uint64_t wallet2::balance(uint32_t index_major, bool strict) const
   return amount;
 }
 //----------------------------------------------------------------------------------------------------
+std::vector<wallet2::account_balance> wallet2::balances_per_account(const std::vector<uint32_t>& account_indices, bool strict)
+{
+  std::vector<account_balance> balances(get_num_subaddress_accounts());
+  std::vector<bool> selected(balances.size(), false);
+  for (uint32_t index: account_indices)
+    selected.at(index) = true;
+
+  for (const transfer_details& td: m_transfers)
+  {
+    if (td.amount() > m_ignore_outputs_above || td.amount() < m_ignore_outputs_below ||
+        td.m_subaddr_index.major >= balances.size() || !selected[td.m_subaddr_index.major] ||
+        is_spent(td, strict) || td.m_frozen)
+      continue;
+
+    account_balance& account = balances[td.m_subaddr_index.major];
+    account.balance += td.amount();
+    if (is_transfer_unlocked(td))
+      account.unlocked_balance += td.amount();
+  }
+
+  if (!strict)
+  {
+    for (const auto& utx: m_unconfirmed_txs)
+    {
+      const unconfirmed_transfer_details& tx = utx.second;
+      if (tx.m_state == unconfirmed_transfer_details::failed || tx.m_subaddr_account >= balances.size() ||
+          !selected[tx.m_subaddr_account])
+        continue;
+
+      balances[tx.m_subaddr_account].balance += tx.m_change;
+      for (const auto& dest: tx.m_dests)
+      {
+        const auto index = get_subaddress_index(dest.addr);
+        if (index && index->major == tx.m_subaddr_account)
+          balances[index->major].balance += dest.amount;
+      }
+    }
+
+    for (const auto& utx: m_unconfirmed_payments)
+    {
+      const auto& payment = utx.second.m_pd;
+      if (payment.m_subaddr_index.major < balances.size() && selected[payment.m_subaddr_index.major])
+        balances[payment.m_subaddr_index.major].balance += payment.m_amount;
+    }
+  }
+  return balances;
+}
+//----------------------------------------------------------------------------------------------------
 uint64_t wallet2::unlocked_balance(uint32_t index_major, bool strict, uint64_t *blocks_to_unlock, uint64_t *time_to_unlock)
 {
   uint64_t amount = 0;
