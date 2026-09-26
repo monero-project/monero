@@ -89,6 +89,10 @@ class WalletTest():
         assert res.key == '49774391fa5e8d249fc2c5b45dadef13534bf2483dede880dac88f061e809100'
         res = wallet.query_key('spend_key')
         assert res.key == '148d78d2aba7dbca5cd8f6abcfb0b3c009ffbdbea1ff373d50ed94d78286640e'
+        res = wallet.query_key('public_view_key')
+        assert res.key == '231c9bf8341c6a870d92e3fb98063a90a355fb8dbf74a8561b9d7f9273247e99'
+        res = wallet.query_key('public_spend_key')
+        assert res.key == '1b3bd040020d3712ab84992b773d0a965134eb2df0392fb84af95de8a17be2ab'
         res = wallet.query_key('mnemonic')
         assert res.key == 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
 
