@@ -33,9 +33,11 @@
 #include <cstdio>
 #include <iostream>
 #include <vector>
+#include <map>
 #include <boost/foreach.hpp>
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_basic_impl.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "serialization/binary_archive.h"
 #include "serialization/json_archive.h"
 #include "serialization/debug_archive.h"
@@ -159,4 +161,115 @@ TEST(varint, get_varint_byte_size)
   subtest_varint_byte_size_for_type<std::uint16_t>();
   subtest_varint_byte_size_for_type<std::uint32_t>();
   subtest_varint_byte_size_for_type<std::uint64_t>();
+}
+
+TEST(varint, empty_input_reads_nothing)
+{
+  const std::string s;
+  uint64_t v = 12345;
+  ASSERT_EQ(0, tools::read_varint(s.begin(), s.end(), v));
+}
+
+TEST(varint, truncated_is_rejected)
+{
+  // Every byte here has the continuation bit set, so the input ends in the
+  // middle of a varint. Each must be rejected rather than reported as a
+  // successful read of however many bytes were consumed.
+  static const char *const truncated[] = {
+    "\x80", "\x81", "\xff",
+    "\x80\x80", "\xff\xff",
+    "\x80\x80\x80", "\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+  };
+  for (const char *t : truncated)
+  {
+    const std::string s(t, strlen(t));
+    uint64_t v = 0;
+    const int read = tools::read_varint(s.begin(), s.end(), v);
+    ASSERT_EQ(tools::EVARINT_TRUNCATED, read) << "not rejected: " << s.size() << " bytes";
+    ASSERT_LT(read, 0);
+  }
+}
+
+TEST(varint, decoding_is_injective_at_end_of_buffer)
+{
+  // A truncated varint used to decode to the same value as its canonical
+  // encoding, so 00, 80, 8080, ... all yielded 0 and no two byte strings of a
+  // whole buffer could be distinguished by what they decode to. Exhaustively
+  // check every 1-, 2- and 3-byte buffer: no value may be reachable from two
+  // different accepted encodings.
+  std::map<uint64_t, std::string> seen;
+  for (size_t len = 1; len <= 3; ++len)
+  {
+    std::string s(len, '\0');
+    for (size_t n = 0; n < (size_t(1) << (8 * len)); ++n)
+    {
+      for (size_t i = 0; i < len; ++i)
+        s[i] = char((n >> (8 * i)) & 0xff);
+      uint64_t v = 0;
+      const int read = tools::read_varint(s.begin(), s.end(), v);
+      if (read != (int)len)   // must consume the whole buffer to be comparable
+        continue;
+      const auto it = seen.find(v);
+      if (it == seen.end())
+        seen.emplace(v, s);
+      else
+        ASSERT_EQ(it->second, s) << "two accepted encodings decode to " << v;
+    }
+  }
+}
+
+TEST(varint, block_blob_is_not_malleable_at_its_trailing_varint)
+{
+  // A block with no non-coinbase transactions serializes with an empty
+  // tx_hashes vector, so its blob ends with that vector's count varint. If a
+  // truncated varint were accepted there, appending continuation bytes would
+  // produce arbitrarily many distinct blobs that all deserialize to the same
+  // block and hash to the same block ID.
+  cryptonote::block bl{};
+  bl.major_version = 16;
+  bl.minor_version = 16;
+  bl.timestamp = 1758900000;
+  bl.nonce = 0x11223344;
+  memset(&bl.prev_id, 0xab, sizeof(bl.prev_id));
+
+  cryptonote::transaction &mtx = bl.miner_tx;
+  mtx.set_null();
+  mtx.version = 2;
+  mtx.unlock_time = 3300060;
+  cryptonote::txin_gen in;
+  in.height = 3300000;
+  mtx.vin.push_back(in);
+  cryptonote::tx_out o;
+  o.amount = 600000000000ULL;
+  cryptonote::txout_to_tagged_key tk;
+  memset(&tk.key, 0x22, sizeof(tk.key));
+  tk.view_tag.data = 0x5a;
+  o.target = tk;
+  mtx.vout.push_back(o);
+  mtx.extra.assign(33, 0x01);
+  mtx.rct_signatures.type = rct::RCTTypeNull;
+
+  const std::string blob = cryptonote::t_serializable_object_to_blob(bl);
+  ASSERT_FALSE(blob.empty());
+  ASSERT_EQ('\0', blob.back());   // the empty tx_hashes count
+
+  cryptonote::block parsed;
+  ASSERT_TRUE(cryptonote::parse_and_validate_block_from_blob(blob, parsed));
+  ASSERT_EQ(0u, parsed.tx_hashes.size());
+  ASSERT_EQ(blob, cryptonote::t_serializable_object_to_blob(parsed));
+
+  // Same length, continuation bit set on the final byte.
+  std::string mangled = blob;
+  mangled.back() = char(0x80);
+  cryptonote::block b2;
+  ASSERT_FALSE(cryptonote::parse_and_validate_block_from_blob(mangled, b2));
+
+  // Longer: the trailing varint replaced by a run of continuation bytes.
+  for (size_t pad = 1; pad <= 4; ++pad)
+  {
+    std::string longer = blob.substr(0, blob.size() - 1) + std::string(pad, char(0x80));
+    cryptonote::block b3;
+    ASSERT_FALSE(cryptonote::parse_and_validate_block_from_blob(longer, b3))
+        << "accepted a blob padded with " << pad << " continuation bytes";
+  }
 }

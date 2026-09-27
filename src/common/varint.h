@@ -59,6 +59,8 @@ namespace tools {
     EVARINT_OVERFLOW = -1,
     /* \brief Represents a non-canonical representation */
     EVARINT_REPRESENT = -2,
+    /* \brief Represents a varint truncated by the end of the input */
+    EVARINT_TRUNCATED = -3,
   };
 
   /*! \brief writes a varint to a stream.
@@ -96,7 +98,16 @@ namespace tools {
     write = 0;
     for (int shift = 0;; shift += 7) {
       if (first == last) {
-	return read; 
+	/*
+	 * Out of input. If we have not consumed anything, there was simply no
+	 * varint here and 0 is the historical "nothing read" answer. If we have
+	 * consumed bytes, every one of them had the continuation bit set, so the
+	 * varint is truncated and must be rejected: returning the positive byte
+	 * count here reads as success to callers and makes decoding
+	 * non-injective, because 0x00, 0x80, 0x80 0x80, ... would all decode to
+	 * the same value at the end of a buffer.
+	 */
+	return read == 0 ? 0 : EVARINT_TRUNCATED;
       }
       unsigned char byte = *first;
       ++first;
