@@ -1441,11 +1441,11 @@ namespace net_utils
       }
       catch(const std::exception& ex)
       {
-        _erro("Exception at server worker thread, what=" << ex.what());
+        MFATAL("Exception at server worker thread, what=" << ex.what());
       }
       catch(...)
       {
-        _erro("Exception at server worker thread, unknown exception");
+        MFATAL("Exception at server worker thread, unknown exception");
       }
     }
     //_info("Worker thread finished");

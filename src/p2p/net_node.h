@@ -284,6 +284,7 @@ namespace nodetool
     virtual bool is_host_blocked(const epee::net_utils::network_address &address, time_t *seconds) { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return !is_remote_host_allowed(address, seconds); }
     virtual std::map<std::string, time_t> get_blocked_hosts() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_hosts; }
     virtual std::map<epee::net_utils::ipv4_network_subnet, time_t> get_blocked_subnets() { CRITICAL_REGION_LOCAL(m_blocked_hosts_lock); return m_blocked_subnets; }
+    virtual bool is_host_limit(const epee::net_utils::network_address &address);
 
     virtual void add_used_stripe_peer(const typename t_payload_net_handler::connection_context &context);
     virtual void remove_used_stripe_peer(const typename t_payload_net_handler::connection_context &context);
@@ -340,8 +341,6 @@ namespace nodetool
     virtual bool add_host_fail(const epee::net_utils::network_address &address, unsigned int score = 1);
     //----------------- i_connection_filter  --------------------------------------------------------
     virtual bool is_remote_host_allowed(const epee::net_utils::network_address &address, time_t *t = NULL);
-    //----------------- i_connection_limit  ---------------------------------------------------------
-    virtual bool is_host_limit(const epee::net_utils::network_address &address);
     //-----------------------------------------------------------------------------------------------
 
     bool handle_command_line(
