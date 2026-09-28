@@ -10,8 +10,8 @@ use ec_divisors::DivisorCurve;
 
 use full_chain_membership_proofs::tree::hash_grow;
 use helioselene::{
-    Field25519 as SeleneScalar, HeliosPoint, HelioseleneField as HeliosScalar, Selene,
-    SelenePoint,
+    Field25519 as SeleneScalar, Helios, HeliosPoint, HelioseleneField as HeliosScalar,
+    Selene, SelenePoint,
 };
 
 use monero_fcmp_plus_plus::{
@@ -116,6 +116,8 @@ ec_elem_to_bytes!(helios_point_to_bytes, HeliosPoint, to_bytes);
 ec_elem_to_bytes!(selene_point_to_bytes, SelenePoint, to_bytes);
 
 ec_elem_from_bytes!(selene_scalar_from_bytes, SeleneScalar, Selene, read_F);
+ec_elem_from_bytes!(helios_point_from_bytes, HeliosPoint, Helios, read_G);
+ec_elem_from_bytes!(selene_point_from_bytes, SelenePoint, Selene, read_G);
 
 macro_rules! point_to_cycle_scalar {
     ($fn_name:ident, $Point:ty, $Scalar:ty) => {

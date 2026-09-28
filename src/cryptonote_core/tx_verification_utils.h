@@ -35,6 +35,11 @@
 namespace cryptonote
 {
 
+void collect_transparent_amount_commitments(
+    const transaction &miner_tx,
+    const std::vector<std::pair<transaction, blobdata>> &tx_pairs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout);
+
 /**
  * @brief Get the maximum transaction weight for a given hardfork
  *
