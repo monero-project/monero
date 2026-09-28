@@ -96,4 +96,3 @@ VARIANT_TAG(debug_archive, crypto::key_image, "key_image");
 VARIANT_TAG(debug_archive, crypto::signature, "signature");
 VARIANT_TAG(debug_archive, crypto::view_tag, "view_tag");
 VARIANT_TAG(debug_archive, crypto::ec_point, "ec_point");
-
