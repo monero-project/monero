@@ -187,6 +187,12 @@ Install all dependencies at once on macOS with the provided Brewfile:
 brew update && brew bundle --file=contrib/brew/Brewfile
 ```
 
+Enter a shell with all dependencies using Nix (flakes enabled):
+
+```
+nix develop
+```
+
 FreeBSD one-liner required to build dependencies:
 
 ```
