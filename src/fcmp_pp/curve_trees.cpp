@@ -1098,5 +1098,88 @@ TreeRootShared CurveTrees<Selene, Helios>::get_tree_root_from_bytes(const std::s
         return fcmp_pp::selene_tree_root(m_c1->from_bytes(tree_root));
 }
 //----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+typename CurveTrees<C1, C2>::LastHashes CurveTrees<C1, C2>::tree_edge_to_last_hashes(
+    const std::vector<crypto::ec_point> &tree_edge) const
+{
+    typename CurveTrees<C1, C2>::LastHashes last_hashes;
+
+    bool parent_is_c1 = true;
+    for (const auto &last_hash : tree_edge)
+    {
+        if (parent_is_c1)
+            last_hashes.c1_last_hashes.push_back(m_c1->from_bytes(last_hash));
+        else
+            last_hashes.c2_last_hashes.push_back(m_c2->from_bytes(last_hash));
+        parent_is_c1 = !parent_is_c1;
+    }
+
+    return last_hashes;
+}
+
+// Explicit instantiation
+template CurveTrees<Selene, Helios>::LastHashes CurveTrees<Selene, Helios>::tree_edge_to_last_hashes(
+    const std::vector<crypto::ec_point> &tree_edge) const;
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C1, typename C2>
+CompressedTreeExtension CurveTrees<C1, C2>::compress_tree_extension(
+    typename CurveTrees<C1, C2>::TreeExtension &&tree_extension) const
+{
+    std::vector<CompressedLayerExtension> layer_extensions;
+    const std::size_t n_layers = tree_extension.c1_layer_extensions.size() + tree_extension.c2_layer_extensions.size();
+    layer_extensions.reserve(n_layers);
+
+    bool parent_is_c1 = true;
+    std::size_t c1_idx = 0, c2_idx = 0;
+    for (std::size_t i = 0; i < n_layers; ++i)
+    {
+        if (parent_is_c1)
+        {
+            const auto &c1_layer_ext = tree_extension.c1_layer_extensions.at(c1_idx);
+
+            std::vector<crypto::ec_point> hashes;
+            hashes.reserve(c1_layer_ext.hashes.size());
+            for (const auto &h : c1_layer_ext.hashes)
+                hashes.emplace_back(m_c1->to_bytes(h));
+
+            layer_extensions.emplace_back(fcmp_pp::CompressedLayerExtension{
+                    .start_idx                 = c1_layer_ext.start_idx,
+                    .update_existing_last_hash = c1_layer_ext.update_existing_last_hash,
+                    .hashes                    = std::move(hashes)
+                });
+
+            ++c1_idx;
+        }
+        else
+        {
+            const auto &c2_layer_ext = tree_extension.c2_layer_extensions.at(c2_idx);
+
+            std::vector<crypto::ec_point> hashes;
+            hashes.reserve(c2_layer_ext.hashes.size());
+            for (const auto &h : c2_layer_ext.hashes)
+                hashes.emplace_back(m_c2->to_bytes(h));
+
+            layer_extensions.emplace_back(fcmp_pp::CompressedLayerExtension{
+                    .start_idx                 = c2_layer_ext.start_idx,
+                    .update_existing_last_hash = c2_layer_ext.update_existing_last_hash,
+                    .hashes                    = std::move(hashes)
+                });
+
+            ++c2_idx;
+        }
+
+        parent_is_c1 = !parent_is_c1;
+    }
+
+    return CompressedTreeExtension{
+            .leaves = std::move(tree_extension.leaves),
+            .layer_extensions = std::move(layer_extensions)
+        };
+}
+
+// Explicit instantiation
+template CompressedTreeExtension CurveTrees<Selene, Helios>::compress_tree_extension(
+    typename CurveTrees<Selene, Helios>::TreeExtension &&tree_ext) const;
+//----------------------------------------------------------------------------------------------------------------------
 } //namespace curve_trees
 } //namespace fcmp_pp

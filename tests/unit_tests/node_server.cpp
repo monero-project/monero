@@ -893,6 +893,8 @@ TEST(cryptonote_protocol_handler, race_condition)
     const stat::chain &stat
   ){
     core.get_blockchain_storage().get_db().batch_start({}, {});
+    std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
+    cryptonote::collect_transparent_amount_commitments(block.miner_tx, {}, transparent_amount_commitments);
     core.get_blockchain_storage().get_db().add_block(
       {block, cryptonote::block_to_blob(block)},
       cryptonote::get_transaction_weight(block.miner_tx),
@@ -901,7 +903,8 @@ TEST(cryptonote_protocol_handler, race_condition)
       ),
       stat.diff,
       stat.reward,
-      {}
+      {},
+      transparent_amount_commitments
     );
     core.get_blockchain_storage().get_db().batch_stop();
   };
