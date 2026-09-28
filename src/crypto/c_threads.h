@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Monero Project
+// Copyright (c) 2019-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -48,6 +48,12 @@
 #define CTHR_THREAD_JOIN(thr)			do { WaitForSingleObject(thr, INFINITE); CloseHandle(thr); } while(0)
 #define CTHR_THREAD_CLOSE(thr)			CloseHandle((HANDLE)thr);
 
+#define CTHR_ONCE_FLAG             INIT_ONCE
+#define CTHR_ONCE_INIT             INIT_ONCE_STATIC_INIT
+#define CTHR_ONCE_CALL(flag, f)    (0 != InitOnceExecuteOnce(flag, f, NULL, NULL))
+#define CTHR_ONCE_DECLARE_CB(name) BOOL CALLBACK name(PINIT_ONCE InitOnce, PVOID Parameter, PVOID *Context)
+#define CTHR_ONCE_CB_SUCCESS       true
+
 #else
 
 #include <pthread.h>
@@ -66,5 +72,11 @@
 #define CTHR_THREAD_CREATE(thr, func, arg)	(pthread_create(&thr, NULL, func, arg) == 0)
 #define CTHR_THREAD_JOIN(thr)			pthread_join(thr, NULL)
 #define CTHR_THREAD_CLOSE(thr)			pthread_detach(thr)
+
+#define CTHR_ONCE_FLAG             pthread_once_t
+#define CTHR_ONCE_INIT             PTHREAD_ONCE_INIT
+#define CTHR_ONCE_CALL(flag, f)    (0 == pthread_once(flag, f))
+#define CTHR_ONCE_DECLARE_CB(name) void name(void)
+#define CTHR_ONCE_CB_SUCCESS
 
 #endif
