@@ -75,7 +75,7 @@ bool get_valid_torsion_cleared_point_vartime(const crypto::ec_point &point, cryp
 
 /*
 point_to_ed_derivatives converts an Ed25519 point to Ed25519 derivatives used for converting to
-Weierstrauss coords, as per https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2.
+Weierstrass coords, as per https://www.ietf.org/archive/id/draft-ietf-lwig-curve-representations-02.pdf E.2.
 
 We expect that a point passed in this function has been validated to be in the main subgroup with no torsion,
 and does not equal identity. The `torsion_free_point` param is expected to be the output of
@@ -90,7 +90,7 @@ point_to_ed_derivatives can have torsion, otherwise this function has undefined 
 bool ed_derivatives_to_wei_x_y(const EdDerivatives &ed_derivatives, crypto::ec_coord &wei_x, crypto::ec_coord &wei_y);
 
 /*
-point_to_wei_x_y takes a torsion free point as input, and coverts to Weierstrauss coordinates.
+point_to_wei_x_y takes a torsion free point as input, and converts to Weierstrass coordinates.
 
 We expect that a point passed in this function has been validated to be in the main subgroup with no torsion,
 and does not equal identity. The `torsion_free_point` param is expected to be the output of

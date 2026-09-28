@@ -44,7 +44,7 @@
 
 /// A constant-time implementation of the Ed25519 field.
 /// This type is expected to be opaque to the C/C++ side, meaning only the Rust side should read/write
-/// its internal represenation. We're using a modified crypto-bigint crate for this type so that we
+/// its internal representation. We're using a modified crypto-bigint crate for this type so that we
 /// can work with points and scalars across the FFI without tons of byte repr conversions.
 struct SeleneScalar {
   uintptr_t _0[32 / sizeof(uintptr_t)];
@@ -54,7 +54,7 @@ FFI_STATIC_ASSERT(alignof(struct SeleneScalar) == sizeof(uintptr_t), "SeleneScal
 
 /// The field novel to Helios/Selene.
 /// This type is expected to be opaque to the C/C++ side, meaning only the Rust side should read/write
-/// its internal represenation. We're using a modified crypto-bigint crate for this type so that we
+/// its internal representation. We're using a modified crypto-bigint crate for this type so that we
 /// can work with points and scalars across the FFI without tons of byte repr conversions.
 struct HeliosScalar {
   uintptr_t _0[32 / sizeof(uintptr_t)];
