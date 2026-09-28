@@ -629,23 +629,22 @@ std::pair<std::unique_ptr<tools::wallet2>, tools::password_container> generate_f
     }
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed, std::string, String, false, std::string());
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed_passphrase, std::string, String, false, std::string());
     std::string old_language;
     crypto::secret_key recovery_key;
     bool restore_deterministic_wallet = false;
+    bool is_polyseed = false;
+    polyseed::data polyseed(POLYSEED_MONERO);
     if (field_seed_found)
     {
-      if (!crypto::ElectrumWords::words_to_bytes(field_seed, recovery_key, old_language))
+      if (!crypto::ElectrumWords::words_to_bytes_ex(field_seed, recovery_key, old_language, is_polyseed, polyseed))
       {
         THROW_WALLET_EXCEPTION(tools::error::wallet_internal_error, tools::wallet2::tr("Electrum-style word list failed verification"));
       }
       restore_deterministic_wallet = true;
 
-      GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, seed_passphrase, std::string, String, false, std::string());
-      if (field_seed_passphrase_found)
-      {
-        if (!field_seed_passphrase.empty())
-          recovery_key = cryptonote::decrypt_key(recovery_key, field_seed_passphrase);
-      }
+      if (!is_polyseed && !field_seed_passphrase.empty())
+        recovery_key = cryptonote::decrypt_key(recovery_key, field_seed_passphrase);
     }
 
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, address, std::string, String, false, std::string());
@@ -694,20 +693,26 @@ std::pair<std::unique_ptr<tools::wallet2>, tools::password_container> generate_f
       }
     }
 
-    const bool deprecated_wallet = restore_deterministic_wallet && ((old_language == crypto::ElectrumWords::old_language_name) ||
+    const bool deprecated_wallet = restore_deterministic_wallet && !is_polyseed && ((old_language == crypto::ElectrumWords::old_language_name) ||
       crypto::ElectrumWords::get_is_old_style_seed(field_seed));
     THROW_WALLET_EXCEPTION_IF(deprecated_wallet, tools::error::wallet_internal_error,
       tools::wallet2::tr("Cannot generate deprecated wallets from JSON"));
 
     wallet.reset(make_basic(vm, unattended, opts, password_prompter).release());
     wallet->set_refresh_from_block_height(field_scan_from_height);
-    wallet->explicit_refresh_from_block_height(field_scan_from_height_found);
+    wallet->explicit_refresh_from_block_height(field_scan_from_height_found || is_polyseed);
     if (!old_language.empty())
       wallet->set_seed_language(old_language);
 
     try
     {
-      if (!field_seed.empty())
+      if (is_polyseed)
+      {
+        // scan_from_height 0 or absent: generate() uses the Polyseed birthday
+        wallet->generate(field_filename, field_password, polyseed, field_seed_passphrase, recover, field_scan_from_height, create_address_file);
+        password = field_password;
+      }
+      else if (!field_seed.empty())
       {
         wallet->generate(field_filename, field_password, recovery_key, recover, false, create_address_file);
         password = field_password;
