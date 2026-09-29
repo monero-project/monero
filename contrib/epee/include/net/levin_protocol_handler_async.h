@@ -718,6 +718,7 @@ template<class t_connection_context>
 void async_protocol_handler_config<t_connection_context>::delete_connections(size_t count, bool incoming)
 {
   std::vector<std::shared_ptr<levin_endpoint>> connections;
+  std::vector<std::shared_ptr<levin_endpoint>> connections_to_close;
   CRITICAL_REGION_BEGIN(m_connects_lock);
   for (auto& c: m_connects)
   {
@@ -726,17 +727,28 @@ void async_protocol_handler_config<t_connection_context>::delete_connections(siz
       connections.push_back(std::move(locked));
   }
 
-  // close random connections from  the provided set
-  // TODO or better just keep removing random elements (performance)
+  // close random connections from the provided set by drawing random indices
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-  shuffle(connections.begin(), connections.end(), std::default_random_engine(seed));
-  for (size_t i = 0; i < connections.size() && i < count; ++i)
-    m_connects.erase(connections[i]->context.m_connection_id);
+  std::default_random_engine rng (seed);
+  size_t num_connections_to_close = std::min(count, connections.size());
+  connections_to_close.reserve(num_connections_to_close);
+
+  for (size_t i = 0; i < num_connections_to_close; ++i)
+  {
+
+    std::uniform_int_distribution<size_t> dist(0, connections.size() - 1);
+    size_t j = dist(rng);
+    std::swap(connections[j], connections.back());
+    m_connects.erase(connections.back()->context.m_connection_id);
+    connections_to_close.push_back(std::move(connections.back()));
+    connections.pop_back();
+
+  }
 
   CRITICAL_REGION_END();
 
-  for (size_t i = 0; i < connections.size() && i < count; ++i)
-    connections[i]->close(false);
+  for (auto& connection : connections_to_close)
+    connection->close(false);
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
