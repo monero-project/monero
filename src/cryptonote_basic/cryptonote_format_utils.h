@@ -324,6 +324,23 @@ namespace cryptonote
     const uint64_t first_unified_id,
     const uint64_t block_idx);
 
+  inline bool output_checked_for_torsion(const cryptonote::txout_target_v &tx_out)
+  {
+    struct tx_out_visitor
+    {
+      bool operator()(const cryptonote::txout_to_script&) const
+      { return false; }
+      bool operator()(const cryptonote::txout_to_key&) const
+      { return false; }
+      bool operator()(const cryptonote::txout_to_tagged_key&) const
+      { return false; }
+      bool operator()(const cryptonote::txout_to_carrot_v1&) const
+      { return true; }
+    };
+
+    return boost::apply_visitor(tx_out_visitor{}, tx_out);
+  }
+
   fcmp_pp::OutputPair to_output_pair(const cryptonote::txout_target_v &tx_out, const rct::key &commitment);
 
 #define CHECKED_GET_SPECIFIC_VARIANT(variant_var, specific_type, variable_name, fail_return_val) \

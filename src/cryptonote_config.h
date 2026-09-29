@@ -195,6 +195,9 @@
 #define HF_VERSION_BULLETPROOF_PLUS             15
 #define HF_VERSION_VIEW_TAGS                    15
 #define HF_VERSION_2021_SCALING                 15
+#define HF_VERSION_FCMP_PLUS_PLUS               17
+#define HF_VERSION_CARROT                       17
+#define HF_VERSION_REJECT_UNMIXABLE_V1          17
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 #define CRYPTONOTE_SCALING_2021_FEE_ROUNDING_PLACES 2
@@ -270,6 +273,7 @@ namespace config
   const constexpr char HASH_KEY_MULTISIG_TX_PRIVKEYS_SEED[] = "multisig_tx_privkeys_seed";
   const constexpr char HASH_KEY_MULTISIG_TX_PRIVKEYS[] = "multisig_tx_privkeys";
   const constexpr char HASH_KEY_TXHASH_AND_MIXRING[] = "txhash_and_mixring";
+  const constexpr char HASH_KEY_TXHASH_AND_TREE_ROOT[] = "txhash_and_tree_root";
 
   // Multisig
   const uint32_t MULTISIG_MAX_SIGNERS{16};
