@@ -21,6 +21,7 @@
 
 //  See http://www.boost.org for updates, documentation, and revision history.
 
+#include <cstring>
 #include <istream>
 #include <boost/version.hpp>
 #include <boost/serialization/string.hpp>
@@ -307,9 +308,15 @@ portable_binary_iarchive::load_override(
 inline void 
 portable_binary_iarchive::init(unsigned int flags){
     if(0 == (flags & boost::archive::no_header)){
-        // read signature in an archive version independent manner
+        // read signature in an archive version independent manner,
+        // checking its length before allocating since non-archive input can encode any length
         std::string file_signature;
-        * this >> file_signature;
+        std::size_t l;
+        load(l);
+        if(l == std::strlen(boost::archive::BOOST_ARCHIVE_SIGNATURE())){
+            file_signature.resize(l);
+            this->primitive_base_t::load_binary(&file_signature[0], l);
+        }
         if(file_signature != boost::archive::BOOST_ARCHIVE_SIGNATURE())
             boost::serialization::throw_exception(
                 boost::archive::archive_exception(
