@@ -28,6 +28,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <set>
 #include <list>
 #include <vector>
@@ -64,7 +65,7 @@ namespace epee
       if(!stg.get_value(pname, blob, hparent_section))
         return false;
       CHECK_AND_ASSERT_MES(blob.size() == sizeof(d), false, "unserialize_t_val_as_blob: size of " << typeid(t_type).name() << " = " << sizeof(t_type) << ", but stored blod size = " << blob.size() << ", value name = " << pname);
-      d = *(const t_type*)blob.data();
+      std::memcpy(&d, blob.data(), sizeof(d));
       return true;
     } 
     //-------------------------------------------------------------------------------------------------------------------
