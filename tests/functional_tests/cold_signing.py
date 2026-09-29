@@ -291,18 +291,55 @@ class ColdSigningTest():
             return len([x for x in tx_hash_list if x == txid]) > 0
         assert len([x for x in (res['pending'] if 'pending' in res else []) if in_hash_list(x.txid, tx_hash_list)]) == 0
         assert len([x for x in (res['out'] if 'out' in res else []) if in_hash_list(x.txid, tx_hash_list)]) > 0
+        return tx_hash_list
 
     def transfer_to_multi_subaddresses(self):
         # This test triggers the non-standard additional keys case
         # const bool need_additional_txkeys = num_subaddresses > 0 && (num_stdaddresses > 0 || num_subaddresses > 1);
-        print("Transfer to 2 subaddresses in 1 tx")
-        dst1 = {'address': SUBADDRESS, 'amount': 1000000000000}
-        dst2 = {'address': SUBADDRESS2, 'amount': 1000000000000}
+        print("Transfer to multiple subaddresses and another account")
+        amount = 1000000000000
+        other_account = self.hot_wallet.create_account()
+        assert self.cold_wallet.create_account().address == other_account.address
+        dst1 = {'address': SUBADDRESS, 'amount': amount}
+        dst2 = {'address': SUBADDRESS2, 'amount': amount}
+        dst3 = {'address': other_account.address, 'amount': amount}
 
         self.export_import(False)
-        res = self.hot_wallet.transfer([dst1, dst2])
+        res = self.hot_wallet.transfer([dst1, dst2, dst3])
+        txids = self.sign_and_submit(res.unsigned_txset)
+        assert len(txids) == 1
+        txid = txids[0]
 
-        self.sign_and_submit(res.unsigned_txset)
+        # Scan without key images so self-payments initially appear incoming.
+        observer = Wallet(idx = 1)
+        try: observer.close_wallet()
+        except: pass
+        observer.generate_from_keys(
+            viewkey = self.cold_wallet.query_key("view_key").key,
+            address = STANDARD_ADDRESS)
+        assert observer.create_account().address == other_account.address
+        observer.refresh()
+
+        def incoming(account_index):
+            transfers = observer.get_transfers(account_index = account_index)
+            return sorted((entry.subaddr_index.minor, entry.amount)
+                          for entry in transfers.get('in', []) if entry.txid == txid)
+
+        # At least two source-account records must exist to catch erase-one.
+        assert {1, 2} <= {minor for minor, _ in incoming(0)}
+        assert incoming(other_account.account_index) == [(0, amount)]
+
+        outputs = observer.export_outputs(all = True)
+        self.cold_wallet.import_outputs(outputs.outputs_data_hex)
+        key_images = self.cold_wallet.export_key_images(True)
+        observer.import_key_images(key_images.signed_key_images, offset = key_images.offset)
+
+        # Remove every source-account payment, preserving the other account.
+        assert incoming(0) == []
+        assert incoming(other_account.account_index) == [(0, amount)]
+        outgoing = observer.get_transfers(account_index = 0).get('out', [])
+        assert len([entry for entry in outgoing if entry.txid == txid]) == 1
+        observer.close_wallet()
 
     def sweep(self):
         print("Mine 10 blocks so all non-coinbase outs from prior txs unlock")
