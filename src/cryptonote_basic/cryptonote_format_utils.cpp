@@ -286,10 +286,6 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool get_transaction_unprunable_summary(const blobdata_ref tx_blob, unprunable_summary_t &summary_out)
   {
-    //! @TODO: update for FCMP++:
-    //!    * Allow rct::RctTypeFcmpPlusPlus
-    //!    * Set output length for txout_to_carrot_v1
-
     const unsigned char *p = reinterpret_cast<const unsigned char*>(tx_blob.data());
     const unsigned char *end = reinterpret_cast<const unsigned char*>(tx_blob.data() + tx_blob.size());
 
@@ -345,11 +341,21 @@ namespace cryptonote
       std::ptrdiff_t output_length = 0;
       switch (output_tag)
       {
+      case 0x01: //txout_to_carrot_v1
+        // TODO: the rest of Carrot
+        static constexpr std::size_t CARROT_OUT_V1_LEN = 32;
+        output_length = CARROT_OUT_V1_LEN;
+        static_assert(sizeof(cryptonote::txout_to_carrot_v1) == CARROT_OUT_V1_LEN, "Unexpected sizeof txout_to_carrot_v1");
+        break;
       case 0x02: //txout_to_key
-        output_length = 32;
+        static constexpr std::size_t TXOUT_TO_KEY_LEN = 32;
+        output_length = TXOUT_TO_KEY_LEN;
+        static_assert(sizeof(cryptonote::txout_to_key) == TXOUT_TO_KEY_LEN, "Unexpected sizeof txout_to_key");
         break;
       case 0x03: //txout_to_tagged_key
-        output_length = 32 + 1;
+        static constexpr std::size_t TXOUT_TO_TAGGED_KEY_LEN = 32+1;
+        output_length = TXOUT_TO_TAGGED_KEY_LEN;
+        static_assert(sizeof(cryptonote::txout_to_tagged_key) == TXOUT_TO_TAGGED_KEY_LEN, "Unexpected sizeof txout_to_tagged_key");
         break;
       default:
         return false;
@@ -371,7 +377,7 @@ namespace cryptonote
       // read RingCT type
       std::uint8_t rct_type = std::numeric_limits<std::uint8_t>::max();
       READ_BYTE(rct_type);
-      if (rct_type > rct::RCTTypeBulletproofPlus)
+      if (rct_type > rct::RCTTypeFcmpPlusPlus)
         return false;
 
       // skip unprunable RingCT fields
@@ -387,8 +393,7 @@ namespace cryptonote
         }
 
         // skip ECDH info and amount commitments
-        const bool short_amount = rct_type >= rct::RCTTypeBulletproof2;
-        const std::ptrdiff_t ecdh_tuple_len = short_amount ? 8 : 64;
+        const std::ptrdiff_t ecdh_tuple_len = rct::is_rct_short_amount(rct_type) ? 8 : 64;
         const std::ptrdiff_t output_stuff_len = summary_out.n_outputs * (ecdh_tuple_len + 32);
         SKIP(output_stuff_len);
       }
@@ -1052,10 +1057,13 @@ namespace cryptonote
   {
     // before HF_VERSION_VIEW_TAGS, outputs with public keys are of type txout_to_key
     // after HF_VERSION_VIEW_TAGS, outputs with public keys are of type txout_to_tagged_key
+    // after HF_VERSION_FCMP_PLUS_PLUS, outputs with public keys are of type txout_to_carrot_v1
     if (out.target.type() == typeid(txout_to_key))
       output_public_key = boost::get< txout_to_key >(out.target).key;
     else if (out.target.type() == typeid(txout_to_tagged_key))
       output_public_key = boost::get< txout_to_tagged_key >(out.target).key;
+    else if (out.target.type() == typeid(txout_to_carrot_v1))
+      output_public_key = boost::get< txout_to_carrot_v1 >(out.target).key;
     else
     {
       LOG_ERROR("Unexpected output target type found: " << out.target.type().name());
@@ -1120,33 +1128,47 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool check_output_types(const transaction& tx, const uint8_t hf_version)
   {
+    if (tx.vout.empty())
+      return true;
+
+    // require all outputs in a tx be of the same type
+    const std::type_info &o_type = tx.vout.at(0).target.type();
     for (const auto &o: tx.vout)
     {
-      if (hf_version > HF_VERSION_VIEW_TAGS)
-      {
-        // from v15, require outputs have view tags
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_tagged_key), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
-      }
-      else if (hf_version < HF_VERSION_VIEW_TAGS)
-      {
-        // require outputs to be of type txout_to_key
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_key), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_key in transaction id=" << get_transaction_hash(tx));
-      }
-      else  //(hf_version == HF_VERSION_VIEW_TAGS)
-      {
-        // require outputs be of type txout_to_key OR txout_to_tagged_key
-        // to allow grace period before requiring all to be txout_to_tagged_key
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_key) || o.target.type() == typeid(txout_to_tagged_key), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_key or txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
-
-        // require all outputs in a tx be of the same type
-        CHECK_AND_ASSERT_MES(o.target.type() == tx.vout[0].target.type(), false, "non-matching variant types: "
-          << o.target.type().name() << " and " << tx.vout[0].target.type().name() << ", "
-          << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
-      }
+      const std::type_info &cur_type = o.target.type();
+      CHECK_AND_ASSERT_MES(cur_type == o_type, false, "non-matching variant types: "
+        << o_type.name() << " and " << cur_type.name() << ", "
+        << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
     }
+
+    const bool is_coinbase = tx.is_coinbase();
+
+    bool is_correct_output_type = false;
+    if (hf_version < HF_VERSION_VIEW_TAGS)
+      is_correct_output_type = o_type == typeid(txout_to_key);
+    else if (hf_version == HF_VERSION_VIEW_TAGS)
+      is_correct_output_type = (o_type == typeid(txout_to_key) || o_type == typeid(txout_to_tagged_key));
+    else if (hf_version < HF_VERSION_CARROT)
+      is_correct_output_type = o_type == typeid(txout_to_tagged_key);
+    else if (hf_version == HF_VERSION_CARROT)
+      is_correct_output_type = (o_type == typeid(txout_to_tagged_key) && !is_coinbase)
+        || (o_type == typeid(txout_to_carrot_v1));
+    else // (hf_version > HF_VERSION_CARROT)
+      is_correct_output_type = o_type == typeid(txout_to_carrot_v1);
+
+    CHECK_AND_ASSERT_MES(is_correct_output_type, false,
+      "wrong " << (is_coinbase ? "" : "non-") << "coinbase transaction output type '" << o_type.name()
+      << "' for fork v" << static_cast<int>(hf_version) << " in transaction id=" << get_transaction_hash(tx));
+
+    // during v17, require non-coinbase carrot txs use FCMP++ and legacy use BP+
+    if (hf_version == HF_VERSION_CARROT && !is_coinbase)
+    {
+      CHECK_AND_ASSERT_MES(
+        (o_type == typeid(txout_to_carrot_v1) && tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus) ||
+        (o_type == typeid(txout_to_tagged_key) && tx.rct_signatures.type == rct::RCTTypeBulletproofPlus),
+        false, "mismatched output type to tx proof type in transaction id=" << get_transaction_hash(tx));
+    }
+
     return true;
   }
   //---------------------------------------------------------------
@@ -1459,7 +1481,7 @@ namespace cryptonote
       binary_archive<true> ba(ss);
       const size_t inputs = t.vin.size();
       const size_t outputs = t.vout.size();
-      const size_t mixin = t.vin.empty() ? 0 : t.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1 : 0;
+      const size_t mixin = t.n_mixin();
       bool r = tt.rct_signatures.p.serialize_rctsig_prunable(ba, t.rct_signatures.type, inputs, outputs, mixin);
       CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures prunable");
       cryptonote::get_blob_hash(ss.str(), res);
