@@ -611,8 +611,10 @@ namespace rct {
 
       std::stringstream ss;
       binary_archive<true> ba(ss);
-      CHECK_AND_ASSERT_THROW_MES(!rv.mixRing.empty(), "Empty mixRing");
-      const size_t inputs = is_rct_simple(rv.type) ? rv.mixRing.size() : rv.mixRing[0].size();
+      const size_t inputs = !rct::is_rct_simple(rv.type) ? rv.mixRing.at(0).size()
+        : rct::is_rct_fcmp(rv.type) ? 0
+        : rv.mixRing.size();
+      CHECK_AND_ASSERT_THROW_MES(rct::is_rct_fcmp(rv.type) || inputs > 0, "Empty pseudoOuts");
       const size_t outputs = rv.ecdhInfo.size();
       key prehash;
       CHECK_AND_ASSERT_THROW_MES(const_cast<rctSig&>(rv).serialize_rctsig_base(ba, inputs, outputs),
@@ -622,6 +624,12 @@ namespace rct {
       hashes.push_back(hash2rct(h));
 
       keyV kv;
+      if (rv.type == RCTTypeFcmpPlusPlus)
+      {
+        // Don't hash range proof data to enable cleaner separation of SAL signature <> membership proof <> range proof
+        goto done;
+      }
+
       if (rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG)
       {
         kv.reserve((6*2+9) * rv.p.bulletproofs.size());
@@ -678,6 +686,7 @@ namespace rct {
         }
       }
       hashes.push_back(cn_fast_hash(kv));
+done:
       hwdev.mlsag_prehash(ss.str(), inputs, outputs, hashes, rv.outPk, prehash);
       return  prehash;
     }
@@ -1091,7 +1100,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(amounts[i]);
-            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus);
+            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rct::is_rct_short_amount(rv.type));
         }
 
         //set txn fee
@@ -1226,7 +1235,7 @@ namespace rct {
             //mask amount and mask
             rv.ecdhInfo[i].mask = copy(outSk[i].mask);
             rv.ecdhInfo[i].amount = d2h(outamounts[i]);
-            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus);
+            hwdev.ecdhEncode(rv.ecdhInfo[i], amount_keys[i], rct::is_rct_short_amount(rv.type));
         }
             
         //set txn fee
@@ -1372,8 +1381,7 @@ namespace rct {
         {
           CHECK_AND_ASSERT_MES(rvp, false, "rctSig pointer is NULL");
           const rctSig &rv = *rvp;
-          CHECK_AND_ASSERT_MES(rv.type == RCTTypeSimple || rv.type == RCTTypeBulletproof || rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus,
-              false, "verRctSemanticsSimple called on non simple rctSig");
+          CHECK_AND_ASSERT_MES(is_rct_simple(rv.type), false, "verRctSemanticsSimple called on non simple rctSig");
           const bool bulletproof = is_rct_bulletproof(rv.type);
           const bool bulletproof_plus = is_rct_bulletproof_plus(rv.type);
           if (bulletproof || bulletproof_plus)
@@ -1382,7 +1390,17 @@ namespace rct {
               CHECK_AND_ASSERT_MES(rv.outPk.size() == n_bulletproof_plus_amounts(rv.p.bulletproofs_plus), false, "Mismatched sizes of outPk and bulletproofs_plus");
             else
               CHECK_AND_ASSERT_MES(rv.outPk.size() == n_bulletproof_amounts(rv.p.bulletproofs), false, "Mismatched sizes of outPk and bulletproofs");
-            if (is_rct_clsag(rv.type))
+            if (rv.type == RCTTypeFcmpPlusPlus)
+            {
+              CHECK_AND_ASSERT_MES(rv.p.MGs.empty(), false, "MGs are not empty for FCMP++");
+              CHECK_AND_ASSERT_MES(rv.p.CLSAGs.empty(), false, "CLSAGs are not empty for FCMP++");
+              CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size(), false, "Empty pseudo outs");
+              CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() <= FCMP_PLUS_PLUS_MAX_INPUTS, false, "Too many pseudo outs");
+              CHECK_AND_ASSERT_MES(rv.p.n_tree_layers > 0, false, "0 tree layers");
+              CHECK_AND_ASSERT_MES(rv.p.n_tree_layers <= FCMP_PLUS_PLUS_MAX_LAYERS, false, "Too many layers");
+              CHECK_AND_ASSERT_MES(rv.p.fcmp_pp.size() == fcmp_pp::fcmp_pp_proof_len(rv.p.pseudoOuts.size(), rv.p.n_tree_layers), false, "Unexpected FCMP++ proof size");
+            }
+            else if (is_rct_clsag(rv.type))
             {
               CHECK_AND_ASSERT_MES(rv.p.MGs.empty(), false, "MGs are not empty for CLSAG");
               CHECK_AND_ASSERT_MES(rv.p.pseudoOuts.size() == rv.p.CLSAGs.size(), false, "Mismatched sizes of rv.p.pseudoOuts and rv.p.CLSAGs");
@@ -1564,7 +1582,7 @@ namespace rct {
 
         //mask amount and mask
         ecdhTuple ecdh_info = rv.ecdhInfo[i];
-        hwdev.ecdhDecode(ecdh_info, sk, rv.type == RCTTypeBulletproof2 || rv.type == RCTTypeCLSAG || rv.type == RCTTypeBulletproofPlus);
+        hwdev.ecdhDecode(ecdh_info, sk, rct::is_rct_short_amount(rv.type));
         mask = ecdh_info.mask;
         key amount = ecdh_info.amount;
         key C = rv.outPk[i].mask;
