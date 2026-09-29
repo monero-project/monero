@@ -542,13 +542,33 @@ namespace nodetool
       return false;
 
     CRITICAL_REGION_LOCAL(m_host_fails_score_lock);
-    uint64_t fails = m_host_fails_score[address.host_str()] += score;
-    MDEBUG("Host " << address.host_str() << " fail score=" << fails);
+    const std::string host = address.host_str();
+    const time_t now = time(NULL);
+
+    if (m_host_fails_score.find(host) == m_host_fails_score.end() && m_host_fails_score.size() >= P2P_HOST_FAILS_SCORE_MAX_SIZE)
+    {
+      for (auto it = m_host_fails_score.begin(); it != m_host_fails_score.end(); )
+      {
+        if (now - it->second.second > P2P_FAILED_ADDR_FORGET_SECONDS)
+          it = m_host_fails_score.erase(it);
+        else
+          ++it;
+      }
+      if (m_host_fails_score.size() >= P2P_HOST_FAILS_SCORE_MAX_SIZE)
+      {
+        const auto oldest = std::min_element(m_host_fails_score.begin(), m_host_fails_score.end(),
+          [](const auto &a, const auto &b) { return a.second.second < b.second.second; });
+        m_host_fails_score.erase(oldest);
+      }
+    }
+
+    auto &entry = m_host_fails_score[host];
+    entry.second = now;
+    uint64_t fails = entry.first += score;
+    MDEBUG("Host " << host << " fail score=" << fails);
     if(fails > P2P_IP_FAILS_BEFORE_BLOCK)
     {
-      auto it = m_host_fails_score.find(address.host_str());
-      CHECK_AND_ASSERT_MES(it != m_host_fails_score.end(), false, "internal error");
-      it->second = P2P_IP_FAILS_BEFORE_BLOCK/2;
+      entry.first = P2P_IP_FAILS_BEFORE_BLOCK/2;
       block_host(address);
     }
     return true;
@@ -1617,7 +1637,27 @@ namespace nodetool
   void node_server<t_payload_net_handler>::record_addr_failed(const epee::net_utils::network_address& addr)
   {
     CRITICAL_REGION_LOCAL(m_conn_fails_cache_lock);
-    m_conn_fails_cache[addr.host_str()] = time(NULL);
+    const std::string host = addr.host_str();
+    const time_t now = time(NULL);
+
+    if (m_conn_fails_cache.find(host) == m_conn_fails_cache.end() && m_conn_fails_cache.size() >= P2P_CONN_FAILS_CACHE_MAX_SIZE)
+    {
+      for (auto it = m_conn_fails_cache.begin(); it != m_conn_fails_cache.end(); )
+      {
+        if (now - it->second > P2P_FAILED_ADDR_FORGET_SECONDS)
+          it = m_conn_fails_cache.erase(it);
+        else
+          ++it;
+      }
+      if (m_conn_fails_cache.size() >= P2P_CONN_FAILS_CACHE_MAX_SIZE)
+      {
+        const auto oldest = std::min_element(m_conn_fails_cache.begin(), m_conn_fails_cache.end(),
+          [](const auto &a, const auto &b) { return a.second < b.second; });
+        m_conn_fails_cache.erase(oldest);
+      }
+    }
+
+    m_conn_fails_cache[host] = now;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
