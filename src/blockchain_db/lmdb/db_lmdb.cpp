@@ -4141,7 +4141,17 @@ void BlockchainLMDB::block_wtxn_stop()
     if (! m_batch_active)
 	{
       TIME_MEASURE_START(time1);
-      m_write_txn->commit();
+      try
+      {
+        m_write_txn->commit();
+      }
+      catch (const std::exception &e)
+      {
+        delete m_write_txn;
+        m_write_txn = nullptr;
+        memset(&m_wcursors, 0, sizeof(m_wcursors));
+        throw;
+      }
       TIME_MEASURE_FINISH(time1);
       time_commit1 += time1;
 

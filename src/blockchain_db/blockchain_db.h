@@ -32,6 +32,7 @@
 
 #include <string>
 #include <exception>
+#include <cstdlib>
 #include <boost/program_options.hpp>
 #include "common/command_line.h"
 #include "crypto/hash.h"
@@ -40,6 +41,7 @@
 #include "cryptonote_basic/difficulty.h"
 #include "cryptonote_basic/hardfork.h"
 #include "cryptonote_protocol/enums.h"
+#include "misc_log_ex.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
@@ -1879,7 +1881,15 @@ public:
   }
   virtual ~db_txn_guard()
   {
-    stop();
+    try
+    {
+      stop();
+    }
+    catch (const std::exception &e)
+    {
+      MFATAL("Failed to close a blockchain db transaction, the database may be in an inconsistent state: " << e.what());
+      std::abort();
+    }
   }
   void stop()
   {
