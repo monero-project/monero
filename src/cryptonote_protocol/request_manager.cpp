@@ -123,6 +123,7 @@ request_manager::tx_request_t request_manager::enqueue_requests(const std::vecto
   std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
   tx_request_t tx_req(*this, peer_id);
+  std::size_t n_peer_requests = get_requests_by_peer_id(m_requested_txs).count(peer_id);
   for (const auto &tx_hash : tx_hashes)
   {
     MINFO("Requesting from peer: " << peer_id << " the transaction: " << tx_hash);
@@ -136,8 +137,14 @@ request_manager::tx_request_t request_manager::enqueue_requests(const std::vecto
 
     if (!let_it_fly) {
       if (!in_queue) {
+        if (n_peer_requests >= m_max_queued_per_peer) {
+          MDEBUG("Not requesting tx " << tx_hash << " from peer "
+                << epee::string_tools::pod_to_hex(peer_id) << ", queue full");
+          continue;
+        }
         // Add the new request! Nonce doesn't get set until it's in flight.
         m_requested_txs.insert(tx_request(peer_id, tx_hash, 0/*nonce*/, let_it_fly));
+        ++n_peer_requests;
       } else {
         // already have this peer for this tx, but we can't process additional reqs at this time
         MDEBUG("Peer " << peer_id
@@ -150,6 +157,7 @@ request_manager::tx_request_t request_manager::enqueue_requests(const std::vecto
     assert(let_it_fly);
     if (!in_queue) {
       m_requested_txs.insert(tx_request(peer_id, tx_hash, tx_req.nonce, let_it_fly));
+      ++n_peer_requests;
     } else {
       const bool r = fly_tx_req(it, by_peer_and_tx, tx_req.nonce);
       CHECK_AND_ASSERT_MES(r, tx_req, "Failed to fly tx request for tx " << tx_hash);

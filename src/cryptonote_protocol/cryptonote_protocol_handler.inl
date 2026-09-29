@@ -128,7 +128,7 @@ namespace cryptonote
                                                                                                               m_no_sync(false),
                                                                                                               m_block_sync_queue_time(0),
                                                                                                               m_block_queue_limit(0),
-                                                                                                              m_request_manager(max_n_txs_per_packet())
+                                                                                                              m_request_manager(max_n_txs_per_packet(), P2P_DEFAULT_REQUEST_TIMEOUT, max_n_tx_hashes_per_packet())
   {
     if(!m_p2p)
       m_p2p = &m_p2p_stub;
