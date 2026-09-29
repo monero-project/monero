@@ -650,9 +650,11 @@ namespace net_utils
 			uri_to_path = "/index.html";
 
 		//slash_to_back_slash(uri_to_path);
-		m_config.m_lock.lock();
-		std::string destination_file_path = m_config.m_folder + uri_to_path;
-		m_config.m_lock.unlock();
+		std::string destination_file_path;
+		{
+			CRITICAL_REGION_LOCAL(m_config.m_lock);
+			destination_file_path = m_config.m_folder + uri_to_path;
+		}
 		if(!file_io_utils::load_file_to_string(destination_file_path.c_str(), response.m_body))
 		{
 			MWARNING("URI \""<< query_info.m_full_request_str.substr(0, query_info.m_full_request_str.size()-2) << "\" [" << destination_file_path << "] Not Found (404 )");

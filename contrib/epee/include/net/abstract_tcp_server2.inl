@@ -1782,7 +1782,9 @@ namespace net_utils
     boost::unique_lock<boost::mutex> lock(local_shared_context->connect_mut);
     auto connect_callback = [](boost::system::error_code ec_, boost::shared_ptr<local_async_context> shared_context)
     {
-      shared_context->connect_mut.lock(); shared_context->ec = ec_; shared_context->cond.notify_one(); shared_context->connect_mut.unlock();
+      boost::lock_guard<boost::mutex> lock(shared_context->connect_mut);
+      shared_context->ec = ec_;
+      shared_context->cond.notify_one();
     };
 
     sock_.async_connect(remote_endpoint, std::bind<void>(connect_callback, std::placeholders::_1, local_shared_context));
@@ -1847,10 +1849,11 @@ namespace net_utils
     TRY_ENTRY();
 
     connection_ptr new_connection_l(new connection<t_protocol_handler>(io_context_, m_state, m_connection_type, ssl_support) );
-    connections_mutex.lock();
-    connections_.insert(new_connection_l);
-    MDEBUG("connections_ size now " << connections_.size());
-    connections_mutex.unlock();
+    {
+      CRITICAL_REGION_LOCAL(connections_mutex);
+      connections_.insert(new_connection_l);
+      MDEBUG("connections_ size now " << connections_.size());
+    }
     const scope_guard scope_exit_handler([&](){ CRITICAL_REGION_LOCAL(connections_mutex); connections_.erase(new_connection_l); });
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
 
@@ -1948,9 +1951,10 @@ namespace net_utils
     }
 
     // start adds the connection to the config object's list, so we don't need to have it locally anymore
-    connections_mutex.lock();
-    connections_.erase(new_connection_l);
-    connections_mutex.unlock();
+    {
+      CRITICAL_REGION_LOCAL(connections_mutex);
+      connections_.erase(new_connection_l);
+    }
     bool r = new_connection_l->start(false, 1 < m_threads_count);
     if (r)
     {
@@ -1974,10 +1978,11 @@ namespace net_utils
   {
     TRY_ENTRY();    
     connection_ptr new_connection_l(new connection<t_protocol_handler>(io_context_, m_state, m_connection_type, ssl_support, std::move(initial)) );
-    connections_mutex.lock();
-    connections_.insert(new_connection_l);
-    MDEBUG("connections_ size now " << connections_.size());
-    connections_mutex.unlock();
+    {
+      CRITICAL_REGION_LOCAL(connections_mutex);
+      connections_.insert(new_connection_l);
+      MDEBUG("connections_ size now " << connections_.size());
+    }
     const scope_guard scope_exit_handler([&](){ CRITICAL_REGION_LOCAL(connections_mutex); connections_.erase(new_connection_l); });
     boost::asio::ip::tcp::socket&  sock_ = new_connection_l->socket();
     
@@ -2079,9 +2084,10 @@ namespace net_utils
               " from " << lep.address().to_string() << ':' << lep.port());
 
             // start adds the connection to the config object's list, so we don't need to have it locally anymore
-            connections_mutex.lock();
-            connections_.erase(new_connection_l);
-            connections_mutex.unlock();
+            {
+              CRITICAL_REGION_LOCAL(connections_mutex);
+              connections_.erase(new_connection_l);
+            }
             bool r = new_connection_l->start(false, 1 < m_threads_count);
             if (r)
             {
