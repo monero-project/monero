@@ -262,6 +262,11 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  bool core_rpc_server::check_mining_ready()
+  {
+    return check_core_ready() || (m_core.get_nettype() == FAKECHAIN && m_p2p.get_payload_object().no_sync());
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::add_host_fail(const connection_context *ctx, unsigned int score)
   {
     if(!ctx || !ctx->m_remote_address.is_blockable() || disable_rpc_ban)
@@ -280,6 +285,7 @@ namespace cryptonote
     return true;
   }
 #define CHECK_CORE_READY() do { if(!check_core_ready()){res.status =  CORE_RPC_STATUS_BUSY;return true;} } while(0)
+#define CHECK_MINING_READY() do { if(!check_mining_ready()){res.status = CORE_RPC_STATUS_BUSY;return true;} } while(0)
 
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_height(const COMMAND_RPC_GET_HEIGHT::request& req, COMMAND_RPC_GET_HEIGHT::response& res, const connection_context *ctx)
@@ -1115,7 +1121,7 @@ namespace cryptonote
   bool core_rpc_server::on_start_mining(const COMMAND_RPC_START_MINING::request& req, COMMAND_RPC_START_MINING::response& res, const connection_context *ctx)
   {
     RPC_TRACKER(start_mining);
-    CHECK_CORE_READY();
+    CHECK_MINING_READY();
     cryptonote::address_parse_info info;
     if(!get_account_address_from_str(info, nettype(), req.miner_address))
     {
@@ -1544,7 +1550,7 @@ namespace cryptonote
   {
     RPC_TRACKER(getblocktemplate);
 
-    if(!check_core_ready())
+    if(!check_mining_ready())
     {
       error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
       error_resp.message = "Core is busy";
@@ -1636,7 +1642,7 @@ namespace cryptonote
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_getminerdata(const COMMAND_RPC_GETMINERDATA::request& req, COMMAND_RPC_GETMINERDATA::response& res, epee::json_rpc::error& error_resp, const connection_context *ctx)
   {
-    if(!check_core_ready())
+    if(!check_mining_ready())
     {
       error_resp.code = CORE_RPC_ERROR_CODE_CORE_BUSY;
       error_resp.message = "Core is busy";
@@ -1880,7 +1886,7 @@ namespace cryptonote
   {
     RPC_TRACKER(submitblock);
 
-    CHECK_CORE_READY();
+    CHECK_MINING_READY();
     if(req.size()!=1)
     {
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
@@ -1950,7 +1956,7 @@ namespace cryptonote
   {
     RPC_TRACKER(generateblocks);
 
-    CHECK_CORE_READY();
+    CHECK_MINING_READY();
     
     res.status = CORE_RPC_STATUS_OK;
 
