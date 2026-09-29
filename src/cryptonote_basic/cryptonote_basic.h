@@ -363,6 +363,11 @@ namespace cryptonote
     void set_prunable_hash(const crypto::hash &h) const { prunable_hash = h; set_prunable_hash_valid(true); }
     void set_blob_size(size_t sz) const { blob_size = sz; set_blob_size_valid(true); }
 
+    size_t n_mixin() const {
+      return (rct_signatures.type == rct::RCTTypeFcmpPlusPlus || vin.empty() || vin[0].type() != typeid(txin_to_key))
+          ? 0 : boost::get<txin_to_key>(vin[0]).key_offsets.size() - 1;
+    }
+
     BEGIN_SERIALIZE_OBJECT()
       if (!typename Archive<W>::is_saving())
       {
@@ -429,8 +434,7 @@ namespace cryptonote
           {
             ar.tag("rctsig_prunable");
             ar.begin_object();
-            r = rct_signatures.p.serialize_rctsig_prunable(ar, rct_signatures.type, vin.size(), vout.size(),
-                vin.size() > 0 && vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(vin[0]).key_offsets.size() - 1 : 0);
+            r = rct_signatures.p.serialize_rctsig_prunable(ar, rct_signatures.type, vin.size(), vout.size(), n_mixin());
             if (!r || !ar.good()) return false;
             ar.end_object();
           }
