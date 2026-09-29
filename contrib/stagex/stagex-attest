@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+export LC_ALL=C
+set -e -o pipefail
+
+# Source the common prelude, which:
+#   1. Checks if we're at the top directory of the Feather Wallet repository
+#   2. Defines a few common functions and variables
+#
+# shellcheck source=libexec/prelude.bash
+source "$(dirname "${BASH_SOURCE[0]}")/libexec/prelude.bash"
+
+# Required non-builtin commands should be invokable
+check_tools cat env mkdir sort
+
+# make it possible to override the gpg binary
+GPG=${GPG:-gpg}
+
+# $GPG can contain extra arguments passed to the binary
+# so let's check only the existence of arg[0]
+# shellcheck disable=SC2206
+GPG_ARRAY=($GPG)
+check_tools "${GPG_ARRAY[0]}"
+
+if [ -z "${SIGS_REPO}" ]; then
+    printf "Path to sigs repo: "
+    read -r repo
+
+    if [ -z "$repo" ]; then
+        echo "ERR: repo path can't be empty"
+        exit 1
+    fi
+
+    export SIGS_REPO="${repo}"
+    wizard=1
+fi
+
+if [ -z "${SIGNER}" ]; then
+    printf "Enter your GitHub username: "
+    read -r signer
+
+    if [ -z "$signer" ]; then
+        echo "ERR: signer name can't be empty"
+        exit 1
+    fi
+
+    echo ""
+    echo "[HINT] To find your GPG fingerprint use:"
+    echo "gpg --list-secret-keys --keyid-format=long"
+    echo "It should look like: E87BD921CDD885C9D78A38C5E45B10DD027D2472"
+    echo ""
+
+    printf "Enter fingerprint of your GPG key: "
+    read -r fingerprint
+
+    export SIGNER="${fingerprint}=${signer}"
+    wizard=1
+fi
+
+if [ -n "$wizard" ]; then
+    echo ""
+    echo "Next time, invoke this command as:"
+    echo "env SIGS_REPO=${SIGS_REPO} SIGNER=${SIGNER} make stagex-attest"
+    echo ""
+fi
+
+################
+# The key specified in SIGNER should be usable
+################
+
+IFS='=' read -r gpg_key_name signer_name <<< "$SIGNER"
+if [ -z "${signer_name}" ]; then
+    signer_name="$gpg_key_name"
+fi
+
+if ! ${GPG} --dry-run --list-secret-keys "${gpg_key_name}" >/dev/null 2>&1; then
+    echo "ERR: GPG can't seem to find any key named '${gpg_key_name}'"
+    exit 1
+fi
+
+##############
+##  Attest  ##
+##############
+
+echo "Attesting to build outputs for version: '${VERSION}'"
+echo ""
+
+attest_file="sha256sums"
+outsigdir="${SIGS_REPO}/${VERSION}/${signer_name}"
+
+mkdir -p "$outsigdir"
+outsigdir="$(realpath "$outsigdir")"
+
+(
+    build_output_dir="stagex/build/${VERSION}/output"
+    if [ ! -d "${build_output_dir}" ]; then
+        echo "ERR: Could not find any build outputs for '${VERSION}'"
+        exit 1
+    fi
+
+    cd "${build_output_dir}"
+    find . -type f -print0 | env LC_ALL=C sort -z | xargs -r0 sha256sum > "${outsigdir}/${attest_file}"
+)
+
+(
+    cd "$outsigdir"
+
+    ${GPG} --detach-sign \
+           --digest-algo sha256 \
+           --local-user "$gpg_key_name" \
+           --armor \
+           --output "${attest_file}".asc "${attest_file}"
+)
+
+echo "Done"
