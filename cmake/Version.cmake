@@ -28,7 +28,7 @@
 
 function (write_version tag)
   set(VERSIONTAG "${tag}" CACHE STRING "The tag portion of the Monero software version" FORCE)
-  configure_file("${CMAKE_CURRENT_LIST_DIR}/../src/version.cpp.in" "${CMAKE_BINARY_DIR}/version.cpp")
+  configure_file("${CMAKE_CURRENT_LIST_DIR}/../src/version.cpp.in" "${PROJECT_BINARY_DIR}/version.cpp")
 endfunction ()
 
 find_package(Git QUIET)
@@ -47,4 +47,4 @@ else()
   write_version("unknown")
 endif ()
 add_custom_target(genversion ALL
-  DEPENDS "${CMAKE_BINARY_DIR}/version.cpp")
+  DEPENDS "${PROJECT_BINARY_DIR}/version.cpp")
