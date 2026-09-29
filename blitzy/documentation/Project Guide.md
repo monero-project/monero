@@ -40,7 +40,7 @@ Eight items remain open, spanning 5 of the 15 requirements the plan defines; the
 
 | Issue | Impact | Owner | ETA |
 |---|---|---|---|
-| Windows builds do not compile at C++23: a wide volume path reaches a narrow log stream at `src/daemon/main.cpp:117`, an overload C++20 deletes | `monerod.exe` cannot be produced; the MSYS2 UCRT64 job and the Win64 release artefact fail | Platform maintainer | 1 day |
+| Windows builds do not compile at C++23: a wide volume path reaches a narrow log stream at `src/daemon/main.cpp:117`, an overload C++20 deletes. Step-by-step fix: Section 5.3 | `monerod.exe` cannot be produced; the MSYS2 UCRT64 job and the Win64 release artefact fail | Platform maintainer | 1 day |
 | Apple Clang 15 floor is enforced and published but never demonstrated | macOS users on Xcode 15 face an unverified pairing | macOS maintainer | 1 day |
 | Reproducibility and capacity-bound gates not executed (2 items: reproducible-build double run; full network-load exercise) | Reproducible release builds and sustained-load behaviour unproven at the new dialect | Release engineer | 2 days |
 | Third-party C++23 deprecation diagnostics on the cross hosts, from the pinned protobuf recipe | Noisier release logs; a future `-Werror` tightening would fail | Build maintainer | 1 day |
@@ -52,7 +52,7 @@ Eight items remain open, spanning 5 of the 15 requirements the plan defines; the
 | System/Resource | Type of Access | Issue Description | Resolution Status | Owner |
 |---|---|---|---|---|
 | macOS / Xcode 15 host | Build and test environment | No Apple toolchain is reachable, so the Apple Clang floor cannot be demonstrated | Open — needs a macOS runner or developer machine | macOS maintainer |
-| Windows / MSYS2 UCRT64 host | Build and test environment | No Windows toolchain is reachable, so the MinGW-w64 floor is enforced by CI alone | Open — needs a Windows runner | Platform maintainer |
+| Windows / MSYS2 UCRT64 host | Build and test environment | No Windows toolchain is reachable, so the MinGW-w64 floor is enforced by CI alone. Section 5.3 gives the steps to demonstrate it | Open — needs a Windows runner | Platform maintainer |
 | Reproducible-build environment | Release build environment | The reproducible release path needs a pinned build environment that is not provisioned | Open — needs the release build host | Release engineer |
 | GitHub Actions | Workflow execution | Workflow definitions can be parsed and inventoried but only GitHub can run them | Open — resolves on the first push | Repository owner |
 
@@ -60,7 +60,7 @@ No credentials, secrets or network services are required to build, test or run t
 
 ## 1.6 Recommended Next Steps
 
-1. **[High]** Convert the wide volume path before it reaches the narrow log stream in `src/daemon/main.cpp`, then rebuild the Win64 artefact.
+1. **[High]** Convert the wide volume path before it reaches the narrow log stream in `src/daemon/main.cpp`, then rebuild the Win64 artefact, following the runbook in Section 5.3.
 2. **[High]** Demonstrate the Apple Clang floor on a pinned Xcode 15, or raise it in the guard, `README.md` and the matrix together.
 3. **[High]** Run the reproducible build twice and diff the hash summaries before tagging a release.
 4. **[Medium]** Settle the cross hosts' third-party protobuf diagnostics — recipe bump or per-recipe dialect exception — and re-run them.
@@ -94,7 +94,7 @@ No credentials, secrets or network services are required to build, test or run t
 
 | Category | Hours | Priority |
 |---|---|---|
-| Windows narrow-stream conversion in `src/daemon/main.cpp` and Win64 artefact re-verification | 8 | High |
+| Windows narrow-stream conversion in `src/daemon/main.cpp` and Win64 artefact re-verification (runbook: Section 5.3) | 8 | High |
 | Apple Clang 15 / Xcode 15 demonstration, or a documented floor revision | 6 | High |
 | Guix reproducible-build double run and hash-summary comparison | 8 | High |
 | Disposition of the deferred hardening and daemon ZMQ contract change sets | 12 | Medium |
@@ -127,7 +127,7 @@ Alongside the suites, the build itself was measured: 124 of 124 targets with zer
 
 **Not Covered** — delivered behaviour that no test exercises, and what to test before release:
 
-- **Windows / MinGW-w64 builds.** No suite runs on a Windows toolchain. Test first: the `#ifdef WIN32` startup diagnostic in `src/daemon/main.cpp` does not compile at C++23 (see Section 5.2), so build `monerod.exe` before anything else.
+- **Windows / MinGW-w64 builds.** No suite runs on a Windows toolchain. Test first: the `#ifdef WIN32` startup diagnostic in `src/daemon/main.cpp` does not compile at C++23 (see Section 5.2), so build `monerod.exe` before anything else. Section 5.3 gives the fix and the verification steps.
 - **Apple Clang / macOS.** The published Apple floor has no build or test behind it. Run the macOS job on a pinned Xcode 15.
 - **Reproducibility of release builds.** The reproducible path was never run twice for a hash comparison at the new dialect.
 - **Sustained network load.** Both load-harness binaries build in every configuration, but the 100,000-connection exercise on the two fixed ports was never run; the edited asynchronous handlers are therefore covered functionally but not under load.
@@ -148,7 +148,7 @@ This project ships 13 command-line executables — daemons, wallets, RPC servers
 - ✅ **TLS handshake and fingerprint pinning** — a real handshake over loopback accepts a fingerprint supplied in an unsorted list and rejects one that is absent.
 - ✅ **Executable smoke** — all 13 binaries are produced and run; the daemon, both wallets and the two key-generation tools report their version. The eight blockchain utilities decline `--version` and exit non-zero on `--help`, which is upstream behaviour this work leaves untouched.
 - ⚠ **Container image** — the release image builds from the digest-pinned builder and the shipped binary reports its version; the image has not been re-built since the last documentation-only change to the cross-build workflow.
-- ❌ **Windows and macOS runtime** — never exercised. No Windows or Apple environment was reachable, and Windows binaries cannot currently be produced at this dialect (Section 5.2). Reproducible release builds and the sustained-load exercise were likewise never run.
+- ❌ **Windows and macOS runtime** — never exercised. No Windows or Apple environment was reachable, and Windows binaries cannot currently be produced at this dialect (Section 5.2; remediation runbook in Section 5.3). Reproducible release builds and the sustained-load exercise were likewise never run.
 
 # 5. Compliance & Quality Review
 
@@ -175,7 +175,7 @@ No user-specified rules were provided for this project, so every divergence belo
 
 | What the AAP/Rule Required | What Was Delivered Instead | Why It Diverged | Impact | Remediation |
 |---|---|---|---|---|
-| Exactly two source-level error classes exist under the new standard, both fixed | Two are fixed and proven; a third, Windows-only, remains at `src/daemon/main.cpp:117` | The error census was taken on Linux, where the `#ifdef WIN32` branch never compiles; the file is not in the authorized 33-file set | Release-blocking on Windows | Convert the wide path with `utf16_to_utf8`; rebuild the Win64 artefact |
+| Exactly two source-level error classes exist under the new standard, both fixed | Two are fixed and proven; a third, Windows-only, remains at `src/daemon/main.cpp:117` | The error census was taken on Linux, where the `#ifdef WIN32` branch never compiles; the file is not in the authorized 33-file set | Release-blocking on Windows | Convert the wide path with `utf16_to_utf8`; rebuild the Win64 artefact (steps: Section 5.3) |
 | One pinned Xcode 15 build and test before the Apple floor is published | Floor enforced and published, documented as not demonstrated | No Apple toolchain was reachable in any environment used | Unverified pairing published to macOS users | Run the macOS job on a pinned Xcode 15, then confirm or raise the floor |
 | Reproducible release builds twice with identical hashes; the full network-load exercise | Neither was run | No Guix build environment was provisioned; the load run needs 100,000 connections on two fixed ports | Reproducibility and load behaviour unproven at the new dialect | Run the reproducible workflow twice and diff summaries; run the load exercise on a capacity host |
 | No new warning origin in any acceptance configuration | Native rows are clean; cross hosts gain about 105 third-party diagnostics each from the pinned protobuf | Recipe versions are frozen reproducible-build inputs, so the recipe could not be bumped here | Noisier release logs; a future `-Werror` tightening would fail | Bump the recipe or apply the per-recipe dialect exception the plan pre-authorizes |
@@ -184,7 +184,7 @@ No user-specified rules were provided for this project, so every divergence belo
 | Consensus, wire, storage and error contracts frozen; exactly 33 files, all modifications | Exactly that — so hardening and contract improvements identified during delivery are absent | Every one of them changes a frozen surface or a file outside the authorized set | Pre-existing exposure and contract gaps persist unchanged | Take each as its own authorized change set with its compatibility decision |
 | Only the per-file edits the plan enumerates, and exact source equality for the edited literal tables | Three further edits inside authorized files; one correction deliberately not made | Two were dead-link and fail-closed fixes worth more than strict enumeration; the third records a release-path condition. The stale comment cannot be touched without breaking the equality gate | Documentation accuracy only | Land the follow-ups in one authorized documentation change |
 
-**Windows compile failure.** `src/daemon/main.cpp:117` streams a `const wchar_t*` volume path into the narrow string stream that the logging macro builds, inside the `#ifdef WIN32` FAT32 start-up diagnostic. C++20 deleted that inserter, so the translation unit is a hard error on every Windows build at this dialect — reproduced directly: the same expression compiles at `-std=c++17` and fails with "use of deleted function" at `-std=c++23`. The file is byte-identical to the pre-migration tree because it is not one of the 33 files the plan authorizes. Consequence: neither the MSYS2 UCRT64 job nor the Win64 cross artefact can be produced. The fix is one expression using `epee::string_tools::utf16_to_utf8`, declared for Windows in `contrib/epee/include/string_tools.h`. Decide whether to widen the change set or land it separately, but land it before any release.
+**Windows compile failure.** `src/daemon/main.cpp:117` streams a `const wchar_t*` volume path into the narrow string stream that the logging macro builds, inside the `#ifdef WIN32` FAT32 start-up diagnostic. C++20 deleted that inserter, so the translation unit is a hard error on every Windows build at this dialect — reproduced directly: the same expression compiles at `-std=c++17` and fails with "use of deleted function" at `-std=c++23`. The file is byte-identical to the pre-migration tree because it is not one of the 33 files the plan authorizes. Consequence: neither the MSYS2 UCRT64 job nor the Win64 cross artefact can be produced. The fix converts the path with `epee::string_tools::utf16_to_utf8`, declared for Windows in `contrib/epee/include/string_tools.h`. Decide whether to widen the change set or land it separately, but land it before any release. Section 5.3 gives the exact change and the steps to reproduce, fix, verify and land it.
 
 **Apple Clang floor.** The guard refuses Apple Clang below 15 at `CMakeLists.txt:167-170`, and `README.md` and the toolchain matrix publish that floor. The plan requires one pinned Xcode 15 configure, build and test *before* publication, and that run never happened because no Apple environment was reachable. The documentation is honest about it — the matrix labels the row declared and guard-enforced rather than verified — so nobody is misled, but macOS users on Xcode 15 are relying on an untested pairing, and the macOS CI job only ever exercises whatever compiler the current image ships. Run the job once on a pinned Xcode 15.4 or the oldest 15.x available; if it fails, raise the guard, the README sentence and the matrix row together.
 
@@ -200,13 +200,577 @@ No user-specified rules were provided for this project, so every divergence belo
 
 **Edits beyond the enumerated set.** Three changes sit inside authorized files that the per-file plan does not list: the Homebrew manifest's documentation link now points at the official page because the previous one returns 404; the cross-build workflow fetches the LLVM signing key with retries and fail-closed output handling, so one transport reset no longer fails the job and no partial key lands in the trusted keyring; and the toolchain document records the release-path protobuf condition above. None is compiled. Conversely, the edited HTTP-auth source keeps a header sentence describing a literal convention the file no longer uses, because the plan's equality gate demands exact source equality modulo the prefix. Land all four as one documentation change.
 
+## 5.3 Windows Build Remediation Runbook (MSYS2 UCRT64 / MinGW-w64)
+
+This runbook is for the maintainer who makes the Windows pipeline checks pass. It takes either a Windows machine running MSYS2, or a Linux or WSL machine with the MinGW-w64 cross toolchain, from a clean setup to green checks. Work through the steps in order. Each step gives the commands to run, the output to expect and what to do when the output differs. Commands run from the repository root unless a step says otherwise. Section 5.2 records how the Windows failure was found; this section removes it.
+
+### 5.3.1 Outcome and audience
+
+The work is done when the three Windows checks below pass on the change that carries the fix, and every other job in the same three workflows stays green.
+
+| Check (job name in GitHub) | Workflow | Defined at | What it runs |
+|---|---|---|---|
+| `Windows (MSYS2)` | `ci/gh-actions/cli` | `.github/workflows/build.yml:74-111` | Native build of target `all` in MSYS2 UCRT64 on `windows-latest`, then the reduced test tier |
+| `Win64` | `ci/gh-actions/depends` | `.github/workflows/depends.yml:48-51` (matrix entry), `:121-149` (steps) | `make depends target=x86_64-w64-mingw32` in `ubuntu:24.04` with the MinGW-w64 cross compiler, then upload of `monerod.exe` and `monero-wallet-cli.exe` |
+| `x86_64-w64-mingw32` | `ci/gh-actions/guix` | `.github/workflows/guix.yml:54` (target), `:109` (build) | Reproducible Guix release build of the Windows triple |
+
+All three compile the same first-party sources at C++23 with a MinGW-w64 GCC. Today they stop at `src/daemon/main.cpp:117`, a failure reproduced here with the MinGW-w64 cross compiler (the Guix job itself was not run here). One edit to that file fixes it (Step 4). The file is outside the migration's 33 authorized files, so it has to be landed deliberately (Step 7).
+
+### 5.3.2 Verification legend
+
+Every claim below is marked **verified here** or **not verified here**.
+
+- **Verified here** means checked on the Linux delivery host by one of these means:
+  - reading the workflow, build and source files cited;
+  - compiling the real sources with MinGW-w64 GCC 13.2 (`x86_64-w64-mingw32-g++-posix`, Ubuntu cross package) against Linux copies of the third-party headers;
+  - compiling reduced test programs with host GCC 13 and 14;
+  - linking one small test program into a PE32+ executable.
+- **Not verified here** means it needs Windows, MSYS2, a depends or Guix run, or GitHub. That covers:
+  - every Windows run;
+  - MSYS2's current GCC (16.x, per msys2.org) and its exact diagnostic wording;
+  - the Windows link of `monerod.exe`, and ctest on Windows;
+  - the full depends and Guix cross builds, skipped for time;
+  - whether MSYS2's CMake package installs Ninja;
+  - the Start-menu name "MSYS2 MINGW64" and the MINGW64 package names.
+
+### 5.3.3 Issue inventory
+
+| # | Issue | Location | Cause | Symptom | Checks affected | Status |
+|---|---|---|---|---|---|---|
+| W-1 | Wide string written to a narrow log stream | `src/daemon/main.cpp:117`, inside `isFat32` (`:111-123`), called at `:261` | C++20 deletes `operator<<(basic_ostream<char>&, const wchar_t*)` (P1423R3). At C++17 the same expression silently chose `operator<<(const void*)` | Hard error "use of deleted function". `monerod.exe` is not produced, so the `Win64` upload and the Windows tests cannot run | All three | Open. **Verified here**: MinGW-w64 GCC 13.2 reports exactly this one error for the unmodified file at C++23 and compiles it at C++17, where the object calls `std::ostream::operator<<(void const*)` |
+| W-2 | Further Windows-only C++20/23 errors | The 54 first-party files with Windows conditionals, plus the MinGW-only daemonizer sources (`src/daemonizer/CMakeLists.txt:29-38`) | — | None found | — | **Verified here** at compile level: a static audit of every Windows-only region for the construct classes in Step 4.3, and a MinGW-w64 GCC 13.2 syntax-only compile of all 322 first-party translation units at C++17 and C++23. W-1 is the only error that depends on the dialect. **Not verified here**: a Windows build with MSYS2's own headers |
+| W-3 | New Windows-only warnings | Same set | — | None. The 8 first-party origins found (Step 5.5) are identical at C++17 and C++23 | — | **Verified here** by the same compile |
+| W-4 | MinGW-w64 GCC floor of 13 never demonstrated on Windows | Guard at `CMakeLists.txt:150-154` | No Windows toolchain was reachable during delivery | — | `Windows (MSYS2)`, `Win64` | **Not verified here**. Step 5 records the first Windows result, Step 6 the cross compiler's |
+| W-5 | Windows runtime never exercised | `monerod.exe`, `monero-wallet-cli.exe`, the reduced tests | As W-4 | — | `Windows (MSYS2)` | **Not verified here**. Step 5 exercises it |
+
+### 5.3.4 Step 1 — Set up MSYS2 UCRT64 the way CI does
+
+CI prepares Windows with `msys2/setup-msys2@v2` (`build.yml:91-96`):
+
+```yaml
+msystem: ucrt64
+update: true
+cache: false
+pacboy: toolchain:p cmake:p ccache:p boost:p openssl:p zeromq:p libsodium:p hidapi:p protobuf:p libusb:p unbound:p rust:p git:p
+```
+
+**1.1 Install MSYS2.** Run the installer from https://www.msys2.org on 64-bit Windows 10 (version 1809) or newer, and keep the default location `C:\msys64`. *Not verified here.*
+
+**1.2 Open the UCRT64 shell.** Start **MSYS2 UCRT64** from the Start menu, or run `C:\msys64\ucrt64.exe`. Every Windows command in this runbook runs in that shell.
+
+**1.3 Update the system**, as `update: true` does:
+
+```bash
+pacman -Suy
+```
+
+If pacman says it must close every MSYS2 process, including this terminal, confirm. Then reopen **MSYS2 UCRT64** and run `pacman -Suy` again, repeating until it reports nothing to do (https://www.msys2.org/docs/updating/).
+
+**1.4 Install CI's package set.** `pacboy` comes from the `pactoys` package. It expands `name:p` to the shell's `$MINGW_PACKAGE_PREFIX`, which in UCRT64 is `mingw-w64-ucrt-x86_64` (https://www.msys2.org/docs/package-naming/). The second line below is CI's list, verbatim:
+
+```bash
+pacman -S --needed pactoys
+pacboy -S --needed toolchain:p cmake:p ccache:p boost:p openssl:p zeromq:p libsodium:p hidapi:p protobuf:p libusb:p unbound:p rust:p git:p
+```
+
+The same set as plain `pacman` names is below. `toolchain` is a package group, so press Enter at its prompt to take every member:
+
+```bash
+pacman -S --needed mingw-w64-ucrt-x86_64-toolchain mingw-w64-ucrt-x86_64-cmake \
+  mingw-w64-ucrt-x86_64-ccache mingw-w64-ucrt-x86_64-boost mingw-w64-ucrt-x86_64-openssl \
+  mingw-w64-ucrt-x86_64-zeromq mingw-w64-ucrt-x86_64-libsodium mingw-w64-ucrt-x86_64-hidapi \
+  mingw-w64-ucrt-x86_64-protobuf mingw-w64-ucrt-x86_64-libusb mingw-w64-ucrt-x86_64-unbound \
+  mingw-w64-ucrt-x86_64-rust mingw-w64-ucrt-x86_64-git
+pacman -S --needed curl    # not in CI's list; used only by the smoke run in Step 5
+```
+
+`protobuf` and `libusb` are required, not optional: CI makes Trezor support mandatory (Step 3), and configure fails without them. The package line at `README.md:347` lacks `ccache`, `protobuf`, `libusb` and `git`, so use the lists above rather than that line.
+
+**1.5 Check the environment.**
+
+```bash
+echo $MSYSTEM                   # UCRT64
+which gcc cmake cargo ninja     # each under /ucrt64/bin
+gcc --version | head -1         # 13 or newer; CMakeLists.txt:150-154 refuses older GCC
+cmake --version | head -1       # 3.25 or newer (CMakeLists.txt:31)
+cargo --version                 # Rust is mandatory: src/CMakeLists.txt:91 always adds src/fcmp_pp
+```
+
+MSYS2's CMake uses the Ninja generator by default, and CI passes no `-G` (https://www.msys2.org/docs/cmake/). If `which` finds no `ninja`, install `mingw-w64-ucrt-x86_64-ninja`. If `$MSYSTEM` is not `UCRT64`, or a tool resolves under `/usr/bin` or `/mingw64/bin`, you are in the wrong shell (5.3.11).
+
+> **MINGW64 alternative — not the environment CI checks.** Use it only if UCRT64 is unavailable to you.
+>
+> - Open **MSYS2 MINGW64**, or run `C:\msys64\mingw64.exe`. The Start-menu name is not verified here.
+> - The package prefix is `mingw-w64-x86_64-`. The `pacboy` line in 1.4 works unchanged, because `:p` follows the shell. With plain `pacman`, the names are not verified here:
+>
+> ```bash
+> pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ccache \
+>   mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium \
+>   mingw-w64-x86_64-hidapi mingw-w64-x86_64-protobuf mingw-w64-x86_64-libusb mingw-w64-x86_64-unbound \
+>   mingw-w64-x86_64-rust mingw-w64-x86_64-git
+> ```
+>
+> - `echo $MSYSTEM` prints `MINGW64`, and the tools live under `/mingw64/bin`.
+> - MINGW64 links against `msvcrt` rather than `ucrt`. MSYS2 deprecated it on 2026-03-15 and may remove packages from it (https://www.msys2.org/docs/environments/).
+> - Never share objects, libraries or a `build/` directory between the two environments.
+> - `build.yml:93` pins `msystem: ucrt64`, so repeat Steps 3 to 5 in UCRT64 before you land anything.
+
+**No Windows machine?** Step 6 reproduces and verifies the `Win64` check with Docker `ubuntu:24.04` or WSL Ubuntu 24.04, and needs no MSYS2.
+
+### 5.3.5 Step 2 — Get the source
+
+```bash
+mkdir -p /c/src && cd /c/src
+git clone --recursive <repository URL of the pull request> monero
+cd monero
+git checkout <branch of the pull request>
+git submodule update --init --recursive
+git submodule status
+```
+
+Expected output is one line per submodule; the text in parentheses may differ:
+
+```
+ 52eb8108c5bdec04579160ae17225d66034bd723 external/gtest (…)
+ 12f2c2ffe2108d6cf54c391fee33c8bc3646cdab external/randomx (v1.2.3)
+ 24b5e7a8b27f42fa16b96fc70aade9106cf7102f external/rapidjson (…)
+ e887b2fb4bfcfcc454b2005472ad1df6f2191f52 external/supercop (…)
+```
+
+- A leading `-` means a submodule is missing, and a leading `+` means it is at another commit. Either way, run `git submodule update --init --force` before anything else: missing submodules surface later as confusing compile errors.
+- Keep the clone root short, such as `C:\src\monero`. The longest tracked path is already 151 characters before the build tree adds its own depth.
+- `.gitattributes` marks `tests/data/** -text`, so Git's line-ending conversion cannot alter the test fixtures. No other Git setting is required.
+
+*Verified here:* the pins, the path length and `.gitattributes`. *Not verified here:* Git's behaviour on Windows.
+
+### 5.3.6 Step 3 — Reproduce the failure and collect every error
+
+CI configures and builds with `BUILD_DEFAULT` (`build.yml:17`), shown here verbatim:
+
+```bash
+cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --target all
+```
+
+That command stops at the first failure. Run its configure half unchanged, then a keep-going build, so that one pass lists every error:
+
+```bash
+# CI sets this for every job (build.yml:30). cmake/CheckTrezor.cmake:19 and :27 read it
+# from the environment, so export it; passing it with -D does not make Trezor mandatory.
+export USE_DEVICE_TREZOR_MANDATORY=ON
+# CI's job count (.github/actions/set-make-job-count/action.yml:16): one job per core
+# and per 2.25 GiB of RAM, at least 1.
+export MAKE_JOB_COUNT=$(expr $(printf '%s\n%s' $(( $(grep MemTotal: /proc/meminfo | cut -d: -f2 | cut -dk -f1) * 4 / (1048576 * 9) )) $(nproc) | sort -n | head -n1) '|' 1)
+export CMAKE_BUILD_PARALLEL_LEVEL=$MAKE_JOB_COUNT
+ccache --max-size=150M
+cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release 2>&1 | tee configure.log
+grep -n 'Trezor: support enabled' configure.log
+grep CMAKE_GENERATOR: build/CMakeCache.txt
+cmake --build build --target all -- -k 0 2>&1 | tee build.log
+grep -n "error:" build.log
+```
+
+**Configure.** It exits 0, and `configure.log` contains `Trezor: support enabled` (`src/device_trezor/CMakeLists.txt:70`). If that line is missing, see 5.3.11.
+
+**Generator.** Expect `CMAKE_GENERATOR:INTERNAL=Ninja`, for which `-k 0` means "never stop". With a Makefiles generator, run `cmake --build build --target all -- -k 2>&1 | tee build.log` instead: GNU make reads `-k 0` as keep-going plus a target named `0`, and fails with `No rule to make target '0'` (verified here).
+
+**Errors.** `grep` prints one diagnostic. In MinGW-w64 GCC 13.2's wording (verified here) it is:
+
+```
+…/src/daemon/main.cpp:117: error: use of deleted function 'std::basic_ostream<char, _Traits>& std::operator<<(basic_ostream<char, _Traits>&, const wchar_t*) [with _Traits = char_traits<char>]'
+```
+
+Notes follow it through `contrib/epee/include/misc_log_ex.h` (`LOG_TO_STRING` up to `MERROR`), ending with `ostream:<line>:5: note: declared here` at the deleted overload. The error line itself carries no column number. Ninja also prints a `FAILED:` line naming the `main.cpp` object. MSYS2's newer GCC may word the error differently or cite another `ostream` line; the stable parts are `main.cpp:117`, `use of deleted function` and `const wchar_t*` (not verified on MSYS2).
+
+**Anything else.** Any other `error:` line is a finding that the audit here did not catch. Match it against the triage table in Step 4.3 before you fix it.
+
+### 5.3.7 Step 4 — Fix at source
+
+**4.1 Change `isFat32` in `src/daemon/main.cpp`.** Before (`:111-123`):
+
+```cpp
+#ifdef WIN32
+bool isFat32(const wchar_t* root_path)
+{
+  std::vector<wchar_t> fs(MAX_PATH + 1);
+  if (!::GetVolumeInformationW(root_path, nullptr, 0, nullptr, 0, nullptr, &fs[0], MAX_PATH))
+  {
+    MERROR("Failed to get '" << root_path << "' filesystem name. Error code: " << ::GetLastError());
+    return false;
+  }
+
+  return wcscmp(L"FAT32", &fs[0]) == 0;
+}
+#endif
+```
+
+After:
+
+```cpp
+#ifdef WIN32
+bool isFat32(const wchar_t* root_path)
+{
+  std::vector<wchar_t> fs(MAX_PATH + 1);
+  if (!::GetVolumeInformationW(root_path, nullptr, 0, nullptr, 0, nullptr, &fs[0], MAX_PATH))
+  {
+    // Read the error first: utf16_to_utf8 calls WideCharToMultiByte, which may overwrite it.
+    const DWORD error_code = ::GetLastError();
+    // C++20 deleted operator<<(std::ostream&, const wchar_t*) (P1423R3), so log the path as UTF-8.
+    std::string root_path_utf8;
+    try
+    {
+      root_path_utf8 = epee::string_tools::utf16_to_utf8(root_path);
+    }
+    catch (const std::exception &e)
+    {
+      MERROR("utf16_to_utf8 failed: " << e.what());
+    }
+    MERROR("Failed to get '" << root_path_utf8 << "' filesystem name. Error code: " << error_code);
+    return false;
+  }
+
+  return wcscmp(L"FAT32", &fs[0]) == 0;
+}
+#endif
+```
+
+Also add `#include "string_tools.h"` directly after `#include "misc_log_ex.h"` (`:41`). The whole change as a patch follows. Save it as `isfat32.patch`, run `git apply --check isfat32.patch`, then `git apply isfat32.patch`:
+
+```diff
+--- a/src/daemon/main.cpp
++++ b/src/daemon/main.cpp
+@@ -39,6 +39,7 @@
+ #include "daemon/executor.h"
+ #include "daemonizer/daemonizer.h"
+ #include "misc_log_ex.h"
++#include "string_tools.h"
+ #include "net/parse.h"
+ #include "p2p/net_node.h"
+ #include "rpc/core_rpc_server.h"
+@@ -114,7 +115,19 @@
+   std::vector<wchar_t> fs(MAX_PATH + 1);
+   if (!::GetVolumeInformationW(root_path, nullptr, 0, nullptr, 0, nullptr, &fs[0], MAX_PATH))
+   {
+-    MERROR("Failed to get '" << root_path << "' filesystem name. Error code: " << ::GetLastError());
++    // Read the error first: utf16_to_utf8 calls WideCharToMultiByte, which may overwrite it.
++    const DWORD error_code = ::GetLastError();
++    // C++20 deleted operator<<(std::ostream&, const wchar_t*) (P1423R3), so log the path as UTF-8.
++    std::string root_path_utf8;
++    try
++    {
++      root_path_utf8 = epee::string_tools::utf16_to_utf8(root_path);
++    }
++    catch (const std::exception &e)
++    {
++      MERROR("utf16_to_utf8 failed: " << e.what());
++    }
++    MERROR("Failed to get '" << root_path_utf8 << "' filesystem name. Error code: " << error_code);
+     return false;
+   }
+ 
+```
+
+What the change guarantees:
+
+- **The error code is read first.** `::GetLastError()` is saved in a `DWORD` before any other call, because the conversion calls `WideCharToMultiByte`, which can overwrite the thread's last-error value. *Verified here* with a stand-in converter that overwrites it: the original code was still logged.
+- **The diagnostic cannot throw.** `epee::string_tools::utf16_to_utf8` (`contrib/epee/include/string_tools.h:128`) throws `std::runtime_error` when a path cannot be converted (`contrib/epee/src/string_tools.cpp:216-231`). The `try`/`catch` follows the existing Windows code at `src/common/util.cpp:340-347`. A failed conversion logs itself, the path is then logged as empty, and the error code is still reported.
+- **The include is explicit.** `main.cpp` already calls `epee::string_tools` at `:86` and `:133` through transitive includes. The new line documents the dependency; it is not what makes the fix compile.
+- **Behaviour is unchanged.** `isFat32` still returns `false` when the volume query fails and `wcscmp(L"FAT32", &fs[0]) == 0` otherwise. Its caller at `:260-265` is untouched.
+
+*Verified here:*
+- MinGW-w64 GCC 13.2 compiles the patched `main.cpp` at C++23 and at C++17 with 0 errors and 0 warnings. The resulting `pe-x86-64` object defines `isFat32(wchar_t const*)` and imports `GetLastError` and `GetVolumeInformationW`.
+- A reduced program with the same code compiles cleanly at `-std=c++23 -Wall -Wextra -Werror` with GCC 13, GCC 14 and MinGW-w64 GCC 13.2.
+- The Linux object has no `isFat32` at all, so Linux builds are unaffected.
+
+*Not verified here:* MSYS2's GCC on this code, and a run of the error branch on Windows.
+
+**4.2 Why this is the right fix.** At C++17, `<< root_path` resolved to `basic_ostream::operator<<(const void*)`, because no narrow-stream inserter took a wide string. The log line therefore printed a pointer, such as `Failed to get '0x5ab954c7c004' filesystem name`, never the path. *Verified here:* host GCC 13 and 14 builds of the reduced expression printed that address, and the MinGW-w64 GCC 13.2 object calls the same `const void*` overload. C++20's P1423R3 deleted the narrow-stream inserters for `wchar_t`, `char8_t`, `char16_t` and `char32_t` pointers so that this silent conversion becomes an error, which is why C++23 rejects the line. Converting to UTF-8 is the codebase's own pattern for wide Windows strings, and the message now names the volume that failed. This is a log-text-only change in a Windows-only start-up diagnostic. FAT32 detection, its return value and the caller's warning are unchanged, and no consensus, serialization, wire or storage code is touched. The branch runs only when `GetVolumeInformationW` fails, so a normal start never reaches it.
+
+**4.3 Triage for any other error.** The audit found no other Windows-only error (W-2), so this table is a safety net. If Step 3 shows another `error:` line, find its class below and apply the fix this migration already uses, then rebuild. The wording is GCC 14's at `-std=c++23 -Wall -Wextra` (verified here with one reduced program per class).
+
+| Diagnostic | Construct | Fix at source | Precedent in this tree |
+|---|---|---|---|
+| `use of deleted function '…operator<<(basic_ostream<char, _Traits>&, const wchar_t*)…'`, or the same with `const char16_t*`, `const char32_t*` or `const char8_t*` | A wide or Unicode string (`WCHAR*`, `LPCWSTR`, `std::wstring::c_str()`, `boost::filesystem::path::c_str()` on Windows, `u""`, `U""`, `u8""`) written to a narrow stream or log macro | Capture `GetLastError()` first if it is logged, then convert with `epee::string_tools::utf16_to_utf8` inside `try`/`catch` | `src/common/util.cpp:340-347`; Step 4.1 |
+| `invalid conversion from 'const char8_t*' to 'const char*'`, or `conversion from 'const char8_t [N]' to non-scalar type 'std::string' … requested` (the `[-fpermissive]` tag GCC appends is not a remedy; never add that flag) | A `u8"…"` literal used as `const char*` or `std::string` (P0482R6) | Drop the `u8` prefix when the literal is ASCII. An array initialisation `char a[] = u8"…"` stays valid; keep it | All prefixes dropped in `contrib/epee/src/http_auth.cpp`; array kept at `tests/unit_tests/http.cpp:830` |
+| `implicit capture of 'this' via '[=]' is deprecated in C++20 [-Wdeprecated]` | A `[=]` lambda that uses members | `[=, this]` | `src/wallet/wallet_rpc_server.cpp:224`, `contrib/epee/include/net/abstract_tcp_server2.inl:2059` |
+| `'template<class _Tp> struct std::is_pod' is deprecated: use 'is_standard_layout && is_trivial' instead [-Wdeprecated-declarations]` | `std::is_pod` | `std::is_standard_layout<T>::value && std::is_trivial<T>::value` | `contrib/epee/include/memwipe.h:64`, `src/serialization/json_object.h:119` |
+| `'…struct std::aligned_storage' is deprecated [-Wdeprecated-declarations]` | `std::aligned_storage` | `alignas(T) unsigned char storage_[sizeof(T)];` | `src/common/expect.h:145` |
+| `'++' expression of 'volatile'-qualified type is deprecated [-Wvolatile]` | `++` or `--` on a `volatile` variable | `v = v + 1;` | `tests/performance_tests/performance_tests.h:186` |
+| `reference to 'identity' is ambiguous` | Unqualified `identity()` under `using namespace std` (C++20 adds `std::identity`) | Qualify the call, for example `rct::identity()` | `tests/unit_tests/ringct.cpp:115`, `:147` |
+| None from GCC 14 at C++23, which still accepts it as an extension | A `throw()` exception specification, removed from the language in C++20 | `noexcept`; the migration already replaced every first-party use | `src/blockchain_db/blockchain_db.h:221` |
+| `enumeration value '…' not handled in switch [-Werror=switch]`, or `control reaches end of non-void function [-Werror=return-type]` | A missing `case` or `return`; the build makes both hard errors (`CMakeLists.txt:866-869`) | Add the missing `case` or `return` | — |
+
+**4.4 What a fix must never do.** Every error is fixed where it occurs. A change that relies on any of the following has not fixed the issue and must not be landed:
+
+- adding `-fpermissive` or any `-Wno-*` flag, a `#pragma GCC diagnostic` or `#pragma clang diagnostic`, or `[[maybe_unused]]` to silence a diagnostic;
+- lowering the dialect, whether by setting `CMAKE_CXX_STANDARD` or `CXX_STANDARD` below 23, passing `-D CMAKE_CXX_STANDARD=17` or `=20`, or turning on GNU extensions;
+- editing the compiler-floor guard (`CMakeLists.txt:150-171`) or lowering any compiler floor;
+- disabling, skipping or `if:`-gating a Windows job, marking it `continue-on-error`, or dropping its reduced tests;
+- setting `USE_DEVICE_TREZOR=OFF` or unsetting `USE_DEVICE_TREZOR_MANDATORY` to get past configure;
+- changing consensus, serialization, wire-protocol or LMDB code, or anything under `external/`.
+
+### 5.3.8 Step 5 — Verify on Windows
+
+Run these in the same UCRT64 shell, with the variables from Step 3 still exported.
+
+**5.1 Build everything.**
+
+```bash
+ccache --max-size=150M
+cmake --build build --target all -- -k 0 2>&1 | tee build-fixed.log    # Makefiles generator: -- -k
+grep -c "error:" build-fixed.log                                        # 0
+ls build/bin/monerod.exe build/bin/monero-wallet-cli.exe
+```
+
+Expect `0`, no `FAILED:` line, and both executables listed. If an error remains, return to Step 4.3.
+
+**5.2 Run CI's reduced test tier.** This is `CTEST_EXCLUDE_SLOW` (`build.yml:27-29`), verbatim:
+
+```bash
+cd build
+env GTEST_FILTER="-DNSResolver.*:AddressFromURL.*:select_outputs.*" ctest --output-on-failure -E "functional_tests_rpc|core_tests|cnv4-jit|hash-variant2-int-sqrt|wide_difficulty"
+cd ..
+```
+
+Expect `100% tests passed, 0 tests failed out of <N>`. The number of tests on Windows has not been established, so judge the run by zero failures, not by a count. Never add `-j` to `ctest`, because several tests bind fixed loopback ports. If a test fails, rerun it alone with `ctest -R <name> --output-on-failure` from `build/` and fix the cause. Never add it to the exclusion list.
+
+**5.3 Check that the binaries start.**
+
+```bash
+build/bin/monerod.exe --version
+build/bin/monero-wallet-cli.exe --version
+```
+
+Each prints one line of the form `Monero '<code name>' (v<version>-<commit>)`. The Linux build of this branch prints `Monero 'Fluorine Fermi' (v0.18.1.0-cc2a9d2db)` for both. Run them from the UCRT64 shell, which puts the DLLs under `/ucrt64/bin` on `PATH` (not verified here).
+
+**5.4 Run a testnet offline smoke test.** Never point the node at mainnet. This run is testnet and offline, with a throwaway directory:
+
+```bash
+mkdir -p /c/monero-smoke
+build/bin/monerod.exe --testnet --offline --no-igd --non-interactive \
+  --data-dir C:/monero-smoke/testnet --p2p-bind-port 22000 --rpc-bind-port 22001 \
+  --zmq-rpc-bind-port 22002 --log-level 0 --log-file C:/monero-smoke/monerod.log &
+sleep 30; grep -m1 'core RPC server started ok' /c/monero-smoke/monerod.log
+
+curl -s -X POST http://127.0.0.1:22001/json_rpc \
+  -d '{"jsonrpc":"2.0","id":"0","method":"get_info"}'
+# status OK, height 1, nettype testnet, offline true
+
+curl -s -X POST http://127.0.0.1:22001/stop_daemon    # plain endpoint, not json_rpc
+wait                                                   # monerod.exe exits
+rm -rf /c/monero-smoke
+```
+
+If `grep` prints nothing, wait and check again; if the log shows an error, fix it before landing. On an NTFS system drive `isFat32` returns `false` without entering its error branch. That branch runs only when `GetVolumeInformationW` fails, which a normal start does not cause, so the compile in 5.1 is its evidence. *The equivalent Linux run is recorded in Section 9; the Windows run is not verified here.*
+
+**5.5 Check for warnings.** No first-party warning may come from the edited file, and none may be new. Rebuild from clean so that every warning prints again (ccache replays the warnings it cached), then count first-party origins:
+
+```bash
+census() { sed "s|^$2||" "$1" | grep -E '^(src|contrib|tests)/[^: ]+:[0-9]+:[0-9]+: warning: ' | sed -E 's/^([^:]+):([0-9]+):[0-9]+: warning: .*(\[-W[^]]+\])$/\3 \1:\2/' | sort | uniq -c; }
+cmake --build build --target clean
+cmake --build build --target all -- -k 0 2>&1 | tee build-clean.log
+census build-clean.log "$(cygpath -m "$PWD")/" > census-head.txt
+grep 'src/daemon/main.cpp' census-head.txt    # must print nothing
+cat census-head.txt
+```
+
+`census` strips the repository root, which GCC prints as a Windows path such as `C:/src/monero/`, and counts each (flag, file, line). The function was tested here on that path form; MSYS2's actual output was not. If `census-head.txt` is empty while `grep -c ': warning:' build-clean.log` is not, read one warning line and pass its real prefix as the second argument.
+
+The MinGW-w64 compile here found the following 8 first-party origins, identical at C++17 and C++23. It used Linux third-party headers, so MSYS2's may add or remove a few:
+
+| Origin | Flag | Diagnostics | Cause |
+|---|---|---|---|
+| `contrib/epee/src/mlocker.cpp:62`, `:74`, `:88` | `-Wcpp` | 1 each | `#warning`: no page-size or memory-locking implementation for this platform |
+| `src/common/timings.cc:106` (two messages) | `-Wformat=` | 2 each | `%F` and `%T` in a `strftime` format |
+| `src/common/utf8.h:91`, `:93` | `-Wtype-limits` | 11 each | Range checks that are always true with a 16-bit `wchar_t` |
+| `src/common/util.cpp:164` | `-Wignored-qualifiers` | 1 | Qualifier on a cast result type |
+
+For a strict baseline, build the pre-migration base commit `454075bc6`, which is C++17, on the same machine and compare:
+
+```bash
+git worktree add ../monero-base 454075bc6
+cd ../monero-base
+git submodule update --init --recursive
+cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release
+cmake --build build --target all -- -k 0 2>&1 | tee build.log
+census build.log "$(cygpath -m "$PWD")/" > ../monero/census-base.txt
+cd ../monero
+diff census-base.txt census-head.txt
+git worktree remove --force ../monero-base
+```
+
+The check passes when every line found only in `census-head.txt` is a line-number shift inside a file the migration edited, and no line names `src/daemon/main.cpp`. The base commit compiles `main.cpp:117`, because it is C++17. Record `gcc --version` and the outcome in the pull request: it is the first Windows demonstration of the MinGW-w64 toolchain row (W-4, W-5).
+
+### 5.3.9 Step 6 — Cross-build on Linux or WSL (the `Win64` check)
+
+This step mirrors the `Win64` entry of `depends.yml`, and it is also the route for anyone without a Windows machine. It needs an x86_64 Linux host with Docker, or WSL running Ubuntu 24.04. A cold run first builds every depends package from source; how long that takes was not measured here.
+
+**6.1 Start the job's container** (`depends.yml:27-30`):
+
+```bash
+docker run -it --name monero-win64 ubuntu:24.04 bash
+```
+
+In WSL Ubuntu 24.04, skip `docker run`, and prefix the `apt` and `update-alternatives` commands below with `sudo`.
+
+**6.2 Install the job's toolchain.** These are the workflow's commands (`depends.yml:79-100`), with the `Win64` matrix values from `:48-51` substituted:
+
+```bash
+export DEBIAN_FRONTEND=noninteractive
+apt update; apt -y install ca-certificates curl
+apt update; apt -y install build-essential cmake pkg-config git ccache g++-mingw-w64-x86-64
+curl -O https://static.rust-lang.org/rustup/archive/1.29.0/x86_64-unknown-linux-gnu/rustup-init
+echo "4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10 rustup-init" | sha256sum -c
+chmod +x rustup-init
+./rustup-init -y --default-toolchain 1.93 --target x86_64-pc-windows-gnu
+export PATH="$HOME/.cargo/bin:$PATH"
+git config --global --add safe.directory '*'
+```
+
+`sha256sum -c` must print `rustup-init: OK`. If it does not, download the file again; never skip the check. The `export PATH` line stands in for the workflow's `echo "$HOME/.cargo/bin" >> $GITHUB_PATH`.
+
+**6.3 Get the source and select the POSIX-threads compiler.** The two `update-alternatives --set` lines are the workflow's "prepare w64-mingw32" step (`depends.yml:121-125`):
+
+```bash
+git clone --recursive <repository URL of the pull request> /monero
+cd /monero
+git checkout <branch of the pull request>
+git submodule update --init --recursive
+update-alternatives --set x86_64-w64-mingw32-g++ $(which x86_64-w64-mingw32-g++-posix)
+update-alternatives --set x86_64-w64-mingw32-gcc $(which x86_64-w64-mingw32-gcc-posix)
+update-alternatives --display x86_64-w64-mingw32-g++ | head -3    # "manual mode", "link currently points to …-g++-posix"
+```
+
+These two lines are required: in auto mode, Ubuntu's MinGW-w64 package selects the `-win32` variants (verified here; `--display` then reports `auto mode` and `link currently points to /usr/bin/x86_64-w64-mingw32-g++-win32`).
+
+**6.4 Reproduce, then build.** The build command is `depends.yml:127-130`, and the job count comes from the Linux branch of the job-count action (`action.yml:21`):
+
+```bash
+export MAKE_JOB_COUNT=$(expr $(printf '%s\n%s' $(( $(grep MemTotal: /proc/meminfo | cut -d: -f2 | cut -dk -f1) * 4 / (1048576 * 9) )) $(nproc) | sort -n | head -n1) '|' 1)
+ccache --max-size=150M
+make depends target=x86_64-w64-mingw32 -j$MAKE_JOB_COUNT 2>&1 | tee win64.log
+```
+
+The root `Makefile:47-49` builds the depends packages, configures `build/x86_64-w64-mingw32/release` against the generated toolchain file with `USE_DEVICE_TREZOR_MANDATORY=1`, and runs `make` there. Before the fix, Monero's own build stops at `src/daemon/main.cpp:117` with the Step 3 error. Once the packages exist, one pass lists every error:
+
+```bash
+make -C build/x86_64-w64-mingw32/release -k -j$MAKE_JOB_COUNT 2>&1 | tee win64-k.log
+grep -n "error:" win64-k.log
+```
+
+That directory uses CMake's default Unix Makefiles generator, so the flag is `-k`. Apply the Step 4 fix in this checkout and run the `make depends` command again; it reuses the packages. Then check the artefacts:
+
+```bash
+ls -l build/x86_64-w64-mingw32/release/bin/monerod.exe build/x86_64-w64-mingw32/release/bin/monero-wallet-cli.exe
+apt -y install file
+file build/x86_64-w64-mingw32/release/bin/monerod.exe    # PE32+ … x86-64 … MS Windows (wording varies by file version)
+```
+
+These are the files the job uploads (`depends.yml:143-149`, patterns `monerod*` and `monero-wallet-cli*`). As an optional runtime check, run `apt -y install wine64`, then `wine64 build/x86_64-w64-mingw32/release/bin/monerod.exe --version`. To copy the binaries out of the container, run `docker cp monero-win64:/monero/build/x86_64-w64-mingw32/release/bin ./win64-bin`.
+
+*Verified here:*
+- the commands match the workflow text;
+- the `-posix` MinGW-w64 GCC 13.2 reproduces the error and compiles the fix;
+- `file` 5.46 reports `PE32+ executable for MS Windows 5.02 (console), x86-64` for a test program linked with it.
+
+*Not verified here:* the full depends run, the link of `monerod.exe`, and `wine64`.
+
+**6.5 Build the Guix triple.** The `x86_64-w64-mingw32` Guix check builds the same triple reproducibly. It needs an x86_64 Linux host with Guix installed per `contrib/guix/INSTALL.md`, plus 16 GB free for `/gnu/store` and 8 GB per triple (`contrib/guix/README.md:16-17`). Commit the fix first, then run from the top of the checkout:
+
+```bash
+git status --porcelain    # must print nothing
+env HOSTS='x86_64-w64-mingw32' ./contrib/guix/guix-build
+```
+
+CI's own invocation (`guix.yml:109`), with the matrix value substituted:
+
+```bash
+ADDITIONAL_GUIX_TIMEMACHINE_FLAGS="--disable-authentication" SUBSTITUTE_URLS='https://bordeaux.guix.gnu.org' GUIX_REPO='https://github.com/monero-project/guix.git' HOSTS="x86_64-w64-mingw32" ./contrib/guix/guix-build
+```
+
+Expect a deterministic `.zip` under `guix/guix-build-<version>/output/x86_64-w64-mingw32/`, with logs under `guix/guix-build-<version>/logs/x86_64-w64-mingw32/`. These are the paths the workflow uploads (`guix.yml:110-115`). If any edit is uncommitted, `guix-build` stops with `ERR: The current git worktree is dirty, which may lead to broken builds.` (`contrib/guix/guix-build:66-79`). Afterwards, `./contrib/guix/guix-clean` removes the work directories. *Not verified here.*
+
+### 5.3.10 Step 7 — Land the fix and confirm the pipeline
+
+**7.1 Decide the change set.** `src/daemon/main.cpp` is not one of the migration's 33 authorized files. Choose one of the options below, and state the choice in the pull request:
+
+| Option | What it means | Consequence |
+|---|---|---|
+| Separate change | One commit touching only `src/daemon/main.cpp`, landed on top of the migration or as a follow-up pull request merged before any release | The migration's file set stays exactly as authorized; the migration alone still leaves the Windows checks red |
+| Widen the migration | Add the commit to the migration's pull request, and record that the authorized set grows from 33 to 34 files, and why | One pull request turns every check green; its scope record has to be updated |
+
+**7.2 Commit.** The message ends with the one-line behaviour-preservation justification (`J:`) that the migration's commits carry:
+
+```bash
+git add src/daemon/main.cpp
+git commit -F- <<'EOF'
+daemon: log the FAT32-probe volume path as UTF-8 on Windows
+
+C++20 (P1423R3) deletes operator<<(std::ostream&, const wchar_t*), so the
+Windows-only isFat32 diagnostic in src/daemon/main.cpp no longer compiles
+with MinGW-w64 at C++23. Read GetLastError() first, convert the root path
+with epee::string_tools::utf16_to_utf8 inside try/catch, and log the UTF-8
+text instead of the pointer value that C++17 printed.
+
+J: log-text-only change in a Windows-only start-up diagnostic; FAT32 detection and its return value unchanged
+EOF
+git show --stat HEAD    # exactly one file: src/daemon/main.cpp
+```
+
+**7.3 Push and watch the checks.** Push the branch and open or update the pull request, then watch these jobs:
+
+| Check | Runs on this change? | Green looks like |
+|---|---|---|
+| `Windows (MSYS2)` (`build.yml`) | Yes. Only `docs/**` and `**/README.md` are ignored (`build.yml:3-11`) | Steps `build` and `reduced tests` pass, and the test log ends with `100% tests passed, 0 tests failed` |
+| `Win64` (`depends.yml`) | Yes. The ignore list is the same (`depends.yml:3-11`) | Step `build` passes, and the run carries an artifact named `Win64` (`depends.yml:146`) holding `monerod.exe` and `monero-wallet-cli.exe` |
+| `x86_64-w64-mingw32` (`guix.yml`) | Only for pushes and pull requests that change one of its `paths`: `contrib/depends/**`, `contrib/guix/**`, `external/**`, `.github/workflows/guix.yml` or `**/Cargo.lock` (`guix.yml:3-19`). A change to `src/daemon/main.cpp` alone does not trigger it, and none of these workflows has a manual `workflow_dispatch` trigger | The job passes and uploads `guix/guix-build-*/output/x86_64-w64-mingw32/*`. If it did not run, attach the result of Step 6.5 to the pull request |
+| Every other job in the three workflows | Whenever its workflow runs | Stays green. Linux and macOS never compile the `#ifdef WIN32` branch. On Linux, `make -C build daemon` rebuilds `main.cpp` with no new warning, because the Linux object contains no `isFat32` (verified here) |
+
+The `paths-ignore` rule cuts both ways:
+
+- A commit that changes only `docs/**` or a `README.md` does not run `build.yml` or `depends.yml`, so it proves nothing about Windows.
+- This guide lies outside those paths, so a commit that changes only this file still runs both workflows. Their Windows jobs fail at `main.cpp:117` until the fix lands; that is the documented starting state, not a regression.
+- Caches are saved only by runs that are not pull requests (`build.yml:107-108`, `depends.yml:132-139`), so the first pull-request run after the fix may build without a warm cache.
+
+**7.4 After every check is green,** update this guide's Windows status:
+
+- Section 1.4: the Windows issue row.
+- Section 1.5: the Windows / MSYS2 UCRT64 host row.
+- Section 5.1: the "Toolchain, CI and documentation alignment" and "Release-path readiness" rows.
+- Section 5.2: the first table row and the "Windows compile failure" paragraph.
+- Section 6: the Windows risk row.
+- Section 9: the MinGW-w64 prerequisite row and the Windows troubleshooting entry.
+- The other mentions that point here (1.6, 2.2, 3, 4, Appendices A and C), and W-1, W-4 and W-5 in 5.3.3, each with a link to the passing run.
+
+### 5.3.11 Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `echo $MSYSTEM` is not `UCRT64`, or `which gcc` does not resolve under `/ucrt64/bin` | Wrong shell: MSYS, MINGW64 or a non-MSYS2 terminal | Open **MSYS2 UCRT64** (`C:\msys64\ucrt64.exe`), delete `build/` and configure again; the CMake cache keeps the compiler it first found |
+| Link errors or crashes after switching between MINGW64 and UCRT64 | Mixed environments: `msvcrt` and `ucrt` objects in one build | Use one environment for the compiler, the libraries and the build directory; delete `build/` when switching |
+| The terminal closes during `pacman -Suy` | A core-package update | Reopen **MSYS2 UCRT64** and run `pacman -Suy` again until nothing is left |
+| Configure fails with `Trezor: protobuf library not found` (`cmake/CheckTrezor.cmake:63`), or another `Trezor: Protobuf …` or `Trezor: protobuf messages …` error (`:87`, `:115`, `:143`) | protobuf is missing or broken; fatal because Trezor is mandatory (`:26-27`) | Install `mingw-w64-ucrt-x86_64-protobuf`, delete `build/`, configure again. Never switch Trezor off: CI builds with it |
+| Configure fails with `Trezor: LibUSB not found or test failed, please install libusb-1.0.26` (`:213`) | libusb is missing | Install `mingw-w64-ucrt-x86_64-libusb` and configure again |
+| `configure.log` shows `[WARNING] Trezor support cannot be compiled! Skipping Trezor compilation.` and no `Trezor: support enabled` | `USE_DEVICE_TREZOR_MANDATORY` was not exported, so a Trezor failure became a warning (`:36-40`) | `export USE_DEVICE_TREZOR_MANDATORY=ON`, delete `build/`, configure again, then fix the Trezor error it now reports |
+| `GCC <version> is too old; GCC 13 or newer is required for C++23` (`CMakeLists.txt:153`) | Outdated toolchain | `pacman -Suy`. Never edit the guard |
+| Configure, or the `fcmp_pp` Rust build, cannot find `cargo` | Rust is missing | Install `mingw-w64-ucrt-x86_64-rust` in UCRT64 (Step 6 installs Rust through rustup); `which cargo` must resolve under `/ucrt64/bin` |
+| Configure finds no Ninja build program | `ninja` is missing, and MSYS2's CMake defaults to the Ninja generator | Install `mingw-w64-ucrt-x86_64-ninja` |
+| `make: *** No rule to make target '0'.` | `-k 0` was passed to a Makefiles generator | Use `-- -k` (verified here) |
+| Compiler processes are killed, or the machine stalls mid-build | More parallel jobs than memory allows | Use `MAKE_JOB_COUNT` from Step 3, which allows 2.25 GiB per job (`action.yml:6-7`) |
+| File-not-found errors for deep paths under `build/` | A path longer than Windows allows (not verified here) | Clone into a short root such as `C:\src\monero` |
+| Rebuilds do not get faster | ccache is not in use, or points at another cache directory | Configure must print `Using ccache` (`CMakeLists.txt:74`, reached through `COMPILER_CACHE` `auto` at `:61`). `ccache -s` shows hits, and `ccache --get-config cache_dir` names the cache; CI's is `C:\Users\runneradmin\AppData\Local\ccache` (`build.yml:88`) |
+| Cross build: `update-alternatives --display x86_64-w64-mingw32-g++` shows `-win32` | Ubuntu's default thread model | Run the two `update-alternatives --set … -posix` lines (Step 6.3) |
+| `sha256sum` reports `FAILED` for `rustup-init` | A corrupt or substituted download | Download it again; never skip the check |
+| `ERR: The current git worktree is dirty, which may lead to broken builds.` | Uncommitted edits during a Guix build | Commit the fix; do not set `FORCE_DIRTY_WORKTREE` |
+| The Guix `x86_64-w64-mingw32` check is missing from the pull request | Its `paths` filter (`guix.yml:3-19`) | Run Step 6.5 locally and attach the result |
+| A hand-rolled syntax-only probe, using flags copied from a Linux `compile_commands.json`, reports `definition is marked dllimport` inside Boost.Serialization, or errors in `src/daemonizer/posix_fork.cpp` | Probe artefacts: the Linux `*_DYN_LINK` defines, and a file MinGW builds never compile (`src/daemonizer/CMakeLists.txt:29-38`) | Drop the `*_DYN_LINK` defines and skip `posix_fork.cpp`; neither error appears in a real MinGW build (verified here with the probe) |
+
 # 6. Risk Assessment
 
 These are forward-looking exposures for whoever takes this branch to production. Nothing the migration itself changed appears here: consensus, serialization, wire and storage behaviour were exercised and proven byte-invariant, so they carry no residual risk.
 
 | Risk | Category | Severity | Probability | Mitigation | Status |
 |---|---|---|---|---|---|
-| Windows binaries cannot be built at this dialect until the narrow-stream conversion lands (`src/daemon/main.cpp:117`) | Technical | High | Certain | One-expression `utf16_to_utf8` conversion, then re-run the Win64 cross build and the UCRT64 job | Open |
+| Windows binaries cannot be built at this dialect until the narrow-stream conversion lands (`src/daemon/main.cpp:117`) | Technical | High | Certain | `utf16_to_utf8` conversion per the Section 5.3 runbook, then re-run the Win64 cross build and the UCRT64 job | Open |
 | The Apple Clang floor is enforced and published without a build behind it, so macOS users may meet an unverified pairing | Technical | Medium | Medium | One pinned Xcode 15 configure, build and test; confirm the floor or raise guard, README and matrix together | Open |
 | Reproducible release builds are unproven at the new dialect — the reproducible path was never run twice for a hash comparison | Integration | Medium | Medium | Run the reproducible workflow twice, or once on two machines, and diff the SHA-256 summaries before tagging | Open |
 | The pinned protobuf recipe emits about 105 third-party deprecation diagnostics per cross host, so release logs are noisy and a future `-Werror` tightening would fail | Integration | Medium | High | Bump the recipe or apply the per-recipe, per-host dialect exception the plan pre-authorizes | Documented |
@@ -278,7 +842,7 @@ C++23 raises the floors. The build refuses anything below them at configure time
 | GCC | 13 | 14.3.0 and 13.4.0 |
 | Clang | 16 | 18.1.8 and 16.0.4 |
 | Apple Clang | 15 (Xcode 15) | not demonstrated |
-| MinGW-w64 GCC (MSYS2 UCRT64) | 13 | not demonstrated |
+| MinGW-w64 GCC (MSYS2 UCRT64) | 13 | not demonstrated (setup and verification: Section 5.3) |
 | CMake | 3.25 | 3.31.6 and 3.25.3 |
 | Boost | 1.69 declared | 1.88.0 |
 | OpenSSL | 1.1.1 declared | 3.5.3 |
@@ -434,7 +998,7 @@ curl -s -X POST http://127.0.0.1:22001/stop_daemon    # plain endpoint, not json
 - **Spurious socket or `node_server` failures** — two port-binding suites ran at once. Run them serially.
 - **A stray `monero-wallet-rpc.log` beside the binaries** — the wallet server logs next to itself unless `--log-file` is passed.
 - **`monerod: unrecognised option '--disable-rpc-login'`** — that is a wallet-RPC flag. For an unauthenticated daemon simply omit `--rpc-login`.
-- **Windows builds fail to compile** — expected on this branch; see Section 5.2.
+- **Windows builds fail to compile** — expected on this branch until the `src/daemon/main.cpp:117` fix lands. Section 5.3 is the step-by-step remediation runbook; Section 5.2 explains the cause.
 - **API documentation** — `HAVE_DOT=YES doxygen Doxyfile` (drop the variable if graphviz is unavailable) is the fastest way to trace call graphs through the template-heavy P2P and protocol code.
 
 # 10. Appendices
@@ -454,7 +1018,7 @@ curl -s -X POST http://127.0.0.1:22001/stop_daemon    # plain endpoint, not json
 | Benchmark warm-up | `build/tests/performance_tests/performance_tests --filter='test_check_hash*'` |
 | Compile-database census | `python3 -c "import json,collections;e=json.load(open('build/compile_commands.json'));print(len(e),collections.Counter(next((a for a in x['command'].split() if a.startswith('-std=')),'none') for x in e))"` |
 | Deprecated-construct check | `git grep -nE 'std::is_pod\|std::aligned_storage\|std::result_of\|\bthrow\(\)' -- src contrib/epee tests` |
-| Cross-build one host | `make -C contrib/depends target=x86_64-w64-mingw32` |
+| Cross-build one host (Windows walk-through: Section 5.3, Step 6) | `make depends target=x86_64-w64-mingw32`, run from the repository root |
 | Container image | `docker build -t monero .` then `docker run --rm monero --version` |
 | API documentation | `HAVE_DOT=YES doxygen Doxyfile` |
 
@@ -486,7 +1050,7 @@ curl -s -X POST http://127.0.0.1:22001/stop_daemon    # plain endpoint, not json
 | `docs/COMPILING_DEBUGGING_TESTING.md:18` | "Toolchain requirements" — the authoritative compatibility matrix |
 | `.github/workflows/build.yml:153-159` | `debian:13` and `ubuntu:24.04` build containers |
 | `.github/workflows/depends.yml:119` | Dialect-salted cross-build cache key |
-| `src/daemon/main.cpp:117` | The Windows-only narrow-stream diagnostic that still needs conversion |
+| `src/daemon/main.cpp:117` | The Windows-only narrow-stream diagnostic that still needs conversion; fix and verification in Section 5.3 |
 
 ## D. Technology Versions
 
