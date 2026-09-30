@@ -64,6 +64,7 @@ public:
     int num;
     bool error_flag;
     public:
+    int get_num();
     void inc();
     void dec();
     bool wait();  //! Wait for a set of tasks to finish, returns false iff any error
@@ -101,7 +102,7 @@ public:
     unsigned int active;
     unsigned int max;
     bool running;
-    void run(bool flush = false);
+    void run(waiter *flush_waiter);
 };
 
 }
