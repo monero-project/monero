@@ -201,7 +201,7 @@ public:
     }
 
     //! Copy conversion from `U` to `T`.
-    template<typename U, typename = detail::enable_if<is_convertible<U const&>()>>
+    template<typename U, typename = ::detail::enable_if<is_convertible<U const&>()>>
     expect(expect<U> const& src) noexcept(std::is_nothrow_constructible<T, U const&>())
       : code_(src.error()), storage_()
     {
@@ -217,7 +217,7 @@ public:
     }
 
     //! Move conversion from `U` to `T`.
-    template<typename U, typename = detail::enable_if<is_convertible<U>()>>
+    template<typename U, typename = ::detail::enable_if<is_convertible<U>()>>
     expect(expect<U>&& src) noexcept(std::is_nothrow_constructible<T, U>())
       : code_(src.error()), storage_()
     {
@@ -327,7 +327,7 @@ public:
         \note This function is `noexcept` when `U == T` is `noexcept`.
         \return False if `has_error()`, otherwise `value() == rhs`.
     */
-    template<typename U, typename = detail::enable_if<!std::is_constructible<std::error_code, U>::value>>
+    template<typename U, typename = ::detail::enable_if<!std::is_constructible<std::error_code, U>::value>>
     bool equal(U const& rhs) const noexcept(noexcept(*std::declval<expect<T>>() == rhs))
     {
         return has_value() && get() == rhs;
