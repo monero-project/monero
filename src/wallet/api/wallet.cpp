@@ -42,6 +42,7 @@
 
 #include "mnemonics/electrum-words.h"
 #include "mnemonics/english.h"
+#include <algorithm>
 #include <boost/format.hpp>
 #include <cstring>
 #include <sstream>
@@ -2000,7 +2001,7 @@ uint64_t WalletImpl::estimateTransactionFee(const std::vector<std::pair<std::str
         m_wallet->use_fork_rules(HF_VERSION_PER_BYTE_FEE, 0),
         m_wallet->use_fork_rules(4, 0),
         1,
-        m_wallet->get_min_ring_size() - 1,
+        std::max<uint64_t>(m_wallet->get_min_ring_size(), 1) - 1,
         destinations.size() + 1,
         extra_size,
         m_wallet->use_fork_rules(8, 0),
