@@ -895,6 +895,14 @@ namespace cryptonote
       return false;
     }
 
+    if (!check_tx_inputs_ring_members_overflow(tx, hf_version))
+    {
+      MERROR_VER("tx ring members overflowed");
+      tvc.m_verifivation_failed = true;
+      tvc.m_invalid_input = true;
+      return false;
+    }
+
     if (!check_tx_inputs_keyimages_domain(tx))
     {
       MERROR_VER("tx uses key image not in the valid domain");
@@ -1046,6 +1054,26 @@ namespace cryptonote
         for (size_t n = 1; n < tokey_in.key_offsets.size(); ++n)
           if (tokey_in.key_offsets[n] == 0)
             return false;
+      }
+    }
+    return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_tx_inputs_ring_members_overflow(const transaction& tx, const uint8_t hf_version)
+  {
+    if (hf_version >= HF_VERSION_FCMP_PLUS_PLUS)
+    {
+      for(const auto& in: tx.vin)
+      {
+        CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, tokey_in, false);
+        const std::vector<uint64_t> absolute_offsets = relative_output_offsets_to_absolute(tokey_in.key_offsets);
+        for (size_t i = 1; i < absolute_offsets.size(); ++i)
+        {
+          const uint64_t prev_offset = absolute_offsets[i-1];
+          const uint64_t next_offset = absolute_offsets[i];
+          if (prev_offset > next_offset)
+            return false;
+        }
       }
     }
     return true;
