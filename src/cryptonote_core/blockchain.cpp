@@ -229,7 +229,7 @@ bool Blockchain::have_tx_keyimg_as_spent(const crypto::key_image &key_im) const
 // and collects the public key for each from the transaction it was included in
 // via the visitor passed to it.
 template <class visitor_t>
-bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height) const
+bool Blockchain::scan_outputkeys_for_indexes(const uint8_t hf_version, size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
 
@@ -308,6 +308,7 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
   }
 
   size_t count = 0;
+  uint64_t last_height = 0;
   for (const uint64_t& i : absolute_offsets)
   {
     try
@@ -320,6 +321,24 @@ bool Blockchain::scan_outputkeys_for_indexes(size_t tx_version, const txin_to_ke
           output_index = outputs.at(count);
         else
           output_index = m_db->get_output_key(tx_in_to_key.amount, i);
+
+        if (hf_version >= HF_VERSION_FCMP_PLUS_PLUS)
+        {
+          // Ensure every subsequent ring member has height >= prev after the
+          // fork, so that when we use the last output to set
+          // pmax_related_block_height below, it correctly uses the highest
+          // output height. Technically this is redundant since absolute offsets
+          // should be strictly increasing from check_tx_inputs_ring_members_increasing.
+          // It's defense in depth to avoid inflation.
+          // We can't enforce this before the fork without causing a net split
+          // since offsets may overflow before the fork. It's critical that we
+          // do this at the fork to prevent inflation as documented in the
+          // hf_version >= HF_VERSION_ENFORCE_MIN_AGE check. We MUST prevent
+          // Carrot outputs from being used in ring signatures, they can only be
+          // used in FCMP++ txs. Also identified by xmrack.
+          CHECK_AND_ASSERT_MES(output_index.height >= last_height, false, "Unexpected decreasing ring member height");
+          last_height = output_index.height;
+        }
 
         // call to the passed boost visitor to grab the public key for the output
         if (!vis.handle_output(output_index.unlock_time, output_index.pubkey, output_index.commitment))
@@ -767,7 +786,7 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
           curr_ring.reserve(pin->key_offsets.size());
           outputs_visitor vis{curr_ring};
 
-          if (!scan_outputkeys_for_indexes(tx.version, *pin, vis, tx_prefix_hash))
+          if (!scan_outputkeys_for_indexes(version, tx.version, *pin, vis, tx_prefix_hash))
           {
             dereferenced_mix_ring.clear();
             break;
@@ -4034,7 +4053,7 @@ bool Blockchain::check_tx_input(size_t tx_version, const txin_to_key& txin, cons
 
   // collect output keys
   outputs_visitor vi(output_keys, *this, hf_version);
-  if (!scan_outputkeys_for_indexes(tx_version, txin, vi, tx_prefix_hash, pmax_related_block_height))
+  if (!scan_outputkeys_for_indexes(hf_version, tx_version, txin, vi, tx_prefix_hash, pmax_related_block_height))
   {
     MERROR_VER("Failed to get output keys for tx with amount = " << print_money(txin.amount) << " and count indexes " << txin.key_offsets.size());
     return false;

@@ -1288,11 +1288,12 @@ namespace cryptonote
      * @param tx_prefix_hash the hash of the associated transaction_prefix
      * @param pmax_related_block_height return-by-pointer the height of the most recent block in the input set
      * @param tx_version version of the tx, if > 1 we also get commitments
+     * @param hf_version hard-fork version rules to use
      *
      * @return false if any keys are not found or any inputs are not unlocked, otherwise true
      */
     template<class visitor_t>
-    inline bool scan_outputkeys_for_indexes(size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;
+    inline bool scan_outputkeys_for_indexes(const uint8_t hf_version, size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;
 
     /**
      * @brief collect output public keys of a transaction input set
