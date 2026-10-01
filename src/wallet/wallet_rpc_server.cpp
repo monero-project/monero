@@ -230,6 +230,7 @@ namespace tools
       std::this_thread::yield();
     delete m_wallet;
     m_wallet = cr;
+    m_auto_refresh_at_tip = true;
     m_wallet_swap_active = false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -265,7 +266,9 @@ namespace tools
       try
       {
         bool received_money = false;
-        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon(), 0, blocks_fetched, received_money, true, true, REFRESH_INDICATIVE_BLOCK_CHUNK_SIZE);
+        // Defer pool requests during catch-up until the previous refresh fetched
+        // fewer blocks than the indicative chunk size.
+        if (m_wallet) m_wallet->refresh(m_wallet->is_trusted_daemon(), 0, blocks_fetched, received_money, true, true, REFRESH_INDICATIVE_BLOCK_CHUNK_SIZE, m_auto_refresh_at_tip);
         refresh_success = true;
       }
       catch (const std::exception& ex)
@@ -280,6 +283,7 @@ namespace tools
         LOG_PRINT_L3((boost::format(tr("Automated wallet block refresh took %i ms")) % elapsed.count()).str());
 
       const bool syncing_against_tip_of_chain = blocks_fetched < REFRESH_INDICATIVE_BLOCK_CHUNK_SIZE;
+      m_auto_refresh_at_tip = syncing_against_tip_of_chain;
       if (syncing_against_tip_of_chain)
       {
         // At this point, we can poll for a refresh every m_auto_refresh_period seconds.
