@@ -746,7 +746,7 @@ bool gen_tx_output_is_not_txout_to_key::generate(std::vector<test_event_entry>& 
 
   builder.m_tx.vout.push_back(tx_out());
   builder.m_tx.vout.back().amount = 1;
-  builder.m_tx.vout.back().target = txout_to_scripthash();
+  builder.m_tx.vout.back().target = txout_to_carrot_v1();
 
   builder.step4_calc_hash();
   builder.step5_sign(sources);

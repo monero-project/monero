@@ -51,6 +51,7 @@ target_link_libraries(cryptonote_core
     common
     cncrypto
     blockchain_db
+    fcmp_pp
     ringct
     device
     hardforks

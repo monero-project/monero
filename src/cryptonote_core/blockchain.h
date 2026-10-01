@@ -612,8 +612,11 @@ namespace cryptonote
      * RingCT transactions do not transmit some of their data if it
      * can be reconstituted by the receiver. This function expands
      * that implicit data.
+     *
+     * This function can potentially be called with an already
+     * expanded tx.
      */
-    static bool expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys);
+    static bool expand_transaction_2(transaction &tx, const crypto::hash &tx_prefix_hash, const std::vector<std::vector<rct::ctkey>> &pubkeys, const fcmp_pp::TreeRootShared &tree_root);
 
     /**
      * @brief validates a transaction's inputs
@@ -1293,11 +1296,12 @@ namespace cryptonote
      * @param tx_prefix_hash the hash of the associated transaction_prefix
      * @param pmax_related_block_height return-by-pointer the height of the most recent block in the input set
      * @param tx_version version of the tx, if > 1 we also get commitments
+     * @param hf_version hard-fork version rules to use
      *
      * @return false if any keys are not found or any inputs are not unlocked, otherwise true
      */
     template<class visitor_t>
-    inline bool scan_outputkeys_for_indexes(size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;
+    inline bool scan_outputkeys_for_indexes(const uint8_t hf_version, size_t tx_version, const txin_to_key& tx_in_to_key, visitor_t &vis, const crypto::hash &tx_prefix_hash, uint64_t* pmax_related_block_height = NULL) const;
 
     /**
      * @brief collect output public keys of a transaction input set
@@ -1476,10 +1480,11 @@ namespace cryptonote
      * @param already_generated_coins the amount of currency generated prior to this block
      * @param partial_block_reward return-by-reference true if miner accepted only partial reward
      * @param version hard fork version for that transaction
+     * @param transparent_amount_commitments pre-calculated transparent amount commitments
      *
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
-    bool validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version);
+    bool validate_miner_transaction(const block& b, size_t cumulative_block_weight, uint64_t fee, uint64_t& base_reward, uint64_t already_generated_coins, bool &partial_block_reward, uint8_t version, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments);
 
     /**
      * @brief reverts the blockchain to its previous state following a failed switch

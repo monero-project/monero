@@ -31,6 +31,7 @@
 #include "string_tools.h"
 #include "blockchain_db.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "fcmp_pp/curve_trees.h"
 #include "profile_tools.h"
 #include "ringct/rctOps.h"
 
@@ -172,7 +173,7 @@ void BlockchainDB::init_options(boost::program_options::options_description& des
   command_line::add_arg(desc, arg_db_salvage);
 }
 
-void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, const epee::span<const std::uint8_t> blob, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
+void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transaction& tx, epee::span<const std::uint8_t> blob, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, const crypto::hash* tx_hash_ptr, const crypto::hash* tx_prunable_hash_ptr)
 {
   bool miner_tx = false;
   crypto::hash tx_hash, tx_prunable_hash;
@@ -226,10 +227,12 @@ void BlockchainDB::add_transaction(const crypto::hash& blk_hash, const transacti
     if (miner_tx && tx.version == 2)
     {
       cryptonote::tx_out vout = tx.vout[i];
-      rct::key commitment = rct::zeroCommitVartime(vout.amount);
+      const auto commitment_it = transparent_amount_commitments.find(vout.amount);
+      if (commitment_it == transparent_amount_commitments.end())
+        throw std::runtime_error("Failed to get miner tx commitment, aborting");
       vout.amount = 0;
       amount_output_indices[i] = add_output(tx_hash, vout, i, tx.unlock_time,
-        &commitment);
+        &commitment_it->second);
     }
     else
     {
@@ -246,6 +249,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
                                 , const difficulty_type& cumulative_difficulty
                                 , const uint64_t& coins_generated
                                 , const std::vector<std::pair<transaction, blobdata>>& txs
+                                , const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments
                                 )
 {
   const block &blk = blck.first;
@@ -259,7 +263,8 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   TIME_MEASURE_FINISH(time1);
   time_blk_hash += time1;
 
-  uint64_t prev_height = height();
+  const uint64_t blk_idx = height();
+  const uint64_t first_unified_id = total_outputs(); // Call this before adding this block's outputs
 
   // call out to add the transactions
 
@@ -267,7 +272,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
 
   uint64_t num_rct_outs = 0;
   blobdata miner_bd = tx_to_blob(blk.miner_tx);
-  add_transaction(blk_hash, blk.miner_tx, epee::strspan<std::uint8_t>(miner_bd));
+  add_transaction(blk_hash, blk.miner_tx, epee::strspan<std::uint8_t>(miner_bd), transparent_amount_commitments);
   if (blk.miner_tx.version == 2)
     num_rct_outs += blk.miner_tx.vout.size();
   int tx_i = 0;
@@ -275,7 +280,7 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   for (const std::pair<transaction, blobdata>& tx : txs)
   {
     tx_hash = blk.tx_hashes[tx_i];
-    add_transaction(blk_hash, tx.first, epee::strspan<std::uint8_t>(tx.second), &tx_hash);
+    add_transaction(blk_hash, tx.first, epee::strspan<std::uint8_t>(tx.second), transparent_amount_commitments, &tx_hash);
     for (const auto &vout: tx.first.vout)
     {
       if (vout.amount == 0)
@@ -292,11 +297,207 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   TIME_MEASURE_FINISH(time1);
   time_add_block1 += time1;
 
-  m_hardfork->add(blk, prev_height);
+  // // call out to handle growing the FCMP tree
+  // time1 = epee::misc_utils::get_tick_count();
+  // handle_fcmp_tree(blk_idx, first_unified_id, blk.miner_tx, txs, transparent_amount_commitments);
+  // TIME_MEASURE_FINISH(time1);
+  // time_grow_tree += time1;
+
+  m_hardfork->add(blk, blk_idx);
 
   ++num_calls;
 
-  return prev_height;
+  return blk_idx;
+}
+
+void BlockchainDB::handle_fcmp_tree(const uint64_t block_idx,
+  const uint64_t first_unified_id,
+  const transaction &miner_tx,
+  const std::vector<std::pair<transaction, blobdata>> &txs,
+  const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments)
+{
+  // Collect outs by last locked block to add to the db
+  OutsByLastLockedBlockMeta new_locked_outs = cryptonote::get_outs_by_last_locked_block(
+      miner_tx,
+      txs,
+      transparent_amount_commitments,
+      first_unified_id,
+      block_idx
+    );
+
+  // Get the outputs with default last locked block
+  const uint64_t default_last_locked_block = cryptonote::get_default_last_locked_block_index(block_idx);
+  auto new_default_locked_outs_it = new_locked_outs.outs_by_last_locked_block.find(default_last_locked_block);
+  const auto new_default_locked_outs = new_default_locked_outs_it != new_locked_outs.outs_by_last_locked_block.end()
+    ? std::move(new_default_locked_outs_it->second)
+    : std::vector<fcmp_pp::UnifiedOutput>{};
+
+  // Insert the new locked outputs into the db, excluding outputs created in
+  // this block with default last locked block. Outputs with default last locked
+  // block will be added to the tree immediately below. Outputs with last
+  // locked block higher than the default will be added to the locked outputs
+  // tables, staged for insertion to the tree later.
+  new_locked_outs.outs_by_last_locked_block.erase(default_last_locked_block);
+  this->add_locked_outs(new_locked_outs.outs_by_last_locked_block, new_locked_outs.timelocked_outputs);
+
+  // Assume we just added block n. The soonest that outputs from block n can be
+  // included in the chain is in block n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE. So
+  // we grow the tree with these outputs (and any others with last locked block
+  // n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1). We then expect this tree root
+  // be included in block header n+1. This way miners will build on top of the
+  // tree root usable in FCMP++'s in a future block. After block
+  // n + (CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1) is added to the chain, SPV
+  // clients syncing just block headers will have a solid assurance that the
+  // root usable to construct FCMP++ proofs is the correct root, since it will
+  // have 9 blocks of PoW on top of it.
+  // To be clear, block header n+1 includes the tree root usable to spend
+  // outputs with last locked block n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1.
+  static_assert(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > 0, "Expect a non-0 spendable age");
+  this->advance_tree(block_idx, new_default_locked_outs);
+}
+
+void BlockchainDB::advance_tree(const uint64_t blk_idx, const std::vector<fcmp_pp::UnifiedOutput> &known_new_outputs)
+{
+  LOG_PRINT_L3("BlockchainDB::" << __func__);
+
+  // Get the earliest possible last locked block of outputs created in blk_idx
+  const uint64_t earliest_last_locked_block = cryptonote::get_default_last_locked_block_index(blk_idx);
+
+  // If we're advancing the genesis block, make sure to initialize the tree
+  if (blk_idx == 0)
+  {
+    // Expected: tree meta table is currently empty
+
+    // We grow the first blocks with empty outputs, since no outputs in this range should be spendable yet
+    for (uint64_t new_blk_idx = blk_idx; new_blk_idx < earliest_last_locked_block; ++new_blk_idx)
+    {
+      this->grow_tree(new_blk_idx, {});
+    }
+  }
+  // Expected: earliest_last_locked_block == last block idx + 1 in tree meta
+
+  // Now we can advance the tree 1 block
+  auto unlocked_outputs = this->get_outs_at_last_locked_block_idx(earliest_last_locked_block);
+
+  // Include known new outputs if provided
+  unlocked_outputs.insert(unlocked_outputs.end(), known_new_outputs.begin(), known_new_outputs.end());
+
+  // Grow the tree with outputs that are spendable once the earliest_last_locked_block is in the chain
+  this->grow_tree(earliest_last_locked_block, std::move(unlocked_outputs));
+
+  // Now that we've used the unlocked leaves to grow the tree, we delete them from the locked outputs table
+  this->del_locked_outs_at_block_idx(earliest_last_locked_block);
+}
+
+void BlockchainDB::grow_tree(const uint64_t blk_idx, std::vector<fcmp_pp::UnifiedOutput> &&new_outputs)
+{
+  LOG_PRINT_L3("BlockchainDB::" << __func__);
+
+  MDEBUG("Growing tree usable once block " << blk_idx << " is in the chain");
+
+  // Get the number of leaf tuples that exist in the current tree
+  const uint64_t old_n_leaf_tuples = this->get_n_leaf_tuples();
+
+  if (blk_idx == 0)
+    CHECK_AND_ASSERT_THROW_MES(old_n_leaf_tuples == 0, "Tree is not empty at blk idx 0");
+
+  // Get the prev block's tree edge (i.e. the current tree edge before growing)
+  std::vector<crypto::ec_point> prev_tree_edge;
+  uint64_t prev_blk_idx = 0;
+  if (blk_idx > 0)
+  {
+    prev_blk_idx = blk_idx - 1;
+
+    // Make sure tree tip lines up to expected block
+    const uint64_t tree_block_idx = this->get_tree_block_idx();
+
+    CHECK_AND_ASSERT_THROW_MES(tree_block_idx == prev_blk_idx,
+      "Unexpected tree block idx mismatch to prev block (" + std::to_string(tree_block_idx) + " vs " + std::to_string(prev_blk_idx) + ")");
+
+    prev_tree_edge = this->get_tree_edge(prev_blk_idx);
+  }
+
+  // We re-save the prev tree edge at this next block if the tree doesn't grow
+  const auto save_prev_tree_edge = [&, this]() { this->save_tree_meta(blk_idx, old_n_leaf_tuples, prev_tree_edge); };
+  if (new_outputs.empty())
+  {
+    save_prev_tree_edge();
+    return;
+  }
+
+  // Set the tree's existing last hashes from the existing edge
+  const auto last_hashes = m_curve_trees->tree_edge_to_last_hashes(prev_tree_edge);
+
+  // Use the number of leaf tuples and the existing last hashes to get a struct we can use to extend the tree
+  auto tree_extension = m_curve_trees->get_tree_extension(old_n_leaf_tuples, last_hashes, {std::move(new_outputs)});
+  if (tree_extension.leaves.tuples.empty())
+  {
+    save_prev_tree_edge();
+    return;
+  }
+
+  const auto compressed_tree_extension = m_curve_trees->compress_tree_extension(std::move(tree_extension));
+  const auto tree_edge = this->grow_with_tree_extension(compressed_tree_extension);
+
+  const uint64_t new_n_leaf_tuples = compressed_tree_extension.leaves.tuples.size() + old_n_leaf_tuples;
+  this->save_tree_meta(blk_idx, new_n_leaf_tuples, tree_edge);
+}
+
+void BlockchainDB::trim_block()
+{
+  LOG_PRINT_L3("BlockchainDB::" << __func__);
+
+  const uint64_t n_blocks = this->height();
+  if (n_blocks == 0)
+    return;
+
+  const uint64_t removing_block_idx = n_blocks - 1;
+
+  // Get the earliest possible last locked block of outputs created in removing_block_idx
+  const uint64_t default_last_locked_block = cryptonote::get_default_last_locked_block_index(removing_block_idx);
+  const uint64_t tree_block_idx = this->get_tree_block_idx();
+
+  CHECK_AND_ASSERT_THROW_MES(tree_block_idx > 0, "tree block idx must be >0");
+  CHECK_AND_ASSERT_THROW_MES(tree_block_idx == default_last_locked_block,
+    "Unexpected tree block idx mismatch (" + std::to_string(tree_block_idx) + " vs " + std::to_string(default_last_locked_block) + ")");
+
+  const uint64_t prev_tree_block_idx = tree_block_idx - 1;
+
+  MDEBUG("Trimming tree to block " << prev_tree_block_idx << " (removing block " << removing_block_idx << ")");
+
+  // Read n leaf tuples from the prev tree block to see how how many leaves
+  // should remain in the tree after trimming a block from the tree.
+  const uint64_t new_n_leaf_tuples = this->get_block_n_leaf_tuples(prev_tree_block_idx);
+
+  // Trim the tree to the new n leaf tuples
+  this->trim_tree(new_n_leaf_tuples, tree_block_idx);
+
+  // Remove block from tree meta
+  this->del_tree_meta(tree_block_idx);
+}
+
+void BlockchainDB::trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_idx)
+{
+  LOG_PRINT_L3("BlockchainDB::" << __func__);
+
+  const uint64_t old_n_leaf_tuples = this->trim_leaves(new_n_leaf_tuples, trim_block_idx);
+
+  // If nothing to trim, return
+  if (old_n_leaf_tuples == new_n_leaf_tuples)
+    return;
+
+  if (new_n_leaf_tuples == 0)
+  {
+    // Empty the tree
+    this->trim_layers(new_n_leaf_tuples, {}/*new_n_elems_per_layer*/, {}/*new_tree_edge*/, 0/*new_root_layer_idx*/);
+    return;
+  }
+
+  // Trim the expected layers
+  const auto new_n_elems_per_layer = m_curve_trees->n_elems_per_layer(new_n_leaf_tuples);
+  const auto new_tree_edge = this->get_tree_edge(trim_block_idx - 1);
+  const uint64_t new_root_layer_idx = m_curve_trees->n_layers(new_n_leaf_tuples) - 1;
+  this->trim_layers(new_n_leaf_tuples, new_n_elems_per_layer, new_tree_edge, new_root_layer_idx);
 }
 
 void BlockchainDB::set_hard_fork(HardFork* hf)
@@ -421,6 +622,7 @@ void BlockchainDB::reset_stats()
   time_tx_exists = 0;
   time_add_block1 = 0;
   time_add_transaction = 0;
+  time_grow_tree = 0;
   time_commit1 = 0;
 }
 
@@ -438,6 +640,8 @@ void BlockchainDB::show_stats()
     << "time_add_block1: " << time_add_block1 << "ms"
     << ENDL
     << "time_add_transaction: " << time_add_transaction << "ms"
+    << ENDL
+    << "time_grow_tree: " << time_grow_tree << "ms"
     << ENDL
     << "time_commit1: " << time_commit1 << "ms"
     << ENDL
