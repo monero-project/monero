@@ -38,6 +38,8 @@ namespace Monero {
 class WalletManagerImpl : public WalletManager
 {
 public:
+    virtual ~WalletManagerImpl() override;
+
     Wallet * createWallet(const std::string &path, const std::string &password,
                           const std::string &language, NetworkType nettype, uint64_t kdf_rounds = 1) override;
     Wallet * openWallet(const std::string &path, const std::string &password, NetworkType nettype, uint64_t kdf_rounds = 1, WalletListener * listener = nullptr) override;
