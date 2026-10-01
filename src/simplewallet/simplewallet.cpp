@@ -9966,10 +9966,15 @@ bool simple_wallet::wallet_info(const std::vector<std::string> &args)
   else if (ms_status.multisig_is_active)
     type = (boost::format(tr("%u/%u multisig%s")) % ms_status.threshold % ms_status.total % (ms_status.is_ready ? "" : " (not yet finalized)")).str();
   else if (m_wallet->is_background_wallet())
-    type = tr("Background wallet");
+    type = tr("Background");
+  else if (m_wallet->key_on_device())
+    type = tr("Hardware");
+  // check other wallet types before is_deterministic(), because it also returns false for e.g. watch-only and HW wallets
+  else if (!m_wallet->is_deterministic())
+    type = tr("Non-deterministic");
   else
     type = tr("Normal");
-  message_writer() << tr("Type: ") << type;
+  message_writer() << tr("Wallet Type: ") << type;
   message_writer() << tr("Network type: ") << (
     m_wallet->nettype() == cryptonote::TESTNET ? tr("Testnet") :
     m_wallet->nettype() == cryptonote::STAGENET ? tr("Stagenet") : tr("Mainnet"));
@@ -9982,6 +9987,11 @@ bool simple_wallet::wallet_info(const std::vector<std::string> &args)
   else if (m_wallet->is_polyseed())
   {
     type = tr("Polyseed");
+  }
+  // e.g. watch-only and HW wallets also fall into this category
+  else if (!m_wallet->is_deterministic())
+  {
+    type = tr("None");
   }
   else
   {
