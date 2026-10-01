@@ -1699,6 +1699,17 @@ TEST(NetUtils, PrivateRanges)
   ASSERT_EQ(is_local("0.0.30.127"), false);
 }
 
+TEST(NetUtils, IPv4LinkLocalRange)
+{
+  EXPECT_FALSE(is_local("169.253.255.255"));
+  EXPECT_TRUE(is_local("169.254.0.0"));
+  EXPECT_TRUE(is_local("169.254.0.1"));
+  EXPECT_TRUE(is_local("169.254.169.254"));
+  EXPECT_TRUE(is_local("169.254.255.255"));
+  EXPECT_FALSE(is_local("169.255.0.0"));
+  EXPECT_FALSE(is_local("0.0.254.169"));
+}
+
 TEST(net_buffer, basic)
 {
   epee::net_utils::buffer buf;
