@@ -125,6 +125,12 @@ t_command_server::t_command_server(
     , "Stop mining."
     );
   m_command_lookup.set_handler(
+      "generate_blocks"
+    , std::bind(&t_command_parser_executor::generate_blocks, &m_parser, p::_1)
+    , "generate_blocks <addr> <numblocks> [<starting_nonce>]"
+    , "Generate blocks for the specified address in regtest mode."
+    );
+  m_command_lookup.set_handler(
       "mining_status"
     , std::bind(&t_command_parser_executor::mining_status, &m_parser, p::_1)
     , "Show current mining status."
