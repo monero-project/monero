@@ -2307,6 +2307,17 @@ void ge_mul8(ge_p1p1 *r, const ge_p2 *t) {
   ge_p2_dbl(r, &u);
 }
 
+void ge_clear_torsion_vartime(unsigned char *out, const ge_p3 *point) {
+  // mul by inv 8, then mul by 8
+  ge_p2 point_inv_8;
+  ge_scalarmult(&point_inv_8, sc_inv_eight, point);
+  ge_p1p1 point_inv_8_mul_8;
+  ge_mul8(&point_inv_8_mul_8, &point_inv_8);
+  ge_p3 torsion_cleared_point;
+  ge_p1p1_to_p3(&torsion_cleared_point, &point_inv_8_mul_8);
+  ge_p3_tobytes(out, &torsion_cleared_point);
+}
+
 void ge_fromfe_frombytes_vartime(ge_p2 *r, const unsigned char *s) {
   fe u, v, w, x, y, z;
   unsigned char sign;

@@ -39,6 +39,7 @@ using namespace epee;
 #include "misc_language.h"
 #include "common/base58.h"
 #include "crypto/hash.h"
+#include "ringct/rctOps.h"
 #include "int-util.h"
 #include "common/dns_utils.h"
 
@@ -172,6 +173,15 @@ namespace cryptonote {
     return tools::base58::encode_addr(integrated_address_prefix, t_serializable_object_to_blob(iadr));
   }
   //-----------------------------------------------------------------------
+  bool check_address(const account_public_address& adr)
+  {
+    const auto valid_key = [](const crypto::public_key& key) {
+      const rct::key point = rct::pk2rct(key);
+      return !(point == rct::identity()) && rct::isInMainSubgroup(point);
+    };
+    return valid_key(adr.m_spend_public_key) && valid_key(adr.m_view_public_key);
+  }
+
   bool get_account_address_from_str(
       address_parse_info& info
     , network_type nettype
@@ -233,12 +243,6 @@ namespace cryptonote {
           return false;
         }
       }
-
-      if (!crypto::check_key(info.address.m_spend_public_key) || !crypto::check_key(info.address.m_view_public_key))
-      {
-        LOG_PRINT_L1("Failed to validate address keys");
-        return false;
-      }
     }
     else
     {
@@ -272,6 +276,12 @@ namespace cryptonote {
       info.address = blob.m_address;
       info.is_subaddress = false;
       info.has_payment_id = false;
+    }
+
+    if (!check_address(info.address))
+    {
+      LOG_PRINT_L1("Failed to validate address keys");
+      return false;
     }
 
     return true;

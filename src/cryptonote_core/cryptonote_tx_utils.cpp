@@ -237,6 +237,9 @@ namespace cryptonote
       return false;
     }
 
+    for (const tx_destination_entry& destination : destinations)
+      CHECK_AND_ASSERT_MES(check_address(destination.addr), false, "Invalid destination address keys");
+
     boost::optional<cryptonote::subaddress_index> recognized_change_index;
     if (change_addr)
       recognized_change_index = sanity_check_change_address(*change_addr, subaddresses, sender_account_keys);
