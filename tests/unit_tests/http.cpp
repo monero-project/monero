@@ -849,6 +849,160 @@ TEST(HTTP_Server_Auth, DisableMD5_AcceptsSHA256)
   EXPECT_FALSE(bool(auth.get_response(request)));
 }
 
+TEST(HTTP_Server_Auth, DisableMD5_RejectsMD5Sess)
+{
+  // With "--disable-md5", MD5-sess auth response must be rejected
+  constexpr const char cnonce[] = "not a good cnonce";
+
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng, true};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+
+  const auto fields = parse_response(*response);
+  ASSERT_EQ(2u, fields.size());
+
+  const std::string& nonce = fields[0].at(u8"nonce");
+  const std::string uri{"/some_foo_thing"};
+
+  const std::string a1 = get_a1_sess(user, cnonce, fields);
+  const std::string a2 = get_a2(uri);
+
+  const std::string auth_code = md5_hex(
+    boost::join(std::vector<std::string>{md5_hex(a1), nonce, md5_hex(a2)}, u8":")
+  );
+
+  const auto request = make_request({
+    {u8"algorithm", u8"md5-sess"},
+    {u8"cnonce", quoted(cnonce)},
+    {u8"nonce", quoted(nonce)},
+    {u8"realm", quoted(fields[0].at(u8"realm"))},
+    {u8"response", quoted(auth_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  }, uri);
+
+  // MD5-sess auth must be rejected
+  const auto rejected = auth.get_response(request);
+  ASSERT_TRUE(bool(rejected));
+  EXPECT_TRUE(is_unauthorized(*rejected));
+}
+
+TEST(HTTP_Server_Auth, DisableMD5_AcceptsSHA256Sess)
+{
+  // With "--disable-md5", SHA-256-sess auth must still succeed
+  constexpr const char cnonce[] = "not a good cnonce";
+
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng, true};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+
+  const auto fields = parse_response(*response);
+  ASSERT_EQ(2u, fields.size());
+
+  const std::string& nonce = fields[0].at(u8"nonce");
+  const std::string uri{"/some_foo_thing"};
+
+  const std::string a1 = get_sha256_a1_sess(user, cnonce, fields);
+  const std::string a2 = get_a2(uri);
+
+  const std::string auth_code = sha256_hex(
+    boost::join(std::vector<std::string>{sha256_hex(a1), nonce, sha256_hex(a2)}, u8":")
+  );
+
+  const auto request = make_request({
+    {u8"algorithm", u8"sha-256-sess"},
+    {u8"cnonce", quoted(cnonce)},
+    {u8"nonce", quoted(nonce)},
+    {u8"realm", quoted(fields[0].at(u8"realm"))},
+    {u8"response", quoted(auth_code)},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  }, uri);
+
+  // SHA-256-sess auth must succeed
+  EXPECT_FALSE(bool(auth.get_response(request)));
+
+  // replay must be rejected with stale=true
+  const auto replay = auth.get_response(request);
+  ASSERT_TRUE(bool(replay));
+  EXPECT_TRUE(is_unauthorized(*replay));
+
+  const auto fields2 = parse_response(*replay);
+  ASSERT_EQ(2u, fields2.size());
+  EXPECT_NE(nonce, fields2[0].at(u8"nonce"));
+  EXPECT_STREQ(u8"true", fields2[0].at(u8"stale").c_str());
+}
+
+TEST(HTTP_Server_Auth, DisableMD5_AcceptsSHA256Auth)
+{
+  // With "--disable-md5", SHA-256 auth with qop=auth must succeed
+  constexpr const char cnonce[] = "not a nonce";
+  constexpr const char qop[] = "auth";
+
+  http::login user{"foo", "bar"};
+  http::http_server_auth auth{user, rng, true};
+
+  const auto response = auth.get_response(make_request(fields{}));
+  ASSERT_TRUE(bool(response));
+
+  const auto parsed = parse_response(*response);
+  ASSERT_EQ(2u, parsed.size());
+  EXPECT_TRUE(has_same_fields(parsed));
+
+  const std::string& nonce = parsed[0].at(u8"nonce");
+  const std::string uri{"/some_foo_thing"};
+
+  const std::string a1 = get_a1(user, parsed);
+  const std::string a2 = get_a2(uri);
+  std::string nc = get_nc(1);
+
+  const auto generate_auth = [&] {
+    return sha256_hex(
+      boost::join(
+        std::vector<std::string>{sha256_hex(a1), nonce, nc, cnonce, qop, sha256_hex(a2)}, u8":"
+      )
+    );
+  };
+
+  fields args{
+    {u8"algorithm", quoted(u8"sha-256")},
+    {u8"cnonce", quoted(cnonce)},
+    {u8"nc", nc},
+    {u8"nonce", quoted(nonce)},
+    {u8"qop", quoted(qop)},
+    {u8"realm", quoted(parsed[0].at(u8"realm"))},
+    {u8"response", quoted(generate_auth())},
+    {u8"uri", quoted(uri)},
+    {u8"username", quoted(user.username)}
+  };
+
+  const auto request = make_request(args, uri);
+  EXPECT_FALSE(bool(auth.get_response(request)));
+
+  for (unsigned i = 2; i < 20; ++i)
+  {
+    nc = get_nc(i);
+    args.at(u8"nc") = nc;
+    args.at(u8"response") = quoted(generate_auth());
+    EXPECT_FALSE(auth.get_response(make_request(args, uri)));
+  }
+
+  // replay must be rejected with stale=true
+  const auto replay = auth.get_response(request);
+  ASSERT_TRUE(bool(replay));
+  EXPECT_TRUE(is_unauthorized(*replay));
+
+  const auto parsed_replay = parse_response(*replay);
+  ASSERT_EQ(2u, parsed_replay.size());
+  EXPECT_TRUE(has_same_fields(parsed_replay));
+  EXPECT_NE(nonce, parsed_replay[0].at(u8"nonce"));
+  EXPECT_STREQ(u8"true", parsed_replay[0].at(u8"stale").c_str());
+}
+
 TEST(HTTP_Server_Auth, SHA256)
 {
   http::login user{"foo", "bar"};
