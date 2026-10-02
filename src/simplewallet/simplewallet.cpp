@@ -7728,15 +7728,7 @@ bool simple_wallet::accept_loaded_tx(const std::function<size_t()> get_num_txes,
           if (!payment_id_string.empty())
             payment_id_string += ", ";
 
-          // if none of the addresses are integrated addresses, it's a dummy one
-          bool is_dummy = true;
-          for (const auto &e: cd.dests)
-            if (e.is_integrated)
-              is_dummy = false;
-
-          CHECK_AND_ASSERT_MES(is_dummy == (payment_id8 == crypto::null_hash8), false, "Bad loaded tx: mismatched payment ID info");
-
-          if (is_dummy)
+          if (payment_id8 == crypto::null_hash8)
           {
             payment_id_string += std::string("dummy encrypted payment ID");
           }
