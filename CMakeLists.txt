@@ -473,7 +473,7 @@ elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
   set(BSDI TRUE)
 endif()
 
-include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external external/supercop/include external/polyseed/include external/utf8proc)
+include_directories(external/polyseed/include)
 
 option(STATIC "Link libraries statically" OFF)
 
@@ -641,23 +641,14 @@ function (monero_add_library_with_deps)
   set_property(TARGET "${MONERO_ADD_LIBRARY_NAME}" PROPERTY FOLDER "libs")
   target_compile_definitions(${objlib}
     PRIVATE $<TARGET_PROPERTY:${MONERO_ADD_LIBRARY_NAME},INTERFACE_COMPILE_DEFINITIONS>)
+  # Propagate inherited include diretories of target to its obj_* counterparts
+  target_include_directories(${objlib}
+    PRIVATE $<TARGET_PROPERTY:${MONERO_ADD_LIBRARY_NAME},INCLUDE_DIRECTORIES>)
+  target_include_directories(${objlib}
+    PRIVATE $<TARGET_PROPERTY:${MONERO_ADD_LIBRARY_NAME},INTERFACE_INCLUDE_DIRECTORIES>)
 endfunction ()
 
 add_subdirectory(external)
-
-# Final setup for libunbound
-include_directories(${UNBOUND_INCLUDE_DIR})
-
-# Final setup for easylogging++
-include_directories(${EASYLOGGING_INCLUDE})
-link_directories(${EASYLOGGING_LIBRARY_DIRS})
-
-# Final setup for liblmdb
-include_directories(${LMDB_INCLUDE})
-
-# Final setup for libunwind
-include_directories(${LIBUNWIND_INCLUDE})
-link_directories(${LIBUNWIND_LIBRARY_DIRS})
 
 # Final setup for hid
 if (HIDAPI_FOUND) 

@@ -39,8 +39,6 @@ set (lmdb_sources
 mdb.c
 midl.c)
 
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
-
 add_library(lmdb
   ${lmdb_sources})
 target_link_libraries(lmdb
@@ -50,6 +48,7 @@ if(${ARCH_WIDTH} EQUAL 32)
   target_compile_definitions(lmdb
     PUBLIC -DMDB_VL32)
 endif()
+target_include_directories(lmdb PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 
 # GUI/libwallet install target
 if (BUILD_GUI_DEPS)

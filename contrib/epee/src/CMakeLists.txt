@@ -42,6 +42,7 @@ monero_add_library(epee byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_cli
 
 if (USE_READLINE AND (GNU_READLINE_FOUND OR (DEPENDS AND NOT MINGW)))
   monero_add_library(epee_readline readline_buffer.cpp)
+  target_include_directories(epee_readline PRIVATE "${EPEE_INCLUDE_DIR_BASE}")
 endif()
 
 set_property(SOURCE memwipe.c PROPERTY C_STANDARD 11)
