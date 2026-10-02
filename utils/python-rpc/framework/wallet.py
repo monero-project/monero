@@ -431,7 +431,7 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(incoming_transfers)
 
-    def get_transfers(self, in_ = True, out = True, pending = True, failed = True, pool = True, min_height = None, max_height = None, account_index = 0, subaddr_indices = [], all_accounts = False):
+    def get_transfers(self, in_ = True, out = True, pending = True, failed = True, pool = True, min_height = None, max_height = None, account_index = 0, subaddr_indices = [], all_accounts = False, refresh_pool = True):
         get_transfers = {
             'method': 'get_transfers',
             'params' : {
@@ -450,6 +450,8 @@ class Wallet(object):
             'jsonrpc': '2.0', 
             'id': '0'
         }
+        if not refresh_pool:
+            get_transfers['params']['refresh_pool'] = False
         return self.rpc.send_json_rpc_request(get_transfers)
 
     def make_integrated_address(self, standard_address = '', payment_id = ''):
