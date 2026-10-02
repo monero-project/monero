@@ -2600,7 +2600,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             {
               THROW_WALLET_EXCEPTION_IF(m_multisig_rescan_k.empty() && !m_multisig_rescan_info.empty(),
                   error::wallet_internal_error, "NULL m_multisig_rescan_k");
-              if (!m_multisig_rescan_info.empty() && m_multisig_rescan_info.front().size() >= m_transfers.size())
+              if (m_multisig_rescan_info.size() >= m_transfers.size())
                 update_multisig_rescan_info(m_multisig_rescan_k, m_multisig_rescan_info, m_transfers.size() - 1);
             }
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
@@ -2682,7 +2682,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             {
               THROW_WALLET_EXCEPTION_IF(m_multisig_rescan_k.empty() && !m_multisig_rescan_info.empty(),
                   error::wallet_internal_error, "NULL m_multisig_rescan_k");
-              if (!m_multisig_rescan_info.empty() && m_multisig_rescan_info.front().size() >= m_transfers.size())
+              if (m_multisig_rescan_info.size() >= m_transfers.size())
                 update_multisig_rescan_info(m_multisig_rescan_k, m_multisig_rescan_info, m_transfers.size() - 1);
             }
             THROW_WALLET_EXCEPTION_IF(td.get_public_key() != tx_scan_info[o].in_ephemeral.pub, error::wallet_internal_error, "Inconsistent public keys");
@@ -15632,15 +15632,11 @@ void wallet2::update_multisig_rescan_info(const std::vector<std::vector<rct::key
 {
   CHECK_AND_ASSERT_THROW_MES(n < m_transfers.size(), "Bad index in update_multisig_info");
   CHECK_AND_ASSERT_THROW_MES(multisig_k.size() >= m_transfers.size(), "Mismatched sizes of multisig_k and info");
+  CHECK_AND_ASSERT_THROW_MES(n < info.size(), "Bad multisig info size");
 
   MDEBUG("update_multisig_rescan_info: updating index " << n);
   transfer_details &td = m_transfers[n];
-  td.m_multisig_info.clear();
-  for (const auto &pi: info)
-  {
-    CHECK_AND_ASSERT_THROW_MES(n < pi.size(), "Bad pi size");
-    td.m_multisig_info.push_back(pi[n]);
-  }
+  td.m_multisig_info = info[n];
   m_key_images.erase(td.m_key_image);
   td.m_key_image = get_multisig_composite_key_image(n);
   td.m_key_image_known = true;
@@ -15732,12 +15728,14 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs, bool re
 
   std::vector<std::vector<rct::key>> k;
   auto wiper = epee::misc_utils::create_scope_leave_handler([&](){for (auto &v: k) memwipe(v.data(), v.size() * sizeof(v[0]));});
-  k.reserve(m_transfers.size());
+  k.reserve(std::max(m_transfers.size(), m_multisig_rescan_k.size()));
   for (const auto &td: m_transfers)
     k.push_back(td.m_multisig_k);
+  for (size_t n = m_transfers.size(); n < m_multisig_rescan_k.size(); ++n)
+    k.push_back(m_multisig_rescan_k[n]);
 
   // how many outputs we're going to update
-  size_t n_outputs = m_transfers.size();
+  size_t n_outputs = k.size();
   for (const auto &pi: info)
     if (pi.size() < n_outputs)
       n_outputs = pi.size();
@@ -15764,14 +15762,25 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs, bool re
     std::sort(info.begin(), info.end(), [](const std::vector<tools::wallet2::multisig_info> &i0, const std::vector<tools::wallet2::multisig_info> &i1){ return memcmp(&i0[0].m_signer, &i1[0].m_signer, sizeof(i0[0].m_signer)) < 0; });
   }
 
-  // wipe prior pending rescan state and install its replacement only after full validation
+  auto rescan_info = m_multisig_rescan_info;
+  rescan_info.resize(std::max(rescan_info.size(), n_outputs));
+  for (size_t n = 0; n < n_outputs; ++n)
+  {
+    auto &output_info = rescan_info[n];
+    output_info.clear();
+    output_info.reserve(info.size());
+    for (auto &pi: info)
+      output_info.push_back(std::move(pi[n]));
+  }
+
+  // Install the updated rescan state after validation.
   for (auto &v: m_multisig_rescan_k)
     memwipe(v.data(), v.size() * sizeof(v[0]));
-  m_multisig_rescan_info = std::move(info);
+  m_multisig_rescan_info = std::move(rescan_info);
   m_multisig_rescan_k = std::move(k);
 
   // first pass to determine where to detach the blockchain
-  for (size_t n = 0; n < n_outputs; ++n)
+  for (size_t n = 0; n < n_outputs && n < m_transfers.size(); ++n)
   {
     const transfer_details &td = m_transfers[n];
     if (!td.m_key_image_partial)
