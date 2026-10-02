@@ -167,14 +167,14 @@ namespace
   //! MD5 algo. Marked "historic" by RFC 7616; retained for backwards compatibility
   struct md5_ : digest_base_<EVP_md5, 16>
   {
-    static constexpr const boost::string_ref name = ceref(u8"MD5");
+    static constexpr const boost::string_ref name = ceref("MD5");
   };
   constexpr const boost::string_ref md5_::name;
 
   //! SHA-256 algo
   struct sha256_ : digest_base_<EVP_sha256, 32>
   {
-    static constexpr const boost::string_ref name = ceref(u8"SHA-256");
+    static constexpr const boost::string_ref name = ceref("SHA-256");
   };
   constexpr const boost::string_ref sha256_::name;
 
