@@ -13868,14 +13868,15 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
       // create outgoing payment
       process_outgoing(*spent_txid, spent_tx, e.block_height, e.block_timestamp, tx_money_spent_in_ins, tx_money_got_in_outs, subaddr_account, subaddr_indices);
 
-      // erase corresponding incoming payment
-      for (auto j = m_payments.begin(); j != m_payments.end(); ++j)
+      // erase incoming payment(s) that were actually just change back to the spending
+      // account; a tx can pay more than one of our subaddresses, and payments to other
+      // accounts are genuine incoming payments from their point of view, so keep those
+      for (auto j = m_payments.begin(); j != m_payments.end(); )
       {
-        if (j->second.m_tx_hash == *spent_txid)
-        {
-          m_payments.erase(j);
-          break;
-        }
+        if (j->second.m_tx_hash == *spent_txid && j->second.m_subaddr_index.major == subaddr_account)
+          j = m_payments.erase(j);
+        else
+          ++j;
       }
 
       ++spent_txid;
