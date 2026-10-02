@@ -122,11 +122,18 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.28")
   set(CARGO_JOB_SERVER_AWARE JOB_SERVER_AWARE TRUE)
 endif()
 
+if(CMAKE_HOST_UNIX)
+  # Preserve GNU Make jobserver file descriptors, which cmake -E env closes.
+  set(CARGO_ENV env)
+else()
+  set(CARGO_ENV ${CMAKE_COMMAND} -E env)
+endif()
+
 add_custom_command(
   COMMENT "Building fcmp++ rust lib"
   OUTPUT ${FCMP_PP_RUST_HEADER}
   OUTPUT ${FCMP_PP_RUST_LIB}
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR} ${CARGO_CMD}
+  COMMAND ${CARGO_ENV} CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR} ${CARGO_CMD}
   COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/fcmp++.h ${FCMP_PP_RUST_HEADER}
   COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/${RUST_TARGET}/${TARGET_DIR}/libfcmp_pp_rust.a ${FCMP_PP_RUST_LIB}
   COMMAND echo "Finished copying fcmp++ rust targets"
