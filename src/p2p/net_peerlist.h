@@ -36,6 +36,7 @@
 #include <string>
 #include <vector>
 
+#include <boost/asio/ip/address_v6.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/identity.hpp>
@@ -52,6 +53,20 @@
 
 namespace nodetool
 {
+  inline bool is_forbidden_ipv6_address(const epee::net_utils::network_address& address)
+  {
+    if (address.get_type_id() != epee::net_utils::ipv6_network_address::get_type_id())
+      return false;
+
+    const boost::asio::ip::address_v6 ip = address.as<const epee::net_utils::ipv6_network_address>().ip();
+    return ip.is_v4_mapped() || ip.is_unspecified();
+  }
+
+  //! Applies the peer acceptance rules shared by node_server and the peer list fuzzer: drops
+  //! forbidden IPv6 (IPv4-mapped and unspecified), loopback/local, all-zero IPv4 and RPC-on-P2P-port
+  //! addresses and invalid pruning seeds, and clears last_seen on the kept entries.
+  void sanitize_peerlist(std::vector<peerlist_entry>& local_peerlist);
+
   struct peerlist_types
   {
     std::vector<peerlist_entry> white;
