@@ -135,6 +135,7 @@ void ge_triple_scalarmult_precomp_vartime(ge_p2 *, const unsigned char *, const 
 void ge_double_scalarmult_precomp_vartime2(ge_p2 *, const unsigned char *, const ge_dsmp, const unsigned char *, const ge_dsmp);
 void ge_double_scalarmult_precomp_vartime2_p3(ge_p3 *, const unsigned char *, const ge_dsmp, const unsigned char *, const ge_dsmp);
 void ge_mul8(ge_p1p1 *, const ge_p2 *);
+void ge_clear_torsion_vartime(unsigned char *, const ge_p3 *);
 extern const fe fe_ma2;
 extern const fe fe_ma;
 extern const fe fe_fffb1;
@@ -143,6 +144,7 @@ extern const fe fe_fffb3;
 extern const fe fe_fffb4;
 extern const ge_p3 ge_p3_identity;
 extern const ge_p3 ge_p3_H;
+extern const unsigned char sc_inv_eight[32];
 void ge_fromfe_frombytes_vartime(ge_p2 *, const unsigned char *);
 void sc_0(unsigned char *);
 void sc_reduce32(unsigned char *);

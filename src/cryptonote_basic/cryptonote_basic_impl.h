@@ -95,6 +95,8 @@ namespace cryptonote {
     , const crypto::hash8& payment_id
     );
 
+  bool check_address(const account_public_address& adr);
+
   bool get_account_address_from_str(
       address_parse_info& info
     , network_type nettype
