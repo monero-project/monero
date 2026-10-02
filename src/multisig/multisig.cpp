@@ -33,6 +33,7 @@
 #include "include_base_utils.h"
 #include "multisig.h"
 #include "ringct/rctOps.h"
+#include "common/combinator.h"
 
 #include <algorithm>
 #include <unordered_map>
@@ -90,6 +91,8 @@ namespace multisig
     const std::vector<crypto::public_key> &additional_tx_public_keys,
     std::size_t real_output_index,
     const std::vector<crypto::key_image> &pkis,
+    std::size_t num_signers,
+    std::size_t threshold,
     crypto::key_image &ki)
   {
     // create a multisig partial key image
@@ -133,6 +136,12 @@ namespace multisig
     // at the end, 'ki' will hold the true key image for our output if inputs were sufficient
     // - if 'pkis' (the other participants' KI components) is missing some components
     //   then 'ki' will not be complete
+
+    // a right-sized 'used' doesn't prove 'ki' is correct, but a wrong-sized one does prove it's
+    // incomplete or was built from duplicate/extraneous components, so reject that case here
+    // instead of silently returning a bad key image.
+    const std::size_t expected_num_key_image_components = tools::combinations_count(num_signers - threshold + 1, num_signers);
+    if (used.size() != expected_num_key_image_components) return false;
 
     return true;
   }

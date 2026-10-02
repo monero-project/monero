@@ -42,6 +42,7 @@ DISABLE_VS_WARNINGS(4146 4244)
 static void ge_madd(ge_p1p1 *, const ge_p3 *, const ge_precomp *);
 static void ge_msub(ge_p1p1 *, const ge_p3 *, const ge_precomp *);
 static void ge_p2_0(ge_p2 *);
+static void ge_p3_0(ge_p3 *);
 static void fe_divpowm1(fe, const fe, const fe);
 
 /* Common functions */
@@ -1340,6 +1341,7 @@ void ge_double_scalarmult_base_vartime_p3(ge_p3 *r3, const unsigned char *a, con
   ge_dsm_precomp(Ai, A);
 
   ge_p2_0(&r);
+  ge_p3_0(r3);
 
   for (i = 255; i >= 0; --i) {
     if (aslide[i] || bslide[i]) break;
@@ -2308,6 +2310,7 @@ void ge_double_scalarmult_precomp_vartime2_p3(ge_p3 *r3, const unsigned char *a,
   slide(bslide, b);
 
   ge_p2_0(&r);
+  ge_p3_0(r3);
 
   for (i = 255; i >= 0; --i) {
     if (aslide[i] || bslide[i]) break;

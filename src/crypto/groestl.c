@@ -9,6 +9,7 @@
  */
 
 #include <stddef.h>
+#include <string.h>
 #include "groestl.h"
 #include "groestl_tables.h"
 
@@ -124,7 +125,7 @@ static void RND512Q(uint8_t *x, uint32_t *y, uint32_t r) {
 }
 
 /* compute compression function (short variants) */
-static void F512(uint32_t *h, const uint32_t *m) {
+static void F512(uint32_t *h, const uint8_t *m) {
   int i;
   uint32_t Ptmp[2*COLS512];
   uint32_t Qtmp[2*COLS512];
@@ -132,8 +133,10 @@ static void F512(uint32_t *h, const uint32_t *m) {
   uint32_t z[2*COLS512];
 
   for (i = 0; i < 2*COLS512; i++) {
-    z[i] = m[i];
-    Ptmp[i] = h[i]^m[i];
+    uint32_t word;
+    memcpy(&word, m + i*sizeof(word), sizeof(word));
+    z[i] = word;
+    Ptmp[i] = h[i]^word;
   }
 
   /* compute Q(m) */
@@ -175,7 +178,7 @@ static void Transform(hashState *ctx,
   /* digest message, one block at a time */
   for (; msglen >= SIZE512; 
        msglen -= SIZE512, input += SIZE512) {
-    F512(ctx->chaining,(uint32_t*)input);
+    F512(ctx->chaining, input);
 
     /* increment block counter */
     ctx->block_counter1++;

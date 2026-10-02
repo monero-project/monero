@@ -68,6 +68,7 @@ namespace cryptonote
       const command_line::arg_descriptor<bool> rpc_ssl_allow_chained;
       const command_line::arg_descriptor<bool> rpc_ssl_allow_any_cert;
       const command_line::arg_descriptor<bool> disable_rpc_ban;
+      const command_line::arg_descriptor<bool> disable_md5;
     };
 
     // `allow_any_cert` bool toggles `--rpc-ssl-allow-any-cert` configuration
@@ -91,5 +92,6 @@ namespace cryptonote
     boost::optional<tools::login> login; // currently `boost::none` if unspecified by user
     epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
     bool disable_rpc_ban = false;
+    bool disable_md5 = false;
   };
 }

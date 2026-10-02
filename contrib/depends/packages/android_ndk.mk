@@ -1,8 +1,8 @@
 package=android_ndk
-$(package)_version=27c
+$(package)_version=30
 $(package)_download_path=https://dl.google.com/android/repository/
 $(package)_file_name=android-ndk-r$($(package)_version)-linux.zip
-$(package)_sha256_hash=59c2f6dc96743b5daf5d1626684640b20a6bd2b1d85b13156b90333741bad5cc
+$(package)_sha256_hash=753611f410d002cfcd3f3dc2ef49aad532089d3180b436c060a90bf0fcb64df2
 
 define $(package)_extract_cmds
   echo $($(package)_sha256_hash) $($(1)_source_dir)/$($(package)_file_name) | sha256sum -c &&\

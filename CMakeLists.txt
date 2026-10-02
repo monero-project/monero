@@ -433,6 +433,8 @@ if(NOT MANUAL_SUBMODULES)
     check_submodule(external/rapidjson)
     check_submodule(external/randomx)
     check_submodule(external/supercop)
+    check_submodule(external/polyseed)
+    check_submodule(external/utf8proc)
   endif()
 endif()
 
@@ -504,7 +506,7 @@ elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
   set(BSDI TRUE)
 endif()
 
-include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external external/supercop/include)
+include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external external/supercop/include external/polyseed/include external/utf8proc)
 
 option(STATIC "Link libraries statically" OFF)
 
@@ -615,7 +617,6 @@ find_package(HIDAPI)
 
 add_definition_if_library_exists(c memset_s "string.h" HAVE_MEMSET_S)
 add_definition_if_library_exists(c explicit_bzero "strings.h" HAVE_EXPLICIT_BZERO)
-add_definition_if_function_found(strptime HAVE_STRPTIME)
 
 add_definitions(-DAUTO_INITIALIZE_EASYLOGGINGPP)
 
@@ -789,6 +790,18 @@ include(CheckTrezor)
   set(C_WARNINGS "-Waggregate-return -Wnested-externs -Wold-style-definition -Wstrict-prototypes")
   set(CXX_WARNINGS "-Wno-reorder -Wno-missing-field-initializers")
 
+  add_c_flag_if_supported(-Wimplicit-fallthrough C_WARNINGS)
+  add_cxx_flag_if_supported(-Wimplicit-fallthrough-per-function CXX_WARNINGS)
+  add_c_flag_if_supported(-Wredundant-decls C_WARNINGS)
+  add_cxx_flag_if_supported(-Wredundant-decls CXX_WARNINGS)
+
+  add_c_flag_if_supported(-Wduplicated-branches C_WARNINGS)
+  add_cxx_flag_if_supported(-Wduplicated-branches CXX_WARNINGS)
+  add_c_flag_if_supported(-Wduplicated-cond C_WARNINGS)
+  add_cxx_flag_if_supported(-Wduplicated-cond CXX_WARNINGS)
+
+  add_cxx_flag_if_supported(-Woverloaded-virtual CXX_WARNINGS)
+
   monero_enable_coverage()
   # With GCC 6.1.1 the compiled binary malfunctions due to aliasing. Until that
   # is fixed in the code (Issue #847), force compiler to be conservative.
@@ -797,15 +810,18 @@ include(CheckTrezor)
 
   # if those don't work for your compiler, single it out where appropriate
   if(CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT OPENBSD)
-    set(C_SECURITY_FLAGS "${C_SECURITY_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1")
-    set(CXX_SECURITY_FLAGS "${CXX_SECURITY_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1")
+    set(C_SECURITY_FLAGS "${C_SECURITY_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2")
+    set(CXX_SECURITY_FLAGS "${CXX_SECURITY_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2")
   endif()
 
   # warnings
   add_c_flag_if_supported(-Wformat C_SECURITY_FLAGS)
   add_cxx_flag_if_supported(-Wformat CXX_SECURITY_FLAGS)
-  add_c_flag_if_supported(-Wformat-security C_SECURITY_FLAGS)
-  add_cxx_flag_if_supported(-Wformat-security CXX_SECURITY_FLAGS)
+  add_c_flag_if_supported("-Wformat -Wformat-security" C_SECURITY_FLAGS)
+  add_cxx_flag_if_supported("-Wformat -Wformat-security" CXX_SECURITY_FLAGS)
+
+  add_c_flag_if_supported(-Wbidi-chars=any C_SECURITY_FLAGS)
+  add_cxx_flag_if_supported(-Wbidi-chars=any CXX_SECURITY_FLAGS)
 
   # -fstack-protector
   if (NOT OPENBSD AND NOT (WIN32 AND (CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_C_COMPILER_VERSION VERSION_LESS 9.1)))
@@ -867,6 +883,8 @@ include(CheckTrezor)
   add_cxx_flag_if_supported(-Werror=switch      CXX_SECURITY_FLAGS)
   add_c_flag_if_supported(  -Werror=return-type C_SECURITY_FLAGS)
   add_cxx_flag_if_supported(-Werror=return-type CXX_SECURITY_FLAGS)
+  add_c_flag_if_supported(  "-Wformat -Werror=format-security" C_SECURITY_FLAGS)
+  add_cxx_flag_if_supported("-Wformat -Werror=format-security" CXX_SECURITY_FLAGS)
 
   # A missing WinAPI prototype (e.g. TryAcquireSRWLock*) must fail the build
   if(MINGW)
@@ -880,6 +898,10 @@ include(CheckTrezor)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE ${MINGW_FLAG} ${STATIC_ASSERT_FLAG} ${WARNINGS} ${C_WARNINGS} ${PIC_FLAG} ${C_SECURITY_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GNU_SOURCE ${MINGW_FLAG} ${WARNINGS} ${CXX_WARNINGS} ${PIC_FLAG} ${CXX_SECURITY_FLAGS}")
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LD_SECURITY_FLAGS}")
+
+  # external/ is added before the hardening flags are computed
+  # apply them to its input-facing C libraries
+  set_property(TARGET polyseed_static utf8proc APPEND_STRING PROPERTY COMPILE_FLAGS " ${C_SECURITY_FLAGS}")
 
   # With GCC 6.1.1 the compiled binary malfunctions due to aliasing. Until that
   # is fixed in the code (Issue #847), force compiler to be conservative.
@@ -959,6 +981,11 @@ if(STATIC)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${STATIC_FLAGS} ")
 endif()
 
+if(STATIC)
+  set(Boost_USE_STATIC_LIBS ON)
+  set(Boost_USE_STATIC_RUNTIME ON)
+endif()
+
 # Find Boost headers
 set(BOOST_MIN_VER 1.69)
 find_package(Boost ${BOOST_MIN_VER} QUIET REQUIRED CONFIG)
@@ -1008,6 +1035,12 @@ elseif(NOT DEPENDS)
 endif()
 
 list(APPEND EXTRA_LIBRARIES ${CMAKE_DL_LIBS})
+
+# GCC 8.x and earlier require explicit linking for std::filesystem
+# See: https://gitlab.kitware.com/cmake/cmake/-/work_items/17834
+if ((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") AND (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0))
+  list(APPEND EXTRA_LIBRARIES "stdc++fs")
+endif()
 
 if(NOT OPENBSD)
   option(USE_READLINE "Build with GNU readline support." ON)

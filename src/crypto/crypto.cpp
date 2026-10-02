@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -34,11 +34,13 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <random>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
 #include <boost/shared_ptr.hpp>
 
 #include "common/varint.h"
+#include "hex.h"
 #include "warnings.h"
 #include "crypto.h"
 #include "hash.h"
@@ -75,6 +77,8 @@ namespace crypto {
   const crypto::public_key null_pkey = crypto::public_key{};
   const crypto::secret_key null_skey = crypto::secret_key{};
 
+  static constexpr ec_point infinity = {{1}};
+
   static inline unsigned char *operator &(ec_point &point) {
     return &reinterpret_cast<unsigned char &>(point);
   }
@@ -91,7 +95,7 @@ namespace crypto {
     return &reinterpret_cast<const unsigned char &>(scalar);
   }
 
-  boost::mutex &get_random_lock()
+  static boost::mutex &get_random_lock()
   {
     static boost::mutex random_lock;
     return random_lock;
@@ -107,6 +111,48 @@ namespace crypto {
   {
     boost::lock_guard<boost::mutex> lock(get_random_lock());
     add_extra_entropy_not_thread_safe(ptr, bytes);
+  }
+
+  template<typename T>
+  typename std::enable_if<std::is_integral<T>::value, T>::type rand_range(T range_min, T range_max) {
+    crypto::random_device rd;
+    std::uniform_int_distribution<T> dis(range_min, range_max);
+    return dis(rd);
+  }
+  #define INSTANTIATE_RAND_RANGE(t) template t rand_range<t>(t,t);
+  INSTANTIATE_RAND_RANGE(long)
+  INSTANTIATE_RAND_RANGE(long long)
+  INSTANTIATE_RAND_RANGE(unsigned)
+  INSTANTIATE_RAND_RANGE(unsigned long)
+  INSTANTIATE_RAND_RANGE(unsigned long long)
+  #undef INSTANTIATE_RAND_RANGE
+
+  std::ostream &operator <<(std::ostream &o, const crypto::public_key &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+
+  std::ostream &operator <<(std::ostream &o, const secret_key_explicit_print_ref v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(unwrap(unwrap(v.sk)))); return o;
+  }
+
+  std::ostream &operator <<(std::ostream &o, const crypto::key_derivation &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+
+  std::ostream &operator <<(std::ostream &o, const crypto::key_image &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+
+  std::ostream &operator <<(std::ostream &o, const crypto::signature &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+
+  std::ostream &operator <<(std::ostream &o, const crypto::view_tag &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
+  }
+
+  std::ostream &operator <<(std::ostream &o, const crypto::ec_point &v) {
+    epee::to_hex::formatted(o, epee::as_byte_span(v)); return o;
   }
 
   static inline bool less32(const unsigned char *k0, const unsigned char *k1)
@@ -333,7 +379,6 @@ namespace crypto {
     }
     ge_double_scalarmult_base_vartime(&tmp2, &sig.c, &tmp3, &sig.r);
     ge_tobytes(&buf.comm, &tmp2);
-    static const ec_point infinity = {{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
     if (memcmp(&buf.comm, &infinity, 32) == 0)
       return false;
     hash_to_scalar(&buf, sizeof(s_comm), c);
@@ -771,10 +816,15 @@ POP_WARNINGS
       assert(check_key(*pubs[i]));
     }
 #endif
+    if (0 == memcmp(image.data, infinity.data, sizeof(image)))
+      return false; // false if key image is identity
     if (ge_frombytes_vartime(&image_unp, &image) != 0) {
       return false;
     }
     ge_dsm_precomp(image_pre, &image_unp);
+    ge_scalarmult_p3(&image_unp, sc_l, &image_unp);
+    if (!ge_p3_is_point_at_infinity_vartime(&image_unp))
+      return false; // false if key image is torsioned
     sc_0(&sum);
     buf->h = prefix_hash;
     for (i = 0; i < pubs_count; i++) {

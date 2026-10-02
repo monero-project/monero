@@ -346,7 +346,7 @@ namespace rct {
           {
             ar.tag("pseudoOuts");
             ar.begin_array();
-            PREPARE_CUSTOM_VECTOR_SERIALIZATION(inputs, pseudoOuts);
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(inputs, pseudoOuts, sizeof(key));
             if (pseudoOuts.size() != inputs)
               return false;
             for (size_t i = 0; i < inputs; ++i)
@@ -360,12 +360,18 @@ namespace rct {
 
           ar.tag("ecdhInfo");
           ar.begin_array();
-          PREPARE_CUSTOM_VECTOR_SERIALIZATION(outputs, ecdhInfo);
+
+          const bool compressed_ecdh =
+            (type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus);
+          const std::size_t min_size = compressed_ecdh ? sizeof(crypto::hash8) : sizeof(key) * 2;
+
+          PREPARE_CUSTOM_VECTOR_SERIALIZATION(outputs, ecdhInfo, min_size);
           if (ecdhInfo.size() != outputs)
             return false;
+
           for (size_t i = 0; i < outputs; ++i)
           {
-            if (type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus)
+            if (compressed_ecdh)
             {
               // Since RCTTypeBulletproof2 enote types, we don't serialize the blinding factor, and only serialize the
               // first 8 bytes of ecdhInfo[i].amount
@@ -391,7 +397,7 @@ namespace rct {
 
           ar.tag("outPk");
           ar.begin_array();
-          PREPARE_CUSTOM_VECTOR_SERIALIZATION(outputs, outPk);
+          PREPARE_CUSTOM_VECTOR_SERIALIZATION(outputs, outPk, sizeof(key));
           if (outPk.size() != outputs)
             return false;
           for (size_t i = 0; i < outputs; ++i)
@@ -444,7 +450,7 @@ namespace rct {
             ar.begin_array();
             if (nbp > outputs)
               return false;
-            PREPARE_CUSTOM_VECTOR_SERIALIZATION(nbp, bulletproofs_plus);
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(nbp, bulletproofs_plus, sizeof(key) * 6);
             for (size_t i = 0; i < nbp; ++i)
             {
               FIELDS(bulletproofs_plus[i])
@@ -466,7 +472,7 @@ namespace rct {
             ar.begin_array();
             if (nbp > outputs)
               return false;
-            PREPARE_CUSTOM_VECTOR_SERIALIZATION(nbp, bulletproofs);
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(nbp, bulletproofs, sizeof(key) * 9);
             for (size_t i = 0; i < nbp; ++i)
             {
               FIELDS(bulletproofs[i])
@@ -481,7 +487,7 @@ namespace rct {
           {
             ar.tag("rangeSigs");
             ar.begin_array();
-            PREPARE_CUSTOM_VECTOR_SERIALIZATION(outputs, rangeSigs);
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(outputs, rangeSigs, sizeof(key) * 193);
             if (rangeSigs.size() != outputs)
               return false;
             for (size_t i = 0; i < outputs; ++i)
@@ -497,7 +503,7 @@ namespace rct {
           {
             ar.tag("CLSAGs");
             ar.begin_array();
-            PREPARE_CUSTOM_VECTOR_SERIALIZATION(inputs, CLSAGs);
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(inputs, CLSAGs, sizeof(key) * 3);
             if (CLSAGs.size() != inputs)
               return false;
             for (size_t i = 0; i < inputs; ++i)
@@ -508,7 +514,7 @@ namespace rct {
               ar.begin_object();
               ar.tag("s");
               ar.begin_array();
-              PREPARE_CUSTOM_VECTOR_SERIALIZATION(mixin + 1, CLSAGs[i].s);
+              PREPARE_CUSTOM_VECTOR_SERIALIZATION(mixin + 1, CLSAGs[i].s, sizeof(key));
               if (CLSAGs[i].s.size() != mixin + 1)
                 return false;
               for (size_t j = 0; j <= mixin; ++j)
@@ -540,9 +546,12 @@ namespace rct {
             // we keep a byte for size of MGs, because we don't know whether this is
             // a simple or full rct signature, and it's starting to annoy the hell out of me
             size_t mg_elements = (type == RCTTypeSimple || type == RCTTypeBulletproof || type == RCTTypeBulletproof2) ? inputs : 1;
-            PREPARE_CUSTOM_VECTOR_SERIALIZATION(mg_elements, MGs);
+
+            // Each MGs has `cc` (`key`) AND at least 1 MGs[i].ss which has at least 1 `key`
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(mg_elements, MGs, sizeof(key) * 2);
             if (MGs.size() != mg_elements)
               return false;
+
             for (size_t i = 0; i < mg_elements; ++i)
             {
               // we save the MGs contents directly, because we want it to save its
@@ -551,14 +560,17 @@ namespace rct {
               ar.begin_object();
               ar.tag("ss");
               ar.begin_array();
-              PREPARE_CUSTOM_VECTOR_SERIALIZATION(mixin + 1, MGs[i].ss);
+
+              // each MGs[i].ss has at least one `key`
+              PREPARE_CUSTOM_VECTOR_SERIALIZATION(mixin + 1,MGs[i].ss, sizeof(key));
               if (MGs[i].ss.size() != mixin + 1)
                 return false;
+
               for (size_t j = 0; j < mixin + 1; ++j)
               {
                 ar.begin_array();
                 size_t mg_ss2_elements = ((type == RCTTypeSimple || type == RCTTypeBulletproof || type == RCTTypeBulletproof2) ? 1 : inputs) + 1;
-                PREPARE_CUSTOM_VECTOR_SERIALIZATION(mg_ss2_elements, MGs[i].ss[j]);
+                PREPARE_CUSTOM_VECTOR_SERIALIZATION(mg_ss2_elements, MGs[i].ss[j], sizeof(key));
                 if (MGs[i].ss[j].size() != mg_ss2_elements)
                   return false;
                 for (size_t k = 0; k < mg_ss2_elements; ++k)
@@ -588,7 +600,7 @@ namespace rct {
           {
             ar.tag("pseudoOuts");
             ar.begin_array();
-            PREPARE_CUSTOM_VECTOR_SERIALIZATION(inputs, pseudoOuts);
+            PREPARE_CUSTOM_VECTOR_SERIALIZATION(inputs, pseudoOuts, sizeof(key));
             if (pseudoOuts.size() != inputs)
               return false;
             for (size_t i = 0; i < inputs; ++i)

@@ -75,7 +75,7 @@ if(DEVICE_TREZOR_READY)
         message(STATUS "Trezor: debugging enabled")
     endif()
 
-    if(ANDROID)
+    if(ANDROID AND NOT DEPENDS)
         set(TREZOR_EXTRA_LIBRARIES "log")
     endif()
 

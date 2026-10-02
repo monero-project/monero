@@ -732,7 +732,8 @@ namespace levin
       const auto now = std::chrono::steady_clock::now();
       const auto min_epoch = noise_enabled ? noise_min_epoch : dandelionpp_min_epoch;
       const auto epoch_range = noise_enabled ? noise_epoch_range : dandelionpp_epoch_range;
-      const std::size_t out_count = noise_enabled ? CRYPTONOTE_NOISE_CHANNELS : CRYPTONOTE_DANDELIONPP_STEMS;
+      static_assert(CRYPTONOTE_NOISE_CHANNELS == CRYPTONOTE_DANDELIONPP_STEMS, "expected noise and dandelion++ channel counts to match");
+      const std::size_t out_count = CRYPTONOTE_NOISE_CHANNELS;
 
       start_epoch{zone_, min_epoch, epoch_range, out_count, core_}();
 
@@ -890,7 +891,7 @@ namespace levin
             );
             break;
           }
-          /* fallthrough */
+          [[fallthrough]];
         case relay_method::fluff:
           /* If sending stem/forward/local txes over non public networks,
              continue to claim that relay mode even though it used the "fluff"

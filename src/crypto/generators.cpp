@@ -37,6 +37,7 @@ extern "C"
 
 #include <cassert>
 #include <mutex>
+#include <stdexcept>
 #include <string_view>
 
 namespace crypto

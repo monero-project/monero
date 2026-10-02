@@ -161,6 +161,7 @@ struct mdb_txn_safe
   bool m_batch_txn = false;
   bool m_check;
   static std::atomic<uint64_t> num_active_txns;
+  static thread_local uint64_t num_active_txns_per_thread;
 
   // could use a mutex here, but this should be sufficient.
   static std::atomic_flag creation_gate;

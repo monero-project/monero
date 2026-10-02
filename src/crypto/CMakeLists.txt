@@ -1,4 +1,4 @@
-# Copyright (c) 2014-2024, The Monero Project
+# Copyright (c) 2014-2026, The Monero Project
 #
 # All rights reserved.
 #
@@ -41,6 +41,7 @@ set(crypto_sources
   hash-extra-jh.c
   hash-extra-skein.c
   hash.c
+  hash.cpp
   hmac-keccak.c
   jh.c
   keccak.c

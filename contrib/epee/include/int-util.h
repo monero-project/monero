@@ -231,8 +231,20 @@ static inline void memcpy_swap32(void *dst, const void *src, size_t n) {
 }
 static inline void memcpy_swap64(void *dst, const void *src, size_t n) {
   size_t i;
+  if ((((uintptr_t) dst | (uintptr_t) src) & (sizeof(uint64_t) - 1)) == 0) {
+    for (i = 0; i < n; i++) {
+      ((uint64_t *) dst)[i] = swap64(((const uint64_t *) src)[i]);
+    }
+    return;
+  }
+
+  uint8_t *dst_bytes = (uint8_t *) dst;
+  const uint8_t *src_bytes = (const uint8_t *) src;
   for (i = 0; i < n; i++) {
-    ((uint64_t *) dst)[i] = swap64(((const uint64_t *) src)[i]);
+    uint64_t value;
+    memcpy(&value, src_bytes + i * sizeof(value), sizeof(value));
+    value = swap64(value);
+    memcpy(dst_bytes + i * sizeof(value), &value, sizeof(value));
   }
 }
 

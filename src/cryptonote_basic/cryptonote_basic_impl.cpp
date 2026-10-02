@@ -150,17 +150,6 @@ namespace cryptonote {
     return tools::base58::encode_addr(integrated_address_prefix, t_serializable_object_to_blob(iadr));
   }
   //-----------------------------------------------------------------------
-  bool is_coinbase(const transaction_prefix& tx)
-  {
-    if(tx.vin.size() != 1)
-      return false;
-
-    if(tx.vin[0].type() != typeid(txin_gen))
-      return false;
-
-    return true;
-  }
-  //-----------------------------------------------------------------------
   bool get_account_address_from_str(
       address_parse_info& info
     , network_type nettype
@@ -258,6 +247,23 @@ namespace cryptonote {
       get_account_address_from_str(info, nettype, address_str);
   }
   //--------------------------------------------------------------------------------
+  const char* get_network_type_name(const network_type nettype)
+  {
+    switch (nettype)
+    {
+    case MAINNET:
+      return "mainnet";
+    case TESTNET:
+      return "testnet";
+    case STAGENET:
+      return "stagenet";
+    case FAKECHAIN:
+      return "fakechain";
+    default:
+      return "unknown";
+    };
+  }
+  //--------------------------------------------------------------------------------
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b) {
     return cryptonote::get_transaction_hash(a) == cryptonote::get_transaction_hash(b);
   }
@@ -321,7 +327,7 @@ bool parse_hash256(const std::string &str_hash, crypto::hash& hash)
   bool res = epee::string_tools::parse_hexstr_to_binbuff(str_hash, buf);
   if (!res || buf.size() != sizeof(crypto::hash))
   {
-    MERROR("invalid hash format: " << str_hash);
+    MERROR("invalid hash format, input size: " << str_hash.size());
     return false;
   }
   else

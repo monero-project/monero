@@ -77,6 +77,20 @@ TEST(bulletproofs_plus, valid_multi_random)
   }
 }
 
+TEST(bulletproofs_plus, invalid_too_many_outputs)
+{
+  std::vector<uint64_t> amounts(16, 0);
+  rct::keyV gamma(16);
+  for (rct::key &mask: gamma)
+    mask = rct::skGen();
+  rct::BulletproofPlus proof = bulletproof_plus_PROVE(amounts, gamma);
+  ASSERT_TRUE(rct::bulletproof_plus_VERIFY(proof));
+  proof.V.push_back(proof.V.back());
+  proof.L.push_back(proof.L.back());
+  proof.R.push_back(proof.R.back());
+  ASSERT_FALSE(rct::bulletproof_plus_VERIFY(proof));
+}
+
 TEST(bulletproofs_plus, valid_aggregated)
 {
   static const size_t N_PROOFS = 8;

@@ -44,18 +44,10 @@
 
 txpool_base::txpool_base()
   : test_chain_unit_base()
-  , m_broadcasted_tx_count(0)
   , m_all_tx_count(0)
 {
-  REGISTER_CALLBACK_METHOD(txpool_spend_key_public, increase_broadcasted_tx_count);
   REGISTER_CALLBACK_METHOD(txpool_spend_key_public, increase_all_tx_count);
   REGISTER_CALLBACK_METHOD(txpool_spend_key_public, check_txpool_spent_keys);
-}
-
-bool txpool_base::increase_broadcasted_tx_count(cryptonote::core& /*c*/, size_t /*ev_index*/, const std::vector<test_event_entry>& /*events*/)
-{
-  ++m_broadcasted_tx_count;
-  return true;
 }
 
 bool txpool_base::increase_all_tx_count(cryptonote::core& /*c*/, size_t /*ev_index*/, const std::vector<test_event_entry>& /*events*/)
@@ -68,23 +60,7 @@ bool txpool_base::check_txpool_spent_keys(cryptonote::core& c, size_t /*ev_index
 {
   std::vector<cryptonote::tx_info> infos{};
   std::vector<cryptonote::spent_key_image_info> key_images{};
-  if (!c.get_pool_transactions_and_spent_keys_info(infos, key_images) || infos.size() != m_broadcasted_tx_count || key_images.size() != m_broadcasted_tx_count)
-  {
-    MERROR("Failed broadcasted spent keys retrieval - Expected Broadcasted Count: " << m_broadcasted_tx_count << " Actual Info Count: " << infos.size() << " Actual Key Image Count: " << key_images.size());
-    return false;
-  }
-
-  infos.clear();
-  key_images.clear();
-  if (!c.get_pool_transactions_and_spent_keys_info(infos, key_images, false) || infos.size() != m_broadcasted_tx_count || key_images.size() != m_broadcasted_tx_count)
-  {
-    MERROR("Failed broadcasted spent keys retrieval - Expected Broadcasted Count: " << m_broadcasted_tx_count << " Actual Info Count: " << infos.size() << " Actual Key Image Count: " << key_images.size());
-    return false;
-  }
-
-  infos.clear();
-  key_images.clear();
-  if (!c.get_pool_transactions_and_spent_keys_info(infos, key_images, true) || infos.size() != m_all_tx_count || key_images.size() != m_all_tx_count)
+  if (!c.get_pool_transactions_and_spent_keys_info(infos, key_images) || infos.size() != m_all_tx_count || key_images.size() != m_all_tx_count)
   {
     MERROR("Failed all spent keys retrieval - Expected All Count: " << m_all_tx_count << " Actual Info Count: " << infos.size() << " Actual Key Image Count: " << key_images.size());
     return false;
@@ -99,7 +75,6 @@ bool txpool_spend_key_public::generate(std::vector<test_event_entry>& events) co
 
   DO_CALLBACK(events, "check_txpool_spent_keys");
   MAKE_TX(events, tx_0, miner_account, bob_account, send_amount, blk_0r);
-  DO_CALLBACK(events, "increase_broadcasted_tx_count");
   DO_CALLBACK(events, "increase_all_tx_count");
   DO_CALLBACK(events, "check_txpool_spent_keys");
 
@@ -245,7 +220,7 @@ bool txpool_double_spend_base::check_changed(cryptonote::core& c, const size_t e
   {
     std::vector<cryptonote::tx_info> infos{};
     std::vector<cryptonote::spent_key_image_info> key_images{};
-    if (!c.get_pool_transactions_and_spent_keys_info(infos, key_images, true) || infos.size() != m_all_hashes.size())
+    if (!c.get_pool_transactions_and_spent_keys_info(infos, key_images) || infos.size() != m_all_hashes.size())
     {
       MERROR("Unable to retrieve all txpool metadata");
       return false;
@@ -455,7 +430,7 @@ bool txpool_double_spend_base::check_changed(cryptonote::core& c, const size_t e
   {
     std::vector<cryptonote::rpc::tx_in_pool> infos{};
     cryptonote::rpc::key_images_with_tx_hashes key_images{};
-    if (!c.get_pool_for_rpc(infos, key_images, true) || infos.size() != m_broadcasted_hashes.size() || key_images.size() != m_broadcasted_hashes.size())
+    if (!c.get_pool_for_rpc(infos, key_images) || infos.size() != m_broadcasted_hashes.size() || key_images.size() != m_broadcasted_hashes.size())
     {
       MERROR("Expected broadcasted rpc data to return " << m_broadcasted_hashes.size() << " but got " << infos.size() << " infos and " << key_images.size() << "key images");
       return false;
@@ -553,7 +528,6 @@ bool txpool_double_spend_local::generate(std::vector<test_event_entry>& events) 
   SET_EVENT_VISITOR_SETT(events, 0);
   DO_CALLBACK(events, "timestamp_change_pause");
   events.push_back(tx_0);
-  DO_CALLBACK(events, "increase_broadcasted_tx_count");
   DO_CALLBACK(events, "check_txpool_spent_keys");
   DO_CALLBACK(events, "mark_timestamp_change");
   DO_CALLBACK(events, "check_new_broadcasted");
@@ -624,7 +598,6 @@ bool txpool_stem_loop::generate(std::vector<test_event_entry>& events) const
   DO_CALLBACK(events, "check_new_hidden");
   DO_CALLBACK(events, "timestamp_change_pause");
   events.push_back(tx_0);
-  DO_CALLBACK(events, "increase_broadcasted_tx_count");
   DO_CALLBACK(events, "check_txpool_spent_keys");
   DO_CALLBACK(events, "mark_timestamp_change");
   DO_CALLBACK(events, "check_new_broadcasted");

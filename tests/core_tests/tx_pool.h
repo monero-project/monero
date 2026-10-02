@@ -44,13 +44,11 @@ enum class relay_test
 
 class txpool_base : public test_chain_unit_base
 {
-  size_t m_broadcasted_tx_count;
   size_t m_all_tx_count;
 
 public:
   txpool_base();
 
-  bool increase_broadcasted_tx_count(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& events);
   bool increase_all_tx_count(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& events);
   bool check_txpool_spent_keys(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& events);
 };

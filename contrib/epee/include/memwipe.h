@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2024, The Monero Project
+// Copyright (c) 2017-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -29,6 +29,8 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #pragma once
+
+#include <stddef.h>
 
 #ifdef __cplusplus
 #include <array>
@@ -74,9 +76,6 @@ namespace tools {
 
   template<typename T>
   const T& unwrap(scrubbed<T> const& src) { return src; }
-
-  template <class T, size_t N>
-  using scrubbed_arr = scrubbed<std::array<T, N>>;
 } // namespace tools
 
 #endif // __cplusplus

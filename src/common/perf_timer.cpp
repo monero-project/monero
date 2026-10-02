@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <vector>
+#include <atomic>
 #include "time_helper.h"
 #include "perf_timer.h"
 
@@ -72,12 +73,25 @@ namespace tools
 #endif
 
 #ifdef __x86_64__
-  uint64_t ticks_per_ns = get_ticks_per_ns();
+  namespace
+  {
+    std::atomic<uint64_t> ticks_per_ns_value{0};
+
+    uint64_t calibrate_ticks_per_ns()
+    {
+      const uint64_t tpns = get_ticks_per_ns();
+      ticks_per_ns_value.store(tpns, std::memory_order_release);
+      return tpns;
+    }
+  }
 #endif
 
   uint64_t ticks_to_ns(uint64_t ticks)
   {
 #if defined(__x86_64__)
+    uint64_t ticks_per_ns = ticks_per_ns_value.load(std::memory_order_acquire);
+    if (ticks_per_ns == 0)
+      ticks_per_ns = calibrate_ticks_per_ns();
     return 256 * ticks / ticks_per_ns;
 #else
     return ticks;

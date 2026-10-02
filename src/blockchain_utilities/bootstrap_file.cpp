@@ -41,6 +41,21 @@ using namespace epee;
 
 namespace
 {
+  class incomplete_chunk final : public std::runtime_error
+  {
+  public:
+    incomplete_chunk(uint64_t offset, uint64_t blocks)
+      : std::runtime_error{"Incomplete trailing chunk"}, m_offset{offset}, m_blocks{blocks}
+    {}
+
+    uint64_t offset() const noexcept { return m_offset; }
+    uint64_t blocks() const noexcept { return m_blocks; }
+
+  private:
+    uint64_t m_offset;
+    uint64_t m_blocks;
+  };
+
   // This number was picked by taking the leading 4 bytes from this output:
   // echo Monero bootstrap file | sha1sum
   const uint32_t blockchain_raw_magic = 0x28721586;
@@ -51,7 +66,8 @@ namespace
 
 
 
-bool BootstrapFile::open_writer(const boost::filesystem::path& file_path, uint64_t start_block, uint64_t stop_block)
+bool BootstrapFile::open_writer(const boost::filesystem::path& file_path, uint64_t start_block,
+    uint64_t stop_block, uint64_t& next_block)
 {
   const boost::filesystem::path dir_path = file_path.parent_path();
   if (!dir_path.empty())
@@ -74,8 +90,6 @@ bool BootstrapFile::open_writer(const boost::filesystem::path& file_path, uint64
     }
   }
 
-  m_raw_data_file = new std::ofstream();
-
   bool do_initialize_file = false;
   uint64_t num_blocks = 0, block_first = 0;
 
@@ -89,10 +103,27 @@ bool BootstrapFile::open_writer(const boost::filesystem::path& file_path, uint64
   {
     std::streampos dummy_pos;
     uint64_t dummy_height = 0;
-    num_blocks = count_blocks(file_path.string(), dummy_pos, dummy_height, block_first);
+    try
+    {
+      num_blocks = count_blocks(file_path.string(), dummy_pos, dummy_height, block_first);
+    }
+    catch (const incomplete_chunk& e)
+    {
+      MWARNING("Truncating incomplete trailing chunk at offset " << e.offset() << " in " << file_path);
+      boost::system::error_code ec;
+      boost::filesystem::resize_file(file_path, e.offset(), ec);
+      if (ec)
+      {
+        MFATAL("Failed to truncate incomplete trailing chunk: " << ec.message());
+        return false;
+      }
+      num_blocks = e.blocks();
+    }
     MDEBUG("appending to existing file with height: " << num_blocks+block_first-1 << "  total blocks: " << num_blocks);
   }
-  m_height = num_blocks+block_first;
+  next_block = do_initialize_file ? start_block : num_blocks + block_first;
+
+  m_raw_data_file = new std::ofstream();
 
   if (do_initialize_file)
     m_raw_data_file->open(file_path.string(), std::ios_base::binary | std::ios_base::out | std::ios::trunc);
@@ -271,9 +302,6 @@ bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
   MINFO("Storing blocks raw data...");
   block b;
 
-  // block_start, block_stop use 0-based height. m_height uses 1-based height. So to resume export
-  // from last exported block, block_start doesn't need to add 1 here, as it's already at the next
-  // height.
   uint64_t block_stop = 0;
   MINFO("source blockchain height: " <<  m_blockchain_storage->get_current_blockchain_height()-1);
   if ((requested_block_stop > 0) && (requested_block_stop < m_blockchain_storage->get_current_blockchain_height()))
@@ -286,12 +314,12 @@ bool BootstrapFile::store_blockchain_raw(Blockchain* _blockchain_storage, tx_mem
     block_stop = m_blockchain_storage->get_current_blockchain_height() - 1;
     MINFO("Using block height of source blockchain: " << block_stop);
   }
-  if (!BootstrapFile::open_writer(output_file, start_block, block_stop))
+  uint64_t block_start;
+  if (!BootstrapFile::open_writer(output_file, start_block, block_stop, block_start))
   {
     MFATAL("failed to open raw file for write");
     return false;
   }
-  uint64_t block_start = m_height ? m_height : start_block;
   MINFO("Starting block height: " << block_start);
   for (m_cur_height = block_start; m_cur_height <= block_stop; ++m_cur_height)
   {
@@ -404,6 +432,13 @@ uint64_t BootstrapFile::seek_to_first_chunk(std::ifstream& import_file, uint8_t 
 
 uint64_t BootstrapFile::count_bytes(std::ifstream& import_file, uint64_t blocks, uint64_t& h, bool& quit)
 {
+  uint64_t file_offset = 0;
+  return count_bytes(import_file, nullptr, file_offset, blocks, h, quit);
+}
+
+uint64_t BootstrapFile::count_bytes(std::ifstream& import_file, const uint64_t* file_size,
+    uint64_t& file_offset, uint64_t blocks, uint64_t& h, bool& quit)
+{
   uint64_t bytes_read = 0;
   uint32_t chunk_size;
   char buf1[sizeof(chunk_size)];
@@ -411,13 +446,28 @@ uint64_t BootstrapFile::count_bytes(std::ifstream& import_file, uint64_t blocks,
   h = 0;
   while (1)
   {
-    import_file.read(buf1, sizeof(chunk_size));
-    if (!import_file) {
+    const uint64_t chunk_offset = file_offset;
+    if (file_size && chunk_offset == *file_size)
+    {
       std::cout << refresh_string;
       MDEBUG("End of file reached");
       quit = true;
       break;
     }
+    if (file_size && (chunk_offset > *file_size || *file_size - chunk_offset < sizeof(chunk_size)))
+      throw incomplete_chunk{chunk_offset, h};
+
+    import_file.read(buf1, sizeof(chunk_size));
+    if (! import_file)
+    {
+      if (file_size)
+        throw std::runtime_error("Error reading expected number of bytes");
+      std::cout << refresh_string;
+      MDEBUG("End of file reached");
+      quit = true;
+      break;
+    }
+
     bytes_read += sizeof(chunk_size);
     str1.assign(buf1, sizeof(chunk_size));
     if (! ::serialization::parse_binary(str1, chunk_size))
@@ -442,6 +492,9 @@ uint64_t BootstrapFile::count_bytes(std::ifstream& import_file, uint64_t blocks,
       MDEBUG("ERROR: chunk_size " << chunk_size << " <= 0" << "  height: " << h-1 << ", offset " << bytes_read);
       throw std::runtime_error("Aborting");
     }
+    if (file_size && chunk_size > *file_size - chunk_offset - sizeof(chunk_size))
+      throw incomplete_chunk{chunk_offset, h};
+
     // skip to next expected block size value
     import_file.seekg(chunk_size, std::ios_base::cur);
     if (! import_file) {
@@ -451,6 +504,8 @@ uint64_t BootstrapFile::count_bytes(std::ifstream& import_file, uint64_t blocks,
       throw std::runtime_error("Aborting");
     }
     bytes_read += chunk_size;
+    if (file_size)
+      file_offset += sizeof(chunk_size) + chunk_size;
     h += NUM_BLOCKS_PER_CHUNK;
     if (h >= blocks)
       break;
@@ -493,6 +548,10 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path, std::s
   uint8_t major_version, minor_version;
   uint64_t block_last;
   full_header_size = seek_to_first_chunk(import_file, major_version, minor_version, block_first, block_last);
+  const uint64_t file_size = boost::filesystem::file_size(raw_file_path);
+  if (full_header_size > file_size)
+    throw std::runtime_error("Bootstrap header exceeds file size");
+  uint64_t file_offset = full_header_size;
 
   MINFO("Scanning blockchain from bootstrap file...");
   bool quit = false;
@@ -507,7 +566,14 @@ uint64_t BootstrapFile::count_blocks(const std::string& import_file_path, std::s
       start_pos = import_file.tellg();
       seek_height = h + block_first;
     }
-    bytes_read += count_bytes(import_file, progress_interval, blocks, quit);
+    try
+    {
+      bytes_read += count_bytes(import_file, &file_size, file_offset, progress_interval, blocks, quit);
+    }
+    catch (const incomplete_chunk& e)
+    {
+      throw incomplete_chunk{e.offset(), h + e.blocks()};
+    }
     h += blocks;
     std::cout << "\r" << "block height: " << h-1 <<
       "    \r" <<

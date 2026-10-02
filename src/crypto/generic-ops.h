@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -31,12 +31,22 @@
 #pragma once
 
 #include <cstddef>
-#include <cstring>
 #include <cstdint>
-#include <functional>
-#include <memory>
+#include <cstring>
 #include <sodium/crypto_verify_32.h>
 #include <sodium/crypto_shorthash_siphash24.h>
+
+// get declaration of std::hash
+#ifdef __GLIBCXX__
+namespace std _GLIBCXX_VISIBILITY(default) {
+  _GLIBCXX_BEGIN_NAMESPACE_VERSION
+  template<typename _Tp>
+  struct hash;
+  _GLIBCXX_END_NAMESPACE_VERSION
+}
+#else
+#include <typeindex>
+#endif
 
 #include "random.h"
 
@@ -63,12 +73,13 @@ namespace crypto { \
 
 namespace crypto {
   inline std::size_t siphash_to_size_t(const void *data, std::size_t length) {
-    static_assert(sizeof(crypto_siphash_key) == crypto_shorthash_siphash24_KEYBYTES,
+    static_assert(16 == crypto_shorthash_siphash24_KEYBYTES,
       "crypto_siphash_key size must match the SipHash-2-4 key length");
     static_assert(sizeof(std::uint64_t) == crypto_shorthash_siphash24_BYTES,
       "std::uint64_t size must match the SipHash-2-4 digest length");
     std::uint64_t h;
-    crypto_shorthash_siphash24(reinterpret_cast<unsigned char*>(&h), static_cast<const unsigned char*>(data), length, crypto_siphash_key);
+    crypto_shorthash_siphash24(reinterpret_cast<unsigned char*>(&h), static_cast<const unsigned char*>(data), length,
+      get_static_siphash_key());
     return h;
   }
 }
@@ -76,14 +87,14 @@ namespace crypto {
 #define CRYPTO_DEFINE_HASH_FUNCTIONS(type) \
 namespace crypto { \
   inline std::size_t hash_value(const type &_v) { \
-    return siphash_to_size_t(std::addressof(_v), sizeof(_v)); \
+    return siphash_to_size_t(&_v, sizeof(_v)); \
   } \
 } \
 namespace std { \
   template<> \
   struct hash<crypto::type> { \
     std::size_t operator()(const crypto::type &_v) const { \
-      return ::crypto::siphash_to_size_t(std::addressof(_v), sizeof(_v)); \
+      return ::crypto::siphash_to_size_t(&_v, sizeof(_v)); \
     } \
   }; \
 }

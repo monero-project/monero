@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -34,6 +34,9 @@
 
 #include <cstddef>
 #include <cstdint>
+
+namespace crypto {
+extern "C" {
 
 #else
 
@@ -78,10 +81,7 @@ void hash_process(union hash_state *state, const uint8_t *buf, size_t count);
 
 #endif
 
-enum {
-  HASH_SIZE = 32,
-  HASH_DATA_AREA = 136
-};
+#include "hash-def.h"
 
 void cn_fast_hash(const void *data, size_t length, char *hash);
 void cn_slow_hash(const void *data, size_t length, char *hash, int variant, int prehashed, uint64_t height);
@@ -97,7 +97,6 @@ bool tree_branch(const char (*hashes)[HASH_SIZE], size_t count, const char *hash
 bool tree_branch_hash(const char hash[HASH_SIZE], const char (*branch)[HASH_SIZE], size_t depth, uint32_t path, char root[HASH_SIZE]);
 bool is_branch_in_tree(const char hash[HASH_SIZE], const char root[HASH_SIZE], const char (*branch)[HASH_SIZE], size_t depth, uint32_t path);
 
-#define RX_BLOCK_VERSION	12
 void rx_slow_hash_allocate_state(void);
 void rx_slow_hash_free_state(void);
 uint64_t rx_seedheight(const uint64_t height);
@@ -108,3 +107,8 @@ void rx_slow_hash(const char *seedhash, const void *data, size_t length, char *r
 
 void rx_set_miner_thread(uint32_t value, size_t max_dataset_init_threads);
 uint32_t rx_get_miner_thread(void);
+
+#if defined(__cplusplus)
+} //extern "C"
+} //namespace crypto
+#endif

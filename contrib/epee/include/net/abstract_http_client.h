@@ -43,7 +43,7 @@ namespace net_utils
   inline const char* get_unsave_chars()
   {
     //static constexpr char unsave_chars[] = "\"<>%\\^[]`+$,@:;/!#?=&";
-    static constexpr const char unsave_chars[] = "\"<>%\\^[]`+$,@:;!#&";
+    static constexpr const char unsave_chars[] = "\"<>%\\^[]`+$,@:;!#&=";
     return unsave_chars;
   }
 

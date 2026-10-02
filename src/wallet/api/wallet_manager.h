@@ -75,6 +75,14 @@ public:
                                             const std::string &subaddressLookahead = "",
                                             uint64_t kdf_rounds = 1,
                                             WalletListener * listener = nullptr) override;
+    Wallet * createWalletFromPolyseed(const std::string &path,
+                                        const std::string &password,
+                                        NetworkType nettype,
+                                        const std::string &mnemonic,
+                                        const std::string &passphrase,
+                                        bool newWallet = true,
+                                        uint64_t restore_height = 0,
+                                        uint64_t kdf_rounds = 1) override;
     virtual bool closeWallet(Wallet *wallet, bool store = true) override;
     bool walletExists(const std::string &path) override;
     bool verifyWalletPassword(const std::string &keys_file_name, const std::string &password, bool no_spend_key, uint64_t kdf_rounds = 1) const override;

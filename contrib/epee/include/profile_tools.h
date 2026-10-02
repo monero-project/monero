@@ -28,6 +28,9 @@
 #ifndef _PROFILE_TOOLS_H_
 #define _PROFILE_TOOLS_H_
 
+#include <boost/date_time/posix_time/posix_time_types.hpp>
+
+#include "misc_log_ex.h"
 #include "time_helper.h"
 
 namespace epee

@@ -101,7 +101,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 3
-#define CORE_RPC_VERSION_MINOR 18
+#define CORE_RPC_VERSION_MINOR 19
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -2132,6 +2132,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       uint64_t current_height;
       uint64_t target_height;
       std::vector<hf_entry> hard_forks;
+      std::string nettype;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_response_base)
@@ -2140,6 +2141,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE_OPT(current_height, (uint64_t)0)
         KV_SERIALIZE_OPT(target_height, (uint64_t)0)
         KV_SERIALIZE_OPT(hard_forks, std::vector<hf_entry>())
+        KV_SERIALIZE_OPT(nettype, std::string())
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;

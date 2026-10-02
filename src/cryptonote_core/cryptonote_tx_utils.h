@@ -107,6 +107,15 @@ namespace cryptonote
     END_SERIALIZE()
   };
 
+  inline bool operator==(const tx_destination_entry &a, const tx_destination_entry &b)
+  {
+    return a.original == b.original
+      && a.amount == b.amount
+      && a.addr == b.addr
+      && a.is_subaddress == b.is_subaddress
+      && a.is_integrated == b.is_integrated;
+  }
+
   //---------------------------------------------------------------
 
   struct tx_block_template_backlog_entry
@@ -118,6 +127,19 @@ namespace cryptonote
   WIRE_DECLARE_OBJECT(tx_block_template_backlog_entry);
 
   //---------------------------------------------------------------
+  /**
+   * @brief check if can re-derive change address from device / keys
+   * @param change_addr address to attempt to re-derive
+   * @param subaddresses subaddress map
+   * @param keys account keys of sender
+   * @return subaddress index of `change_addr` if in the subaddress map and re-derives from device, otherwise nullopt
+   */
+  std::optional<cryptonote::subaddress_index> sanity_check_change_address(
+    const cryptonote::account_public_address& change_addr,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index>& subaddresses,
+    const cryptonote::account_keys &keys
+  );
+  void classify_addresses(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::account_public_address>& change_addr, size_t &num_stdaddresses, size_t &num_subaddresses, account_public_address &single_dest_subaddress);
   crypto::public_key get_destination_view_key_pub(const std::vector<tx_destination_entry> &destinations, const boost::optional<cryptonote::account_public_address>& change_addr);
   bool construct_tx(const account_keys& sender_account_keys, std::vector<tx_source_entry> &sources, const std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx);
   bool construct_tx_with_tx_key(const account_keys& sender_account_keys, const std::unordered_map<crypto::public_key, subaddress_index>& subaddresses, std::vector<tx_source_entry>& sources, std::vector<tx_destination_entry>& destinations, const boost::optional<cryptonote::account_public_address>& change_addr, const std::vector<uint8_t> &extra, transaction& tx, const crypto::secret_key &tx_key, const std::vector<crypto::secret_key> &additional_tx_keys, bool rct = false, const rct::RCTConfig &rct_config = { rct::RangeProofBorromean, 0 }, bool shuffle_outs = true, bool use_view_tags = false);

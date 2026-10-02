@@ -39,6 +39,14 @@ class Wallet(object):
         self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host,
             port=port if port else 18090+idx), username, password)
 
+    def get_wallet_info(self):
+        get_wallet_info = {
+            'method': 'get_wallet_info',
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_wallet_info)
+
     def transfer(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False, subtract_fee_from_outputs = []):
         transfer = {
             'method': 'transfer',
@@ -317,7 +325,7 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(restore_deterministic_wallet)
 
-    def generate_from_keys(self, restore_height = 0, filename = "", password = "", address = "", spendkey = "", viewkey = "", autosave_current = True):
+    def generate_from_keys(self, restore_height = 0, filename = "", password = "", address = "", spendkey = "", viewkey = "", autosave_current = True, language = ""):
         generate_from_keys = {
             'method': 'generate_from_keys',
             'params' : {
@@ -328,6 +336,7 @@ class Wallet(object):
                 'viewkey': viewkey,
                 'password': password,
                 'autosave_current': autosave_current,
+                'language': language,
             },
             'jsonrpc': '2.0', 
             'id': '0'
@@ -359,6 +368,17 @@ class Wallet(object):
             'id': '0'
         }
         return self.rpc.send_json_rpc_request(open_wallet)
+
+    def wallet_exists(self, filename):
+        wallet_exists = {
+            'method': 'wallet_exists',
+            'params' : {
+                'filename': filename,
+            },
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(wallet_exists)
 
     def close_wallet(self, autosave_current = True):
         close_wallet = {
@@ -774,10 +794,11 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(relay_tx)
 
-    def get_languages(self):
+    def get_languages(self, polyseed = True):
         get_languages = {
             'method': 'get_languages',
             'params': {
+                'polyseed': polyseed,
             },
             'jsonrpc': '2.0', 
             'id': '0'

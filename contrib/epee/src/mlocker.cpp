@@ -1,4 +1,4 @@
-// Copyright (c) 2018-2024, The Monero Project
+// Copyright (c) 2018-2026, The Monero Project
 
 // 
 // All rights reserved.
@@ -40,6 +40,9 @@
 #include "mlocker.h"
 
 #include <atomic>
+#include <map>
+
+#include <boost/thread/mutex.hpp>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "mlocker"
@@ -94,12 +97,12 @@ namespace epee
   size_t mlocker::page_size = 0;
   size_t mlocker::num_locked_objects = 0;
 
-  boost::mutex &mlocker::mutex()
+  static boost::mutex &mutex()
   {
     static boost::mutex *vmutex = new boost::mutex();
     return *vmutex;
   }
-  std::map<size_t, unsigned int> &mlocker::map()
+  static std::map<size_t, unsigned int> &map()
   {
     static std::map<size_t, unsigned int> *vmap = new std::map<size_t, unsigned int>();
     return *vmap;

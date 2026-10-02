@@ -275,7 +275,7 @@ mkdir -p "$LOGDIR_BASE"
 # RUST_DEPS_HASH with the hash reported below, and update
 # contrib/guix/rust/config.toml if the set of git sources changed
 RUST_DEPS_VERSION=0
-RUST_DEPS_HASH="gg5izydrra2b1ywgskvlrfrh983gf6b4"
+RUST_DEPS_HASH="xcxpbdn8wv1gqy1iwgj3x8ddl7hz595s"
 RUST_DEPS_ARCHIVE="rust_deps-${RUST_DEPS_VERSION}.tar.gz"
 RUST_DEPS_STORE_ITEM="/gnu/store/${RUST_DEPS_HASH}-${RUST_DEPS_ARCHIVE}"
 if [ ! -f "${RUST_DEPS_STORE_ITEM}" ]; then

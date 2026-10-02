@@ -68,6 +68,7 @@
 #include "fee_priority.h"
 #include "fee_algorithm.h"
 #include "wallet2_basic/wallet2_types.h"
+#include "mnemonics/polyseed/polyseed.hpp"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.wallet2"
@@ -216,19 +217,31 @@ private:
 
     static bool has_testnet_option(const boost::program_options::variables_map& vm);
     static bool has_stagenet_option(const boost::program_options::variables_map& vm);
+    static bool has_password_option(const boost::program_options::variables_map& vm);
     static std::string device_name_option(const boost::program_options::variables_map& vm);
     static std::string device_derivation_path_option(const boost::program_options::variables_map &vm);
     static void init_options(boost::program_options::options_description& desc_params);
+
+    //! Daemon connection settings that override the ones from the command line when passed to make_new/make_from_file.
+    struct daemon_config
+    {
+      std::string address;
+      std::string username;
+      std::string password;
+      std::string proxy;
+      bool trusted = false;
+      epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect;
+    };
 
     //! Uses stdin and stdout. Returns a wallet2 if no errors.
     static std::pair<std::unique_ptr<wallet2>, password_container> make_from_json(const boost::program_options::variables_map& vm, bool unattended, const std::string& json_file, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
 
     //! Uses stdin and stdout. Returns a wallet2 and password for `wallet_file` if no errors.
     static std::pair<std::unique_ptr<wallet2>, password_container>
-      make_from_file(const boost::program_options::variables_map& vm, bool unattended, const std::string& wallet_file, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
+      make_from_file(const boost::program_options::variables_map& vm, bool unattended, const std::string& wallet_file, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter, const boost::optional<daemon_config>& daemon_override = boost::none);
 
     //! Uses stdin and stdout. Returns a wallet2 and password for wallet with no file if no errors.
-    static std::pair<std::unique_ptr<wallet2>, password_container> make_new(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
+    static std::pair<std::unique_ptr<wallet2>, password_container> make_new(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter, const boost::optional<daemon_config>& daemon_override = boost::none);
 
     //! Just parses variables.
     static std::unique_ptr<wallet2> make_dummy(const boost::program_options::variables_map& vm, bool unattended, const std::function<boost::optional<password_container>(const char *, bool)> &password_prompter);
@@ -236,9 +249,10 @@ private:
     static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev, uint64_t kdf_rounds)
     {
       crypto::secret_key spend_key = crypto::null_skey;
-      return verify_password(keys_file_name, password, no_spend_key, hwdev, kdf_rounds, spend_key);
+      cryptonote::account_keys keys;
+      return verify_password(keys_file_name, password, no_spend_key, hwdev, kdf_rounds, spend_key, keys);
     };
-    static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev, uint64_t kdf_rounds, crypto::secret_key &spend_key_out);
+    static bool verify_password(const std::string& keys_file_name, const epee::wipeable_string& password, bool no_spend_key, hw::device &hwdev, uint64_t kdf_rounds, crypto::secret_key &spend_key_out, cryptonote::account_keys &keys_out);
     static bool query_device(hw::device::device_type& device_type, const std::string& keys_file_name, const epee::wipeable_string& password, uint64_t kdf_rounds = 1);
 
     wallet2(cryptonote::network_type nettype = cryptonote::MAINNET, uint64_t kdf_rounds = 1, bool unattended = false, std::unique_ptr<epee::net_utils::http::http_client_factory> http_client_factory = std::unique_ptr<epee::net_utils::http::http_client_factory>(new net::http::client_factory()));
@@ -485,7 +499,9 @@ private:
     struct signed_tx_set
     {
       std::vector<pending_tx> ptx;
+      // All key images in `m_transfers` from the signing wallet. Does not include key images in `ptx`.
       std::vector<crypto::key_image> key_images;
+      // All key images in `ptx` for outputs being received by the wallet (e.g. change, churn).
       std::unordered_map<crypto::public_key, crypto::key_image> tx_key_images;
 
       BEGIN_SERIALIZE_OBJECT()
@@ -605,6 +621,10 @@ private:
       tx_entry_data(): lowest_height((uint64_t)-1), highest_height(0) {}
     };
 
+    // Helpers for a number of wallet generate calls to reduce code duplication
+    void prepare_generate(const std::string& wallet_);
+    void finish_generate(const std::string& wallet_, bool watch_only, const epee::wipeable_string& password, bool create_address_file);
+
     /*!
      * \brief  Generates a wallet or restores one. Assumes the multisig setup
       *        has already completed for the provided multisig info.
@@ -629,7 +649,23 @@ private:
     crypto::secret_key generate(const std::string& wallet, const epee::wipeable_string& password,
       const crypto::secret_key& recovery_param = crypto::secret_key(), bool recover = false,
       bool two_random = false, bool create_address_file = false);
+
     /*!
+     * \brief Generates a wallet or restores one from a Polyseed.
+     * \param wallet_              Name of wallet file
+     * \param password             Password of wallet file
+     * \param seed                 Polyseed data
+     * \param passphrase           Optional seed offset passphrase
+     * \param recover              Whether it is a restore
+     * \param restoreHeight        Override the Polyseed's embedded restore height
+     * \param create_address_file  Whether to create an address file
+     * \return                     The secret key of the generated wallet
+     */
+    crypto::secret_key generate(const std::string& wallet_, const epee::wipeable_string& password,
+      const polyseed::data &seed, const epee::wipeable_string& passphrase = "",
+      bool recover = false, uint64_t restoreHeight = 0, bool create_address_file = false);
+
+      /*!
      * \brief Creates a wallet from a public address and a spend/view secret key pair.
      * \param  wallet_                 Name of wallet file
      * \param  password                Password of wallet file
@@ -755,16 +791,10 @@ private:
     std::string path() const;
 
     /*!
-     * \brief has_proxy_option      Check the global proxy (--proxy) has been defined or not.
-     * \return                      returns bool representing the global proxy (--proxy).
-     */
-    bool has_proxy_option() const;
-
-    /*!
      * \brief verifies given password is correct for default wallet keys file
      */
-    bool verify_password(const epee::wipeable_string& password) {crypto::secret_key key = crypto::null_skey; return verify_password(password, key);};
-    bool verify_password(const epee::wipeable_string& password, crypto::secret_key &spend_key_out);
+    bool verify_password(const epee::wipeable_string& password) {crypto::secret_key spend_key = crypto::null_skey; cryptonote::account_keys keys; return verify_password(password, spend_key, keys);};
+    bool verify_password(const epee::wipeable_string& password, crypto::secret_key &spend_key_out, cryptonote::account_keys &keys_out);
     cryptonote::account_base& get_account(){return m_account;}
     const cryptonote::account_base& get_account()const{return m_account;}
 
@@ -795,6 +825,7 @@ private:
       epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect,
       const std::string &proxy = "");
     bool set_proxy(const std::string &address);
+    std::string get_proxy() const;
 
     void stop() { m_run.store(false, std::memory_order_relaxed); m_message_store.stop(); }
     // teardown-only: a permanent stop that also aborts an in-flight daemon request
@@ -810,7 +841,10 @@ private:
      * \brief Checks if deterministic wallet
      */
     bool is_deterministic() const;
-    bool get_seed(epee::wipeable_string& electrum_words, const epee::wipeable_string &passphrase = epee::wipeable_string()) const;
+    bool is_polyseed() const { return m_polyseed; }
+    void set_is_polyseed(bool is_polyseed) { m_polyseed = is_polyseed; }
+    bool get_seed(epee::wipeable_string& electrum_words, const epee::wipeable_string &passphrase = epee::wipeable_string(), bool force_english = false) const;
+    bool get_polyseed(epee::wipeable_string& polyseed, uint64_t& birthday, bool& is_encrypted) const;
 
     /*!
      * \brief Gets the seed language
@@ -934,6 +968,7 @@ private:
       uint64_t min_height, uint64_t max_height = (uint64_t)-1, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::pool_payment_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
+    void sanity_check_pending_tx(const wallet2::pending_tx &ptx, const bool redacted, const bool expect_imported_key_images, std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver, const bool allow_read_only) const;
 
     uint64_t get_blockchain_current_height() const { return m_blockchain.size(); }
     void rescan_spent();
@@ -1268,8 +1303,8 @@ private:
    /*!
     * \brief Calculates the approximate blockchain height from current date/time.
     */
-    uint64_t get_approximate_blockchain_height() const;
-    uint64_t estimate_blockchain_height();
+    uint64_t get_approximate_blockchain_height(uint64_t time = 0) const;
+    uint64_t estimate_blockchain_height(uint64_t time = 0);
     std::vector<size_t> select_available_outputs_from_histogram(uint64_t count, bool atleast, bool unlocked, bool allow_rct);
     std::vector<size_t> select_available_outputs(const std::function<bool(const transfer_details &td)> &f);
     std::vector<size_t> select_available_unmixable_outputs();
@@ -1305,9 +1340,9 @@ private:
      */
     void set_account_tag_description(const std::string& tag, const std::string& description);
 
-    enum message_signature_type_t { sign_with_spend_key, sign_with_view_key };
+    enum message_signature_type_t { sign_with_spend_key, sign_with_view_key, sign_with_invalid_key };
     std::string sign(const std::string &data, message_signature_type_t signature_type, cryptonote::subaddress_index index = {0, 0}) const;
-    struct message_signature_result_t { bool valid; unsigned version; bool old; message_signature_type_t type; };
+    struct message_signature_result_t { bool valid = false; unsigned version = 0; bool old = false; message_signature_type_t type = sign_with_invalid_key; };
     message_signature_result_t verify(const std::string &data, const cryptonote::account_public_address &address, const std::string &signature) const;
 
     /*!
@@ -1360,8 +1395,10 @@ private:
 
     std::string make_uri(const std::string &address, const std::string &payment_id, uint64_t amount, const std::string &tx_description, const std::string &recipient_name, std::string &error) const;
     bool parse_uri(const std::string &uri, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error);
+    static bool parse_uri_impl(const std::string &uri, const cryptonote::network_type, std::string &address, std::string &payment_id, uint64_t &amount, std::string &tx_description, std::string &recipient_name, std::vector<std::string> &unknown_parameters, std::string &error);
 
     uint64_t get_blockchain_height_by_date(uint16_t year, uint8_t month, uint8_t day);    // 1<=month<=12, 1<=day<=31
+    uint64_t get_blockchain_height_by_timestamp(uint64_t timestamp);
 
     bool is_synced();
 
@@ -1574,6 +1611,7 @@ private:
     void scan_output(const cryptonote::transaction &tx, bool miner_tx, const crypto::public_key &tx_pub_key, size_t i, tx_scan_info_t &tx_scan_info, int &num_vouts_received, std::unordered_map<cryptonote::subaddress_index, uint64_t> &tx_money_got_in_outs, std::vector<size_t> &outs, bool pool);
     void trim_hashchain();
     crypto::key_image get_multisig_composite_key_image(size_t n) const;
+    crypto::key_image get_multisig_composite_key_image(size_t n, const std::vector<multisig_info> &infos) const;
     rct::multisig_kLRki get_multisig_composite_kLRki(size_t n,  const std::unordered_set<crypto::public_key> &ignore_set, std::unordered_set<rct::key> &used_L, std::unordered_set<rct::key> &new_used_L) const;
     rct::multisig_kLRki get_multisig_kLRki(size_t n, const rct::key &k) const;
     void get_multisig_k(size_t idx, const std::unordered_set<rct::key> &used_L, rct::key &nonce);
@@ -1671,9 +1709,10 @@ private:
     hw::device::device_type m_key_device_type;
     cryptonote::network_type m_nettype;
     uint64_t m_kdf_rounds;
-    std::string seed_language; /*!< Language of the mnemonics (seed). */
+    std::string seed_language; /*!< Language of the mnemonics (seed), in that language, e.g. "Deutsch" for German */
     bool is_old_file_format; /*!< Whether the wallet file is of an old file format */
     bool m_watch_only; /*!< no spend key */
+    bool m_polyseed;
     bool m_multisig; /*!< if > 1 spend secret key will not match spend public key */
     uint32_t m_multisig_threshold;
     std::vector<crypto::public_key> m_multisig_signers;

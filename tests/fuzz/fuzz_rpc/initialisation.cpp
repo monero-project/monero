@@ -16,6 +16,7 @@
 #include "serialization/binary_utils.h"
 #include "serialization/variant.h"
 
+#include <boost/filesystem.hpp>
 #include <boost/program_options/variables_map.hpp>
 #include <vector>
 #include <string>
@@ -51,21 +52,29 @@ std::unique_ptr<CoreEnv> initialise_rpc_core() {
   cryptonote::core::init_options(desc);
   boost::program_options::variables_map vm;
 
-  // Add command line argument to configure the rpc core object to use regression testing mode (FAKECHAIN)
-  // Enabling FAKECHAIN mode allows skipping validation logic of the authors signature and transactions ID
-  // on valid blocks and transactions while keeping other logic
-  std::vector<const char*> argv = {"fuzz", "--regtest"};
+  // Add command line arguments to configure the rpc core object to use regression testing mode (FAKECHAIN)
+  // and a throwaway data directory. Enabling FAKECHAIN mode allows skipping validation logic of the authors
+  // signature and transactions ID on valid blocks and transactions while keeping other logic.
+  const boost::filesystem::path data_dir = boost::filesystem::temp_directory_path() / "monero-fuzz-rpc";
+  std::vector<std::string> args = {"fuzz", "--regtest", "--offline", "--data-dir", data_dir.string()};
+  std::vector<const char*> argv;
+  argv.reserve(args.size());
+  for (const auto& arg : args) {
+    argv.push_back(arg.c_str());
+  }
   boost::program_options::store(boost::program_options::parse_command_line(argv.size(), argv.data(), desc), vm);
   boost::program_options::notify(vm);
 
   // Initialise the dummy core with all the above settings
-  env->core->init(vm);
+  if (!env->core->init(vm)) {
+    return nullptr;
+  }
 
   return env;
 }
 
 // Build the core_rpc_server handler object with the configured dummy core object
-std::unique_ptr<RpcServerBundle> initialise_rpc_server(cryptonote::core& dummy_core, FuzzedDataProvider& provider, bool need_payment) {
+std::unique_ptr<RpcServerBundle> initialise_rpc_server(cryptonote::core& dummy_core, bool restricted) {
   // Create rpc server bundle object
   auto bundle = std::make_unique<RpcServerBundle>();
 
@@ -73,7 +82,7 @@ std::unique_ptr<RpcServerBundle> initialise_rpc_server(cryptonote::core& dummy_c
   bundle->proto_handler = std::make_unique<cryptonote::t_cryptonote_protocol_handler<cryptonote::core>>(dummy_core, nullptr, true);
   bundle->proto_handler->set_no_sync(false);
   bundle->dummy_p2p = std::make_unique<nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core>>>(*bundle->proto_handler);
-  bundle->rpc = std::make_unique<cryptonote::core_rpc_server>(dummy_core, *bundle->dummy_p2p);
+  bundle->rpc = std::make_unique<cryptonote::core_rpc_server>(dummy_core, *bundle->dummy_p2p, restricted);
 
   return bundle;
 }

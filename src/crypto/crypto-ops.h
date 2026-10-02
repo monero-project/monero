@@ -153,6 +153,7 @@ extern const fe fe_a_inv_3;
 extern const fe fe_c;
 extern const ge_p3 ge_p3_identity;
 extern const ge_p3 ge_p3_H;
+extern const unsigned char sc_l[32];
 void ge_fromfe_frombytes_vartime(ge_p2 *, const unsigned char *);
 void sc_0(unsigned char *);
 void sc_1(unsigned char *);
