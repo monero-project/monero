@@ -47,6 +47,56 @@ static constexpr const char WALLET2_ASCII_OUTPUT_MAGIC[] = "MoneroAsciiDataV1";
 class wallet_accessor_test
 {
 public:
+    static void set_balance_test_data(tools::wallet2 &wallet)
+    {
+        while (wallet.m_blockchain.size() <= CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE)
+            wallet.m_blockchain.push_back(crypto::null_hash);
+        wallet.m_transfers.clear();
+        wallet.m_unconfirmed_txs.clear();
+        wallet.m_unconfirmed_payments.clear();
+
+        const auto add_transfer = [&](uint32_t major, uint32_t minor, uint64_t amount,
+                                      bool spent = false, uint64_t spent_height = 0,
+                                      bool frozen = false, uint64_t block_height = 0)
+        {
+            tools::wallet2::transfer_details td{};
+            td.m_subaddr_index = {major, minor};
+            td.m_amount = amount;
+            td.m_spent = spent;
+            td.m_spent_height = spent_height;
+            td.m_frozen = frozen;
+            td.m_block_height = block_height;
+            wallet.m_transfers.push_back(td);
+        };
+
+        add_transfer(0, 0, 100);
+        add_transfer(0, 1, 40, true);
+        add_transfer(0, 0, 30, true, 1);
+        add_transfer(0, 0, 20, false, 0, true);
+        add_transfer(0, 0, 5);
+        add_transfer(0, 0, 500);
+        add_transfer(1, 1, 70, false, 0, false, wallet.get_blockchain_current_height());
+
+        tools::wallet2::unconfirmed_transfer_details pending{};
+        pending.m_subaddr_account = 1;
+        pending.m_change = 9;
+        pending.m_state = tools::wallet2::unconfirmed_transfer_details::pending;
+        pending.m_dests.emplace_back(7, wallet.get_subaddress({1, 0}), true);
+        pending.m_dests.emplace_back(11, wallet.get_subaddress({2, 0}), true);
+        wallet.m_unconfirmed_txs.emplace(crypto::null_hash, pending);
+
+        crypto::hash failed_hash = crypto::null_hash;
+        failed_hash.data[0] = 1;
+        pending.m_change = 25;
+        pending.m_state = tools::wallet2::unconfirmed_transfer_details::failed;
+        wallet.m_unconfirmed_txs.emplace(failed_hash, pending);
+
+        tools::wallet2::pool_payment_details incoming{};
+        incoming.m_pd.m_amount = 13;
+        incoming.m_pd.m_subaddr_index = {2, 0};
+        wallet.m_unconfirmed_payments.emplace(crypto::null_hash, incoming);
+    }
+
     static void forget_cached_key_image(tools::wallet2 &wallet, const size_t index)
     {
         crypto::key_image stale_key_image = AUTO_VAL_INIT(stale_key_image);
@@ -62,6 +112,43 @@ public:
         return wallet.m_transfers.at(index).get_public_key();
     }
 };
+
+TEST(wallet_balance, batched_account_balances_match_individual_balances)
+{
+    const path wallet_file = unit_test::data_dir / "wallet_9svHk1";
+    tools::wallet2 wallet(cryptonote::TESTNET);
+    wallet.load(wallet_file.string(), epee::wipeable_string("test"));
+    wallet.set_subaddress_lookahead(1, 1);
+    wallet.add_subaddress_account("second");
+    wallet.add_subaddress_account("third");
+    wallet.ignore_outputs_below(10);
+    wallet.ignore_outputs_above(200);
+    wallet_accessor_test::set_balance_test_data(wallet);
+    ASSERT_GT(wallet.get_blockchain_current_height(), CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
+
+    for (bool strict: {false, true})
+    {
+        const auto balances = wallet.balances_per_account({0, 1, 2}, strict);
+        ASSERT_EQ(3, balances.size());
+        for (uint32_t account = 0; account < balances.size(); ++account)
+        {
+            EXPECT_EQ(wallet.balance(account, strict), balances[account].balance) << account << ", strict=" << strict;
+            EXPECT_EQ(wallet.unlocked_balance(account, strict), balances[account].unlocked_balance) << account << ", strict=" << strict;
+        }
+        EXPECT_EQ(strict ? 140 : 100, balances[0].balance);
+        EXPECT_EQ(strict ? 140 : 100, balances[0].unlocked_balance);
+        EXPECT_EQ(strict ? 70 : 86, balances[1].balance);
+        EXPECT_EQ(0, balances[1].unlocked_balance);
+        EXPECT_EQ(strict ? 0 : 13, balances[2].balance);
+        EXPECT_EQ(0, balances[2].unlocked_balance);
+
+        const auto filtered = wallet.balances_per_account({1}, strict);
+        EXPECT_EQ(0, filtered[0].balance);
+        EXPECT_EQ(wallet.balance(1, strict), filtered[1].balance);
+        EXPECT_EQ(wallet.unlocked_balance(1, strict), filtered[1].unlocked_balance);
+        EXPECT_EQ(0, filtered[2].balance);
+    }
+}
 
 TEST(wallet_storage, store_to_file2file)
 {
