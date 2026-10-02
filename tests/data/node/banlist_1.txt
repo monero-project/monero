@@ -10,8 +10,9 @@
 1.0.0.7#Literally James Bond, he wrecked my aston martin
 100.98.1.13 # Earl from HOA
 100.98.1.0/24   #The rest of the HOA for good measure
+2001:db8:1234::1
+2001:db8:abcd::/48
 #
 
 #7.7.7.7
 #^^^We're chill now, she's truly an angel
-
