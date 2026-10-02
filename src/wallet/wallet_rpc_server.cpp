@@ -3076,7 +3076,7 @@ namespace tools
 
     if (req.pool)
     {
-      if (!m_restricted)
+      if (req.refresh_pool && !m_restricted)
       {
         std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> process_txs;
         m_wallet->update_pool_state(process_txs);
