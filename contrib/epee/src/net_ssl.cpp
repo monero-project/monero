@@ -27,6 +27,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <algorithm>
 #include <string.h>
 #include <thread>
 #include <boost/asio/post.hpp>
@@ -89,6 +90,19 @@ namespace
       };
     }
     return boost::system::error_code{};
+  }
+
+  /**
+   * @brief Strict weak ordering over certificate fingerprints
+   *
+   * Fingerprint vectors are ordered lexicographically by byte. The constructor's sort
+   * and has_fingerprint's binary search must share this comparator; spelling it
+   * explicitly preserves the prior order and avoids instantiating the C++23 vector
+   * three-way comparison path.
+   */
+  bool fingerprint_less(const std::vector<std::uint8_t>& a, const std::vector<std::uint8_t>& b)
+  {
+    return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
   }
 
   /**
@@ -193,7 +207,7 @@ ssl_options_t::ssl_options_t(std::vector<std::vector<std::uint8_t>> fingerprints
     support(ssl_support_t::e_ssl_support_enabled),
     verification(ssl_verification_t::user_certificates)
 {
-  std::sort(fingerprints_.begin(), fingerprints_.end());
+  std::sort(fingerprints_.begin(), fingerprints_.end(), fingerprint_less);
 }
 
 boost::asio::ssl::context ssl_options_t::create_context() const
@@ -376,7 +390,7 @@ bool ssl_options_t::has_fingerprint(boost::asio::ssl::verify_context &ctx) const
     // strip unnecessary bytes from the digest
     digest.resize(size);
 
-    return std::binary_search(fingerprints_.begin(), fingerprints_.end(), digest);
+    return std::binary_search(fingerprints_.begin(), fingerprints_.end(), digest, fingerprint_less);
   }
 
   return false;

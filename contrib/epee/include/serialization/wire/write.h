@@ -239,7 +239,7 @@ namespace wire_write
   }
 
   template<typename W, typename T>
-  inline std::enable_if_t<std::is_pod<T>::value> dynamic_object_key(W& dest, const T& source)
+  inline std::enable_if_t<std::is_standard_layout<T>::value && std::is_trivial<T>::value> dynamic_object_key(W& dest, const T& source)
   {
     dest.binary_key(epee::as_byte_span(source));
   }

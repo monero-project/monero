@@ -25,7 +25,7 @@ jobs:
   build-cross:
     runs-on: ubuntu-latest
     container:
-      image: ${{ matrix.toolchain.container || 'ubuntu:22.04' }}
+      image: ${{ matrix.toolchain.container || 'ubuntu:24.04' }}
       env:
         DEBIAN_FRONTEND: noninteractive
     strategy:
@@ -49,7 +49,6 @@ jobs:
             host: "x86_64-w64-mingw32"
             rust_host: "x86_64-pc-windows-gnu"
             packages: "g++-mingw-w64-x86-64"
-            container: "ubuntu:24.04" # Rust >= 1.70 requires binutils >= 2.40
           - name: "x86_64 Linux"
             host: "x86_64-unknown-linux-gnu"
             rust_host: "x86_64-unknown-linux-gnu"
@@ -83,10 +82,10 @@ jobs:
       if: ${{ matrix.toolchain.host == 'x86_64-apple-darwin' || matrix.toolchain.host == 'arm64-apple-darwin' }}
       run: |
           cat << EOF >> /etc/apt/sources.list
-          deb http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main
-          deb-src http://apt.llvm.org/jammy/ llvm-toolchain-jammy-19 main
+          deb http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main
+          deb-src http://apt.llvm.org/noble/ llvm-toolchain-noble-19 main
           EOF
-          curl https://apt.llvm.org/llvm-snapshot.gpg.key > /etc/apt/trusted.gpg.d/apt.llvm.org.asc
+          curl --retry 5 --retry-all-errors --retry-delay 5 --fail --silent --show-error --location --output /etc/apt/trusted.gpg.d/apt.llvm.org.asc https://apt.llvm.org/llvm-snapshot.gpg.key
           echo "/usr/lib/llvm-19/bin/" >> $GITHUB_PATH
     - name: install dependencies
       run: apt update; apt -y install build-essential cmake pkg-config git ccache ${{ matrix.toolchain.packages }}
@@ -117,8 +116,8 @@ jobs:
       id: depends-restore
       with:
         path: contrib/depends/built
-        key: depends-${{ matrix.toolchain.host }}-${{ hashFiles('contrib/depends/packages/*') }}
-        restore-keys: depends-${{ matrix.toolchain.host }}-
+        key: depends-cxx23-${{ matrix.toolchain.host }}-${{ hashFiles('contrib/depends/packages/*', 'contrib/depends/Makefile', 'contrib/depends/hosts/*', 'contrib/depends/toolchain.cmake.in') }}
+        restore-keys: depends-cxx23-${{ matrix.toolchain.host }}-
     - name: prepare w64-mingw32
       if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' }}
       run: |

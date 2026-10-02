@@ -28,6 +28,7 @@
 
 #pragma once 
 
+#include <type_traits>
 #include "misc_log_ex.h"
 #include "portable_storage_base.h"
 #include "portable_storage_bin_utils.h"
@@ -152,7 +153,7 @@ namespace epee
     void throwable_buffer_reader::read(t_pod_type& pod_val)
     {
       RECURSION_LIMITATION();
-      static_assert(std::is_pod<t_pod_type>::value, "POD type expected");
+      static_assert(std::is_standard_layout<t_pod_type>::value && std::is_trivial<t_pod_type>::value, "POD type expected");
       read(&pod_val, sizeof(pod_val));
       pod_val = CONVERT_POD(pod_val);
     }
@@ -161,7 +162,7 @@ namespace epee
     void throwable_buffer_reader::read<bool>(bool& pod_val)
     {
       RECURSION_LIMITATION();
-      static_assert(std::is_pod<bool>::value, "POD type expected");
+      static_assert(std::is_standard_layout<bool>::value && std::is_trivial<bool>::value, "POD type expected");
       static_assert(sizeof(bool) == sizeof(uint8_t), "We really shouldn't use bool directly in serialization code. Replace it with uint8_t if this assert triggers!");
       uint8_t t;
       read(&t, sizeof(t));

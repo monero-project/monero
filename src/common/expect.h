@@ -142,7 +142,8 @@ class expect
 
     // MEMBERS
     std::error_code code_;
-    typename std::aligned_storage<sizeof(T), alignof(T)>::type storage_;
+    alignas(T) unsigned char storage_[sizeof(T)];
+    static_assert(sizeof(storage_) == sizeof(T), "expect<T> storage size must equal sizeof(T)");
     // MEMBERS
 
     T& get() noexcept

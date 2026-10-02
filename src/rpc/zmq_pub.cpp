@@ -290,19 +290,19 @@ namespace
 
   constexpr const std::array<context<chain_writer>, 2> chain_contexts =
   {{
-    {u8"json-full-chain_main", json_full_chain},
-    {u8"json-minimal-chain_main", minimal_chain_format<wire::json>}
+    {"json-full-chain_main", json_full_chain},
+    {"json-minimal-chain_main", minimal_chain_format<wire::json>}
   }};
 
   constexpr const std::array<context<miner_writer>, 1> miner_contexts =
   {{
-    {u8"json-full-miner_data", miner_data_format<wire::json>}
+    {"json-full-miner_data", miner_data_format<wire::json>}
   }};
 
   constexpr const std::array<context<txpool_writer>, 2> txpool_contexts =
   {{
-    {u8"json-full-txpool_add", json_full_txpool},
-    {u8"json-minimal-txpool_add", minimal_txpool_format<wire::json>}
+    {"json-full-txpool_add", json_full_txpool},
+    {"json-minimal-txpool_add", minimal_txpool_format<wire::json>}
   }};
 
   template<typename T, std::size_t N>

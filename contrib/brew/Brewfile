@@ -1,6 +1,6 @@
 # Brewfile for Monero
 # A homebrew Brewfile installs all required dependencies in one shot
-# see https://coderwall.com/p/afmnbq/homebrew-s-new-feature-brewfiles
+# see https://docs.brew.sh/Brew-Bundle-and-Brewfile
 #     https://github.com/Homebrew/homebrew-bundle
 # execute brew bundle in the directory containing the Brewfile
 
@@ -17,6 +17,7 @@ brew "unbound"
 brew "libsodium"
 brew "readline"
 brew "ccache"
+brew "rust"
 brew "doxygen"
 brew "graphviz"
 brew "libunwind-headers"

@@ -68,7 +68,6 @@ public: \
     }\
   }\
   /*template<typename T> T& this_type_resolver() { return *this; }*/ \
-  /*using this_type = std::result_of<decltype(this_type_resolver)>::type;*/ \
   template<bool is_store, class t_storage> \
   bool serialize_map(t_storage& stg, typename t_storage::hsection hparent_section) \
   { \

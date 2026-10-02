@@ -17,13 +17,13 @@ Please, refer to [monero readme](https://github.com/trezor/trezor-firmware/blob/
 
 Trezor uses [Protobuf](https://protobuf.dev/) library.
 
-Monero is now compiled with C++17 by default. If you are getting Trezor compilation errors, it may be caused by abseil (protobuf dependency) not being compiled with C++17.
+Monero is now compiled with C++23 by default. If you are getting Trezor compilation errors, it may be caused by abseil (protobuf dependency) not being compiled with C++23.
 To fix this try installing protobuf from sources:
 
 ```shell
 git clone --recursive git@github.com:protocolbuffers/protobuf.git
 cd protobuf
-cmake -DABSL_PROPAGATE_CXX_STD=TRUE -DCMAKE_CXX_STANDARD=17 -Dprotobuf_BUILD_SHARED_LIBS=ON -Dprotobuf_BUILD_TESTS=OFF .
+cmake -DABSL_PROPAGATE_CXX_STD=TRUE -DCMAKE_CXX_STANDARD=23 -Dprotobuf_BUILD_SHARED_LIBS=ON -Dprotobuf_BUILD_TESTS=OFF .
 cmake --build .
 sudo make install
 ```
@@ -34,10 +34,10 @@ sudo make install
 brew update && brew bundle --file=contrib/brew/Brewfile
 ```
 
-### MSYS32
+### MSYS2 (UCRT64)
 
 ```bash
-pacman -S mingw-w64-x86_64-protobuf
+pacman -S mingw-w64-ucrt-x86_64-protobuf
 ```
 
 ### Other systems

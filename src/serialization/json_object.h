@@ -32,6 +32,7 @@
 #include <cstring>
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>
+#include <type_traits>
 #include <vector>
 
 #include "byte_stream.h"
@@ -74,7 +75,7 @@ struct JSON_ERROR : public std::exception
   public:
     virtual ~JSON_ERROR() { }
 
-    const char* what() const throw()
+    const char* what() const noexcept
     {
       return m.c_str();
     }
@@ -115,7 +116,7 @@ struct PARSE_FAIL : public JSON_ERROR
 template<typename Type>
 inline constexpr bool is_to_hex()
 {
-  return std::is_pod<Type>() && !std::is_integral<Type>();
+  return std::is_standard_layout<Type>() && std::is_trivial<Type>() && !std::is_integral<Type>();
 }
 
 void read_hex(const rapidjson::Value& val, epee::span<std::uint8_t> dest);

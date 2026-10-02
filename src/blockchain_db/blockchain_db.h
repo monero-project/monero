@@ -218,7 +218,7 @@ class DB_EXCEPTION : public std::exception
   public:
     virtual ~DB_EXCEPTION() { }
 
-    const char* what() const throw()
+    const char* what() const noexcept
     {
       return m.c_str();
     }

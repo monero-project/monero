@@ -45,6 +45,20 @@
 #include "net/levin_protocol_handler_async.h"
 #include "p2p/net_node.h"
 
+#include <algorithm>
+#include <atomic>
+#include <exception>
+#include <functional>
+#include <memory>
+#include <ostream>
+#include <system_error>
+#include <utility>
+#include <boost/asio/ssl/verify_context.hpp>
+#include <openssl/ssl.h>
+#include <openssl/x509.h>
+#include <openssl/x509_vfy.h>
+#include "net/net_ssl.h"
+
 namespace
 {
   const uint32_t test_server_port = 5626;
@@ -603,6 +617,601 @@ TEST(test_epee_connection, ssl_handshake)
   work.reset();
   for (;workers.size(); workers.pop_back())
     workers.back().join();
+}
+
+namespace
+{
+  //! What one client-side handshake in `ssl_handshake_fingerprint_lookup` did.
+  enum class fingerprint_lookup_outcome
+  {
+    //! The client handshake completed, so the peer's certificate was accepted.
+    verified,
+    /*! The client handshake failed and OpenSSL recorded a certificate-verification
+        error for it, so the peer's certificate was inspected and refused. */
+    rejected_certificate,
+    /*! The client handshake failed with no certificate-verification error recorded:
+        a timeout, a cancellation, or a transport or protocol error. Such a failure
+        says nothing about the certificate, which is why it is kept apart from
+        `rejected_certificate` instead of being reported as a rejection. */
+    failed,
+    //! No verdict: the host, OpenSSL or a thread failed the test itself.
+    setup_failed
+  };
+
+  /*!
+    Prints the enumerator's name, so a failed expectation reads "verified" instead
+    of an integer. Found by argument-dependent lookup from this namespace, which is
+    how gtest's value printer locates a stream operator.
+   */
+  std::ostream& operator<<(std::ostream& out, const fingerprint_lookup_outcome outcome)
+  {
+    switch (outcome)
+    {
+      case fingerprint_lookup_outcome::verified:             return out << "verified";
+      case fingerprint_lookup_outcome::rejected_certificate: return out << "rejected_certificate";
+      case fingerprint_lookup_outcome::failed:               return out << "failed";
+      case fingerprint_lookup_outcome::setup_failed:         return out << "setup_failed";
+    }
+    return out << "fingerprint_lookup_outcome(" << static_cast<int>(outcome) << ")";
+  }
+
+  //! Everything one handshake attempt in `ssl_handshake_fingerprint_lookup` observed.
+  struct fingerprint_handshake_report
+  {
+    //! What the client's handshake did. This is the value the test asserts on.
+    fingerprint_lookup_outcome outcome;
+    /*! Whether the peer's own handshake reported success. Reported rather than
+        asserted: the server is cancelled as soon as the client is finished, and it
+        legitimately fails with a TLS alert once the client refuses the certificate,
+        so this is context for a failed expectation and not a verdict of its own. */
+    bool server_completed;
+    /*! OpenSSL's certificate-verification code for the client's handshake, as
+        `SSL_get_verify_result` reports it: `X509_V_OK` when no certificate was ever
+        judged. It is what separates `rejected_certificate` from `failed`. */
+    long verify_result;
+  };
+
+  //! Prints an attempt in full, so a failed expectation carries why it turned out that way.
+  std::ostream& operator<<(std::ostream& out, const fingerprint_handshake_report& report)
+  {
+    return out << report.outcome << " (server handshake completed: " << std::boolalpha
+               << report.server_completed << ", client certificate verification result: "
+               << report.verify_result << ")";
+  }
+
+  /*!
+    The report for an attempt that never reached a verdict, so that every such exit
+    from the helper below says the same thing: no certificate was judged, and nothing
+    is claimed about the peer's own handshake.
+   */
+  fingerprint_handshake_report fingerprint_setup_failure()
+  {
+    return fingerprint_handshake_report{fingerprint_lookup_outcome::setup_failed, false, X509_V_OK};
+  }
+
+  /*!
+    Runs `body` on a thread of its own and joins that thread on every way out of the
+    scope that holds it: a normal return, an early return after a failed check, or an
+    exception unwinding through it. A `std::thread` that is still joinable when it is
+    destroyed calls std::terminate, which takes the whole test binary down and reports
+    nothing, so the join cannot be left to a statement that unwinding would skip.
+
+    `release` runs before `join`, so teardown need not wait for the handshake's own
+    deadline. The installed callback only stores to an atomic and does not throw.
+
+    The thread is started by this class rather than handed to it, which is what closes
+    the window a `scoped_thread_joiner(std::thread(...), ...)` spelling leaves open:
+    there, the thread argument and the callback argument are indeterminately sequenced,
+    so a throwing conversion of the callback can destroy an already running, unowned
+    thread and end the process. Here both arguments are `std::function` parameters, so
+    every conversion they need is complete before the constructor is entered; the
+    holder is then allocated while nothing is running; and only after that does the
+    constructor start the thread and take ownership of it with a move-assignment that
+    cannot throw. No thread can therefore exist without an owner.
+   */
+  class scoped_thread_joiner
+  {
+  public:
+    /*!
+      \param body Run on the new thread. It must not let an exception escape - that
+        would call std::terminate from the thread itself, before this object could
+        report anything.
+      \param release Invoked by `join` before waiting, to end whatever `body` is
+        waiting on. It must not throw.
+     */
+    scoped_thread_joiner(std::function<void()> body, std::function<void()> release)
+      : thread_(std::make_unique<std::thread>()), release_(std::move(release))
+    {
+      // Assigning over the default-constructed, and therefore non-joinable, held
+      // thread is noexcept, so the only step that can fail here is starting the
+      // thread - and if that fails no thread was ever created.
+      *thread_ = std::thread(std::move(body));
+    }
+
+    scoped_thread_joiner(const scoped_thread_joiner&) = delete;
+    scoped_thread_joiner& operator=(const scoped_thread_joiner&) = delete;
+
+    ~scoped_thread_joiner() { join(); }
+
+    /*!
+      Releases the thread's work and joins it. Idempotent, so an explicit call and
+      the destructor cannot join twice, and never throws, because it also runs from
+      the destructor while an exception is in flight.
+     */
+    void join() noexcept
+    {
+      if (!thread_ || !thread_->joinable())
+        return;
+
+      if (release_)
+      {
+        // The callback is required not to throw, and the one installed here only
+        // stores to an atomic - but this function is noexcept, so a broken callback
+        // is reported instead of ending the process, and the join still happens.
+        try
+        {
+          release_();
+        }
+        catch (...)
+        {
+          report_failure("the server thread's release callback threw", "");
+        }
+      }
+
+      try
+      {
+        thread_->join();
+      }
+      catch (const std::system_error& e)
+      {
+        // Only an unusable thread handle reaches here, which is a broken test
+        // environment rather than a verdict about the code under test. Every step of
+        // the recovery is itself non-throwing, because this function runs from the
+        // destructor: the handle is first put beyond the reach of ~thread, and only
+        // then is the failure reported.
+        abandon();
+        report_failure("could not join the server handshake thread: ", e.what());
+      }
+      catch (...)
+      {
+        abandon();
+        report_failure("could not join the server handshake thread", "");
+      }
+    }
+
+  private:
+    /*!
+      Leaves the held thread in a state whose destruction cannot end the process, and
+      cannot itself throw.
+
+      `detach()` clears the handle when it succeeds, and reports failure the same way
+      `join()` does - so its exception is caught here, and a handle that can be
+      neither joined nor detached is dropped by releasing the holder instead. That
+      leaks the thread object rather than letting ~thread call std::terminate, which
+      in a test process that still has a failure to report is strictly the better
+      outcome.
+     */
+    void abandon() noexcept
+    {
+      try
+      {
+        thread_->detach();
+        return;
+      }
+      catch (...)
+      {}
+
+      (void)thread_.release();
+    }
+
+    //! Reports a cleanup failure. gtest's reporting allocates, so it cannot escape here.
+    static void report_failure(const char* const what, const char* const detail) noexcept
+    {
+      try
+      {
+        ADD_FAILURE() << what << detail;
+      }
+      catch (...)
+      {}
+    }
+
+    /*! Held indirectly so that `abandon` can drop an unusable handle without
+        destroying it. Never null until then, and never reset by anything else. */
+    std::unique_ptr<std::thread> thread_;
+    std::function<void()> release_;
+  };
+}
+
+/*!
+  Proves that a certificate fingerprint supplied in an unsorted list is found by
+  `epee::net_utils::ssl_options_t`, and that an absent one is not.
+
+  The fingerprint list is a private member sorted by the `ssl_options_t`
+  constructor and searched with a binary search by `ssl_options_t::has_fingerprint`.
+  The two operations must agree on one ordering: if they disagree, the search
+  silently stops finding valid certificates - a peer that should be trusted is
+  dropped, or worse, the failure hides until a particular list order occurs. Neither
+  the list nor the comparator is reachable from a test (the member is private and the
+  comparator has internal linkage), so the ordering is exercised through the public
+  surface that depends on it: an out-of-order list handed to the public constructor,
+  and then `has_fingerprint`.
+
+  That lookup is asserted directly. `has_fingerprint` takes the verification context
+  the callback inside `configure()` hands it, so a context whose verified chain is the
+  peer's own certificate asks it exactly the question the ordering decides - is this
+  digest in the sorted list - and answers it with a fingerprint-specific verdict.
+
+  A pair of real handshakes then covers the same decision end to end, once with the
+  peer's fingerprint in the list and once without. `ssl_options_t::handshake` reports
+  a single bool, so what those attempts observe is narrower than the direct lookup: a
+  completed handshake, or a failure for which OpenSSL recorded a
+  certificate-verification error, which is a judgement on the certificate but does not
+  name the reason for it. A timeout, cancellation or transport failure is reported as
+  `fingerprint_lookup_outcome::failed` and satisfies neither expectation.
+
+  Because the second half expects a handshake to fail, scaffolding failure must not
+  look like rejection. Preconditions before the helper use fatal assertions; failures
+  inside each handshake attempt return `fingerprint_lookup_outcome::setup_failed`, so
+  neither can satisfy the verified or rejected_certificate expectation accidentally.
+ */
+TEST(test_epee_connection, ssl_handshake_fingerprint_lookup)
+{
+  using io_context_t = boost::asio::io_context;
+  using socket_t = boost::asio::ip::tcp::socket;
+  using acceptor_t = boost::asio::ip::tcp::acceptor;
+  using endpoint_t = boost::asio::ip::tcp::endpoint;
+  using ssl_socket_t = boost::asio::ssl::stream<socket_t>;
+  using ssl_options_t = epee::net_utils::ssl_options_t;
+  using fingerprint_t = std::vector<std::uint8_t>;
+  using ec_t = boost::system::error_code;
+
+  // SSL must be enabled explicitly: `create_context()` returns a bare context
+  // without any certificate when the configuration is disabled, and the
+  // `ssl_options_t{{}}` spelling used by the ssl_handshake test above is a
+  // disabled configuration. With no private key path configured the context gets
+  // a self-signed RSA certificate generated in memory, which is exactly the peer
+  // certificate a fingerprint whitelist is meant to pin.
+  ssl_options_t server_options{epee::net_utils::ssl_support_t::e_ssl_support_enabled};
+  auto server_context = server_options.create_context();
+
+  // "get0" hands back a pointer the context still owns - it must not be freed here.
+  X509* const server_certificate = SSL_CTX_get0_certificate(server_context.native_handle());
+  ASSERT_NE(server_certificate, nullptr);
+
+  // Computed exactly as ssl_options_t::has_fingerprint() computes the value it
+  // searches for - SHA-256 into an EVP_MAX_MD_SIZE buffer, then shrunk to the
+  // digest length - so that this is the very fingerprint the lookup will look for.
+  // The human-readable helpers in net_ssl.h are deliberately not used: they return
+  // a colon-separated string, not these raw bytes.
+  fingerprint_t expected(EVP_MAX_MD_SIZE);
+  unsigned int digest_size = 0;
+  ASSERT_EQ(X509_digest(server_certificate, EVP_sha256(), expected.data(), &digest_size), 1);
+  expected.resize(digest_size);
+  ASSERT_EQ(expected.size(), static_cast<std::size_t>(SSL_FINGERPRINT_SIZE));
+
+  // The same strict weak ordering the fingerprint comparator in net_ssl.cpp
+  // defines, so that the expectations below are stated in terms of the order
+  // actually under test instead of std::vector's relational operators.
+  const auto fingerprint_less = [](const fingerprint_t& lhs, const fingerprint_t& rhs) {
+    return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
+  };
+
+  // Two decoy fingerprints derived from `expected` deterministically, one on each
+  // side of it. Moving the first byte that is not already at its bound decides the
+  // order on its own - every earlier byte is identical to `expected` - so the decoy
+  // is strictly greater or strictly smaller, stays exactly SSL_FINGERPRINT_SIZE
+  // bytes long, and can never be a duplicate of `expected` itself.
+  const auto derive_decoy = [&expected](const bool greater_than_expected) {
+    fingerprint_t decoy(expected);
+    const std::uint8_t bound = greater_than_expected ? 0xff : 0x00;
+    for (std::size_t i = 0; i < decoy.size(); ++i)
+    {
+      if (decoy[i] == bound)
+        continue;
+      decoy[i] = static_cast<std::uint8_t>(greater_than_expected ? decoy[i] + 1 : decoy[i] - 1);
+      break;
+    }
+    return decoy;
+  };
+
+  const fingerprint_t greater = derive_decoy(true);
+  const fingerprint_t smaller = derive_decoy(false);
+
+  // A digest of nothing but 0xff (or 0x00) bytes would defeat that derivation. These
+  // assertions verify that the generated certificate's digest is neither boundary
+  // value.
+  ASSERT_TRUE(fingerprint_less(expected, greater));
+  ASSERT_TRUE(fingerprint_less(smaller, expected));
+
+  // The fingerprint decision on its own, with no handshake in the way. The
+  // verification callback configure() installs consults has_fingerprint with the
+  // context OpenSSL hands it, and all has_fingerprint reads from that context is the
+  // first certificate of the verified chain - so a context carrying the peer's own
+  // certificate as that chain asks the callback's question directly, and the answer is
+  // specifically the fingerprint verdict rather than a handshake's single bool. This
+  // is what makes the constructor's sort and the lookup's binary search agree or fail
+  // visibly. An OpenSSL allocation failure here is a broken environment rather than a
+  // verdict, hence the fatal assertions.
+  const auto expect_fingerprint_lookup =
+    [&server_certificate](const std::vector<fingerprint_t>& fingerprints, const bool expected_in_list)
+  {
+    ssl_options_t options{fingerprints, ""};
+
+    const std::unique_ptr<X509_STORE_CTX, void (*)(X509_STORE_CTX*)> store_ctx(
+      X509_STORE_CTX_new(), &X509_STORE_CTX_free
+    );
+    ASSERT_NE(store_ctx.get(), nullptr);
+    ASSERT_EQ(X509_STORE_CTX_init(store_ctx.get(), nullptr, nullptr, nullptr), 1);
+
+    // Both the stack and the reference pushed onto it pass to the context, which
+    // frees them with it - so neither is released here.
+    STACK_OF(X509)* const chain = sk_X509_new_null();
+    ASSERT_NE(chain, nullptr);
+    ASSERT_EQ(X509_up_ref(server_certificate), 1);
+    ASSERT_EQ(sk_X509_push(chain, server_certificate), 1);
+    X509_STORE_CTX_set0_verified_chain(store_ctx.get(), chain);
+
+    boost::asio::ssl::verify_context verify_ctx(store_ctx.get());
+    EXPECT_EQ(options.has_fingerprint(verify_ctx), expected_in_list)
+      << "has_fingerprint disagreed with the list it was given";
+  };
+
+  // Runs the shared client/server handshake flow, so that the two paths cannot drift
+  // apart. Reports whether the client handshake completed, whether it failed with a
+  // certificate-verification error recorded against it or for some other reason, or
+  // `setup_failed` for a setup failure or a captured server exception.
+  const auto run_client_handshake =
+    [&server_options, &server_context](const std::vector<fingerprint_t>& fingerprints)
+  {
+    using outcome_t = fingerprint_lookup_outcome;
+    using report_t = fingerprint_handshake_report;
+
+    // The attempt is wrapped so ordinary setup and handshake exceptions are reported
+    // instead of escaping the test body. Successfully constructed sockets and the
+    // acceptor clean themselves up on scope exit, and once the joiner owns the server
+    // thread it cancels and joins it before the objects the thread references are
+    // destroyed.
+    try
+    {
+      // Generous: a loopback handshake completes in milliseconds and this deadline is
+      // only reached if a peer stops answering. Zero would fire immediately, which is
+      // how the ssl_handshake test above forces a failure.
+      const std::chrono::milliseconds timeout(30 * 1000);
+
+      // Held in a named local that outlives the handshake below: configure() installs
+      // a verification callback that retains the options object's this pointer and
+      // captures its host argument by reference. The empty ca_path leaves the
+      // user-certificate check with no certificate authority to fall back on, so
+      // verification reaches the fingerprint lookup.
+      ssl_options_t client_options{fingerprints, ""};
+      auto client_context = client_options.create_context();
+
+      // One io_context per side. handshake() drives the context it is given itself
+      // (restarting it and polling it in its own loop), so no worker thread and no
+      // work guard is needed here; two independent contexts keep the two
+      // self-pumping loops from stealing each other's handlers.
+      io_context_t server_io;
+      io_context_t client_io;
+      ec_t ec;
+
+      // Port 0 lets the OS assign a free loopback port, so this test never collides
+      // with another test - or another copy of itself - over a fixed port number.
+      acceptor_t acceptor(server_io);
+      const endpoint_t bind_endpoint(boost::asio::ip::address_v4::loopback(), 0);
+
+      // Each step below is a precondition of the next one, and none of them says
+      // anything about the code under test - they are the calls that fail when the
+      // host runs out of descriptors or ephemeral ports. So a failure ends the
+      // attempt here, with no verdict, instead of being recorded and carried into
+      // the next call: accept() in particular is synchronous with no deadline and no
+      // cancellation, and reaching it without a connection already queued would
+      // block this test for as long as the run lasts. Returning early needs no
+      // teardown of its own - the acceptor and both sockets close in their
+      // destructors.
+      acceptor.open(bind_endpoint.protocol(), ec);
+      if (ec)
+      {
+        ADD_FAILURE() << "could not open the loopback acceptor: " << ec.message();
+        return fingerprint_setup_failure();
+      }
+      acceptor.bind(bind_endpoint, ec);
+      if (ec)
+      {
+        ADD_FAILURE() << "could not bind the loopback acceptor: " << ec.message();
+        return fingerprint_setup_failure();
+      }
+      acceptor.listen(boost::asio::socket_base::max_listen_connections, ec);
+      if (ec)
+      {
+        ADD_FAILURE() << "could not listen on the loopback acceptor: " << ec.message();
+        return fingerprint_setup_failure();
+      }
+      const endpoint_t server_endpoint = acceptor.local_endpoint(ec);
+      if (ec)
+      {
+        ADD_FAILURE() << "could not read the acceptor's assigned port: " << ec.message();
+        return fingerprint_setup_failure();
+      }
+
+      // Connect first and accept second: the blocking connect() completes through the
+      // listen backlog, so this ordering cannot deadlock on a single thread. And
+      // accept() is reached only once connect() has succeeded, which is what
+      // guarantees it has a connection waiting for it rather than a wait with no end.
+      ssl_socket_t client_ssl(client_io, client_context);
+      client_ssl.next_layer().connect(server_endpoint, ec);
+      if (ec)
+      {
+        ADD_FAILURE() << "could not connect to the loopback acceptor: " << ec.message();
+        return fingerprint_setup_failure();
+      }
+      ssl_socket_t server_ssl(server_io, server_context);
+      acceptor.accept(server_ssl.next_layer(), ec);
+      if (ec)
+      {
+        ADD_FAILURE() << "could not accept the loopback connection: " << ec.message();
+        return fingerprint_setup_failure();
+      }
+
+      // Set from this thread and polled by handshake() from inside the server
+      // thread's own loop, which then closes the socket itself: this is the
+      // cancellation hook the production interface provides, and the only way to end
+      // the server's wait without operating on a socket that another thread is using.
+      std::atomic<bool> server_aborted{false};
+
+      // An exception must not leave a thread function - that calls std::terminate -
+      // so the server's is carried back here and reported once the thread is joined.
+      std::exception_ptr server_exception;
+
+      // Set only from the handler below, and only when the server threw: a handshake
+      // that threw cannot go on to answer the client, so the client would otherwise
+      // sit out its whole deadline waiting for a peer that has already gone. Read
+      // through the client's own cancellation hook, it ends that wait at once. On
+      // every healthy path this stays false and the client behaves exactly as it
+      // would with no hook at all.
+      std::atomic<bool> server_threw{false};
+
+      // The peer's own result. It is reported rather than asserted: the server is
+      // cancelled as soon as the client is finished, and once the client refuses the
+      // certificate the server legitimately fails with a TLS alert - but a failed
+      // expectation is much easier to read with the other side's answer beside it.
+      std::atomic<bool> server_completed{false};
+
+      // The joiner creates the thread it owns, so no thread exists before the object
+      // responsible for cancelling and joining it: both callbacks below are converted
+      // before its constructor is entered, and it starts the thread only once it can
+      // take ownership of it without any step that can throw.
+      scoped_thread_joiner server_joiner(
+        [&] {
+          try
+          {
+            server_completed.store(
+              server_options.handshake(
+                server_io,
+                server_ssl,
+                ssl_socket_t::server,
+                {},
+                {},
+                timeout,
+                [&server_aborted] { return server_aborted.load(std::memory_order_relaxed); }
+              ),
+              std::memory_order_relaxed
+            );
+          }
+          catch (...)
+          {
+            server_exception = std::current_exception();
+            server_threw.store(true, std::memory_order_release);
+          }
+        },
+        [&server_aborted] { server_aborted.store(true, std::memory_order_relaxed); }
+      );
+
+      const bool client_completed = client_options.handshake(
+        client_io,
+        client_ssl,
+        ssl_socket_t::client,
+        {},
+        {},
+        timeout,
+        [&server_threw] { return server_threw.load(std::memory_order_acquire); }
+      );
+
+      // Joined here rather than left to the guard, because the join is what makes
+      // the thread's write to server_exception visible to this thread - and the
+      // client handshake that has just finished, or given up, is the only thing the
+      // server was waiting for. The guard remains the join of last resort for the
+      // paths that never reach this line.
+      server_joiner.join();
+      if (server_exception)
+      {
+        try
+        {
+          std::rethrow_exception(server_exception);
+        }
+        catch (const std::exception& e)
+        {
+          ADD_FAILURE() << "the server handshake threw: " << e.what();
+        }
+        catch (...)
+        {
+          ADD_FAILURE() << "the server handshake threw a non-standard exception";
+        }
+        return fingerprint_setup_failure();
+      }
+
+      // What OpenSSL recorded about the peer's certificate on this connection. It
+      // stays X509_V_OK until a certificate is actually judged, so it is what
+      // separates a refused certificate from a handshake that failed before - or
+      // without - reaching that decision. The stream's SSL object holds it and
+      // outlives the handshake either way.
+      const long verify_result = SSL_get_verify_result(client_ssl.native_handle());
+
+      // handshake() already closes the socket on failure, so repeating it here is
+      // harmless; the error code is ignored, as it is elsewhere in this file. The
+      // destructors would do this too - it is spelled out for the path that reaches
+      // a verdict, which is why no other path needs a teardown of its own.
+      client_ssl.next_layer().shutdown(socket_t::shutdown_both, ec);
+      client_ssl.next_layer().close(ec);
+      server_ssl.next_layer().shutdown(socket_t::shutdown_both, ec);
+      server_ssl.next_layer().close(ec);
+      acceptor.close(ec);
+
+      // A failed handshake is reported as a certificate rejection only when OpenSSL
+      // says a certificate was rejected. Every other failure is `failed`, so a
+      // timeout, a cancellation or a transport error cannot pass for a judgement on
+      // the peer's certificate - and the caller's rejection expectation cannot be
+      // satisfied by one.
+      const outcome_t outcome = client_completed
+        ? outcome_t::verified
+        : (verify_result == X509_V_OK ? outcome_t::failed : outcome_t::rejected_certificate);
+      return report_t{outcome, server_completed.load(std::memory_order_relaxed), verify_result};
+    }
+    catch (const std::exception& e)
+    {
+      ADD_FAILURE() << "the fingerprint handshake threw: " << e.what();
+      return fingerprint_setup_failure();
+    }
+    catch (...)
+    {
+      ADD_FAILURE() << "the fingerprint handshake threw a non-standard exception";
+      return fingerprint_setup_failure();
+    }
+  };
+
+  // Deliberately out of order around `expected`, so the constructor's sort has real
+  // work to do and the subsequent binary search can only find the entry if both use
+  // the same ordering.
+  const std::vector<fingerprint_t> matching{greater, expected, smaller};
+  ASSERT_FALSE(std::is_sorted(matching.begin(), matching.end(), fingerprint_less));
+
+  // The lookup itself: the peer's certificate is in this list, out of order, and
+  // has_fingerprint must find it.
+  expect_fingerprint_lookup(matching, true);
+
+  // And the same decision reached through a real handshake, which additionally proves
+  // the certificate the peer actually presents is the one whose digest was pinned.
+  const fingerprint_handshake_report matching_attempt = run_client_handshake(matching);
+  EXPECT_EQ(matching_attempt.outcome, fingerprint_lookup_outcome::verified)
+    << "the handshake with the peer's fingerprint present reported " << matching_attempt;
+
+  // The same pair with the server's fingerprint removed. The list stays non-empty and
+  // out of order, so the lookup still runs its search rather than returning early on
+  // an empty list, and it must not find the peer's digest.
+  const std::vector<fingerprint_t> mismatching{greater, smaller};
+  ASSERT_FALSE(std::is_sorted(mismatching.begin(), mismatching.end(), fingerprint_less));
+  expect_fingerprint_lookup(mismatching, false);
+
+  // The handshake must then fail, because SSL support is enabled rather than
+  // autodetected, and it must fail as a certificate rejection: nothing else the client
+  // can hit - a timeout, a cancellation, a transport or protocol error - is accepted
+  // in its place, since only a recorded certificate-verification error shows the
+  // certificate was inspected and refused. In this configuration the certificate is
+  // self-signed and no certificate authority is configured, so the fingerprint lookup
+  // is the only thing that could have accepted it. An error is logged on this path by
+  // design.
+  const fingerprint_handshake_report mismatching_attempt = run_client_handshake(mismatching);
+  EXPECT_EQ(mismatching_attempt.outcome, fingerprint_lookup_outcome::rejected_certificate)
+    << "the handshake with the peer's fingerprint absent reported " << mismatching_attempt;
 }
 
 namespace
