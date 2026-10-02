@@ -268,13 +268,33 @@ namespace cryptonote
       return false;
 
     CRITICAL_REGION_LOCAL(m_host_fails_score_lock);
-    uint64_t fails = m_host_fails_score[ctx->m_remote_address.host_str()] += score;
-    MDEBUG("Host " << ctx->m_remote_address.host_str() << " fail score=" << fails);
+    const std::string host = ctx->m_remote_address.host_str();
+    const time_t now = time(NULL);
+
+    if (m_host_fails_score.find(host) == m_host_fails_score.end() && m_host_fails_score.size() >= RPC_HOST_FAILS_SCORE_MAX_SIZE)
+    {
+      for (auto it = m_host_fails_score.begin(); it != m_host_fails_score.end(); )
+      {
+        if (now - it->second.second > P2P_FAILED_ADDR_FORGET_SECONDS)
+          it = m_host_fails_score.erase(it);
+        else
+          ++it;
+      }
+      if (m_host_fails_score.size() >= RPC_HOST_FAILS_SCORE_MAX_SIZE)
+      {
+        const auto oldest = std::min_element(m_host_fails_score.begin(), m_host_fails_score.end(),
+          [](const auto &a, const auto &b) { return a.second.second < b.second.second; });
+        m_host_fails_score.erase(oldest);
+      }
+    }
+
+    auto &entry = m_host_fails_score[host];
+    entry.second = now;
+    uint64_t fails = entry.first += score;
+    MDEBUG("Host " << host << " fail score=" << fails);
     if(fails > RPC_IP_FAILS_BEFORE_BLOCK)
     {
-      auto it = m_host_fails_score.find(ctx->m_remote_address.host_str());
-      CHECK_AND_ASSERT_MES(it != m_host_fails_score.end(), false, "internal error");
-      it->second = RPC_IP_FAILS_BEFORE_BLOCK/2;
+      entry.first = RPC_IP_FAILS_BEFORE_BLOCK/2;
       m_p2p.block_host(ctx->m_remote_address);
     }
     return true;
