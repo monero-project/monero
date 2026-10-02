@@ -86,6 +86,17 @@ class P2PTest():
         # generate blocks
         res_generateblocks = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', blocks)
 
+    def wait_for_reorg(self, daemon, expected_height, expected_hash):
+        deadline = time.monotonic() + 30
+        while True:
+            res = daemon.get_info()
+            if res.height == expected_height and res.top_block_hash == expected_hash:
+                return
+            assert time.monotonic() < deadline, (
+                'Reorg timed out: expected %d/%s, got %d/%s' %
+                (expected_height, expected_hash, res.height, res.top_block_hash))
+            time.sleep(.25)
+
     def test_p2p_reorg(self):
         print('Testing P2P reorg')
         daemon2 = Daemon(idx = 2)
@@ -124,10 +135,7 @@ class P2PTest():
         # reconnect, daemon2 will now switch to daemon3's chain
         daemon2.out_peers(8)
         daemon3.out_peers(8)
-        time.sleep(10)
-        res = daemon2.get_info()
-        assert res.height == height + 3
-        assert res.top_block_hash == daemon3_top_block_hash
+        self.wait_for_reorg(daemon2, height + 3, daemon3_top_block_hash)
 
         # disconnect, mine on daemon2 again more than daemon3
         daemon2.out_peers(0)
@@ -149,10 +157,7 @@ class P2PTest():
         # reconnect, daemon3 will now switch to daemon2's chain
         daemon2.out_peers(8)
         daemon3.out_peers(8)
-        time.sleep(5)
-        res = daemon3.get_info()
-        assert res.height == height + 6
-        assert res.top_block_hash == daemon2_top_block_hash
+        self.wait_for_reorg(daemon3, height + 6, daemon2_top_block_hash)
 
         # disconnect and mine a lot on daemon3
         daemon2.out_peers(0)
