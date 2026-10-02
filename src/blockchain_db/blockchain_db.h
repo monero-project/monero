@@ -40,6 +40,8 @@
 #include "cryptonote_basic/difficulty.h"
 #include "cryptonote_basic/hardfork.h"
 #include "cryptonote_protocol/enums.h"
+#include "fcmp_pp/curve_trees.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 
 /** \file
  * Cryptonote Blockchain Database Interface
@@ -534,6 +536,113 @@ private:
    */
   virtual void remove_spent_key(const crypto::key_image& k_image) = 0;
 
+  /**
+   * @brief grow the tree with provided compressed tree extension
+   *
+   * @param tree_extension tree extension containing compressed points
+   *
+   * @return the new tree edge
+   */
+  virtual std::vector<crypto::ec_point> grow_with_tree_extension(const fcmp_pp::CompressedTreeExtension &tree_extension) = 0;
+
+  /**
+   * @brief trim the leaves from the tree to the new number of leaf tuples
+   *
+   * @param new_n_leaf_tuples the expected number of leaf tuples in the tree after trimming
+   * @param trim_block_idx the block idx being trimmed
+   *
+   * @return the old number of leaf tuples
+   */
+  virtual uint64_t trim_leaves(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_idx) = 0;
+
+  /**
+   * @brief trim the layers from the tree using given parameters
+   *
+   * @param new_n_leaf_tuples the expected number of leaf tuples in the tree after trimming
+   * @param new_n_elems_per_layer the expected number of elemenets in every layer of the tree after trimming
+   * @param new_tree_edge the expected new tree edge in the tree after trimming
+   * @param new_root_layer_idx the expected layer idx of the new root after trimming
+   */
+  virtual void trim_layers(const uint64_t new_n_leaf_tuples,
+    const std::vector<uint64_t> &new_n_elems_per_layer,
+    const std::vector<crypto::ec_point> &new_tree_edge,
+    const uint64_t new_root_layer_idx) = 0;
+
+    /**
+   * @brief add outs to locked outputs tables, staging them for insertion to the tree
+   *
+   * If any of this cannot be done, the subclass should throw the corresponding
+   * subclass of DB_EXCEPTION
+   *
+   * @param outs_by_last_locked_block outs grouped by last locked block
+   * @param timelocked_outputs custom timelocked outputs
+   */
+  virtual void add_locked_outs(const fcmp_pp::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*unified_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs) = 0;
+
+  /**
+   * @brief get the outputs that are staged for insertion to the tree with last locked block provided
+   * Note: outputs are deleted from this table after they are inserted into the tree. Default locked
+   * outputs may or may not be included in this table too.
+   *
+   * @param block_id the block idx
+   */
+  virtual std::vector<fcmp_pp::UnifiedOutput> get_outs_at_last_locked_block_idx(uint64_t block_id) const = 0;
+
+  /**
+   * @brief delete the locked outputs that were staged for insertion to the tree for a given last locked block
+   *
+   * @param block_id the outputs' last locked block idx
+   */
+  virtual void del_locked_outs_at_block_idx(uint64_t block_idx) = 0;
+
+  /**
+   * @brief get the total number of leaf tuples in the tree
+   *
+   * @return the total number of leaf tuples in the tree
+   */
+  virtual uint64_t get_n_leaf_tuples() const = 0;
+
+  /**
+   * @brief get the total number of leaf tuples in the tree when the given block idx was tip of the chain
+   *
+   * @param block_idx assumed tip of the chain
+   *
+   * @return total number of leaf tuples in the tree when given block idx was chain tip
+   */
+  virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const = 0;
+
+    /**
+   * @brief get the block idx corresponding to the last block used to update the tree
+   *
+   * @return the last block used to update the tree
+   */
+  virtual uint64_t get_tree_block_idx() const = 0;
+
+  /**
+   * @brief get the most recently updated edge of the tree (the last element of every layer)
+   * when the provided block is the tip of the chain
+   *
+   * @param block_id the block idx
+   *
+   * @return the last element of every layer
+   */
+  virtual std::vector<crypto::ec_point> get_tree_edge(uint64_t block_id) const = 0;
+
+  /**
+   * @brief save the tree's metadata at the time the provided block is the tip of the chain
+   *
+   * @param block_idx the provided block idx (should be the tip)
+   * @param n_leaf_tuples the number of leaf tuples in the tree
+   * @param tree_edge the last element of every layer in the tree
+   */
+  virtual void save_tree_meta(const uint64_t block_idx, const uint64_t n_leaf_tuples, const std::vector<crypto::ec_point> &tree_edge) = 0;
+
+  /**
+   * @brief delete the tree's metadata saved for a corresponding tip block idx
+   *
+   * @param block_id the block idx
+   */
+  virtual void del_tree_meta(const uint64_t block_idx) = 0;
 
   /*********************************************************************
    * private concrete members
@@ -548,10 +657,43 @@ private:
    */
   void remove_transaction(const crypto::hash& tx_hash);
 
+  /**
+   * @brief handle the FCMP++ curve tree as the provided block_idx enters the chain. This handles
+   * saving staged locked outputs to the db, and advancing the FCMP++ tree.
+   *
+   * @param block_idx the block being entering the chain
+   * @param first_unified_id the first unified id of the first new default locked output from the block entering the chain
+   * @param miner_tx the block's miner transaction
+   * @param txs the block's non-miner transactions
+   * @param transparent_amount_commitments pre-calculated transparent amount commitments
+   */
+  void handle_fcmp_tree(const uint64_t block_idx,
+    const uint64_t first_unified_id,
+    const transaction &miner_tx,
+    const std::vector<std::pair<transaction, blobdata>> &txs,
+    const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments);
+
+  /**
+   * @brief use the provided outputs to grow the FCMP++ curve tree and save all relevant data in the db
+   *
+   * @param block_idx the block being entering the chain
+   * @param new_outputs all new outputs to grow the tree with
+   */
+  void grow_tree(const uint64_t block_idx, std::vector<fcmp_pp::UnifiedOutput> &&new_outputs);
+
+  /**
+   * @brief trim the tree to the new number of leaf tuples
+   *
+   * @param new_n_leaf_tuples the expected number of leaf tuples in the tree after trimming
+   * @param trim_block_idx the block idx being trimmed
+   */
+  void trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_idx);
+
   uint64_t num_calls = 0;  //!< a performance metric
   uint64_t time_blk_hash = 0;  //!< a performance metric
   uint64_t time_add_block1 = 0;  //!< a performance metric
   uint64_t time_add_transaction = 0;  //!< a performance metric
+  uint64_t time_grow_tree = 0;  //!< a performance metric
 
 
 protected:
@@ -565,10 +707,25 @@ protected:
    * @param blk_hash hash of the block which has the transaction
    * @param tx the transaction to add
    * @param blob for `tx`
+   * @param transparent_amount_commitments pre-calculated transparent amount commitments
    * @param tx_hash_ptr the hash of the transaction, if already calculated
    * @param tx_prunable_hash_ptr the hash of the prunable part of the transaction, if already calculated
    */
-  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, epee::span<const std::uint8_t> blob, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
+  void add_transaction(const crypto::hash& blk_hash, const transaction& tx, epee::span<const std::uint8_t> blob, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, const crypto::hash* tx_hash_ptr = NULL, const crypto::hash* tx_prunable_hash_ptr = NULL);
+
+  /**
+   * @brief advance the FCMP++ curve tree as the provided block_idx enters the chain. This handles
+   * reading the db for any outputs staged for insertion not already provided.
+   *
+   * @param block_idx the block being entering the chain
+   * @param known_new_outputs the default locked new outputs to grow the tree with
+   */
+  void advance_tree(const uint64_t block_idx, const std::vector<fcmp_pp::UnifiedOutput> &known_new_outputs);
+
+  /**
+   * @brief trim a block's worth of data from the tree, placing locked outputs back in the db
+   */
+  void trim_block();
 
   mutable uint64_t time_tx_exists = 0;  //!< a performance metric
   uint64_t time_commit1 = 0;  //!< a performance metric
@@ -576,12 +733,14 @@ protected:
 
   HardFork* m_hardfork;
 
+  std::shared_ptr<fcmp_pp::curve_trees::CurveTreesV1> m_curve_trees;
+
 public:
 
   /**
    * @brief An empty constructor.
    */
-  BlockchainDB(): m_hardfork(NULL), m_open(false) { }
+  BlockchainDB(): m_hardfork(NULL), m_open(false), m_curve_trees() { }
 
   /**
    * @brief An empty destructor.
@@ -812,6 +971,7 @@ public:
    * @param cumulative_difficulty the accumulated difficulty after this block
    * @param coins_generated the number of coins generated total after this block
    * @param txs the transactions in the block
+   * @param transparent_amount_commitments pre-calculated transparent amount commitments
    *
    * @return the height of the chain post-addition
    */
@@ -821,6 +981,7 @@ public:
                             , const difficulty_type& cumulative_difficulty
                             , const uint64_t& coins_generated
                             , const std::vector<std::pair<transaction, blobdata>>& txs
+                            , const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments
                             );
 
   /**
@@ -1374,6 +1535,15 @@ public:
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const = 0;
 
   /**
+   * @brief fetches the number of outputs in the chain
+   *
+   * The subclass should return a count of outputs, or zero if there are none.
+   *
+   * @return the total number of outputs in the chain (of all amounts)
+   */
+  virtual uint64_t total_outputs() const = 0;
+
+  /**
    * @brief fetches the number of outputs of a given amount
    *
    * The subclass should return a count of outputs of the given amount,
@@ -1417,13 +1587,13 @@ public:
    * @brief gets an output's tx hash and index
    *
    * The subclass should return the hash of the transaction which created the
-   * output with the global index given, as well as its index in that transaction.
+   * output with the unified index given, as well as its index in that transaction.
    *
-   * @param index an output's global index
+   * @param index an output's unified index
    *
    * @return the tx hash and output index
    */
-  virtual tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const = 0;
+  virtual tx_out_index get_output_tx_and_index_from_unified(const uint64_t& index) const = 0;
 
   /**
    * @brief gets an output's tx hash and index
@@ -1780,6 +1950,33 @@ public:
    */
   virtual bool for_all_alt_blocks(std::function<bool(const crypto::hash &blkid, const alt_block_data_t &data, const cryptonote::blobdata_ref *blob)> f, bool include_blob = false) const = 0;
 
+  /**
+   * @brief return tree's root and n_tree_layers at a specific block idx
+   *
+   * Gets the tree root and n_tree_layers composed of all valid spendable
+   * outputs when blk_idx is the tip of the chain.
+   *
+   * If the chain tip is block index n, and `blk_idx == n`, then this will
+   * return the tree root and n layers in a tree composed of all valid
+   * spendable outputs in the chain at that time.
+   *
+   * If the chain tip is block index n, and `blk_idx == n-1`, then this will
+   * return the tree root and n layers in a tree composed of all valid
+   * spendable outputs in the chain *when the chain tip was block index n - 1*.
+   *
+   * Note that the tree stored in the database may not match up with the tree
+   * root returned here, since the tree stored in the db may have grown past
+   * the chain tip's tree, with outputs that will unlock in future blocks.
+   *
+   * This function throws if the db does not have a tree root stored for the
+   * given blk_idx.
+   *
+   * @param blk_idx the state of the tree as of this block index
+   * @param tree_root_out return-by-reference tree root
+   *
+   * @return n tree layers when blk_idx was chain tip
+   */
+  virtual uint8_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const = 0;
 
   //
   // Hard fork related storage
