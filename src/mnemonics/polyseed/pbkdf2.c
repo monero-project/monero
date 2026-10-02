@@ -82,4 +82,7 @@ crypto_pbkdf2_sha256(const uint8_t* passwd, size_t passwdlen,
     }
     sodium_memzero((void*)&Phctx, sizeof Phctx);
     sodium_memzero((void*)&PShctx, sizeof PShctx);
+    sodium_memzero((void*)&hctx, sizeof hctx);
+    sodium_memzero((void*)U, sizeof U);
+    sodium_memzero((void*)T, sizeof T);
 }
