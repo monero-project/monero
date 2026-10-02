@@ -1387,6 +1387,8 @@ namespace net_utils
       catch (const std::exception &e)
       {
         ipv6_failed = e.what();
+        boost::system::error_code ignored;
+        acceptor_ipv6.close(ignored);
       }
     }
 
