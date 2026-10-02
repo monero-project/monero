@@ -178,3 +178,11 @@ TEST(DNS_PUBLIC, invalid_ip_num5) { EXPECT_TRUE(tools::dns_utils::parse_dns_publ
 TEST(DNS_PUBLIC, invalid_ip_4_missing) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://3.4..7").empty()); }
 TEST(DNS_PUBLIC, valid_ip_lo) { EXPECT_TRUE(is_equal("127.0.0.1", tools::dns_utils::parse_dns_public("tcp://127.0.0.1"))); }
 TEST(DNS_PUBLIC, valid_ip) { EXPECT_TRUE(is_equal("3.4.5.6", tools::dns_utils::parse_dns_public("tcp://3.4.5.6"))); }
+TEST(DNS_PUBLIC, valid_ip_port) { EXPECT_TRUE(is_equal("3.4.5.6@5353", tools::dns_utils::parse_dns_public("tcp://3.4.5.6:5353"))); }
+TEST(DNS_PUBLIC, valid_ip_port_max) { EXPECT_TRUE(is_equal("3.4.5.6@65535", tools::dns_utils::parse_dns_public("tcp://3.4.5.6:65535"))); }
+TEST(DNS_PUBLIC, invalid_ip_with_port) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://3.4.542.6:53").empty()); }
+TEST(DNS_PUBLIC, invalid_port_zero) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://3.4.5.6:0").empty()); }
+TEST(DNS_PUBLIC, invalid_port_too_large) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://3.4.5.6:65536").empty()); }
+TEST(DNS_PUBLIC, invalid_port_alpha) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://3.4.5.6:abc").empty()); }
+TEST(DNS_PUBLIC, invalid_port_empty) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://3.4.5.6:").empty()); }
+TEST(DNS_PUBLIC, invalid_port_extra) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://3.4.5.6:53x").empty()); }

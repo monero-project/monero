@@ -534,7 +534,7 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
 
 std::vector<std::string> parse_dns_public(const char *s)
 {
-  unsigned ip0, ip1, ip2, ip3;
+  unsigned ip0, ip1, ip2, ip3, port;
   char c;
   std::vector<std::string> dns_public_addr;
   if (!strcmp(s, "tcp"))
@@ -542,6 +542,21 @@ std::vector<std::string> parse_dns_public(const char *s)
     for (size_t i = 0; i < sizeof(DEFAULT_DNS_PUBLIC_ADDR) / sizeof(DEFAULT_DNS_PUBLIC_ADDR[0]); ++i)
       dns_public_addr.push_back(DEFAULT_DNS_PUBLIC_ADDR[i]);
     LOG_PRINT_L0("Using default public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TCP)");
+  }
+  // TODO: Use boost::asio::ip::address (proper IP parser) instead of sscanf()
+  else if (sscanf(s, "tcp://%u.%u.%u.%u:%u%c", &ip0, &ip1, &ip2, &ip3, &port, &c) == 5)
+  {
+    if (ip0 > 255 || ip1 > 255 || ip2 > 255 || ip3 > 255 || port == 0 || port > 65535)
+    {
+      MERROR("Invalid IP or port: " << s << ", ignored");
+    }
+    else
+    {
+      // libunbound expects a custom port as address@port
+      std::string addr(s + strlen("tcp://"));
+      addr[addr.rfind(':')] = '@';
+      dns_public_addr.push_back(std::move(addr));
+    }
   }
   else if (sscanf(s, "tcp://%u.%u.%u.%u%c", &ip0, &ip1, &ip2, &ip3, &c) == 4)
   {
