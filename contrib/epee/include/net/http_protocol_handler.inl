@@ -486,12 +486,19 @@ namespace net_utils
 				if(handle_request_and_send_response(m_query_info))
 					set_ready_state();
 				else
+				{
 					m_state = http_state_error;
+					return false;
+				}
 			}
 			m_len_remain = m_len_summary;
 		}else
 		{//current query finished, next will be next query
-			handle_request_and_send_response(m_query_info);
+			if(!handle_request_and_send_response(m_query_info))
+			{
+				m_state = http_state_error;
+				return false;
+			}
 			set_ready_state();
 		}
 
@@ -539,7 +546,10 @@ namespace net_utils
 			if(handle_request_and_send_response(m_query_info))
 				set_ready_state();
 			else
+			{
 				m_state = http_state_error;
+				return false;
+			}
 		}
 		return true;
 	}
@@ -636,7 +646,8 @@ namespace net_utils
 		if ((response.m_body.size() && (query_info.m_http_method != http::http_method_head)) || (query_info.m_http_method == http::http_method_options))
 			response_data += response.m_body;
 
-		m_psnd_hndlr->do_send(byte_slice{std::move(response_data)});
+		if(!m_psnd_hndlr->do_send(byte_slice{std::move(response_data)}))
+			return false;
 		m_psnd_hndlr->send_done();
 		return res;
 	}
