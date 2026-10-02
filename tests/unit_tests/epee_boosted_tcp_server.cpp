@@ -139,6 +139,42 @@ TEST(boosted_tcp_server, worker_threads_are_exception_resistant)
   ASSERT_TRUE(srv.deinit_server());
 }
 
+TEST(boosted_tcp_server, idle_handlers_are_exception_resistant)
+{
+  test_tcp_server srv(epee::net_utils::e_connection_type_RPC);
+  ASSERT_TRUE(srv.init_server(0, test_server_host));
+
+  boost::mutex mtx;
+  boost::condition_variable cond;
+  unsigned int calls = 0;
+
+  ASSERT_TRUE(srv.add_idle_handler([&]() {
+    boost::unique_lock<boost::mutex> lock(mtx);
+    ++calls;
+    cond.notify_one();
+    if (calls == 1)
+      throw std::runtime_error("test");
+    return false;
+  }, std::chrono::milliseconds{10}));
+  ASSERT_TRUE(srv.run_server(1, false));
+
+  bool retried = false;
+  {
+    boost::unique_lock<boost::mutex> lock(mtx);
+    retried = cond.wait_for(lock, boost::chrono::seconds(5), [&calls] { return calls == 2; });
+  }
+  EXPECT_TRUE(retried);
+
+  boost::this_thread::sleep_for(boost::chrono::milliseconds{50});
+  {
+    boost::unique_lock<boost::mutex> lock(mtx);
+    EXPECT_EQ(2u, calls);
+  }
+
+  srv.send_stop_signal();
+  ASSERT_TRUE(srv.timed_wait_server_stop(5 * 1000));
+  ASSERT_TRUE(srv.deinit_server());
+}
 
 TEST(test_epee_connection, test_lifetime)
 {
