@@ -28,6 +28,7 @@
 #pragma once 
 #include "http_base.h"
 #include "jsonrpc_structs.h"
+#include "rapidjson/document.h"
 #include "storages/portable_storage.h"
 #include "storages/portable_storage_template_helper.h"
 
@@ -154,7 +155,13 @@
     } \
     epee::serialization::storage_entry id_; \
     id_ = epee::serialization::storage_entry(std::string()); \
-    ps.get_value("id", id_, nullptr); \
+    bool is_notification_ = !ps.get_value("id", id_, nullptr); \
+    if (is_notification_) \
+    { \
+      rapidjson::Document request_; \
+      request_.Parse(query_info.m_body.data(), query_info.m_body.size()); \
+      is_notification_ = request_.IsObject() && !request_.HasMember("id"); \
+    } \
     std::string callback_name; \
     if(!ps.get_value("method", callback_name, nullptr)) \
     { \
@@ -187,7 +194,8 @@
     fail_resp.id = req.id; \
     fail_resp.error.code = -32602; \
     fail_resp.error.message = "Invalid params"; \
-    epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
+    if (!is_notification_) \
+      epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
     return true; \
   } \
   uint64_t ticks1 = epee::misc_utils::get_tick_count(); \
@@ -198,7 +206,8 @@
 
 #define FINALIZE_OBJECTS_TO_JSON(method_name) \
   uint64_t ticks2 = epee::misc_utils::get_tick_count(); \
-  epee::serialization::store_t_to_json(resp, response_info.m_body); \
+  if (!is_notification_) \
+    epee::serialization::store_t_to_json(resp, response_info.m_body); \
   uint64_t ticks3 = epee::misc_utils::get_tick_count(); \
   response_info.m_mime_tipe = "application/json"; \
   response_info.m_header_info.m_content_type = " application/json"; \
@@ -217,7 +226,8 @@
   catch (const std::exception &e) { MERROR(m_conn_context << "Failed to " << #callback_f << "(): " << e.what()); } \
   if (!res) \
   { \
-    epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
+    if (!is_notification_) \
+      epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
     return true; \
   } \
   FINALIZE_OBJECTS_TO_JSON(method_name) \
@@ -241,7 +251,8 @@
     fail_resp.id = req.id; \
     fail_resp.error.code = -32603; \
     fail_resp.error.message = "Internal error"; \
-    epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
+    if (!is_notification_) \
+      epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(fail_resp), response_info.m_body); \
     return true; \
   } \
   FINALIZE_OBJECTS_TO_JSON(method_name) \
@@ -254,7 +265,8 @@
   rsp.jsonrpc = "2.0"; \
   rsp.error.code = -32601; \
   rsp.error.message = "Method not found"; \
-  epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
+  if (!is_notification_) \
+    epee::serialization::store_t_to_json(static_cast<epee::json_rpc::error_response&>(rsp), response_info.m_body); \
   return true; \
 }
 
