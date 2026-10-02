@@ -9479,7 +9479,8 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
       if (get_rings(get_ringdb_key(), ring_key_images, all_outs))
       {
         for (size_t i = 0; i < ring_key_images.size(); ++i)
-          existing_rings[ring_key_images[i]] = std::move(all_outs[i]);
+          if (!all_outs[i].empty())
+            existing_rings[ring_key_images[i]] = std::move(all_outs[i]);
       }
     }
 

@@ -357,7 +357,10 @@ bool ringdb::get_rings(const crypto::chacha_key &chacha_key, const std::vector<c
   dbr = mdb_get(txn, dbi_rings, &key, &data);
   THROW_WALLET_EXCEPTION_IF(dbr && dbr != MDB_NOTFOUND, tools::error::wallet_internal_error, "Failed to look for key image in LMDB table: " + std::string(mdb_strerror(dbr)));
   if (dbr == MDB_NOTFOUND)
-    return false;
+  {
+    all_outs.emplace_back();
+    continue;
+  }
   THROW_WALLET_EXCEPTION_IF(data.mv_size <= 0, tools::error::wallet_internal_error, "Invalid ring data size");
 
   std::vector<uint64_t> outs;
@@ -387,7 +390,7 @@ bool ringdb::get_rings(const crypto::chacha_key &chacha_key, const std::vector<c
 bool ringdb::get_ring(const crypto::chacha_key &chacha_key, const crypto::key_image &key_image, std::vector<uint64_t> &outs)
 {
   std::vector<std::vector<uint64_t>> all_outs;
-  if (!get_rings(chacha_key, std::vector<crypto::key_image>(1, key_image), all_outs))
+  if (!get_rings(chacha_key, std::vector<crypto::key_image>(1, key_image), all_outs) || all_outs.front().empty())
     return false;
   outs = std::move(all_outs.front());
   return true;
