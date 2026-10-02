@@ -1383,9 +1383,12 @@ namespace cryptonote
           if (!starting)
             m_last_add_end_time = tools::get_tick_count();
         });
-        m_sync_start_time = boost::posix_time::microsec_clock::universal_time();
-        m_sync_start_height = m_core.get_current_blockchain_height();
-        m_period_start_time = m_sync_start_time;
+        if (m_sync_start_time.is_not_a_date_time())
+        {
+          m_sync_start_time = boost::posix_time::microsec_clock::universal_time();
+          m_sync_start_height = m_core.get_current_blockchain_height();
+          m_period_start_time = m_sync_start_time;
+        }
 
         while (1)
         {
