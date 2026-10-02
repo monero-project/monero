@@ -494,6 +494,31 @@ bool t_command_parser_executor::stop_mining(const std::vector<std::string>& args
   return m_executor.stop_mining();
 }
 
+bool t_command_parser_executor::generate_blocks(const std::vector<std::string>& args)
+{
+  if (args.size() < 2 || args.size() > 3)
+  {
+    std::cout << "Invalid syntax: Expected an address, number of blocks, and optional starting nonce. For more details, use the help command." << std::endl;
+    return true;
+  }
+
+  uint64_t amount = 0;
+  if (!epee::string_tools::get_xtype_from_string(amount, args[1]) || amount == 0)
+  {
+    std::cout << "Invalid syntax: Wrong number of blocks. For more details, use the help command." << std::endl;
+    return true;
+  }
+
+  uint32_t starting_nonce = 0;
+  if (args.size() == 3 && !epee::string_tools::get_xtype_from_string(starting_nonce, args[2]))
+  {
+    std::cout << "Invalid syntax: Wrong starting nonce. For more details, use the help command." << std::endl;
+    return true;
+  }
+
+  return m_executor.generate_blocks(args[0], amount, starting_nonce);
+}
+
 bool t_command_parser_executor::mining_status(const std::vector<std::string>& args)
 {
   return m_executor.mining_status();
