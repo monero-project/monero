@@ -170,6 +170,21 @@ set_property(TARGET cold-transaction_fuzz_tests
   PROPERTY
     FOLDER "tests")
 
+monero_add_minimal_executable(wallet-cache_fuzz_tests wallet-cache.cpp fuzzer.cpp)
+target_link_libraries(wallet-cache_fuzz_tests
+  PRIVATE
+    wallet
+    cryptonote_core
+    p2p
+    epee
+    device
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET wallet-cache_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
+
 monero_add_minimal_executable(load-from-binary_fuzz_tests load_from_binary.cpp fuzzer.cpp)
 target_link_libraries(load-from-binary_fuzz_tests
   PRIVATE
