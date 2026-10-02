@@ -28,7 +28,7 @@
 #
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.25)
 message(STATUS "CMake version ${CMAKE_VERSION}")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -99,7 +99,7 @@ if (USE_COMPILATION_TIME_PROFILER)
 	add_compile_options("-ftime-trace")
 endif()
 
-if (${CMAKE_VERSION} VERSION_GREATER "3.0.0" AND CMAKE_MAKE_PROGRAM MATCHES "ninja")
+if (CMAKE_MAKE_PROGRAM MATCHES "ninja")
   set(MONERO_PARALLEL_COMPILE_JOBS "" CACHE STRING "The maximum number of concurrent compilation jobs.")
   if (MONERO_PARALLEL_COMPILE_JOBS)
     set_property(GLOBAL APPEND PROPERTY JOB_POOLS compile_job_pool=${MONERO_PARALLEL_COMPILE_JOBS})
@@ -129,13 +129,46 @@ endif()
 
 enable_language(C ASM)
 
-# Require C11/C++11 and disable extensions for all targets
+# Require C11/C++23 and disable extensions for all targets
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Enforce the compiler-family floors accepted for this C++23 tree. README.md
+# mirrors the floors in prose, while docs/COMPILING_DEBUGGING_TESTING.md
+# ("Toolchain requirements") carries the authoritative compatibility matrix
+# and evidence status. Every rejection below points there instead of restating it.
+#
+# The guard checks compiler family, frontend variant and version; it does not
+# probe the standard library. A standard-library pairing defect (for example
+# Clang 16 against libstdc++ 14) is a header mismatch rather than a version
+# mismatch, fails immediately and self-explanatorily at compile time, and is
+# therefore documented rather than probed here.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # MinGW-w64 GCC also reports "GNU", so this branch carries the Windows floor.
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 13.0)
+    message(FATAL_ERROR "GCC ${CMAKE_CXX_COMPILER_VERSION} is too old; GCC 13 or newer is required for C++23 (see docs/COMPILING_DEBUGGING_TESTING.md, Toolchain requirements)")
+  endif()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  # The frontend variant is tested before the version floor so that a clang-cl
+  # of any version is rejected with the reason that actually applies to it.
+  if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+    message(FATAL_ERROR "Clang ${CMAKE_CXX_COMPILER_VERSION} with the MSVC frontend variant (clang-cl) is unsupported: this repository has no clang-cl build path, as Windows is built with MinGW-w64 GCC through MSYS2 UCRT64. Use GCC 13 or newer, Clang 16 or newer, or Apple Clang 15 or newer (see docs/COMPILING_DEBUGGING_TESTING.md, Toolchain requirements)")
+  elseif(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 16.0)
+    message(FATAL_ERROR "Clang ${CMAKE_CXX_COMPILER_VERSION} is too old; Clang 16 or newer is required for C++23 (see docs/COMPILING_DEBUGGING_TESTING.md, Toolchain requirements)")
+  endif()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+  # Apple Clang 15 ships with Xcode 15 and is based on LLVM 16, which makes it
+  # the Apple equivalent of the Clang floor.
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15.0)
+    message(FATAL_ERROR "Apple Clang ${CMAKE_CXX_COMPILER_VERSION} is too old; Apple Clang 15 (Xcode 15) or newer is required for C++23 (see docs/COMPILING_DEBUGGING_TESTING.md, Toolchain requirements)")
+  endif()
+else()
+  message(FATAL_ERROR "Unsupported C++ compiler '${CMAKE_CXX_COMPILER_ID}' (version ${CMAKE_CXX_COMPILER_VERSION}); this repository is built as C++23 and requires GCC 13 or newer, Clang 16 or newer, or Apple Clang 15 (Xcode 15) or newer (see docs/COMPILING_DEBUGGING_TESTING.md, Toolchain requirements)")
+endif()
 
 function (add_c_flag_if_supported flag var)
   # Prepending the flag with -Werror will only add the flag,
@@ -243,7 +276,7 @@ function(forbid_undefined_symbols)
     file(MAKE_DIRECTORY "${TEST_PROJECT}")
     file(WRITE "${TEST_PROJECT}/CMakeLists.txt"
       [=[
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.25)
 project(test)
 option(EXPECT_SUCCESS "" ON)
 file(WRITE "${CMAKE_SOURCE_DIR}/incorrect_source.cpp" "void undefined_symbol(); void symbol() { undefined_symbol(); }")
@@ -671,7 +704,6 @@ endif()
 # Trezor support check
 include(CheckTrezor)
 
-  include(TestCXXAcceptsFlag)
   message(STATUS "Building on ${CMAKE_SYSTEM_PROCESSOR} for ${ARCH}")
   if(ARCH STREQUAL "default")
     set(ARCH_FLAG "")
@@ -722,7 +754,7 @@ include(CheckTrezor)
   elseif(ARM7)
     message(STATUS "AES support not available on ARMv7")
   elseif(ARM8)
-    CHECK_CXX_ACCEPTS_FLAG("-march=${ARCH}+crypto" ARCH_PLUS_CRYPTO)
+    check_cxx_compiler_flag("-march=${ARCH}+crypto" ARCH_PLUS_CRYPTO)
     if(ARCH_PLUS_CRYPTO)
       message(STATUS "Crypto extensions enabled for ARMv8")
       set(ARCH_FLAG "-march=${ARCH}+crypto")

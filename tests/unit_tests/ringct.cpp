@@ -112,7 +112,7 @@ TEST(ringct, MG_sigs)
         for (j = 0 ; j < R ; j++) {
             sk[j] = xm[ind][j];
         }
-        key message = identity();
+        key message = rct::identity();
         mgSig IIccss = MLSAG_Gen(message, P, sk, ind, R, hw::get_device("default"));
         ASSERT_TRUE(MLSAG_Ver(message, P, IIccss, R));
 
@@ -144,7 +144,7 @@ TEST(ringct, CLSAG)
   const size_t idx = 5;
   ctkeyV pubs;
   key p, t, t2, u;
-  const key message = identity();
+  const key message = rct::identity();
   ctkey backup;
   clsag clsag;
 

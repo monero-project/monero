@@ -114,7 +114,8 @@ bool isFat32(const wchar_t* root_path)
   std::vector<wchar_t> fs(MAX_PATH + 1);
   if (!::GetVolumeInformationW(root_path, nullptr, 0, nullptr, 0, nullptr, &fs[0], MAX_PATH))
   {
-    MERROR("Failed to get '" << root_path << "' filesystem name. Error code: " << ::GetLastError());
+    const DWORD error = ::GetLastError();
+    MERROR("Failed to get '" << epee::string_tools::utf16_to_utf8(root_path) << "' filesystem name. Error code: " << error);
     return false;
   }
 

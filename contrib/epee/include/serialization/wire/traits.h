@@ -71,11 +71,11 @@ namespace wire
 
   /*! Mark `T` as fixed binary data for reading+writing. Concept requirements
       for reading:
-        * `T` must be compatible with `epee::as_mut_byte_span` (`std::is_pod<T>`
-          and no padding).
+        * `T` must be compatible with `epee::as_mut_byte_span` (standard-layout
+          and trivial, and no padding).
       Concept requirements for writing:
-        * `T` must be compatible with `epee::as_byte_span` (std::is_pod<T>` and
-          no padding). */
+        * `T` must be compatible with `epee::as_byte_span` (standard-layout and
+          trivial, and no padding). */
   template<typename T>
   struct is_blob : std::false_type
   {};

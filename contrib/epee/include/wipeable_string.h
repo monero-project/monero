@@ -32,6 +32,7 @@
 #include <stddef.h>
 #include <vector>
 #include <string>
+#include <type_traits>
 #include "memwipe.h"
 #include "fnv1.h"
 
@@ -85,7 +86,7 @@ namespace epee
 
   template<typename T> inline bool wipeable_string::hex_to_pod(T &pod) const
   {
-    static_assert(std::is_pod<T>::value, "expected pod type");
+    static_assert(std::is_standard_layout<T>::value && std::is_trivial<T>::value, "expected pod type");
     if (size() != sizeof(T) * 2)
       return false;
     boost::optional<epee::wipeable_string> blob = parse_hexstr();

@@ -96,8 +96,12 @@ if (ANDROID OR IOS)
   endif()
 endif()
 
-# cheat because cmake and ccache hate each other
-set_property(SOURCE CryptonightR_template.S PROPERTY LANGUAGE C)
+# CMP0119 (policy version 3.25) makes cmake pass an explicit -x <language> for
+# sources whose LANGUAGE property is set, so this file must be declared ASM
+# rather than C or it would be compiled as C and fail. ASM is enabled by
+# enable_language(C ASM) in the root build. The object is byte-identical; the
+# file simply leaves the C/CXX compiler-launcher (ccache) path.
+set_property(SOURCE CryptonightR_template.S PROPERTY LANGUAGE ASM)
 set_property(SOURCE CryptonightR_template.S PROPERTY XCODE_EXPLICIT_FILE_TYPE sourcecode.asm)
 
 # Must be done last, because it references libraries in this directory

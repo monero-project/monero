@@ -33,6 +33,7 @@
 #ifdef __cplusplus
 #include <array>
 #include <cstddef>
+#include <type_traits>
 
 extern "C" {
 #endif
@@ -60,7 +61,7 @@ namespace tools {
 
     /// Destroy the contents of the contained type.
     void scrub() {
-      static_assert(std::is_pod<T>::value,
+      static_assert(std::is_standard_layout<T>::value && std::is_trivial<T>::value,
                     "T cannot be auto-scrubbed. T must be POD.");
       static_assert(std::is_trivially_destructible<T>::value,
                     "T cannot be auto-scrubbed. T must be trivially destructable.");

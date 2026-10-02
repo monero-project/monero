@@ -2056,7 +2056,7 @@ namespace net_utils
           }
       });
     //start async connect
-    sock_.async_connect(remote_endpoint, [=, cb = std::forward<t_callback>(cb)](const boost::system::error_code& ec_) mutable
+    sock_.async_connect(remote_endpoint, [=, this, cb = std::forward<t_callback>(cb)](const boost::system::error_code& ec_) mutable
       {
         t_connection_context conn_context = AUTO_VAL_INIT(conn_context);
         boost::system::error_code ignored_ec;

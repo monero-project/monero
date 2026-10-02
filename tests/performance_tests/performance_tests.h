@@ -183,7 +183,7 @@ private:
     m_warm_up = 0;
     for (size_t i = 0; i < warm_up_rounds; ++i)
     {
-      ++m_warm_up;
+      m_warm_up = m_warm_up + 1;
     }
     return m_warm_up;
   }

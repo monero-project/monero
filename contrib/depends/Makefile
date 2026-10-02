@@ -9,7 +9,7 @@ BASE_CACHE ?= $(BASEDIR)/built
 FALLBACK_DOWNLOAD_PATH ?= https://downloads.getmonero.org/depends-sources
 
 C_STANDARD ?= c11
-CXX_STANDARD ?= c++17
+CXX_STANDARD ?= c++23
 
 NO_WALLET ?=
 NO_READLINE ?=
