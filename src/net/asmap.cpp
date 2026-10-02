@@ -17,23 +17,53 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
+//
+// Modifications for Monero: Copyright (c) 2026, The Monero Project
+//
+// All rights reserved.
+//
+// Redistribution and use in source and binary forms, with or without modification, are
+// permitted provided that the following conditions are met:
+//
+// 1. Redistributions of source code must retain the above copyright notice, this list of
+//    conditions and the following disclaimer.
+//
+// 2. Redistributions in binary form must reproduce the above copyright notice, this list
+//    of conditions and the following disclaimer in the documentation and/or other
+//    materials provided with the distribution.
+//
+// 3. Neither the name of the copyright holder nor the names of its contributors may be
+//    used to endorse or promote products derived from this software without specific
+//    prior written permission.
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL
+// THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+// STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
+// THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+// Adapted from Bitcoin Core src/util/asmap.cpp
 
-#include <util/asmap.h>
+#include "net/asmap.h"
 
-#include <hash.h>
-#include <streams.h>
-#include <uint256.h>
-#include <util/check.h>
-#include <util/fs.h>
-#include <util/log.h>
-
-#include <bit>
+#include <cassert>
 #include <cstddef>
-#include <cstdio>
-#include <span>
+#include <fstream>
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <boost/filesystem/operations.hpp>
+
+#include "common/util.h"
+#include "misc_log_ex.h"
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "net.p2p"
 
 /*
  * ASMap (Autonomous System Map) Implementation
@@ -56,6 +86,11 @@
  * MATCH, DEFAULT) to efficiently represent the trie.
  */
 
+namespace net
+{
+namespace asmap
+{
+
 namespace {
 
 // Indicates decoding errors or invalid data
@@ -65,9 +100,9 @@ constexpr uint32_t INVALID = 0xFFFFFFFF;
  * Extract a single bit from byte array using little-endian bit ordering (LSB first).
  * Used for ASMap data.
  */
-inline bool ConsumeBitLE(size_t& bitpos, std::span<const std::byte> bytes) noexcept
+inline bool ConsumeBitLE(size_t& bitpos, epee::span<const std::uint8_t> bytes) noexcept
 {
-    const bool bit = (std::to_integer<uint8_t>(bytes[bitpos / 8]) >> (bitpos % 8)) & 1;
+    const bool bit = (bytes[bitpos / 8] >> (bitpos % 8)) & 1;
     ++bitpos;
     return bit;
 }
@@ -76,9 +111,9 @@ inline bool ConsumeBitLE(size_t& bitpos, std::span<const std::byte> bytes) noexc
  * Extract a single bit from byte array using big-endian bit ordering (MSB first).
  * Used for IP addresses to match network byte order conventions.
  */
-inline bool ConsumeBitBE(uint8_t& bitpos, std::span<const std::byte> bytes) noexcept
+inline bool ConsumeBitBE(uint8_t& bitpos, epee::span<const std::uint8_t> bytes) noexcept
 {
-    const bool bit = (std::to_integer<uint8_t>(bytes[bitpos / 8]) >> (7 - (bitpos % 8))) & 1;
+    const bool bit = (bytes[bitpos / 8] >> (7 - (bitpos % 8))) & 1;
     ++bitpos;
     return bit;
 }
@@ -98,7 +133,7 @@ inline bool ConsumeBitBE(uint8_t& bitpos, std::span<const std::byte> bytes) noex
  * - Then, a "0"-bit, unless k is the highest class
  * - Lastly, bit_sizes[k] bits encoding in big endian the position within that class
  */
-uint32_t DecodeBits(size_t& bitpos, const std::span<const std::byte> data, uint8_t minval, const std::span<const uint8_t> bit_sizes)
+uint32_t DecodeBits(size_t& bitpos, const epee::span<const std::uint8_t> data, uint8_t minval, const epee::span<const uint8_t> bit_sizes)
 {
     uint32_t val = minval;  // Start with minimum encodable value
     bool bit;
@@ -154,7 +189,7 @@ enum class Instruction : uint32_t
 
 // Instruction type encoding: RETURN=[0], JUMP=[1,0], MATCH=[1,1,0], DEFAULT=[1,1,1]
 constexpr uint8_t TYPE_BIT_SIZES[]{0, 0, 1};
-Instruction DecodeType(size_t& bitpos, const std::span<const std::byte> data)
+Instruction DecodeType(size_t& bitpos, const epee::span<const std::uint8_t> data)
 {
     return Instruction(DecodeBits(bitpos, data, 0, TYPE_BIT_SIZES));
 }
@@ -163,7 +198,7 @@ Instruction DecodeType(size_t& bitpos, const std::span<const std::byte> data)
 // Uses variable-length encoding optimized for real-world ASN distribution.
 // ASN 0 is reserved and used if there isn't a match.
 constexpr uint8_t ASN_BIT_SIZES[]{15, 16, 17, 18, 19, 20, 21, 22, 23, 24};
-uint32_t DecodeASN(size_t& bitpos, const std::span<const std::byte> data)
+uint32_t DecodeASN(size_t& bitpos, const epee::span<const std::uint8_t> data)
 {
     return DecodeBits(bitpos, data, 1, ASN_BIT_SIZES);
 }
@@ -171,7 +206,7 @@ uint32_t DecodeASN(size_t& bitpos, const std::span<const std::byte> data)
 // MATCH argument: Values in [2, 511]. The highest set bit determines the match length
 // n ∈ [1,8]; the lower n-1 bits are the pattern to compare.
 constexpr uint8_t MATCH_BIT_SIZES[]{1, 2, 3, 4, 5, 6, 7, 8};
-uint32_t DecodeMatch(size_t& bitpos, const std::span<const std::byte> data)
+uint32_t DecodeMatch(size_t& bitpos, const epee::span<const std::uint8_t> data)
 {
     return DecodeBits(bitpos, data, 2, MATCH_BIT_SIZES);
 }
@@ -179,9 +214,20 @@ uint32_t DecodeMatch(size_t& bitpos, const std::span<const std::byte> data)
 // JUMP offset: Minimum value 17. Variable-length coded and may be large
 // for skipping big subtrees.
 constexpr uint8_t JUMP_BIT_SIZES[]{5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
-uint32_t DecodeJump(size_t& bitpos, const std::span<const std::byte> data)
+uint32_t DecodeJump(size_t& bitpos, const epee::span<const std::uint8_t> data)
 {
     return DecodeBits(bitpos, data, 17, JUMP_BIT_SIZES);
+}
+
+/** Number of bits needed to represent x (std::bit_width is C++20) */
+inline int BitWidth(uint32_t x) noexcept
+{
+    int ret = 0;
+    while (x) {
+        x >>= 1;
+        ++ret;
+    }
+    return ret;
 }
 
 } // anonymous namespace
@@ -193,7 +239,7 @@ uint32_t DecodeJump(size_t& bitpos, const std::span<const std::byte> data)
  * address to navigate through the encoded trie structure, ultimately
  * returning an ASN value.
  */
-uint32_t Interpret(const std::span<const std::byte> asmap, const std::span<const std::byte> ip)
+uint32_t Interpret(const epee::span<const std::uint8_t> asmap, const epee::span<const std::uint8_t> ip)
 {
     size_t pos{0};
     const size_t endpos{asmap.size() * 8};
@@ -224,7 +270,7 @@ uint32_t Interpret(const std::span<const std::byte> asmap, const std::span<const
             // - lower bits contain the pattern to compare
             uint32_t match = DecodeMatch(pos, asmap);
             if (match == INVALID) break; // Match bits straddle EOF
-            int matchlen = std::bit_width(match) - 1;  // An n-bit value matches n-1 input bits
+            int matchlen = BitWidth(match) - 1;  // An n-bit value matches n-1 input bits
             if ((ip_bits_end - ip_bit) < matchlen) break; // Not enough input bits
             for (int bit = 0; bit < matchlen; bit++) {
                 if (ConsumeBitBE(ip_bit, ip) != ((match >> (matchlen - 1 - bit)) & 1)) {
@@ -250,7 +296,7 @@ uint32_t Interpret(const std::span<const std::byte> asmap, const std::span<const
  * Validates ASMap structure by simulating all possible execution paths.
  * Ensures well-formed bytecode, valid jumps, and proper termination.
  */
-bool SanityCheckAsmap(const std::span<const std::byte> asmap, int bits)
+bool SanityCheckAsmap(const epee::span<const std::uint8_t> asmap, int bits)
 {
     size_t pos{0};
     const size_t endpos{asmap.size() * 8};
@@ -296,7 +342,7 @@ bool SanityCheckAsmap(const std::span<const std::byte> asmap, int bits)
         } else if (opcode == Instruction::MATCH) {
             uint32_t match = DecodeMatch(pos, asmap);
             if (match == INVALID) return false; // Match bits straddle EOF
-            int matchlen = std::bit_width(match) - 1;
+            int matchlen = BitWidth(match) - 1;
             if (prevopcode != Instruction::MATCH) had_incomplete_match = false;
             // Within a sequence of matches only at most one should be incomplete
             if (matchlen < 8 && had_incomplete_match) return false;
@@ -321,10 +367,10 @@ bool SanityCheckAsmap(const std::span<const std::byte> asmap, int bits)
  * Provides a safe interface for validating ASMap data before use.
  * Returns true if the data is valid for 128 bits long inputs.
  */
-bool CheckStandardAsmap(const std::span<const std::byte> data)
+bool CheckStandardAsmap(const epee::span<const std::uint8_t> data)
 {
     if (!SanityCheckAsmap(data, 128)) {
-        LogWarning("Sanity check of asmap data failed\n");
+        MWARNING("Sanity check of asmap data failed");
         return false;
     }
     return true;
@@ -333,23 +379,31 @@ bool CheckStandardAsmap(const std::span<const std::byte> data)
 /**
  * Loads an ASMap file from disk and validates it.
  */
-std::vector<std::byte> DecodeAsmap(fs::path path)
+std::vector<std::uint8_t> DecodeAsmap(const std::string &path)
 {
-    FILE *filestr = fsbridge::fopen(path, "rb");
-    AutoFile file{filestr};
-    if (file.IsNull()) {
-        LogWarning("Failed to open asmap file from disk");
+    std::ifstream file(path, std::ios::binary);
+    if (!file) {
+        MWARNING("Can't open asmap file " << path);
         return {};
     }
-    int64_t length{file.size()};
-    LogInfo("Opened asmap file %s (%d bytes) from disk", fs::quoted(fs::PathToString(path)), length);
+    boost::system::error_code ec;
+    const boost::uintmax_t length = boost::filesystem::file_size(path, ec);
+    if (ec) { // e.g. path is a directory
+        MWARNING("Failed to read asmap file " << path);
+        return {};
+    }
+    MINFO("Opened asmap file " << path << " (" << length << " bytes) from disk");
 
     // Read entire file into memory
-    std::vector<std::byte> buffer(length);
-    file.read(buffer);
+    std::vector<std::uint8_t> buffer(length);
+    file.read(reinterpret_cast<char*>(buffer.data()), buffer.size());
+    if (static_cast<boost::uintmax_t>(file.gcount()) != length) {
+        MWARNING("Failed to read asmap file " << path);
+        return {};
+    }
 
-    if (!CheckStandardAsmap(buffer)) {
-        LogWarning("Sanity check of asmap file %s failed", fs::quoted(fs::PathToString(path)));
+    if (!CheckStandardAsmap(epee::to_span(buffer))) {
+        MWARNING("Sanity check of asmap file " << path << " failed");
         return {};
     }
 
@@ -359,11 +413,14 @@ std::vector<std::byte> DecodeAsmap(fs::path path)
 /**
  * Computes SHA256 hash of ASMap data for versioning and consistency checks.
  */
-uint256 AsmapVersion(const std::span<const std::byte> data)
+crypto::hash AsmapVersion(const epee::span<const std::uint8_t> data)
 {
-    if (data.empty()) return {};
+    crypto::hash version = crypto::null_hash;
+    if (data.empty()) return version;
 
-    HashWriter asmap_hasher;
-    asmap_hasher << data;
-    return asmap_hasher.GetSHA256();
+    if (!tools::sha256sum(data.data(), data.size(), version)) return crypto::null_hash;
+    return version;
 }
+
+} // asmap
+} // net
