@@ -32,6 +32,7 @@
 #include <functional>
 #include <fstream>
 #include <iterator>
+#include <utility>
 
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/portable_binary_oarchive.hpp>
@@ -41,7 +42,9 @@
 #include <boost/serialization/version.hpp>
 
 #include "net_peerlist_boost_serialization.h"
+#include "common/pruning.h"
 #include "common/util.h"
+#include "misc_log_ex.h"
 
 
 namespace nodetool
@@ -129,6 +132,43 @@ namespace nodetool
       std::copy(src.begin(), src.end(), std::back_inserter(dest));
     }
   } // anonymous
+
+  void sanitize_peerlist(std::vector<peerlist_entry>& local_peerlist)
+  {
+    for (size_t i = 0; i < local_peerlist.size(); ++i)
+    {
+      bool ignore = false;
+      peerlist_entry &be = local_peerlist[i];
+      epee::net_utils::network_address &na = be.adr;
+      if (is_forbidden_ipv6_address(na))
+      {
+        ignore = true;
+      }
+      else if (na.is_loopback() || na.is_local())
+      {
+        ignore = true;
+      }
+      else if (na.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
+      {
+        const epee::net_utils::ipv4_network_address &ipv4 = na.as<const epee::net_utils::ipv4_network_address>();
+        if (ipv4.ip() == 0)
+          ignore = true;
+        else if (ipv4.port() == be.rpc_port)
+          ignore = true;
+      }
+      if (be.pruning_seed && (be.pruning_seed < tools::make_pruning_seed(1, CRYPTONOTE_PRUNING_LOG_STRIPES) || be.pruning_seed > tools::make_pruning_seed(1ul << CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_LOG_STRIPES)))
+        ignore = true;
+      if (ignore)
+      {
+        MCDEBUG("net.p2p", "Ignoring " << be.adr.str());
+        std::swap(local_peerlist[i], local_peerlist[local_peerlist.size() - 1]);
+        local_peerlist.resize(local_peerlist.size() - 1);
+        --i;
+        continue;
+      }
+      local_peerlist[i].last_seen = 0;
+    }
+  }
 
   struct peerlist_join
   {

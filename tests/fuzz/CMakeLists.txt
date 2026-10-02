@@ -154,6 +154,20 @@ target_link_libraries(wallet-refresh_fuzz_tests
 set_property(TARGET wallet-refresh_fuzz_tests
   PROPERTY
     FOLDER "tests")
+
+monero_add_minimal_executable(p2p-peerlist_fuzz_tests p2p-peerlist.cpp fuzzer.cpp)
+target_link_libraries(p2p-peerlist_fuzz_tests
+  PRIVATE
+    p2p
+    net
+    cryptonote_core
+    epee
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET p2p-peerlist_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
 endif()
 
 monero_add_minimal_executable(block_fuzz_tests block.cpp fuzzer.cpp)

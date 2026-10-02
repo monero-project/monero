@@ -143,15 +143,6 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
 
-  inline bool is_forbidden_ipv6_address(const epee::net_utils::network_address& address)
-  {
-    if (address.get_type_id() != epee::net_utils::ipv6_network_address::get_type_id())
-      return false;
-
-    const boost::asio::ip::address_v6 ip = address.as<const epee::net_utils::ipv6_network_address>().ip();
-    return ip.is_v4_mapped() || ip.is_unspecified();
-  }
-
   inline bool should_skip_connect_address(const epee::net_utils::network_address& address, bool use_ipv6)
   {
     if (address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id() && !use_ipv6)
@@ -2512,39 +2503,7 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::sanitize_peerlist(std::vector<peerlist_entry>& local_peerlist)
   {
-    for (size_t i = 0; i < local_peerlist.size(); ++i)
-    {
-      bool ignore = false;
-      peerlist_entry &be = local_peerlist[i];
-      epee::net_utils::network_address &na = be.adr;
-      if (is_forbidden_ipv6_address(na))
-      {
-        ignore = true;
-      }
-      else if (na.is_loopback() || na.is_local())
-      {
-        ignore = true;
-      }
-      else if (na.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
-      {
-        const epee::net_utils::ipv4_network_address &ipv4 = na.as<const epee::net_utils::ipv4_network_address>();
-        if (ipv4.ip() == 0)
-          ignore = true;
-        else if (ipv4.port() == be.rpc_port)
-          ignore = true;
-      }
-      if (be.pruning_seed && (be.pruning_seed < tools::make_pruning_seed(1, CRYPTONOTE_PRUNING_LOG_STRIPES) || be.pruning_seed > tools::make_pruning_seed(1ul << CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_LOG_STRIPES)))
-        ignore = true;
-      if (ignore)
-      {
-        MDEBUG("Ignoring " << be.adr.str());
-        std::swap(local_peerlist[i], local_peerlist[local_peerlist.size() - 1]);
-        local_peerlist.resize(local_peerlist.size() - 1);
-        --i;
-        continue;
-      }
-      local_peerlist[i].last_seen = 0;
-    }
+    nodetool::sanitize_peerlist(local_peerlist);
     return true;
   }
   //-----------------------------------------------------------------------------------
