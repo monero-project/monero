@@ -258,7 +258,8 @@ namespace net_utils
 		m_query_info.clear();
 		m_len_summary = 0;
 		m_newlines = 0;
-		m_bytes_read = 0;
+		// data already buffered for a pipelined request still counts toward m_max_content_length
+		m_bytes_read = m_cache.size();
 		return true;
 	}
 	//--------------------------------------------------------------------------------------------
