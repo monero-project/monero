@@ -51,6 +51,7 @@ class ColdSigningTest():
             self.self_transfer_to_subaddress(piecemeal_output_export)
         self.transfer_after_empty_export_import()
         self.transfer_to_multi_subaddresses()
+        self.self_transfer_to_other_account()
         self.sweep()
 
     def reset(self):
@@ -291,6 +292,7 @@ class ColdSigningTest():
             return len([x for x in tx_hash_list if x == txid]) > 0
         assert len([x for x in (res['pending'] if 'pending' in res else []) if in_hash_list(x.txid, tx_hash_list)]) == 0
         assert len([x for x in (res['out'] if 'out' in res else []) if in_hash_list(x.txid, tx_hash_list)]) > 0
+        return tx_hash_list
 
     def transfer_to_multi_subaddresses(self):
         # This test triggers the non-standard additional keys case
@@ -303,6 +305,37 @@ class ColdSigningTest():
         res = self.hot_wallet.transfer([dst1, dst2])
 
         self.sign_and_submit(res.unsigned_txset)
+
+    def self_transfer_to_other_account(self):
+        print("Self-spending to another account in a view-only wallet")
+        self.export_import(False)
+        destination = self.hot_wallet.create_account().address
+        assert self.cold_wallet.create_account().address == destination
+
+        observer = Wallet(idx = 1)
+        try: observer.close_wallet()
+        except: pass
+        observer.generate_from_keys(viewkey = self.cold_wallet.query_key("view_key").key, address = STANDARD_ADDRESS)
+        assert observer.create_account().address == destination
+        observer.refresh()
+
+        amount = 1000000000000
+        res = self.hot_wallet.transfer([{'address': destination, 'amount': amount}])
+        txids = self.sign_and_submit(res.unsigned_txset)
+        assert len(txids) == 1
+        txid = txids[0]
+
+        observer.refresh()
+        outputs = observer.export_outputs()
+        self.cold_wallet.import_outputs(outputs.outputs_data_hex)
+        key_images = self.cold_wallet.export_key_images(True)
+        observer.import_key_images(key_images.signed_key_images, offset = key_images.offset)
+
+        expected = [x for x in self.hot_wallet.get_transfers(all_accounts = True)['out'] if x.txid == txid]
+        actual = [x for x in observer.get_transfers(all_accounts = True)['out'] if x.txid == txid]
+        assert len(expected) == len(actual) == 1
+        assert expected[0].amount == amount
+        assert actual[0].amount == expected[0].amount, (actual[0].amount, expected[0].amount)
 
     def sweep(self):
         print("Mine 10 blocks so all non-coinbase outs from prior txs unlock")
