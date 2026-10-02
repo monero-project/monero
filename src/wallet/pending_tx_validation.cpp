@@ -800,10 +800,8 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
 
         // Check that addresses keys are canonical.
         // Without this check, the following duplicate address check may be weakened.
-        CHECK_AND_ASSERT_THROW_MES(rct::isInMainSubgroup(rct::pk2rct(dest.addr.m_spend_public_key)),
-            "sanity_check_pending_tx: destination spendkey is not in the main subgroup (suspicious!)");
-        CHECK_AND_ASSERT_THROW_MES(rct::isInMainSubgroup(rct::pk2rct(dest.addr.m_view_public_key)),
-            "sanity_check_pending_tx: destination viewkey is not in the main subgroup (suspicious!)");
+        CHECK_AND_ASSERT_THROW_MES(cryptonote::check_address(dest.addr),
+            "sanity_check_pending_tx: invalid destination address keys");
 
         // Check that duplicate addresses are all either subaddresses or normal addresses (ignoring is_integrated).
         const auto &dup = dest_duplicates.find(dest.addr.m_spend_public_key);
