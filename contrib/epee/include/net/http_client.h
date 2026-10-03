@@ -93,6 +93,8 @@ namespace net_utils
 			reciev_machine_state m_state;
 			chunked_state m_chunked_state;
 			std::string m_chunked_cache;
+			size_t m_chunk_head_scan_pos;
+			size_t m_chunk_head_scan_digits;
 			bool m_auto_connect;
 			critical_section m_lock;
 
@@ -111,6 +113,8 @@ namespace net_utils
 				, m_state()
 				, m_chunked_state()
 				, m_chunked_cache()
+				, m_chunk_head_scan_pos(0)
+				, m_chunk_head_scan_digits(0)
 				, m_auto_connect(true)
 				, m_lock()
 			{}
@@ -289,11 +293,17 @@ namespace net_utils
 				bool keep_handling = true;
 				bool need_more_data = true;
 				std::string recv_buffer;
+				// deadline is for the whole receive, not re-armed on every recv() call
+				const auto deadline = std::chrono::steady_clock::now() + timeout;
 				while(keep_handling)
 				{
 					if(need_more_data)
 					{
-						if(!m_net_client.recv(recv_buffer, timeout))
+						const auto now = std::chrono::steady_clock::now();
+						const auto remaining = now < deadline
+							? std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now)
+							: std::chrono::milliseconds::zero();
+						if(!m_net_client.recv(recv_buffer, remaining))
 						{
 							MERROR("Unexpected recv fail");
 							m_state = reciev_machine_state_error;
@@ -453,8 +463,10 @@ namespace net_utils
 				bool get_chunk_head(std::string& buff, size_t& chunk_size, bool& is_matched)
 			{
 				is_matched = false;
-				size_t offset = 0;
-				for(std::string::iterator it = buff.begin(); it!= buff.end(); it++, offset++)
+				// resume from where the last call left off instead of rescanning from 0
+				size_t offset = m_chunk_head_scan_digits;
+				std::string::iterator it = buff.begin() + m_chunk_head_scan_pos;
+				for(; it!= buff.end(); it++, offset++)
 				{
 					if(!is_hex_symbol(*it))
 					{
@@ -466,6 +478,8 @@ namespace net_utils
 						else if(*it == '\n')
 						{	
 							std::string chunk_head = buff.substr(0, offset);
+							m_chunk_head_scan_pos = 0;
+							m_chunk_head_scan_digits = 0;
 							if(!get_len_from_chunk_head(chunk_head, chunk_size))
 								return false;
 
@@ -502,6 +516,8 @@ namespace net_utils
 					}
 				}
 
+				m_chunk_head_scan_pos = buff.size();
+				m_chunk_head_scan_digits = offset;
 				return true;
 			}
 			//---------------------------------------------------------------------------
@@ -737,6 +753,8 @@ namespace net_utils
 					}
 					m_state = reciev_machine_state_body_chunked;
 					m_chunked_state = http_chunked_state_chunk_head;
+					m_chunk_head_scan_pos = 0;
+					m_chunk_head_scan_digits = 0;
 					return true;
 				}
 				else if(!m_response_info.m_header_info.m_content_length.empty())
