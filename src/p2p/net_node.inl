@@ -296,6 +296,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_limit_rate);
     command_line::add_arg(desc, arg_pad_transactions);
     command_line::add_arg(desc, arg_max_connections_per_ip);
+    command_line::add_arg(desc, arg_asmap);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -862,6 +863,20 @@ namespace nodetool
     }
 
     max_connections = command_line::get_arg(vm, arg_max_connections_per_ip);
+
+    boost::filesystem::path asmap_path = command_line::get_arg(vm, arg_asmap);
+    if (!asmap_path.empty())
+    {
+      if (asmap_path.is_relative())
+        asmap_path = boost::filesystem::path(command_line::get_arg(vm, cryptonote::arg_data_dir)) / asmap_path;
+      m_asmap = net::asmap::DecodeAsmap(asmap_path.string());
+      if (m_asmap.empty())
+      {
+        MFATAL("Invalid --asmap file: " << asmap_path.string());
+        return false;
+      }
+      MGINFO("Using asmap version " << epee::string_tools::pod_to_hex(net::asmap::AsmapVersion(epee::to_span(m_asmap))) << " for outbound peer grouping");
+    }
 
     return true;
   }
@@ -1793,15 +1808,18 @@ namespace nodetool
 
       const uint32_t next_needed_pruning_stripe = m_payload_handler.get_next_needed_pruning_stripe().second;
 
-      // Build a list of all distinct IPv4 /24 and IPv6 /32 groups we are connected to right now; to catch
-      // any connection changes, re-build the list for every outer try loop pass
+      // Build a list of all distinct groups (ASN if --asmap is used, else IPv4 /24 and IPv6 /32) we are connected to right now; to catch
+      // any connection changes, re-build the list for every outer try loop pass. With --asmap only outgoing connections count,
+      // an incoming peer would otherwise block its whole AS
       std::set<peer_group> connected_groups;
       const bool is_public_zone = &zone == &m_network_zones.at(epee::net_utils::zone::public_);
       if (is_public_zone)
       {
         zone.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
         {
-          const boost::optional<peer_group> group = get_peer_group(cntxt.m_remote_address);
+          if (!m_asmap.empty() && cntxt.m_is_income)
+            return true;
+          const boost::optional<peer_group> group = get_peer_group(cntxt.m_remote_address, epee::to_span(m_asmap));
           if (group)
             connected_groups.insert(*group);
           return true;
@@ -1833,12 +1851,13 @@ namespace nodetool
 
           // Step 2: Deduplicate by only taking 1 candidate from each /24 subnet that occurs, the FIRST
           // candidate seen from each subnet within the now random order. Native IPv6 peers use /32 groups.
+          // With --asmap, peers are grouped by autonomous system instead where the asmap maps them.
           std::set<peer_group> groups = connected_groups;
           for (size_t index : shuffled_indexes)
           {
             const peerlist_entry &peer = peers.at(index);
             bool take = true;
-            const boost::optional<peer_group> group = get_peer_group(peer.adr);
+            const boost::optional<peer_group> group = get_peer_group(peer.adr, epee::to_span(m_asmap));
             if (group)
               // This group is now "occupied", don't take any more candidates from this one
               take = groups.insert(*group).second;
