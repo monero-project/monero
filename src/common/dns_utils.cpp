@@ -37,6 +37,8 @@
 #include <deque>
 #include <set>
 #include <stdlib.h>
+#include <stdio.h>
+#include <ctype.h>
 #include <cstring>
 #include <boost/thread/mutex.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -48,13 +50,16 @@ using namespace epee;
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.dns"
 
-static const char *DEFAULT_DNS_PUBLIC_ADDR[] =
+// A NULL tls_auth_name marks a TCP-only resolver omitted from the TLS default set.
+// dot_only marks a resolver with no plaintext service on port 53 (TLS only).
+static const struct { const char *addr; const char *tls_auth_name; bool dot_only; } DEFAULT_DNS_PUBLIC_ADDR[] =
 {
-  "9.9.9.10",           // Quad9 unfiltered (Switzerland)
-  "149.112.112.10",     // Quad9 secondary (Switzerland)
-  "185.222.222.222",    // DNS.SB (Germany)
-  "45.11.45.11",        // DNS.SB secondary (Germany)
-  "194.150.168.168",    // CCC (Germany)
+  { "9.9.9.10",        "dns10.quad9.net",         false },  // Quad9 unfiltered (Switzerland)
+  { "149.112.112.10",  "dns10.quad9.net",         false },  // Quad9 secondary (Switzerland)
+  { "185.222.222.222", "dot.sb",                  false },  // DNS.SB (Germany)
+  { "45.11.45.11",     "dot.sb",                  false },  // DNS.SB secondary (Germany)
+  { "5.9.164.112",     "dns3.digitalcourage.de",  true  },  // DigitalCourage (Germany, DoT only: port 53 closed)
+  { "194.150.168.168", NULL,                      false },  // CCC (Germany, TCP only: no DoT service)
 };
 
 static boost::mutex instance_lock;
@@ -192,17 +197,51 @@ static void add_anchors(ub_ctx *ctx)
   }
 }
 
+// Sets up certificate verification for DoT.
+static bool setup_dot_certificate_verification(ub_ctx *ctx)
+{
+  // prefer the system trust store (unbound >= 1.16)
+  if (ub_ctx_set_option(ctx, "tls-system-cert:", "yes") == 0)
+    return true;
+
+  // fall back to well known CA bundle locations
+  static const char *ca_bundles[] =
+  {
+    "/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/etc
+    "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // Fedora/RHEL/etc
+    "/etc/pki/tls/certs/ca-bundle.crt",                  // older Fedora/RHEL
+    "/etc/ssl/ca-bundle.pem",                            // openSUSE
+    "/usr/local/etc/ssl/cert.pem",                       // FreeBSD
+    "/etc/ssl/cert.pem",                                 // OpenBSD/macOS
+  };
+  for (const char *bundle: ca_bundles)
+  {
+    if (FILE *f = fopen(bundle, "r"))
+    {
+      fclose(f);
+      if (ub_ctx_set_option(ctx, "tls-cert-bundle:", bundle) == 0)
+      {
+        MGINFO("Using CA certificate bundle for DNS over TLS: " << bundle);
+        return true;
+      }
+    }
+  }
+  MWARNING("Could not find a CA certificate bundle for DNS over TLS certificate verification");
+  return false;
+}
+
 DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 {
   int use_dns_public = 0;
+  bool use_dns_tls = false;
   std::vector<std::string> dns_public_addr;
   const char *DNS_PUBLIC = getenv("DNS_PUBLIC");
   if (DNS_PUBLIC)
   {
-    dns_public_addr = tools::dns_utils::parse_dns_public(DNS_PUBLIC);
+    dns_public_addr = tools::dns_utils::parse_dns_public(DNS_PUBLIC, &use_dns_tls);
     if (!dns_public_addr.empty())
     {
-      MGINFO("Using public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TCP)");
+      MGINFO("Using public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (" << (use_dns_tls ? "TLS" : "TCP") << ")");
       use_dns_public = 1;
     }
     else
@@ -216,10 +255,58 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 
   if (use_dns_public)
   {
-    for (const auto &ip: dns_public_addr)
-      ub_ctx_set_fwd(m_data->m_ub_context, ip.c_str());
-    ub_ctx_set_option(m_data->m_ub_context, "do-udp:", "no");
-    ub_ctx_set_option(m_data->m_ub_context, "do-tcp:", "yes");
+    bool public_dns_ok = true;
+    if (use_dns_tls)
+    {
+      // "ssl-upstream:" is supported since unbound 1.10; the "tls-upstream:"
+      // alias was only added in unbound 1.15, so use the former for compatibility
+      if (ub_ctx_set_option(m_data->m_ub_context, "ssl-upstream:", "yes") != 0)
+      {
+        MERROR("Failed to enable DNS over TLS: libunbound does not support it (unbound 1.10 or newer is required)");
+        public_dns_ok = false;
+      }
+      else
+      {
+        const bool have_cert_verification = setup_dot_certificate_verification(m_data->m_ub_context);
+        bool have_auth_name = false;
+        for (const auto &addr: dns_public_addr)
+        {
+          if (addr.find('#') != std::string::npos)
+          {
+            have_auth_name = true;
+            break;
+          }
+        }
+        if (!have_auth_name)
+          MWARNING("DNS over TLS: no authentication name given (use tls://<ip>#<hostname>), server certificates cannot be authenticated");
+        else if (!have_cert_verification)
+          MWARNING("DNS over TLS: no CA certificates found, servers with an authentication name will fail certificate verification");
+      }
+    }
+    if (public_dns_ok)
+    {
+      for (const auto &ip: dns_public_addr)
+      {
+        if (ub_ctx_set_fwd(m_data->m_ub_context, ip.c_str()) != 0)
+        {
+          MERROR("Failed to configure public DNS server: " << ip);
+          public_dns_ok = false;
+          break;
+        }
+      }
+    }
+    if (public_dns_ok)
+    {
+      ub_ctx_set_option(m_data->m_ub_context, "do-udp:", "no");
+      ub_ctx_set_option(m_data->m_ub_context, "do-tcp:", "yes");
+    }
+    else
+    {
+      ub_ctx_delete(m_data->m_ub_context);
+      m_data->m_ub_context = ub_ctx_create();
+      ub_ctx_resolvconf(m_data->m_ub_context, NULL);
+      ub_ctx_hosts(m_data->m_ub_context, NULL);
+    }
   }
   else {
     // look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
@@ -244,7 +331,11 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
       m_data->m_ub_context = ub_ctx_create();
       add_anchors(m_data->m_ub_context);
       for (const auto &ip: DEFAULT_DNS_PUBLIC_ADDR)
-        ub_ctx_set_fwd(m_data->m_ub_context, ip);
+      {
+        if (ip.dot_only)
+          continue;
+        ub_ctx_set_fwd(m_data->m_ub_context, ip.addr);
+      }
       ub_ctx_set_option(m_data->m_ub_context, "do-udp:", "no");
       ub_ctx_set_option(m_data->m_ub_context, "do-tcp:", "yes");
     }
@@ -285,7 +376,7 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
     if (dnssec_available && !dnssec_valid)
     {
       MWARNING("Invalid DNSSEC " << get_record_name(record_type) << " record signature for " << url << ": " << result->why_bogus);
-      MWARNING("Possibly your DNS service is problematic. You can have monerod use an alternate via env variable DNS_PUBLIC. Example: DNS_PUBLIC=tcp://9.9.9.9");
+      MWARNING("Possibly your DNS service is problematic. You can have monerod use an alternate via env variable DNS_PUBLIC. Example: DNS_PUBLIC=tcp://9.9.9.9 or DNS_PUBLIC=tls://9.9.9.9#dns.quad9.net");
     }
     if (result->havedata)
     {
@@ -532,16 +623,47 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
   return true;
 }
 
-std::vector<std::string> parse_dns_public(const char *s)
+namespace
+{
+
+bool valid_auth_name(const std::string &name)
+{
+  if (name.empty())
+    return false;
+  for (const char c: name)
+    if (!isalnum(static_cast<unsigned char>(c)) && c != '.' && c != '-')
+      return false;
+  return true;
+}
+
+}
+
+std::vector<std::string> parse_dns_public(const char *s, bool *tls)
 {
   unsigned ip0, ip1, ip2, ip3;
   char c;
   std::vector<std::string> dns_public_addr;
+  bool is_tls = false;
   if (!strcmp(s, "tcp"))
   {
     for (size_t i = 0; i < sizeof(DEFAULT_DNS_PUBLIC_ADDR) / sizeof(DEFAULT_DNS_PUBLIC_ADDR[0]); ++i)
-      dns_public_addr.push_back(DEFAULT_DNS_PUBLIC_ADDR[i]);
+    {
+      if (DEFAULT_DNS_PUBLIC_ADDR[i].dot_only)
+        continue;
+      dns_public_addr.push_back(DEFAULT_DNS_PUBLIC_ADDR[i].addr);
+    }
     LOG_PRINT_L0("Using default public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TCP)");
+  }
+  else if (!strcmp(s, "tls"))
+  {
+    is_tls = true;
+    for (size_t i = 0; i < sizeof(DEFAULT_DNS_PUBLIC_ADDR) / sizeof(DEFAULT_DNS_PUBLIC_ADDR[0]); ++i)
+    {
+      if (DEFAULT_DNS_PUBLIC_ADDR[i].tls_auth_name == nullptr)
+        continue;
+      dns_public_addr.push_back(std::string(DEFAULT_DNS_PUBLIC_ADDR[i].addr) + "@853#" + DEFAULT_DNS_PUBLIC_ADDR[i].tls_auth_name);
+    }
+    LOG_PRINT_L0("Using default public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TLS)");
   }
   else if (sscanf(s, "tcp://%u.%u.%u.%u%c", &ip0, &ip1, &ip2, &ip3, &c) == 4)
   {
@@ -554,10 +676,61 @@ std::vector<std::string> parse_dns_public(const char *s)
       dns_public_addr.push_back(std::string(s + strlen("tcp://")));
     }
   }
+  else if (!strncmp(s, "tls://", 6))
+  {
+    is_tls = true;
+    std::string spec(s + 6);
+
+    // optional TLS auth name
+    std::string auth_name;
+    const size_t hash = spec.find('#');
+    if (hash != std::string::npos)
+    {
+      auth_name = spec.substr(hash + 1);
+      spec.resize(hash);
+      if (!valid_auth_name(auth_name))
+      {
+        MERROR("Invalid TLS authentication name: " << s);
+        return {};
+      }
+    }
+
+    // optional port
+    std::string ip_spec = spec;
+    unsigned port = 853;
+    const size_t colon = ip_spec.find(':');
+    if (colon != std::string::npos)
+    {
+      ip_spec.resize(colon);
+      if (sscanf(spec.c_str() + colon + 1, "%u%c", &port, &c) != 1 || port < 1 || port > 65535)
+      {
+        MERROR("Invalid port: " << s);
+        return {};
+      }
+    }
+
+    if (sscanf(ip_spec.c_str(), "%u.%u.%u.%u%c", &ip0, &ip1, &ip2, &ip3, &c) != 4)
+    {
+      MERROR("Invalid IP: " << s);
+      return {};
+    }
+    if (ip0 > 255 || ip1 > 255 || ip2 > 255 || ip3 > 255)
+    {
+      MERROR("Invalid IP: " << s);
+      return {};
+    }
+
+    std::string entry = ip_spec + "@" + std::to_string(port);
+    if (!auth_name.empty())
+      entry += "#" + auth_name;
+    dns_public_addr.push_back(entry);
+  }
   else
   {
     MERROR("Invalid DNS_PUBLIC contents, ignored");
   }
+  if (tls)
+    *tls = is_tls;
   return dns_public_addr;
 }
 

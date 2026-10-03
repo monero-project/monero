@@ -172,7 +172,10 @@ std::string get_account_address_as_str_from_url(const std::string& url, bool& dn
 
 bool load_txt_records_from_dns(std::vector<std::string> &records, const std::vector<std::string> &dns_urls);
 
-std::vector<std::string> parse_dns_public(const char *s);
+// Parses the contents of the DNS_PUBLIC environment variable.
+// Accepted schemes: "tcp", "tcp://<ip>", "tls", "tls://<ip>[:port][#auth_name]".
+// When <tls> is not NULL, it is set to whether the requested transport is TLS.
+std::vector<std::string> parse_dns_public(const char *s, bool *tls = nullptr);
 
 }  // namespace tools::dns_utils
 
