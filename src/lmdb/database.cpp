@@ -135,7 +135,12 @@ namespace lmdb
         while (ctx.active);
 
         MDB_envinfo info{};
-        MONERO_LMDB_CHECK(mdb_env_info(handle(), &info));
+        const int info_err = mdb_env_info(handle(), &info);
+        if (info_err)
+        {
+            ctx.lock.clear();
+            return {lmdb::error(info_err)};
+        }
 
         const mdb_size_t resize = std::min(info.me_mapsize, max_resize);
         const int err = mdb_env_set_mapsize(handle(), info.me_mapsize + resize);
