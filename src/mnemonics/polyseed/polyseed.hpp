@@ -42,6 +42,7 @@ namespace polyseed {
         public:
             language() : m_lang(nullptr) {}
             language(const language&) = default;
+            language& operator=(const language&) = default;
             language(const polyseed_lang* lang) : m_lang(lang) {}
             const char* name() const {
                 return polyseed_get_lang_name(m_lang);
