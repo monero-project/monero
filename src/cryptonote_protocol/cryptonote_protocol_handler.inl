@@ -261,12 +261,24 @@ namespace cryptonote
       if (context.m_state == cryptonote_connection_context::state_synchronizing && context.m_last_request_time != boost::date_time::not_a_date_time)
       {
         const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
-        const boost::posix_time::time_duration dt = now - context.m_last_request_time;
+        boost::posix_time::ptime timeout_start = context.m_last_request_time;
+        if (context.m_last_request_timeout != boost::date_time::not_a_date_time)
+          timeout_start = std::max(timeout_start, context.m_last_request_timeout);
+        const boost::posix_time::time_duration dt = now - timeout_start;
         const auto ms = dt.total_microseconds();
         if (ms > IDLE_PEER_KICK_TIME || (context.m_expect_response && ms > NON_RESPONSIVE_PEER_KICK_TIME))
         {
           if (context.m_score-- >= 0)
           {
+            if (context.m_expect_response)
+            {
+              // Block sync requests cannot be cancelled or correlated by a request ID.
+              // Keep the original request during the grace period so its late response
+              // is not mistaken for a response to a subsequent request.
+              context.m_last_request_timeout = now;
+              MDEBUG(context << " extending wait for response " << context.m_expect_response);
+              return true;
+            }
             MINFO(context << " kicking idle peer, last update " << (dt.total_microseconds() / 1.e6) << " seconds ago, expecting " << (int)context.m_expect_response);
             context.m_last_request_time = boost::date_time::not_a_date_time;
             context.m_expect_response = 0;
@@ -299,6 +311,7 @@ namespace cryptonote
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       r.prune = m_sync_pruned_blocks;
       context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+      context.m_last_request_timeout = boost::date_time::not_a_date_time;
       context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
@@ -762,6 +775,7 @@ namespace cryptonote
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       r.prune = m_sync_pruned_blocks;
       context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+      context.m_last_request_timeout = boost::date_time::not_a_date_time;
       context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
@@ -1043,6 +1057,7 @@ namespace cryptonote
       return LEVIN_ERROR_CONNECTION;
     }
     context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+    context.m_last_request_timeout = boost::date_time::not_a_date_time;
     MLOG_P2P_MESSAGE("-->>NOTIFY_RESPONSE_GET_OBJECTS: blocks.size()="
                      << rsp.blocks.size() << ", rsp.m_current_blockchain_height=" << rsp.current_blockchain_height
                      << ", missed_ids.size()=" << rsp.missed_ids.size());
@@ -2340,6 +2355,7 @@ skip:
           }
         }
         context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+        context.m_last_request_timeout = boost::date_time::not_a_date_time;
         context.m_expect_height = span.first;
         context.m_expect_response = NOTIFY_RESPONSE_GET_OBJECTS::ID;
         MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_GET_OBJECTS: blocks.size()=" << req.blocks.size()
@@ -2419,6 +2435,7 @@ skip:
       //LOG_PRINT_CCONTEXT_L1("r = " << 200);
 
       context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+      context.m_last_request_timeout = boost::date_time::not_a_date_time;
       context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size());
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
