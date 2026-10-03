@@ -34,6 +34,11 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.http"
 
+static constexpr epee::serialization::portable_storage::limits_t default_http_bin_limits = {
+  65536 * 3,  // objects
+  65536 * 3,  // fields
+  65536 * 3,  // strings
+};
 
 #define CHAIN_HTTP_TO_MAP2(context_type) bool handle_http_request(const epee::net_utils::http::http_request_info& query_info, \
               epee::net_utils::http::http_response_info& response, \
@@ -105,7 +110,7 @@
       handled = true; \
       uint64_t ticks = epee::misc_utils::get_tick_count(); \
       boost::value_initialized<command_type::request> req; \
-      bool parse_res = epee::serialization::load_t_from_binary(static_cast<command_type::request&>(req), epee::strspan<uint8_t>(query_info.m_body)); \
+      bool parse_res = epee::serialization::load_t_from_binary(static_cast<command_type::request&>(req), epee::strspan<uint8_t>(query_info.m_body), &default_http_bin_limits); \
       if (!parse_res) \
       { \
          MERROR("Failed to parse bin body data, body size=" << query_info.m_body.size()); \
