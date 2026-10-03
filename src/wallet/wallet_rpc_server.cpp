@@ -1355,6 +1355,26 @@ namespace tools
       return false;
     }
 
+    // append caller-supplied arbitrary tx_extra bytes, if any.
+    if (!req.extra.empty())
+    {
+      std::string extra_bytes;
+      if (!epee::string_tools::parse_hexstr_to_binbuff(req.extra, extra_bytes))
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_EXTRA;
+        er.message = "extra: not valid hex";
+        return false;
+      }
+      // pre-empt the txpool relay ceiling on tx_extra.
+      if (extra.size() + extra_bytes.size() > MAX_TX_EXTRA_SIZE)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_WRONG_EXTRA;
+        er.message = "extra: tx_extra would exceed relay limit";
+        return false;
+      }
+      extra.insert(extra.end(), extra_bytes.begin(), extra_bytes.end());
+    }
+
     try
     {
       uint64_t mixin = m_wallet->adjust_mixin(req.ring_size ? req.ring_size - 1 : 0);
