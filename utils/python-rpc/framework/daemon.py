@@ -191,7 +191,7 @@ class Daemon(object):
 
     def get_blocks_fast(self, start_height, block_ids, requested_info = 0,
             pool_info_since = 0, prune = True, no_miner_tx = False,
-            max_block_count = 0, block_ids_exclusive = False):
+            max_block_count = 0, block_ids_exclusive = False, verifiable = False):
         get_blocks_fast = {
             'requested_info': requested_info,
             'block_ids': DaemonBinary.hash_list_to_blob(block_ids),
@@ -200,7 +200,8 @@ class Daemon(object):
             'no_miner_tx': no_miner_tx,
             'block_ids_exclusive': block_ids_exclusive,
             'pool_info_since': pool_info_since,
-            'max_block_count': max_block_count
+            'max_block_count': max_block_count,
+            'verifiable': verifiable
         }
         res = self.rpc.send_binary_request("/getblocks.bin", get_blocks_fast)
         if 'top_block_hash' in res:
@@ -364,13 +365,14 @@ class Daemon(object):
         }
         return self.rpc.send_request('/get_public_nodes', get_public_nodes)
 
-    def get_transactions(self, txs_hashes = [], decode_as_json = False, prune = False, split = False, client = ""):
+    def get_transactions(self, txs_hashes = [], decode_as_json = False, prune = False, split = False, verifiable = False, client = ""):
         get_transactions = {
             'client': client,
             'txs_hashes': txs_hashes,
             'decode_as_json': decode_as_json,
             'prune': prune,
             'split': split,
+            'verifiable': verifiable,
         }
         return self.rpc.send_request('/get_transactions', get_transactions)
     gettransactions = get_transactions

@@ -1297,12 +1297,13 @@ public:
    * @param blocks the returned block/transaction data
    * @param pruned whether to return full or pruned tx data
    * @param get_miner_tx_hash whether to calculate and return the miner (coinbase) tx hash
+   * @param verifiable if true, return full V1 transactions and pruned V2+ transactions with prunable hashes
    *
    * The call will return at least min_block_count if possible, even if this contravenes max_tx_count
    *
    * @return true iff the blocks and transactions were found
    */
-  virtual bool get_blocks_from(uint64_t start_height, size_t min_block_count, size_t max_block_count, size_t max_tx_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool get_miner_tx_hash) const = 0;
+  virtual bool get_blocks_from(uint64_t start_height, size_t min_block_count, size_t max_block_count, size_t max_tx_count, size_t max_size, std::vector<std::pair<std::pair<cryptonote::blobdata, crypto::hash>, std::vector<std::tuple<crypto::hash, crypto::hash, cryptonote::blobdata>>>>& blocks, bool pruned, bool get_miner_tx_hash, bool verifiable = false) const = 0;
 
   /**
    * @brief fetches the prunable transaction blob with the given hash

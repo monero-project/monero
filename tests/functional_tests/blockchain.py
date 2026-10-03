@@ -431,6 +431,24 @@ class BlockchainTest():
                 assert tx.prunable_hash != (b'\0' * 32) # non-null
                 assert len(tx_indices) == 2
 
+        print('Calling /get_blocks.bin with verifiable=true (prune=false) and testing response...')
+
+        # With verifiable=true, V2+ transactions are returned in pruned form
+        res = daemon.get_blocks_fast(0, [target_block_id, genesis_block_id], prune = False, verifiable = True)
+        assert len(res.blocks) == N_TO_MINE + 1 + 1
+        for i in range(len(res.blocks)):
+            is_last = i == len(res.blocks) - 1
+            block = res.blocks[i]
+            assert block.pruned
+            n_txs = len(block['txs']) if 'txs' in block else 0
+            if is_last:
+                assert n_txs == 2
+            else:
+                assert n_txs == 0
+            for tx_idx in range(n_txs):
+                tx = block.txs[tx_idx]
+                assert tx.prunable_hash != (b'\0' * 32)
+
         print('Calling /get_blocks.bin (blocks and incremental pool, no new blocks) and testing response...')
 
         time.sleep(1)
@@ -440,6 +458,25 @@ class BlockchainTest():
 
         wallet.refresh()
         pending_txid = wallet.transfer([dst]).tx_hash
+
+        print('Calling /get_transactions with verifiable=true and testing response...')
+
+        # Test: verifiable=true with prune=true on V2 txs should return pruned_as_hex + prunable_hash
+        res_tx = daemon.get_transactions(txs_hashes = [pending_txid], prune = True, verifiable = True)
+        assert len(res_tx.txs) == 1
+        tx_entry = res_tx.txs[0]
+        assert tx_entry.pruned_as_hex
+        assert not tx_entry.prunable_as_hex
+        assert tx_entry.prunable_hash
+
+        # Test: verifiable=true with prune=false on V2 txs still returns pruned form
+        res_tx2 = daemon.get_transactions(txs_hashes = [pending_txid], prune = False, verifiable = True)
+        assert len(res_tx2.txs) == 1
+        tx_entry2 = res_tx2.txs[0]
+        assert tx_entry2.pruned_as_hex
+        assert not tx_entry2.prunable_as_hex
+        assert tx_entry2.prunable_hash
+
         current_height = daemon.get_height().height
 
         res = daemon.get_blocks_fast(
