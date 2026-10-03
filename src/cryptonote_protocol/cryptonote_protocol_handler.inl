@@ -1042,7 +1042,6 @@ namespace cryptonote
       drop_connection(context, false, false);
       return LEVIN_ERROR_CONNECTION;
     }
-    context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
     MLOG_P2P_MESSAGE("-->>NOTIFY_RESPONSE_GET_OBJECTS: blocks.size()="
                      << rsp.blocks.size() << ", rsp.m_current_blockchain_height=" << rsp.current_blockchain_height
                      << ", missed_ids.size()=" << rsp.missed_ids.size());
@@ -2676,17 +2675,19 @@ skip:
     }
     context.m_last_response_height -= arg.m_block_ids.size() - n_use_blocks;
 
+    // Preserve prior progress so a page downloaded by other peers does not cause a disconnect.
+    const size_t previous_requested = context.m_num_requested;
     if (!request_missing_objects(context, false))
     {
       LOG_ERROR_CCONTEXT("Failed to request missing objects, dropping connection");
       drop_connection(context, false, false);
       return 1;
     }
+    context.m_num_requested -= previous_requested;
 
     if (arg.total_height > m_core.get_target_blockchain_height())
       m_core.set_target_blockchain_height(arg.total_height);
 
-    context.m_num_requested = 0;
     return 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
