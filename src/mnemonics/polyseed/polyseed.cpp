@@ -138,7 +138,7 @@ namespace polyseed {
     };
 
     static error get_error(polyseed_status status) {
-        if (status > 0 && status < sizeof(error_desc) / sizeof(const char*)) {
+        if (status > 0 && static_cast<unsigned int>(status) < error_desc.size()) {
             return error(error_desc[(int)status], status);
         }
         return error("Unknown error", status);
