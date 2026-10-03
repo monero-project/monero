@@ -487,20 +487,25 @@ namespace
     return boost::lexical_cast<std::string>(version >> 16) + "." + boost::lexical_cast<std::string>(version & 0xffff);
   }
 
-  std::string oa_prompter(const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)
+  std::string oa_prompter(const std::string &url, const std::vector<std::string> &addresses, tools::dns_utils::dnssec_status dnssec)
   {
     if (addresses.empty())
       return {};
     // prompt user for confirmation.
     // inform user of DNSSEC validation status as well.
     std::string dnssec_str;
-    if (dnssec_valid)
+    switch (dnssec)
     {
+    case tools::dns_utils::dnssec_status::valid:
       dnssec_str = sw::tr("DNSSEC validation passed");
-    }
-    else
-    {
-      dnssec_str = sw::tr("WARNING: DNSSEC validation was unsuccessful, this address may not be correct!");
+      break;
+    case tools::dns_utils::dnssec_status::unavailable:
+      dnssec_str = sw::tr("WARNING: DNSSEC validation was not available, this address could not be verified!");
+      break;
+    case tools::dns_utils::dnssec_status::invalid:
+    default:
+      dnssec_str = sw::tr("WARNING: DNSSEC validation failed, this address may have been tampered with!");
+      break;
     }
     std::stringstream prompt;
     prompt << sw::tr("For URL: ") << url

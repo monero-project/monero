@@ -32,6 +32,7 @@
 
 #include "cryptonote_basic.h"
 #include "crypto/hash.h"
+#include "common/dns_utils.h"
 
 
 namespace cryptonote {
@@ -41,7 +42,7 @@ namespace cryptonote {
 
   namespace
   {
-    inline std::string return_first_address(const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)
+    inline std::string return_first_address(const std::string &url, const std::vector<std::string> &addresses, tools::dns_utils::dnssec_status dnssec)
     {
       if (addresses.empty())
         return {};
@@ -88,7 +89,7 @@ namespace cryptonote {
       address_parse_info& info
     , network_type nettype
     , const std::string& str_or_url
-    , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm = return_first_address
+    , std::function<std::string(const std::string&, const std::vector<std::string>&, tools::dns_utils::dnssec_status)> dns_confirm = return_first_address
     );
 
   bool get_account_address_from_str_or_url(
@@ -96,7 +97,7 @@ namespace cryptonote {
     , network_type nettype
     , const std::string& str_or_url
     , bool allow_dns
-    , std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm = return_first_address
+    , std::function<std::string(const std::string&, const std::vector<std::string>&, tools::dns_utils::dnssec_status)> dns_confirm = return_first_address
     );
 
   /**
