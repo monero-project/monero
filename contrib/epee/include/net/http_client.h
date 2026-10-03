@@ -289,47 +289,62 @@ namespace net_utils
 				bool keep_handling = true;
 				bool need_more_data = true;
 				std::string recv_buffer;
-				while(keep_handling)
+				try
 				{
-					if(need_more_data)
+					while(keep_handling)
 					{
-						if(!m_net_client.recv(recv_buffer, timeout))
+						if(need_more_data)
 						{
-							MERROR("Unexpected recv fail");
-							m_state = reciev_machine_state_error;
-            }
-            if(!recv_buffer.size())
-            {
-              //connection is going to be closed
-              if(reciev_machine_state_body_connection_close != m_state)
-              {
-                m_state = reciev_machine_state_error;
-              }
-            }
-            need_more_data = false;
-					}
-					switch(m_state)
-					{
-					case reciev_machine_state_header:
-						keep_handling = handle_header(recv_buffer, need_more_data);
-						break;
-					case reciev_machine_state_body_content_len:
-						keep_handling = handle_body_content_len(recv_buffer, need_more_data);
-						break;
-					case reciev_machine_state_body_connection_close:
-						keep_handling = handle_body_connection_close(recv_buffer, need_more_data);
-						break;
-					case reciev_machine_state_body_chunked:
-						keep_handling = handle_body_body_chunked(recv_buffer, need_more_data);
-						break;
-					case reciev_machine_state_done:
-						keep_handling = false;
-						break;
-					case reciev_machine_state_error:
-						keep_handling = false;
-						break;
-					}
+							if(!m_net_client.recv(recv_buffer, timeout))
+							{
+								MERROR("Unexpected recv fail");
+								m_state = reciev_machine_state_error;
+	            }
+	            if(!recv_buffer.size())
+	            {
+	              //connection is going to be closed
+	              if(reciev_machine_state_body_connection_close != m_state)
+	              {
+	                m_state = reciev_machine_state_error;
+	              }
+	            }
+	            need_more_data = false;
+						}
+						switch(m_state)
+						{
+						case reciev_machine_state_header:
+							keep_handling = handle_header(recv_buffer, need_more_data);
+							break;
+						case reciev_machine_state_body_content_len:
+							keep_handling = handle_body_content_len(recv_buffer, need_more_data);
+							break;
+						case reciev_machine_state_body_connection_close:
+							keep_handling = handle_body_connection_close(recv_buffer, need_more_data);
+							break;
+						case reciev_machine_state_body_chunked:
+							keep_handling = handle_body_body_chunked(recv_buffer, need_more_data);
+							break;
+						case reciev_machine_state_done:
+							keep_handling = false;
+							break;
+						case reciev_machine_state_error:
+							keep_handling = false;
+							break;
+						}
 
+					}
+				}
+				catch (const std::exception& e)
+				{
+					LOG_ERROR("http_simple_client_template::handle_reciev(): exception while processing response, resetting connection: " << e.what());
+					reset_stream_state();
+					return false;
+				}
+				catch (...)
+				{
+					LOG_ERROR("http_simple_client_template::handle_reciev(): unknown exception while processing response, resetting connection");
+					reset_stream_state();
+					return false;
 				}
 				m_header_cache.clear();
 				if(m_state != reciev_machine_state_error)
@@ -344,6 +359,19 @@ namespace net_utils
                   LOG_PRINT_L3("Returning false because of wrong state machine. state: " << m_state);
                   return false;
                 }
+			}
+			//---------------------------------------------------------------------------
+			// clears partially-received response state and drops the connection
+			inline void reset_stream_state()
+			{
+				std::string().swap(m_header_cache);
+				std::string().swap(m_chunked_cache);
+				m_response_info.clear();
+				m_len_in_summary = 0;
+				m_len_in_remain = 0;
+				m_chunked_state = http_chunked_state_undefined;
+				m_state = reciev_machine_state_error;
+				disconnect();
 			}
 			//---------------------------------------------------------------------------
 			inline

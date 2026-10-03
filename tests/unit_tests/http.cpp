@@ -123,11 +123,18 @@ public:
   {
     ++headers_seen;
     last_headers = headers;
+    if (throw_on_header)
+    {
+      // only once, so a later call on the same client proves it recovered
+      throw_on_header = false;
+      throw std::runtime_error("simulated failure while processing response");
+    }
     return true;
   }
 
   http::http_response_info last_headers;
   unsigned headers_seen = 0;
+  bool throw_on_header = false;
 };
 
 class capturing_http_handler final : public http::i_http_server_handler<epee::net_utils::connection_context_base>
@@ -1562,6 +1569,33 @@ TEST(HTTP, Client_Rejects_Malformed_Response_Header)
 
   EXPECT_FALSE(result);
   EXPECT_EQ(0u, client.headers_seen);
+}
+
+TEST(HTTP, Client_Recovers_From_Exception_During_Response_Processing)
+{
+  test_http_client client;
+  client.throw_on_header = true;
+
+  const bool first_result = client.test(
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Length: 0\r\n"
+    "\r\n",
+    std::chrono::milliseconds(1000)
+  );
+  EXPECT_FALSE(first_result);
+
+  const bool second_result = client.test(
+    "HTTP/1.1 200 OK\r\n"
+    "X-Test: abc\r\n"
+    "Content-Length: 0\r\n"
+    "\r\n",
+    std::chrono::milliseconds(1000)
+  );
+
+  ASSERT_TRUE(second_result);
+  ASSERT_EQ(1u, client.last_headers.m_header_info.m_etc_fields.size());
+  EXPECT_STREQ("X-Test", client.last_headers.m_header_info.m_etc_fields.front().first.c_str());
+  EXPECT_STREQ("abc", client.last_headers.m_header_info.m_etc_fields.front().second.c_str());
 }
 
 TEST(HTTP, Add_Field)
