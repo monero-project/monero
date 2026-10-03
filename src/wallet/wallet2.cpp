@@ -7516,7 +7516,9 @@ void wallet2::rescan_blockchain(bool hard, bool refresh, bool keep_key_images)
 
   if(hard)
   {
+    const bool was_deterministic = m_deterministic;
     clear();
+    m_deterministic = was_deterministic;
     setup_new_blockchain();
   }
   else

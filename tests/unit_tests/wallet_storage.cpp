@@ -565,6 +565,25 @@ TEST(wallet_keys_unlocker, is_deterministic_with_encrypted_keys)
     }
 }
 
+TEST(wallet_keys_unlocker, deterministic_state_survives_hard_rescan)
+{
+    const epee::wipeable_string password("correct horse battery staple");
+    tools::wallet2 w;
+    w.generate("", password);
+    ASSERT_TRUE(w.is_deterministic());
+    w.rescan_blockchain(true, false);
+    ASSERT_TRUE(w.is_deterministic());
+
+    {
+        tools::wallet_keys_unlocker ul(w, &password);
+        ASSERT_TRUE(w.is_deterministic());
+        w.rescan_blockchain(true, false);
+        ASSERT_TRUE(w.is_deterministic());
+    }
+
+    ASSERT_TRUE(w.is_deterministic());
+}
+
 TEST(wallet_keys_unlocker, simple_nonce)
 {
     // Test that encrypted keys are different each time, i.e. that a nonce may actually be used
