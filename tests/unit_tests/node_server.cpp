@@ -172,6 +172,63 @@ TEST(node_server, peer_group)
   EXPECT_FALSE(nodetool::get_peer_group(net::i2p_address::unknown()));
 }
 
+TEST(node_server, peer_group_asmap)
+{
+  // tests/data/asmap.raw from Bitcoin Core, an artificial minimal mock mapping:
+  // 250.0.0.0/8 AS1000
+  // 101.1.0.0/16 AS1
+  // 101.2.0.0/16 AS2
+  // 101.3.0.0/16 AS3
+  // 101.4.0.0/16 AS4
+  // 101.5.0.0/16 AS5
+  // 101.6.0.0/16 AS6
+  // 101.7.0.0/16 AS7
+  // 101.8.0.0/16 AS8
+  const std::vector<std::uint8_t> asmap = net::asmap::DecodeAsmap((unit_test::data_dir / "asmap.raw").string());
+  ASSERT_FALSE(asmap.empty());
+
+  const auto make_ipv6 = [](const char* ip) {
+    return epee::net_utils::network_address{
+      epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6(ip), 18080}
+    };
+  };
+  const auto group = [&asmap](const epee::net_utils::network_address &address) {
+    const boost::optional<nodetool::peer_group> g = nodetool::get_peer_group(address, epee::to_span(asmap));
+    EXPECT_TRUE(g) << address.str();
+    return g ? *g : nodetool::peer_group{};
+  };
+
+  const nodetool::peer_group as1{nodetool::peer_group::kind::asn, 1};
+  EXPECT_EQ(group(MAKE_IPV4_ADDRESS(101, 1, 0, 1)), as1);
+  // different /24s in the same AS share a group
+  EXPECT_EQ(group(MAKE_IPV4_ADDRESS(101, 1, 255, 1)), as1);
+  EXPECT_EQ(group(make_ipv6("::ffff:101.1.2.3")), as1);
+
+  EXPECT_EQ(group(MAKE_IPV4_ADDRESS(101, 8, 0, 1)), (nodetool::peer_group{nodetool::peer_group::kind::asn, 8}));
+  EXPECT_EQ(group(MAKE_IPV4_ADDRESS(250, 1, 1, 1)), (nodetool::peer_group{nodetool::peer_group::kind::asn, 1000}));
+
+  // unmapped addresses fall back to /24 and /32 groups
+  EXPECT_EQ(group(MAKE_IPV4_ADDRESS(1, 2, 3, 4)), *nodetool::get_peer_group(MAKE_IPV4_ADDRESS(1, 2, 3, 4)));
+  EXPECT_EQ(group(make_ipv6("2001:db8::1")), *nodetool::get_peer_group(make_ipv6("2001:db8::1")));
+
+  // local addresses are not looked up and keep their /24 group, even when the asmap has them
+  for (const char *ip : {"::ffff:192.168.1.1", "::ffff:172.16.0.1"})
+  {
+    const auto bytes = boost::asio::ip::make_address_v6(ip).to_bytes();
+    ASSERT_NE(net::asmap::Interpret(epee::to_span(asmap), epee::to_span(bytes)), 0) << ip;
+  }
+  EXPECT_EQ(group(MAKE_IPV4_ADDRESS(192, 168, 1, 1)), *nodetool::get_peer_group(MAKE_IPV4_ADDRESS(192, 168, 1, 1)));
+  EXPECT_EQ(group(make_ipv6("::ffff:192.168.1.1")), *nodetool::get_peer_group(MAKE_IPV4_ADDRESS(192, 168, 1, 1)));
+  EXPECT_EQ(group(MAKE_IPV4_ADDRESS(172, 16, 0, 1)), *nodetool::get_peer_group(MAKE_IPV4_ADDRESS(172, 16, 0, 1)));
+
+  // 1.0.0.0/24 is unmapped and its /24 key has the same numeric value as AS1, but must not
+  // share its group
+  EXPECT_NE(group(MAKE_IPV4_ADDRESS(1, 0, 0, 1)), as1);
+
+  // anonymity networks have no group
+  EXPECT_FALSE(nodetool::get_peer_group(net::tor_address::unknown(), epee::to_span(asmap)));
+}
+
 static bool is_blocked(Server &server, const epee::net_utils::network_address &address, time_t *t = NULL)
 {
   std::map<std::string, time_t> hosts = server.get_blocked_hosts();
