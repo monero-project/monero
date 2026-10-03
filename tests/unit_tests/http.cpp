@@ -119,6 +119,12 @@ private:
 class test_http_client final : public http::http_simple_client_template<dummy_client>
 {
 public:
+  bool disconnect() override
+  {
+    disconnected = true;
+    return http::http_simple_client_template<dummy_client>::disconnect();
+  }
+
   bool on_header(const http::http_response_info& headers) override
   {
     ++headers_seen;
@@ -128,6 +134,7 @@ public:
 
   http::http_response_info last_headers;
   unsigned headers_seen = 0;
+  bool disconnected = false;
 };
 
 class capturing_http_handler final : public http::i_http_server_handler<epee::net_utils::connection_context_base>
@@ -1562,6 +1569,23 @@ TEST(HTTP, Client_Rejects_Malformed_Response_Header)
 
   EXPECT_FALSE(result);
   EXPECT_EQ(0u, client.headers_seen);
+  EXPECT_TRUE(client.disconnected);
+}
+
+TEST(HTTP, Client_Rejects_Missing_Response_Status)
+{
+  test_http_client client;
+  const bool result = client.test(
+    "X-Test: abc\r\n"
+    "Content-Length: 3\r\n"
+    "\r\n"
+    "abc",
+    std::chrono::milliseconds(1000)
+  );
+
+  EXPECT_FALSE(result);
+  EXPECT_EQ(0u, client.headers_seen);
+  EXPECT_TRUE(client.disconnected);
 }
 
 TEST(HTTP, Add_Field)
