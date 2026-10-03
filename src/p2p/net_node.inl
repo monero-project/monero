@@ -143,6 +143,52 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
 
+  // Group used to diversify outbound connections: IPv4 (including IPv4-mapped IPv6) by /24,
+  // native IPv6 by /32. The type is part of the key so groups of different kinds never collide.
+  struct peer_group
+  {
+    enum class kind : std::uint8_t { ipv4_subnet, ipv6_prefix };
+
+    kind type;
+    std::uint32_t value;
+
+    bool operator<(const peer_group &other) const noexcept
+    {
+      return std::tie(type, value) < std::tie(other.type, other.value);
+    }
+    bool operator==(const peer_group &other) const noexcept
+    {
+      return type == other.type && value == other.value;
+    }
+    bool operator!=(const peer_group &other) const noexcept
+    {
+      return !(*this == other);
+    }
+  };
+
+  inline boost::optional<peer_group> get_peer_group(const epee::net_utils::network_address& address)
+  {
+    const uint32_t subnet_mask = ntohl(0xffffff00);
+    if (address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
+      return peer_group{peer_group::kind::ipv4_subnet, address.as<const epee::net_utils::ipv4_network_address>().ip() & subnet_mask};
+
+    const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(address);
+    if (mapped)
+      return peer_group{peer_group::kind::ipv4_subnet, mapped->ip() & subnet_mask};
+
+    const boost::optional<ipv6_peer_group> ipv6_group = get_ipv6_peer_group(address);
+    if (ipv6_group)
+    {
+      std::uint32_t value;
+      static_assert(sizeof(value) == std::tuple_size<ipv6_peer_group>::value, "unexpected IPv6 group size");
+      memcpy(&value, ipv6_group->data(), sizeof(value));
+      return peer_group{peer_group::kind::ipv6_prefix, value};
+    }
+
+    return boost::none;
+  }
+  //-----------------------------------------------------------------------------------
+
   inline bool is_forbidden_ipv6_address(const epee::net_utils::network_address& address)
   {
     if (address.get_type_id() != epee::net_utils::ipv6_network_address::get_type_id())
@@ -1722,33 +1768,15 @@ namespace nodetool
 
       // Build a list of all distinct IPv4 /24 and IPv6 /32 groups we are connected to right now; to catch
       // any connection changes, re-build the list for every outer try loop pass
-      std::set<uint32_t> connected_subnets;
-      std::set<ipv6_peer_group> connected_ipv6_groups;
-      const uint32_t subnet_mask = ntohl(0xffffff00);
+      std::set<peer_group> connected_groups;
       const bool is_public_zone = &zone == &m_network_zones.at(epee::net_utils::zone::public_);
       if (is_public_zone)
       {
         zone.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
         {
-          if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
-          {
-            const epee::net_utils::network_address na = cntxt.m_remote_address;
-            const uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
-            connected_subnets.insert(actual_ip & subnet_mask);
-          }
-          else if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
-          {
-            const epee::net_utils::network_address na = cntxt.m_remote_address;
-            const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(na);
-            if (mapped)
-              connected_subnets.insert(mapped->ip() & subnet_mask);
-            else
-            {
-              const boost::optional<ipv6_peer_group> group = get_ipv6_peer_group(na);
-              if (group)
-                connected_ipv6_groups.insert(*group);
-            }
-          }
+          const boost::optional<peer_group> group = get_peer_group(cntxt.m_remote_address);
+          if (group)
+            connected_groups.insert(*group);
           return true;
         });
       }
@@ -1778,40 +1806,15 @@ namespace nodetool
 
           // Step 2: Deduplicate by only taking 1 candidate from each /24 subnet that occurs, the FIRST
           // candidate seen from each subnet within the now random order. Native IPv6 peers use /32 groups.
-          std::set<uint32_t> subnets = connected_subnets;
-          std::set<ipv6_peer_group> ipv6_groups = connected_ipv6_groups;
+          std::set<peer_group> groups = connected_groups;
           for (size_t index : shuffled_indexes)
           {
             const peerlist_entry &peer = peers.at(index);
             bool take = true;
-            if (peer.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
-            {
-              const epee::net_utils::network_address na = peer.adr;
-              const uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
-              const uint32_t subnet = actual_ip & subnet_mask;
-              take = subnets.find(subnet) == subnets.end();
-              if (take)
-                // This subnet is now "occupied", don't take any more candidates from this one
-                subnets.insert(subnet);
-            }
-            else if (peer.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
-            {
-              const epee::net_utils::network_address na = peer.adr;
-              const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(na);
-              if (mapped)
-              {
-                uint32_t subnet = mapped->ip() & subnet_mask;
-                take = subnets.find(subnet) == subnets.end();
-                if (take)
-                  subnets.insert(subnet);
-              }
-              else
-              {
-                const boost::optional<ipv6_peer_group> group = get_ipv6_peer_group(na);
-                if (group)
-                  take = ipv6_groups.insert(*group).second;
-              }
-            }
+            const boost::optional<peer_group> group = get_peer_group(peer.adr);
+            if (group)
+              // This group is now "occupied", don't take any more candidates from this one
+              take = groups.insert(*group).second;
             if (take)
               subnet_peers.push_back(peer);
           }

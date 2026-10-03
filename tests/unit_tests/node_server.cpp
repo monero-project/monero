@@ -143,6 +143,35 @@ TEST(node_server, ipv6_peer_group)
   EXPECT_FALSE(nodetool::get_ipv6_peer_group(MAKE_IPV4_ADDRESS(192, 0, 2, 1)));
 }
 
+TEST(node_server, peer_group)
+{
+  const auto make_ipv6 = [](const char* ip) {
+    return epee::net_utils::network_address{
+      epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6(ip), 18080}
+    };
+  };
+  const auto group = [](const epee::net_utils::network_address &address) {
+    const boost::optional<nodetool::peer_group> g = nodetool::get_peer_group(address);
+    EXPECT_TRUE(g) << address.str();
+    return g ? *g : nodetool::peer_group{};
+  };
+
+  // IPv4 by /24
+  EXPECT_EQ(group(MAKE_IPV4_ADDRESS(192, 0, 2, 1)), group(MAKE_IPV4_ADDRESS(192, 0, 2, 254)));
+  EXPECT_NE(group(MAKE_IPV4_ADDRESS(192, 0, 2, 1)), group(MAKE_IPV4_ADDRESS(192, 0, 3, 1)));
+  // IPv4-mapped IPv6 is grouped like IPv4
+  EXPECT_EQ(group(MAKE_IPV4_ADDRESS(192, 0, 2, 1)), group(make_ipv6("::ffff:192.0.2.77")));
+  // native IPv6 by /32
+  EXPECT_EQ(group(make_ipv6("2001:db8:1::1")), group(make_ipv6("2001:db8:ffff::1")));
+  EXPECT_NE(group(make_ipv6("2001:db8::1")), group(make_ipv6("2001:db9::1")));
+  // an IPv6 /32 with the same leading bytes as an IPv4 /24 is a different group
+  EXPECT_NE(group(MAKE_IPV4_ADDRESS(192, 0, 2, 0)), group(make_ipv6("c000:0200::1")));
+
+  // anonymity networks have no group
+  EXPECT_FALSE(nodetool::get_peer_group(net::tor_address::unknown()));
+  EXPECT_FALSE(nodetool::get_peer_group(net::i2p_address::unknown()));
+}
+
 static bool is_blocked(Server &server, const epee::net_utils::network_address &address, time_t *t = NULL)
 {
   std::map<std::string, time_t> hosts = server.get_blocked_hosts();
