@@ -30,13 +30,13 @@
 
 #include <chrono>
 #include "string_tools.h"
-#include "net/http_client.h"
+#include "net/abstract_http_client.h"
 
 namespace tools {
 
 class t_http_connection {
 private:
-  epee::net_utils::http::http_simple_client * mp_http_client;
+  epee::net_utils::http::abstract_http_client * mp_http_client;
   bool m_ok;
 public:
   static constexpr std::chrono::seconds TIMEOUT()
@@ -44,7 +44,7 @@ public:
     return std::chrono::minutes(3) + std::chrono::seconds(30);
   }
 
-  t_http_connection(epee::net_utils::http::http_simple_client* p_http_client)
+  t_http_connection(epee::net_utils::http::abstract_http_client* p_http_client)
     : mp_http_client(p_http_client)
     , m_ok(false)
   {
