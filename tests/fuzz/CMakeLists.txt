@@ -290,6 +290,17 @@ set_property(TARGET bulletproof-plus_fuzz_tests
   PROPERTY
     FOLDER "tests")
 
+monero_add_minimal_executable(fcmp-pp-point_fuzz_tests fcmp-pp-point.cpp fuzzer.cpp)
+target_link_libraries(fcmp-pp-point_fuzz_tests
+  PRIVATE
+    fcmp_pp
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET fcmp-pp-point_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
+
 monero_add_minimal_executable(tx-extra_fuzz_tests tx-extra.cpp fuzzer.cpp)
 target_link_libraries(tx-extra_fuzz_tests
   PRIVATE
