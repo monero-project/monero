@@ -1137,10 +1137,10 @@ namespace tools
       cryptonote::tx_destination_entry de;
       er.message = "";
       if(!get_account_address_from_str_or_url(info, m_wallet->nettype(), it->address, m_wallet->is_dns_enabled(),
-        [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
-          if (!dnssec_valid)
+        [&er](const std::string &url, const std::vector<std::string> &addresses, tools::dns_utils::dnssec_status dnssec)->std::string {
+          if (dnssec != tools::dns_utils::dnssec_status::valid)
           {
-            er.message = std::string("Invalid DNSSEC for ") + url;
+            er.message = std::string(dnssec == tools::dns_utils::dnssec_status::invalid ? "Invalid DNSSEC for " : "DNSSEC not available for ") + url;
             return {};
           }
           if (addresses.empty())
@@ -2611,10 +2611,10 @@ namespace tools
     cryptonote::address_parse_info info;
     er.message = "";
     if(!get_account_address_from_str_or_url(info, m_wallet->nettype(), req.address, m_wallet->is_dns_enabled(),
-      [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
-        if (!dnssec_valid)
+      [&er](const std::string &url, const std::vector<std::string> &addresses, tools::dns_utils::dnssec_status dnssec)->std::string {
+        if (dnssec != tools::dns_utils::dnssec_status::valid)
         {
-          er.message = std::string("Invalid DNSSEC for ") + url;
+          er.message = std::string(dnssec == tools::dns_utils::dnssec_status::invalid ? "Invalid DNSSEC for " : "DNSSEC not available for ") + url;
           return {};
         }
         if (addresses.empty())
@@ -3415,10 +3415,10 @@ namespace tools
     cryptonote::address_parse_info info;
     er.message = "";
     if(!get_account_address_from_str_or_url(info, m_wallet->nettype(), req.address, m_wallet->is_dns_enabled(),
-      [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
-        if (!dnssec_valid)
+      [&er](const std::string &url, const std::vector<std::string> &addresses, tools::dns_utils::dnssec_status dnssec)->std::string {
+        if (dnssec != tools::dns_utils::dnssec_status::valid)
         {
-          er.message = std::string("Invalid DNSSEC for ") + url;
+          er.message = std::string(dnssec == tools::dns_utils::dnssec_status::invalid ? "Invalid DNSSEC for " : "DNSSEC not available for ") + url;
           return {};
         }
         if (addresses.empty())
@@ -3463,10 +3463,10 @@ namespace tools
     {
       er.message = "";
       if(!get_account_address_from_str_or_url(info, m_wallet->nettype(), req.address, m_wallet->is_dns_enabled(),
-        [&er](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
-          if (!dnssec_valid)
+        [&er](const std::string &url, const std::vector<std::string> &addresses, tools::dns_utils::dnssec_status dnssec)->std::string {
+          if (dnssec != tools::dns_utils::dnssec_status::valid)
           {
-            er.message = std::string("Invalid DNSSEC for ") + url;
+            er.message = std::string(dnssec == tools::dns_utils::dnssec_status::invalid ? "Invalid DNSSEC for " : "DNSSEC not available for ") + url;
             return {};
           }
           if (addresses.empty())
@@ -4896,10 +4896,10 @@ namespace tools
       {
         std::string address;
         res.valid = get_account_address_from_str_or_url(info, net_type.type, req.address, allow_dns,
-          [&er, &address](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
-            if (!dnssec_valid)
+          [&er, &address](const std::string &url, const std::vector<std::string> &addresses, tools::dns_utils::dnssec_status dnssec)->std::string {
+            if (dnssec != tools::dns_utils::dnssec_status::valid)
             {
-              er.message = std::string("Invalid DNSSEC for ") + url;
+              er.message = std::string(dnssec == tools::dns_utils::dnssec_status::invalid ? "Invalid DNSSEC for " : "DNSSEC not available for ") + url;
               return {};
             }
             if (addresses.empty())

@@ -165,10 +165,23 @@ private:
 namespace dns_utils
 {
 
-std::string address_from_txt_record(const std::string& s);
-std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec_valid);
+/**
+ * @brief DNSSEC validation status for a DNS query
+ *
+ * Distinguishes between DNSSEC being unavailable, validation passing,
+ * and validation failing (which may indicate tampering).
+ */
+enum class dnssec_status
+{
+  unavailable,  //!< DNSSEC was not available for this query (no signed records)
+  valid,        //!< DNSSEC validation passed
+  invalid       //!< DNSSEC validation failed; the record may be tampered with
+};
 
-std::string get_account_address_as_str_from_url(const std::string& url, bool& dnssec_valid, std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> confirm_dns);
+std::string address_from_txt_record(const std::string& s);
+std::vector<std::string> addresses_from_url(const std::string& url, dnssec_status& dnssec);
+
+std::string get_account_address_as_str_from_url(const std::string& url, dnssec_status& dnssec, std::function<std::string(const std::string&, const std::vector<std::string>&, dnssec_status)> confirm_dns);
 
 bool load_txt_records_from_dns(std::vector<std::string> &records, const std::vector<std::string> &dns_urls);
 
