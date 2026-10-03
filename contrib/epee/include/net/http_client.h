@@ -342,6 +342,7 @@ namespace net_utils
 				else
                 {
                   LOG_PRINT_L3("Returning false because of wrong state machine. state: " << m_state);
+                  disconnect();
                   return false;
                 }
 			}
@@ -705,7 +706,8 @@ namespace net_utils
 				bool analize_cached_header_and_invoke_state()
 			{
 				m_response_info.clear();
-				analize_first_response_line();
+				if (!analize_first_response_line())
+					return false;
 				std::string fake_str; //gcc error workaround
 
 				bool res = parse_header(m_response_info.m_header_info, m_header_cache);
