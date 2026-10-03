@@ -56,6 +56,8 @@ namespace net_utils
 	//---------------------------------------------------------------------------
 	namespace http
 	{
+		// max length of an unterminated chunk-size line
+		constexpr size_t MAX_CHUNK_HEAD_LINE_SIZE = 128;
 
 		template<typename net_client_type>
     class http_simple_client_template : public i_target_handler, public abstract_http_client
@@ -401,7 +403,7 @@ namespace net_utils
 				m_len_in_remain -= recv_buff.size();
 				if (!m_pcontent_encoding_handler->update_in(recv_buff))
 				{
-					m_state = reciev_machine_state_done;
+					m_state = reciev_machine_state_error;
 					return false;
 				}
 
@@ -423,8 +425,11 @@ namespace net_utils
 					return true;
 				}
         need_more_data = true;
-				m_pcontent_encoding_handler->update_in(recv_buff);
-
+				if (!m_pcontent_encoding_handler->update_in(recv_buff))
+				{
+					m_state = reciev_machine_state_error;
+					return false;
+				}
 
 				return true;
 			}
@@ -548,6 +553,12 @@ namespace net_utils
 
 						if(!is_matched)
 						{
+							if(m_chunked_cache.size() > MAX_CHUNK_HEAD_LINE_SIZE)
+							{
+								LOG_ERROR("http_stream_filter::handle_chunked(*) chunk-size line exceeds " << MAX_CHUNK_HEAD_LINE_SIZE << " bytes");
+								m_state = reciev_machine_state_error;
+								return false;
+							}
 							need_more_data = true;
 							return true;
 						}else
@@ -762,6 +773,7 @@ namespace net_utils
 				}else if(!m_response_info.m_header_info.m_connection.empty() && is_connection_close_field(m_response_info.m_header_info.m_connection))
 				{   //By indirect signs we suspect that data transfer will end with a connection break
 					m_state = reciev_machine_state_body_connection_close;
+					return true;
 				}else if(is_multipart_body(m_response_info.m_header_info, fake_str))
 				{
 					m_state = reciev_machine_state_error;
