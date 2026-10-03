@@ -51,6 +51,7 @@
 #include "common/util.h"
 #include "common/dns_utils.h"
 #include "common/pruning.h"
+#include "net/asmap.h"
 #include "net/error.h"
 #include "misc_log_ex.h"
 #include "p2p_protocol_defs.h"
@@ -143,6 +144,78 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
 
+  // Group used to diversify outbound connections: the autonomous system number when an asmap is
+  // given and maps the address, otherwise IPv4 (including IPv4-mapped IPv6) by /24 and native IPv6
+  // by /32. The type is part of the key so groups of different kinds never collide.
+  struct peer_group
+  {
+    enum class kind : std::uint8_t { ipv4_subnet, ipv6_prefix, asn };
+
+    kind type;
+    std::uint32_t value;
+
+    bool operator<(const peer_group &other) const noexcept
+    {
+      return std::tie(type, value) < std::tie(other.type, other.value);
+    }
+    bool operator==(const peer_group &other) const noexcept
+    {
+      return type == other.type && value == other.value;
+    }
+    bool operator!=(const peer_group &other) const noexcept
+    {
+      return !(*this == other);
+    }
+  };
+
+  // `asmap` must have passed net::asmap::CheckStandardAsmap
+  inline boost::optional<peer_group> get_peer_group(const epee::net_utils::network_address& address, const epee::span<const std::uint8_t> asmap = nullptr)
+  {
+    const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(address);
+
+    // like Bitcoin, local addresses are not looked up in the asmap
+    const bool local = address.is_loopback() || address.is_local() || (mapped && (mapped->is_loopback() || mapped->is_local()));
+    if (!asmap.empty() && !local)
+    {
+      // asmap lookups take a 128 bit IPv6 address, IPv4 is looked up as IPv4-mapped IPv6
+      boost::optional<boost::asio::ip::address_v6::bytes_type> ip;
+      if (address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
+      {
+        const uint32_t ipv4 = address.as<const epee::net_utils::ipv4_network_address>().ip();
+        ip = boost::asio::ip::address_v6::bytes_type{{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}};
+        memcpy(ip->data() + 12, &ipv4, sizeof(ipv4));
+      }
+      else if (address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
+        ip = address.as<const epee::net_utils::ipv6_network_address>().ip().to_bytes();
+
+      if (ip)
+      {
+        const uint32_t asn = net::asmap::Interpret(asmap, epee::to_span(*ip));
+        if (asn != 0)
+          return peer_group{peer_group::kind::asn, asn};
+      }
+    }
+
+    const uint32_t subnet_mask = ntohl(0xffffff00);
+    if (address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
+      return peer_group{peer_group::kind::ipv4_subnet, address.as<const epee::net_utils::ipv4_network_address>().ip() & subnet_mask};
+
+    if (mapped)
+      return peer_group{peer_group::kind::ipv4_subnet, mapped->ip() & subnet_mask};
+
+    const boost::optional<ipv6_peer_group> ipv6_group = get_ipv6_peer_group(address);
+    if (ipv6_group)
+    {
+      std::uint32_t value;
+      static_assert(sizeof(value) == std::tuple_size<ipv6_peer_group>::value, "unexpected IPv6 group size");
+      memcpy(&value, ipv6_group->data(), sizeof(value));
+      return peer_group{peer_group::kind::ipv6_prefix, value};
+    }
+
+    return boost::none;
+  }
+  //-----------------------------------------------------------------------------------
+
   inline bool is_forbidden_ipv6_address(const epee::net_utils::network_address& address)
   {
     if (address.get_type_id() != epee::net_utils::ipv6_network_address::get_type_id())
@@ -223,6 +296,7 @@ namespace nodetool
     command_line::add_arg(desc, arg_limit_rate);
     command_line::add_arg(desc, arg_pad_transactions);
     command_line::add_arg(desc, arg_max_connections_per_ip);
+    command_line::add_arg(desc, arg_asmap);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -789,6 +863,20 @@ namespace nodetool
     }
 
     max_connections = command_line::get_arg(vm, arg_max_connections_per_ip);
+
+    boost::filesystem::path asmap_path = command_line::get_arg(vm, arg_asmap);
+    if (!asmap_path.empty())
+    {
+      if (asmap_path.is_relative())
+        asmap_path = boost::filesystem::path(command_line::get_arg(vm, cryptonote::arg_data_dir)) / asmap_path;
+      m_asmap = net::asmap::DecodeAsmap(asmap_path.string());
+      if (m_asmap.empty())
+      {
+        MFATAL("Invalid --asmap file: " << asmap_path.string());
+        return false;
+      }
+      MGINFO("Using asmap version " << epee::string_tools::pod_to_hex(net::asmap::AsmapVersion(epee::to_span(m_asmap))) << " for outbound peer grouping");
+    }
 
     return true;
   }
@@ -1720,35 +1808,20 @@ namespace nodetool
 
       const uint32_t next_needed_pruning_stripe = m_payload_handler.get_next_needed_pruning_stripe().second;
 
-      // Build a list of all distinct IPv4 /24 and IPv6 /32 groups we are connected to right now; to catch
-      // any connection changes, re-build the list for every outer try loop pass
-      std::set<uint32_t> connected_subnets;
-      std::set<ipv6_peer_group> connected_ipv6_groups;
-      const uint32_t subnet_mask = ntohl(0xffffff00);
+      // Build a list of all distinct groups (ASN if --asmap is used, else IPv4 /24 and IPv6 /32) we are connected to right now; to catch
+      // any connection changes, re-build the list for every outer try loop pass. With --asmap only outgoing connections count,
+      // an incoming peer would otherwise block its whole AS
+      std::set<peer_group> connected_groups;
       const bool is_public_zone = &zone == &m_network_zones.at(epee::net_utils::zone::public_);
       if (is_public_zone)
       {
         zone.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
         {
-          if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
-          {
-            const epee::net_utils::network_address na = cntxt.m_remote_address;
-            const uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
-            connected_subnets.insert(actual_ip & subnet_mask);
-          }
-          else if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
-          {
-            const epee::net_utils::network_address na = cntxt.m_remote_address;
-            const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(na);
-            if (mapped)
-              connected_subnets.insert(mapped->ip() & subnet_mask);
-            else
-            {
-              const boost::optional<ipv6_peer_group> group = get_ipv6_peer_group(na);
-              if (group)
-                connected_ipv6_groups.insert(*group);
-            }
-          }
+          if (!m_asmap.empty() && cntxt.m_is_income)
+            return true;
+          const boost::optional<peer_group> group = get_peer_group(cntxt.m_remote_address, epee::to_span(m_asmap));
+          if (group)
+            connected_groups.insert(*group);
           return true;
         });
       }
@@ -1778,40 +1851,16 @@ namespace nodetool
 
           // Step 2: Deduplicate by only taking 1 candidate from each /24 subnet that occurs, the FIRST
           // candidate seen from each subnet within the now random order. Native IPv6 peers use /32 groups.
-          std::set<uint32_t> subnets = connected_subnets;
-          std::set<ipv6_peer_group> ipv6_groups = connected_ipv6_groups;
+          // With --asmap, peers are grouped by autonomous system instead where the asmap maps them.
+          std::set<peer_group> groups = connected_groups;
           for (size_t index : shuffled_indexes)
           {
             const peerlist_entry &peer = peers.at(index);
             bool take = true;
-            if (peer.adr.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
-            {
-              const epee::net_utils::network_address na = peer.adr;
-              const uint32_t actual_ip = na.as<const epee::net_utils::ipv4_network_address>().ip();
-              const uint32_t subnet = actual_ip & subnet_mask;
-              take = subnets.find(subnet) == subnets.end();
-              if (take)
-                // This subnet is now "occupied", don't take any more candidates from this one
-                subnets.insert(subnet);
-            }
-            else if (peer.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
-            {
-              const epee::net_utils::network_address na = peer.adr;
-              const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(na);
-              if (mapped)
-              {
-                uint32_t subnet = mapped->ip() & subnet_mask;
-                take = subnets.find(subnet) == subnets.end();
-                if (take)
-                  subnets.insert(subnet);
-              }
-              else
-              {
-                const boost::optional<ipv6_peer_group> group = get_ipv6_peer_group(na);
-                if (group)
-                  take = ipv6_groups.insert(*group).second;
-              }
-            }
+            const boost::optional<peer_group> group = get_peer_group(peer.adr, epee::to_span(m_asmap));
+            if (group)
+              // This group is now "occupied", don't take any more candidates from this one
+              take = groups.insert(*group).second;
             if (take)
               subnet_peers.push_back(peer);
           }

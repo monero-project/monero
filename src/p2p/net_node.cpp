@@ -163,6 +163,7 @@ namespace nodetool
       "pad-transactions", "Pad relayed transactions to help defend against traffic volume analysis", false
     };
     const command_line::arg_descriptor<uint32_t> arg_max_connections_per_ip = {"max-connections-per-ip", "Maximum number of inbound p2p connections allowed from the same IPv4 address or shared across a public IPv6 /64 subnet", 1};
+    const command_line::arg_descriptor<std::string> arg_asmap = {"asmap", "Path to an asmap file (e.g. from https://github.com/bitcoin-core/asmap-data) used to diversify outbound connections by autonomous system instead of by IP subnet. Relative paths are relative to the data directory", ""};
 
     boost::optional<std::vector<proxy>> get_proxies(boost::program_options::variables_map const& vm)
     {
