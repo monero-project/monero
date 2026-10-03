@@ -43,6 +43,7 @@
 #include <boost/optional.hpp>
 #include <boost/utility/string_ref.hpp>
 #include <boost/asio/ip/address.hpp>
+#include <boost/regex.hpp>
 using namespace epee;
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
@@ -361,31 +362,19 @@ namespace dns_utils
 {
 
 //-----------------------------------------------------------------------
-// TODO: parse the string in a less stupid way, probably with regex
 std::string address_from_txt_record(const std::string& s)
 {
-  // make sure the txt record has "oa1:xmr" and find it
-  auto pos = s.find("oa1:xmr");
-  if (pos == std::string::npos)
-    return {};
-  // search from there to find "recipient_address="
-  pos = s.find("recipient_address=", pos);
-  if (pos == std::string::npos)
-    return {};
-  pos += 18; // move past "recipient_address="
-  // find the next semicolon
-  auto pos2 = s.find(";", pos);
-  if (pos2 != std::string::npos)
+  // OpenAlias TXT records have the form:
+  // oa1:xmr recipient_address=<address>; [recipient_name=...; ...]
+  // Find the "oa1:xmr" prefix, then extract the "recipient_address" value
+  // up to the next semicolon. A standard Monero address is 95 characters,
+  // an integrated address (with embedded payment id) is 106 characters.
+  static const boost::regex re(
+      R"(oa1:xmr[\s\S]*?recipient_address=([^;]{95}|[^;]{106});)");
+  boost::smatch match;
+  if (boost::regex_search(s, match, re))
   {
-    // length of address == 95, we can at least validate that much here
-    if (pos2 - pos == 95)
-    {
-      return s.substr(pos, 95);
-    }
-    else if (pos2 - pos == 106) // length of address == 106 --> integrated address
-    {
-      return s.substr(pos, 106);
-    }
+    return match[1].str();
   }
   return {};
 }
