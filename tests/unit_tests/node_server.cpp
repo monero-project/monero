@@ -36,6 +36,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.inl"
 #include "unit_tests_utils.h"
+#include "net/i2p_address.h"
 #include <algorithm>
 #include <condition_variable>
 #include <thread>
@@ -1652,5 +1653,27 @@ TEST(regtest, isolates_p2p_state_from_mainnet_data_dir)
   EXPECT_TRUE(regtest_public.gray.empty());
 }
 
+
+TEST(node_server, is_host_limit_returns_false_on_unknown_zone)
+{
+
+  const path_t temp_dir = create_temp_dir();
+  ASSERT_TRUE(!temp_dir.empty());
+
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+
+  cprotocol.set_p2p_endpoint(&server);
+  ASSERT_TRUE(server.init(make_regtest_options(temp_dir)));
+
+  auto i2p_addr = net::i2p_address::make("vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopn.b32.i2p");
+  ASSERT_TRUE(i2p_addr.has_value());
+  auto addr = epee::net_utils::network_address(*i2p_addr);
+
+  ASSERT_NO_THROW(EXPECT_FALSE(server.is_host_limit(addr)));
+  server.deinit();
+
+}
 namespace nodetool { template class node_server<cryptonote::t_cryptonote_protocol_handler<test_core>>; }
 namespace cryptonote { template class t_cryptonote_protocol_handler<test_core>; }
