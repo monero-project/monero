@@ -32,6 +32,7 @@
 #include "syncobj.h"
 #include "net/http_protocol_handler.h"
 
+#include <algorithm>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/fusion/adapted/std_pair.hpp>
@@ -101,8 +102,9 @@ public:
   bool send(const void*, size_t) { return true; }
   bool recv(std::string& buff, std::chrono::milliseconds)
   {
-    buff = data;
-    data.clear();
+    const std::size_t size = std::min<std::size_t>(data.size(), 16384);
+    buff.assign(data, 0, size);
+    data.erase(0, size);
     return true;
   }
   void set_ssl(epee::net_utils::ssl_options_t) { }
@@ -119,6 +121,12 @@ private:
 class test_http_client final : public http::http_simple_client_template<dummy_client>
 {
 public:
+  bool disconnect() override
+  {
+    disconnected = true;
+    return http::http_simple_client_template<dummy_client>::disconnect();
+  }
+
   bool on_header(const http::http_response_info& headers) override
   {
     ++headers_seen;
@@ -128,6 +136,7 @@ public:
 
   http::http_response_info last_headers;
   unsigned headers_seen = 0;
+  bool disconnected = false;
 };
 
 class capturing_http_handler final : public http::i_http_server_handler<epee::net_utils::connection_context_base>
@@ -1562,6 +1571,69 @@ TEST(HTTP, Client_Rejects_Malformed_Response_Header)
 
   EXPECT_FALSE(result);
   EXPECT_EQ(0u, client.headers_seen);
+}
+
+TEST(HTTP, Client_Rejects_Oversized_Response_Header)
+{
+  test_http_client client;
+  std::string response = "HTTP/1.1 200 OK\r\nX-Test: ";
+  response.append(100000, 'a');
+  response += "\r\nContent-Length: 0\r\n\r\n";
+
+  EXPECT_FALSE(client.test(response, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(0u, client.headers_seen);
+  EXPECT_TRUE(client.disconnected);
+}
+
+TEST(HTTP, Client_Accepts_Fragmented_Response_Header)
+{
+  test_http_client client;
+  std::string response = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nX-Test: ";
+  response.append(16384 - response.size() - 2, 'a');
+  response += "\r\n\r\n";
+
+  EXPECT_TRUE(client.test(response, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(1u, client.headers_seen);
+  EXPECT_FALSE(client.disconnected);
+}
+
+TEST(HTTP, Client_Accepts_Max_Response_Header)
+{
+  test_http_client client;
+  std::string response = "HTTP/1.1 200 OK\r\nX-Test: ";
+  const std::string suffix = "\r\nContent-Length: 0\r\n\r\n";
+  response.append(100000 - response.size() - suffix.size(), 'a');
+  response += suffix;
+  ASSERT_EQ(100000u, response.size());
+
+  EXPECT_TRUE(client.test(response, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(1u, client.headers_seen);
+  EXPECT_FALSE(client.disconnected);
+}
+
+TEST(HTTP, Client_Rejects_Completed_Oversized_Response_Header)
+{
+  test_http_client client;
+  std::string response = "HTTP/1.1 200 OK\r\nX-Test: ";
+  const std::string suffix = "\r\nContent-Length: 0\r\n\r\n";
+  response.append(100001 - response.size() - suffix.size(), 'a');
+  response += suffix;
+  ASSERT_EQ(100001u, response.size());
+
+  EXPECT_FALSE(client.test(response, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(0u, client.headers_seen);
+  EXPECT_TRUE(client.disconnected);
+}
+
+TEST(HTTP, Client_Accepts_Large_Response_Body)
+{
+  test_http_client client;
+  const std::string body(100001, 'a');
+  const std::string response = "HTTP/1.1 200 OK\r\nContent-Length: 100001\r\n\r\n" + body;
+
+  EXPECT_TRUE(client.test(response, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(1u, client.headers_seen);
+  EXPECT_FALSE(client.disconnected);
 }
 
 TEST(HTTP, Add_Field)
