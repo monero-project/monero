@@ -925,9 +925,13 @@ namespace nodetool
       boost::thread th = boost::thread(thread_attributes, [frame_weak, addr_str, result_index]
       {
         MDEBUG("dns_threads[" << result_index << "] created for: " << addr_str);
-        // TODO: care about dnssec avail/valid
         bool avail, valid;
         std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
+        if (avail && !valid)
+        {
+          MWARNING("DNSSEC validation failed for a DNS seed node: " << addr_str << ", ignoring " << addr_list.size() << " results: " << boost::algorithm::join(addr_list, ", "));
+          addr_list.clear();
+        }
         MINFO("dns_threads[" << result_index << "] addr_str: " << addr_str << "  number of results: " << addr_list.size());
         const auto frame = frame_weak.lock();
         if (frame)
