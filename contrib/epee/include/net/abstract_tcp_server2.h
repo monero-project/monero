@@ -363,9 +363,8 @@ namespace net_utils
     boosted_tcp_server(t_connection_type connection_type);
     explicit boosted_tcp_server(boost::asio::io_context& external_io_context, t_connection_type connection_type);
     ~boosted_tcp_server();
-    
-    std::map<std::string, t_connection_type> server_type_map;
-    void create_server_type_map();
+
+    static const char* server_type_name(t_connection_type type) noexcept;
 
     bool init_server(uint32_t port, const std::string& address = "0.0.0.0",
 	uint32_t port_ipv6 = 0, const std::string& address_ipv6 = "::", bool use_ipv6 = false, bool require_ipv4 = true,
@@ -400,7 +399,7 @@ namespace net_utils
 
     const std::atomic<bool>& get_stop_signal() const noexcept { return m_stop_signal_sent; }
 
-    void set_threads_prefix(const std::string& prefix_name);
+    void set_thread_name_prefix(t_connection_type type);
 
     bool deinit_server(){return true;}
 
@@ -545,7 +544,7 @@ namespace net_utils
     std::string m_address_ipv6;
     bool m_use_ipv6;
     bool m_require_ipv4;
-    std::string m_thread_name_prefix; //TODO: change to enum server_type, now used
+    t_connection_type m_thread_name_prefix;
     size_t m_threads_count;
     std::vector<boost::shared_ptr<boost::thread> > m_threads;
     boost::thread::id m_main_thread_id;
