@@ -684,16 +684,41 @@ std::vector<std::string> parse_dns_public(const char *s, bool *tls)
   }
   else if (!strncmp(s, "tcp://", strlen("tcp://")))
   {
-    const std::string ip_spec(s + strlen("tcp://"));
-    boost::system::error_code ec;
-    const boost::asio::ip::address address = boost::asio::ip::make_address(ip_spec, ec);
-    if (ec || !address.is_v4())
+    const std::string spec(s + strlen("tcp://"));
+
+    // optional custom port
+    std::string ip_spec = spec;
+    unsigned port = 0;
+    bool valid = true;
+    const size_t colon = spec.find(':');
+    if (colon != std::string::npos)
     {
-      MERROR("Invalid IP: " << s << ", using default");
+      char c;
+      ip_spec.resize(colon);
+      if (sscanf(spec.c_str() + colon + 1, "%u%c", &port, &c) != 1 || port < 1 || port > 65535)
+      {
+        MERROR("Invalid port: " << s << ", using default");
+        valid = false;
+      }
     }
-    else
+
+    if (valid)
     {
-      dns_public_addr.push_back(ip_spec);
+      boost::system::error_code ec;
+      const boost::asio::ip::address address = boost::asio::ip::make_address(ip_spec, ec);
+      if (ec || !address.is_v4())
+      {
+        MERROR("Invalid IP: " << s << ", using default");
+      }
+      else if (port != 0)
+      {
+        // libunbound expects a custom port as address@port
+        dns_public_addr.push_back(ip_spec + "@" + std::to_string(port));
+      }
+      else
+      {
+        dns_public_addr.push_back(ip_spec);
+      }
     }
   }
   else if (!strncmp(s, "tls://", strlen("tls://")))
