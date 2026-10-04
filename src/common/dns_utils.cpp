@@ -42,6 +42,7 @@
 #include <cstring>
 #include <boost/thread/mutex.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/lexical_cast.hpp>
 #include <boost/optional.hpp>
 #include <boost/utility/string_ref.hpp>
 #include <boost/asio/ip/address.hpp>
@@ -200,9 +201,9 @@ static void add_anchors(ub_ctx *ctx)
 // Sets up certificate verification for DoT.
 static bool setup_dot_certificate_verification(ub_ctx *ctx)
 {
-  // prefer the system trust store (unbound >= 1.16)
+  bool have_ca = false;
   if (ub_ctx_set_option(ctx, "tls-system-cert:", "yes") == 0)
-    return true;
+    have_ca = true;
 
   // fall back to well known CA bundle locations
   static const char *ca_bundles[] =
@@ -222,12 +223,14 @@ static bool setup_dot_certificate_verification(ub_ctx *ctx)
       if (ub_ctx_set_option(ctx, "tls-cert-bundle:", bundle) == 0)
       {
         MGINFO("Using CA certificate bundle for DNS over TLS: " << bundle);
-        return true;
+        have_ca = true;
+        break;
       }
     }
   }
-  MWARNING("Could not find a CA certificate bundle for DNS over TLS certificate verification");
-  return false;
+  if (!have_ca)
+    MWARNING("Could not find a CA certificate bundle for DNS over TLS certificate verification");
+  return have_ca;
 }
 
 DNSResolver::DNSResolver() : m_data(new DNSResolverData())
@@ -258,11 +261,12 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
     bool public_dns_ok = true;
     if (use_dns_tls)
     {
-      // "ssl-upstream:" is supported since unbound 1.10; the "tls-upstream:"
-      // alias was only added in unbound 1.15, so use the former for compatibility
+      // Enable TLS for upstream queries. "ssl-upstream:" is the option name
+      // understood by unbound builds that support DoT ("tls-upstream:" is
+      // only an alias added later).
       if (ub_ctx_set_option(m_data->m_ub_context, "ssl-upstream:", "yes") != 0)
       {
-        MERROR("Failed to enable DNS over TLS: libunbound does not support it (unbound 1.10 or newer is required)");
+        MERROR("Failed to enable DNS over TLS: the libunbound this binary is using does not support TLS upstream connections, please use a newer libunbound with DNS over TLS support");
         public_dns_ok = false;
       }
       else
@@ -653,6 +657,95 @@ bool valid_auth_name(const std::string &name)
   return true;
 }
 
+bool parse_ipv4_canonical(const std::string &spec, boost::asio::ip::address &address)
+{
+  boost::asio::ip::address_v4::bytes_type bytes;
+  size_t pos = 0;
+  for (int octet = 0; octet < 4; ++octet)
+  {
+    const size_t digit_start = pos;
+    unsigned value = 0;
+    while (pos < spec.size() && isdigit(static_cast<unsigned char>(spec[pos])))
+    {
+      value = value * 10 + static_cast<unsigned>(spec[pos] - '0');
+      if (value > 255)
+        return false;
+      ++pos;
+    }
+    if (pos == digit_start)
+      return false;
+    if (spec[digit_start] == '0' && pos - digit_start > 1)
+      return false;
+    bytes[octet] = static_cast<unsigned char>(value);
+    if (octet < 3)
+    {
+      if (pos >= spec.size() || spec[pos] != '.')
+        return false;
+      ++pos;
+    }
+  }
+  if (pos != spec.size())
+    return false;
+  address = boost::asio::ip::address_v4(bytes);
+  return true;
+}
+
+bool parse_port(const std::string &spec, unsigned &port)
+{
+  if (spec.empty() || !isdigit(static_cast<unsigned char>(spec[0])))
+    return false;
+  try
+  {
+    const unsigned value = boost::lexical_cast<unsigned>(spec);
+    if (value < 1 || value > 65535)
+      return false;
+    port = value;
+    return true;
+  }
+  catch (const boost::bad_lexical_cast &)
+  {
+    return false;
+  }
+}
+
+// Parses an IP address with an optional port in URL-style syntax:
+//   1.2.3.4            1.2.3.4:5353
+//   2001:db8::1        [2001:db8::1]        [2001:db8::1]:5353
+// Returns false on any malformed input; port is 0 when none is given.
+bool parse_address_port(const std::string &spec, boost::asio::ip::address &address, unsigned &port)
+{
+  port = 0;
+  boost::system::error_code ec;
+  if (!spec.empty() && spec[0] == '[')
+  {
+    const size_t close = spec.find(']');
+    if (close == std::string::npos)
+      return false;
+    address = boost::asio::ip::make_address(spec.substr(1, close - 1), ec);
+    if (ec || !address.is_v6())
+      return false;
+    const std::string rest = spec.substr(close + 1);
+    if (rest.empty())
+      return true;
+    if (rest[0] != ':')
+      return false;
+    return parse_port(rest.substr(1), port);
+  }
+  const size_t colon = spec.find(':');
+  if (colon == std::string::npos)
+  {
+    return parse_ipv4_canonical(spec, address);
+  }
+  if (colon != spec.rfind(':'))
+  {
+    address = boost::asio::ip::make_address(spec, ec);
+    return !ec && address.is_v6();
+  }
+  if (!parse_port(spec.substr(colon + 1), port))
+    return false;
+  return parse_ipv4_canonical(spec.substr(0, colon), address);
+}
+
 }
 
 std::vector<std::string> parse_dns_public(const char *s, bool *tls)
@@ -685,40 +778,19 @@ std::vector<std::string> parse_dns_public(const char *s, bool *tls)
   else if (!strncmp(s, "tcp://", strlen("tcp://")))
   {
     const std::string spec(s + strlen("tcp://"));
-
-    // optional custom port
-    std::string ip_spec = spec;
-    unsigned port = 0;
-    bool valid = true;
-    const size_t colon = spec.find(':');
-    if (colon != std::string::npos)
+    boost::asio::ip::address address;
+    unsigned port;
+    if (!parse_address_port(spec, address, port))
     {
-      char c;
-      ip_spec.resize(colon);
-      if (sscanf(spec.c_str() + colon + 1, "%u%c", &port, &c) != 1 || port < 1 || port > 65535)
-      {
-        MERROR("Invalid port: " << s << ", using default");
-        valid = false;
-      }
+      MERROR("Invalid IP or port: " << s << ", falling back to system resolver");
     }
-
-    if (valid)
+    else
     {
-      boost::system::error_code ec;
-      const boost::asio::ip::address address = boost::asio::ip::make_address(ip_spec, ec);
-      if (ec || !address.is_v4())
-      {
-        MERROR("Invalid IP: " << s << ", using default");
-      }
-      else if (port != 0)
-      {
-        // libunbound expects a custom port as address@port
-        dns_public_addr.push_back(ip_spec + "@" + std::to_string(port));
-      }
-      else
-      {
-        dns_public_addr.push_back(ip_spec);
-      }
+      // libunbound expects a custom port as address@port
+      std::string fwd = address.to_string();
+      if (port != 0)
+        fwd += "@" + std::to_string(port);
+      dns_public_addr.push_back(std::move(fwd));
     }
   }
   else if (!strncmp(s, "tls://", strlen("tls://")))
@@ -742,30 +814,16 @@ std::vector<std::string> parse_dns_public(const char *s, bool *tls)
       }
     }
 
-    // optional port
-    std::string ip_spec = spec;
-    unsigned port = 853;
-    const size_t colon = ip_spec.find(':');
-    if (colon != std::string::npos)
+    boost::asio::ip::address address;
+    unsigned port;
+    if (!parse_address_port(spec, address, port))
     {
-      char c;
-      ip_spec.resize(colon);
-      if (sscanf(spec.c_str() + colon + 1, "%u%c", &port, &c) != 1 || port < 1 || port > 65535)
-      {
-        MERROR("Invalid port: " << s);
-        return {};
-      }
-    }
-
-    boost::system::error_code ec;
-    const boost::asio::ip::address address = boost::asio::ip::make_address(ip_spec, ec);
-    if (ec || !address.is_v4())
-    {
-      MERROR("Invalid IP: " << s);
+      MERROR("Invalid IP or port: " << s);
       return {};
     }
 
-    std::string entry = ip_spec + "@" + std::to_string(port);
+    // libunbound expects a custom port as address@port, default 853
+    std::string entry = address.to_string() + "@" + std::to_string(port != 0 ? port : 853);
     if (!auth_name.empty())
       entry += "#" + auth_name;
     dns_public_addr.push_back(entry);

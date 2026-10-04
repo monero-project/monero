@@ -188,6 +188,16 @@ TEST(DNS_PUBLIC, invalid_port_empty) { EXPECT_TRUE(tools::dns_utils::parse_dns_p
 TEST(DNS_PUBLIC, invalid_port_extra) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://3.4.5.6:53x").empty()); }
 TEST(DNS_PUBLIC, invalid_ip_leading_zero_port) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://127.0.0.01:5353").empty()); }
 
+TEST(DNS_PUBLIC, valid_ip6_bare) { EXPECT_TRUE(is_equal("2001:db8::1", tools::dns_utils::parse_dns_public("tcp://2001:db8::1"))); }
+TEST(DNS_PUBLIC, valid_ip6_brackets) { EXPECT_TRUE(is_equal("2001:db8::1", tools::dns_utils::parse_dns_public("tcp://[2001:db8::1]"))); }
+TEST(DNS_PUBLIC, valid_ip6_lo) { EXPECT_TRUE(is_equal("::1", tools::dns_utils::parse_dns_public("tcp://[::1]"))); }
+TEST(DNS_PUBLIC, valid_ip6_port) { EXPECT_TRUE(is_equal("2001:db8::1@5353", tools::dns_utils::parse_dns_public("tcp://[2001:db8::1]:5353"))); }
+TEST(DNS_PUBLIC, invalid_ip6_no_close) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://[::1").empty()); }
+TEST(DNS_PUBLIC, invalid_ip6_bracket_junk) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://[::1]x").empty()); }
+TEST(DNS_PUBLIC, invalid_ip6_port_empty) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://[::1]:").empty()); }
+TEST(DNS_PUBLIC, invalid_ip6_addr) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://[fe80::gg]").empty()); }
+TEST(DNS_PUBLIC, invalid_ip6_port_zero) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tcp://[::1]:0").empty()); }
+
 TEST(DNS_PUBLIC, default_tls) { bool tls = false; EXPECT_GT(tools::dns_utils::parse_dns_public("tls", &tls).size(), 1); EXPECT_TRUE(tls); }
 TEST(DNS_PUBLIC, default_tcp_not_tls) { bool tls = true; EXPECT_GT(tools::dns_utils::parse_dns_public("tcp", &tls).size(), 1); EXPECT_FALSE(tls); }
 TEST(DNS_PUBLIC, invalid_tls_ip_alpha) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://invalid").empty()); }
@@ -206,3 +216,11 @@ TEST(DNS_PUBLIC, valid_tls_ip) { bool tls = false; EXPECT_TRUE(is_equal("3.4.5.6
 TEST(DNS_PUBLIC, valid_tls_ip_port) { EXPECT_TRUE(is_equal("3.4.5.6@443", tools::dns_utils::parse_dns_public("tls://3.4.5.6:443"))); }
 TEST(DNS_PUBLIC, valid_tls_ip_auth) { EXPECT_TRUE(is_equal("3.4.5.6@853#dns.quad9.net", tools::dns_utils::parse_dns_public("tls://3.4.5.6#dns.quad9.net"))); }
 TEST(DNS_PUBLIC, valid_tls_ip_port_auth) { EXPECT_TRUE(is_equal("3.4.5.6@443#dns.quad9.net", tools::dns_utils::parse_dns_public("tls://3.4.5.6:443#dns.quad9.net"))); }
+
+TEST(DNS_PUBLIC, valid_tls_ip6) { bool tls = false; EXPECT_TRUE(is_equal("2001:db8::1@853", tools::dns_utils::parse_dns_public("tls://[2001:db8::1]", &tls))); EXPECT_TRUE(tls); }
+TEST(DNS_PUBLIC, valid_tls_ip6_bare) { EXPECT_TRUE(is_equal("2001:db8::1@853", tools::dns_utils::parse_dns_public("tls://2001:db8::1"))); }
+TEST(DNS_PUBLIC, valid_tls_ip6_port) { EXPECT_TRUE(is_equal("2001:db8::1@443", tools::dns_utils::parse_dns_public("tls://[2001:db8::1]:443"))); }
+TEST(DNS_PUBLIC, valid_tls_ip6_auth) { EXPECT_TRUE(is_equal("2001:db8::1@853#dns.example", tools::dns_utils::parse_dns_public("tls://[2001:db8::1]#dns.example"))); }
+TEST(DNS_PUBLIC, valid_tls_ip6_port_auth) { EXPECT_TRUE(is_equal("2001:db8::1@443#dns.example", tools::dns_utils::parse_dns_public("tls://[2001:db8::1]:443#dns.example"))); }
+TEST(DNS_PUBLIC, invalid_tls_ip6_no_close) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://[::1").empty()); }
+TEST(DNS_PUBLIC, invalid_tls_ip6_port_zero) { EXPECT_TRUE(tools::dns_utils::parse_dns_public("tls://[::1]:0").empty()); }
