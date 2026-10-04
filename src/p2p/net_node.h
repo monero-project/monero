@@ -394,6 +394,9 @@ namespace nodetool
     bool set_rate_down_limit(const boost::program_options::variables_map& vm, int64_t limit);
     bool set_rate_limit(const boost::program_options::variables_map& vm, int64_t limit);
 
+    bool set_rate_up_limit_per_peer(const boost::program_options::variables_map& vm, int64_t limit);
+    bool set_rate_down_limit_per_peer(const boost::program_options::variables_map& vm, int64_t limit);
+
     bool has_too_many_connections(const epee::net_utils::network_address &address);
     size_t get_incoming_connections_count(network_zone&);
     size_t get_outgoing_connections_count(network_zone&);
@@ -523,6 +526,9 @@ namespace nodetool
     extern const command_line::arg_descriptor<int64_t> arg_limit_rate;
     extern const command_line::arg_descriptor<bool> arg_pad_transactions;
     extern const command_line::arg_descriptor<uint32_t> arg_max_connections_per_ip;
+
+    extern const command_line::arg_descriptor<int64_t> arg_limit_rate_up_per_peer;
+    extern const command_line::arg_descriptor<int64_t> arg_limit_rate_down_per_peer;
 }
 
 POP_WARNINGS
