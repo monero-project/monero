@@ -441,15 +441,21 @@ namespace net_utils
   template<class t_connection_context>
 	std::string::size_type simple_http_connection_handler<t_connection_context>::match_end_of_header(const std::string& buf)
 	{
+		// The request line has already been removed. Match the first empty line,
+		// using the same LF/CRLF rules as parse_cached_header.
+		size_t cur = 0;
+		while(cur < buf.size())
+		{
+			const size_t line_end = buf.find('\n', cur);
+			if(line_end == std::string::npos)
+				return std::string::npos;
 
-    //Here we returning head size, including terminating sequence (\r\n\r\n or \n\n)
-		std::string::size_type res = buf.find("\r\n\r\n");
-		if(std::string::npos != res)
-			return res+4;
-		res = buf.find("\n\n");
-		if(std::string::npos != res)
-			return res+2;
-		return res;
+			boost::string_view line(buf.data() + cur, line_end - cur);
+			cur = line_end + 1;
+			if(line == "\r" || line.empty())
+				return cur;
+		}
+		return std::string::npos;
 	}
 	//--------------------------------------------------------------------------------------------
   template<class t_connection_context>
@@ -568,14 +574,14 @@ namespace net_utils
 		{
 			const size_t line_end = m_cache_to_process.find('\n', cur);
 			if(line_end == std::string::npos || line_end >= pos)
-				break;
+				return false;
 
 			boost::string_view line(m_cache_to_process.data() + cur, line_end - cur);
 			cur = line_end + 1;
 
-			// End of header block.
+			// The parsed header block must end exactly at the matched boundary.
 			if(line == "\r" || line.empty())
-				break;
+				return cur == pos;
 
 			boost::string_view name;
 			boost::string_view value;
@@ -605,7 +611,7 @@ namespace net_utils
 			else
 				body_info.m_etc_fields.push_back(std::make_pair(std::string(name.data(), name.size()), std::string(value.data(), value.size())));
 		}
-		return  true;
+		return false;
 	}
 	//-----------------------------------------------------------------------------------
   template<class t_connection_context>
