@@ -101,8 +101,8 @@ connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_thro
 
 // static variables:
 int connection_basic_pimpl::m_default_tos;
-int64_t connection_basic::m_rate_up_limit_per_peer = -1;
-int64_t connection_basic::m_rate_down_limit_per_peer = -1;
+std::atomic<int64_t> connection_basic::m_rate_up_limit_per_peer { -1 };
+std::atomic<int64_t> connection_basic::m_rate_down_limit_per_peer { -1 };
 
 // methods:
 connection_basic::connection_basic(boost::asio::io_context &io_context, boost::asio::ip::tcp::socket&& sock, std::shared_ptr<connection_basic_shared_state> state, ssl_support_t ssl_support)
