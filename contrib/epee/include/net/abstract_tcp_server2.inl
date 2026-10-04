@@ -317,17 +317,21 @@ namespace net_utils
     }
     auto self = connection<T>::shared_from_this();
     if (speed_limit_is_enabled()) {
-      auto calc_duration = []{
-        CRITICAL_REGION_LOCAL(
-          network_throttle_manager_t::m_lock_get_global_throttle_in
-        );
+      auto calc_duration = [this]{
+        double global_sleep;
+        {
+          CRITICAL_REGION_LOCAL(
+            network_throttle_manager_t::m_lock_get_global_throttle_in
+          );
+          global_sleep = network_throttle_manager_t::get_global_throttle_in()
+              .get_sleep_time_after_tick(1);
+        }
+        double per_peer_sleep = 0.0;
+        if (connection_basic::get_rate_down_limit_per_peer() != -1)
+          per_peer_sleep = m_state.stat.in.throttle.get_sleep_time_after_tick(1);
         return std::chrono::duration_cast<connection<T>::duration_t>(
             std::chrono::duration<double, std::chrono::seconds::period>(
-              std::min(
-                network_throttle_manager_t::get_global_throttle_in(
-                ).get_sleep_time_after_tick(1),
-                1.0
-              )
+              std::min(std::max(global_sleep, per_peer_sleep), 1.0)
             )
         );
       };
@@ -486,18 +490,22 @@ namespace net_utils
     auto self = connection<T>::shared_from_this();
     if (speed_limit_is_enabled()) {
       auto calc_duration = [this]{
-        CRITICAL_REGION_LOCAL(
-          network_throttle_manager_t::m_lock_get_global_throttle_out
-        );
+        const size_t packet_size = m_state.data.write.queue.back().size();
+        double global_sleep;
+        {
+          CRITICAL_REGION_LOCAL(
+            network_throttle_manager_t::m_lock_get_global_throttle_out
+          );
+          global_sleep = network_throttle_manager_t::get_global_throttle_out()
+              .get_sleep_time_after_tick(packet_size);
+        }
+        double per_peer_sleep = 0.0;
+        if (connection_basic::get_rate_up_limit_per_peer() != -1)
+          per_peer_sleep = m_state.stat.out.throttle
+              .get_sleep_time_after_tick(packet_size);
         return std::chrono::duration_cast<connection<T>::duration_t>(
             std::chrono::duration<double, std::chrono::seconds::period>(
-              std::min(
-                network_throttle_manager_t::get_global_throttle_out(
-                ).get_sleep_time_after_tick(
-                  m_state.data.write.queue.back().size()
-                ),
-                1.0
-              )
+              std::min(std::max(global_sleep, per_peer_sleep), 1.0)
             )
         );
       };
@@ -1025,6 +1033,19 @@ namespace net_utils
     m_timers{m_io_context}
   {
     get_context() = std::move(initial);
+    if (m_connection_type == e_connection_type_P2P)
+    {
+      const auto up = connection_basic::get_rate_up_limit_per_peer();
+      const auto down = connection_basic::get_rate_down_limit_per_peer();
+      if (up != -1) // -1 means the user doesn't have a rate limit per peer
+      {
+        m_state.stat.out.throttle.set_target_speed(up);
+      }
+      if (down != -1)
+      {
+        m_state.stat.in.throttle.set_target_speed(down);
+      }
+    }
   }
 
   template<typename T>
