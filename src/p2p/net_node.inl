@@ -577,8 +577,6 @@ namespace nodetool
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
 
-    const int64_t global_up = command_line::get_arg(vm, arg_limit_rate_up);
-    const int64_t global_down = command_line::get_arg(vm, arg_limit_rate_down);
     const int64_t peer_up = command_line::get_arg(vm, arg_limit_rate_up_per_peer);
     const int64_t peer_down = command_line::get_arg(vm, arg_limit_rate_down_per_peer);
 
@@ -726,11 +724,14 @@ namespace nodetool
     if ( !set_rate_down_limit_per_peer(vm, command_line::get_arg(vm, arg_limit_rate_down_per_peer) ) )
       return false;
 
-    if ( peer_up != -1 && global_up != -1 && peer_up > global_up )
-      MWARNING("per-peer upload limit (" << peer_up << " kB/s) exceeds global upload limit (" << global_up << " kB/s); per-peer upload limit will never trigger.");
+    const int64_t effective_up = static_cast<int64_t>(epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::get_rate_up_limit());
+    const int64_t effective_down = static_cast<int64_t>(epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::get_rate_down_limit());
 
-    if ( peer_down != -1 && global_down != -1 && peer_down > global_down )
-      MWARNING("per-peer download limit (" << peer_down << " kB/s) exceeds global download limit (" << global_down << " kB/s); per-peer download limit will never trigger.");
+    if ( peer_up != -1 && peer_up > effective_up )
+      MWARNING("per-peer upload limit (" << peer_up << " kB/s) exceeds effective global upload limit (" << effective_up << " kB/s); per-peer upload limit will never trigger.");
+
+    if ( peer_down != -1 && peer_down > effective_down )
+      MWARNING("per-peer download limit (" << peer_down << " kB/s) exceeds effective global download limit (" << effective_down << " kB/s); per-peer download limit will never trigger.");
 
     epee::byte_slice noise = nullptr;
     auto proxies = get_proxies(vm);
@@ -3050,9 +3051,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_rate_up_limit_per_peer(const boost::program_options::variables_map& vm, int64_t limit)
   {
-    if (limit < -1)
+    if (limit < -1 || limit == 0)
     {
-      MERROR("Invalid per-peer upload limit: " << limit << " kB/s (-1 can be used for unlimited.)");
+      MERROR("Invalid per-peer upload limit: " << limit << " kB/s (-1 can be used for unlimited; 0 is not allowed.)");
       return false;
     }
 
@@ -3064,9 +3065,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_rate_down_limit_per_peer(const boost::program_options::variables_map& vm, int64_t limit)
   {
-    if (limit < -1)
+    if (limit < -1 || limit == 0)
     {
-      MERROR("Invalid per-peer download limit: " << limit << " kB/s (-1 can be used for unlimited.)");
+      MERROR("Invalid per-peer download limit: " << limit << " kB/s (-1 can be used for unlimited; 0 is not allowed.)");
       return false;
     }
 
