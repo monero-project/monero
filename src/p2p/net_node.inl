@@ -173,7 +173,7 @@ namespace nodetool
   {
     const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(address);
 
-    // like Bitcoin, local addresses are not looked up in the asmap
+    // like Bitcoin Core, local addresses are not looked up in the asmap
     const bool local = address.is_loopback() || address.is_local() || (mapped && (mapped->is_loopback() || mapped->is_local()));
     if (!asmap.empty() && !local)
     {
