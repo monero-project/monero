@@ -140,7 +140,7 @@ namespace cryptonote
     )
   {
     m_restricted = restricted;
-    m_net_server.set_threads_prefix("RPC");
+    m_net_server.set_thread_name_prefix(epee::net_utils::e_connection_type_RPC);
     m_net_server.set_connection_filter(&m_p2p);
 
     auto rpc_config = cryptonote::rpc_args::process(vm, true);

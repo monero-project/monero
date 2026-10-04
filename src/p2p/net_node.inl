@@ -1084,7 +1084,7 @@ namespace nodetool
 
     //configure self
 
-    public_zone.m_net_server.set_threads_prefix("P2P"); // all zones use these threads/asio::io_service
+    public_zone.m_net_server.set_thread_name_prefix(epee::net_utils::e_connection_type_P2P); // all zones use these threads/asio::io_service
 
     // from here onwards, it's online stuff
     if (m_offline)
