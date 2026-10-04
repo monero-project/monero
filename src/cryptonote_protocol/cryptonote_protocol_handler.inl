@@ -458,6 +458,12 @@ namespace cryptonote
   template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_inital)
   {
+    if (hshd.current_height >= CRYPTONOTE_MAX_BLOCK_NUMBER)
+    {
+      MWARNING(context << " peer claims an invalid height of " << hshd.current_height << ", disconnecting");
+      return false;
+    }
+
     if(context.m_state == cryptonote_connection_context::state_before_handshake && !is_inital)
       return true;
 
@@ -504,7 +510,12 @@ namespace cryptonote
     if(m_core.have_block(hshd.top_id))
     {
       context.set_state_normal();
-      if(is_inital  && hshd.current_height >= target && target == m_core.get_current_blockchain_height())
+      uint64_t local_top_height;
+      crypto::hash local_top_id;
+      m_core.get_blockchain_top(local_top_height, local_top_id);
+      const uint64_t local_height = local_top_height + 1;
+      if ((is_inital || !m_synchronized) && target == local_height &&
+          hshd.current_height == local_height && hshd.top_id == local_top_id)
         on_connection_synchronized();
       return true;
     }
