@@ -33,6 +33,7 @@
 #include <boost/uuid/random_generator.hpp>
 #include <unordered_map>
 
+#include "net/http.h"
 #include "include_base_utils.h"
 using namespace epee;
 #include "wallet/wallet2.h"
@@ -156,7 +157,8 @@ bool transactions_flow_test(std::string& working_folder,
     << "Target:  " << w2.get_account().get_public_address_str(MAINNET) << ENDL << "Path: " << working_folder + "/" + path_target_wallet);
 
   //lets do some money
-  epee::net_utils::http::http_simple_client http_client;
+  const std::unique_ptr<epee::net_utils::http::abstract_http_client> ptr_http_client = net::http::client_factory().create();
+  epee::net_utils::http::abstract_http_client & http_client = *ptr_http_client;
   COMMAND_RPC_STOP_MINING::request daemon1_req = AUTO_VAL_INIT(daemon1_req);
   COMMAND_RPC_STOP_MINING::response daemon1_rsp = AUTO_VAL_INIT(daemon1_rsp);
   bool r = http_client.set_server(daemon_addr_a, boost::none) && net_utils::invoke_http_json("/stop_mine", daemon1_req, daemon1_rsp, http_client, std::chrono::seconds(10));
