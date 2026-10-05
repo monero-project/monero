@@ -95,6 +95,18 @@ target_link_libraries(fuzz_zmq
 set_property(TARGET fuzz_zmq
   PROPERTY
     FOLDER "tests")
+
+monero_add_minimal_executable(fcmp-pp-curve-trees_fuzz_tests fcmp-pp-curve-trees.cpp fuzzer.cpp)
+target_link_libraries(fcmp-pp-curve-trees_fuzz_tests
+  PRIVATE
+    fcmp_pp
+    common
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET fcmp-pp-curve-trees_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
 endif()
 
 monero_add_minimal_executable(block_fuzz_tests block.cpp fuzzer.cpp)
