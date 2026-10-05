@@ -1298,7 +1298,7 @@ namespace net_utils
       MERROR("Failed to bind IPv4: " << ipv4_failed);
       if (require_ipv4)
       {
-        throw std::runtime_error("Failed to bind IPv4 (set to required)");
+        throw std::runtime_error("Failed to bind IPv4 (set to required): " + ipv4_failed);
       }
     }
 
@@ -1338,7 +1338,7 @@ namespace net_utils
         MERROR("Failed to bind IPv6: " << ipv6_failed);
         if (ipv4_failed != "")
         {
-          throw std::runtime_error("Failed to bind IPv4 and IPv6");
+          throw std::runtime_error("Failed to bind IPv4 and IPv6: IPv4: " + ipv4_failed + "; IPv6: " + ipv6_failed);
         }
       }
 
