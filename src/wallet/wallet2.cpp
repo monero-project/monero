@@ -7169,7 +7169,13 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
       LOG_ERROR("error removing file: " << old_file);
     }
   }
-  
+
+  if (!had_old_wallet_files && m_nettype != MAINNET)
+  {
+    const bool r = save_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype), true);
+    if (!r) MERROR("String with address text not saved");
+  }
+
   if (m_message_store.get_active())
   {
     // While the "m_message_store" object of course always exist, a file for the message
