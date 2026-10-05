@@ -717,26 +717,54 @@ void async_protocol_handler_config<t_connection_context>::del_connection(async_p
 template<class t_connection_context>
 void async_protocol_handler_config<t_connection_context>::delete_connections(size_t count, bool incoming)
 {
+  if (!count)
+    return;
+
+  // select up to count random matching connections in a single pass over the
+  // connection set, using reservoir sampling (Vitter's algorithm R): this
+  // avoids gathering and shuffling every connection just to drop a few
   std::vector<std::shared_ptr<levin_endpoint>> connections;
+  connections.reserve(count);
+  std::vector<std::shared_ptr<levin_endpoint>> released;
+  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+  std::default_random_engine rng(seed);
+  size_t seen = 0;
+
   CRITICAL_REGION_BEGIN(m_connects_lock);
   for (auto& c: m_connects)
   {
     auto locked = c.second.lock();
-    if (locked && locked->context.m_is_income == incoming)
+    if (!locked || locked->context.m_is_income != incoming)
+      continue;
+
+    if (connections.size() < count)
+    {
       connections.push_back(std::move(locked));
+    }
+    else
+    {
+      std::uniform_int_distribution<size_t> dist(0, seen);
+      const size_t slot = dist(rng);
+      if (slot < count)
+      {
+        released.push_back(std::move(connections[slot]));
+        connections[slot] = std::move(locked);
+      }
+      else
+      {
+        released.push_back(std::move(locked));
+      }
+    }
+    ++seen;
   }
 
-  // close random connections from  the provided set
-  // TODO or better just keep removing random elements (performance)
-  unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-  shuffle(connections.begin(), connections.end(), std::default_random_engine(seed));
-  for (size_t i = 0; i < connections.size() && i < count; ++i)
-    m_connects.erase(connections[i]->context.m_connection_id);
+  for (const auto& connection: connections)
+    m_connects.erase(connection->context.m_connection_id);
 
   CRITICAL_REGION_END();
 
-  for (size_t i = 0; i < connections.size() && i < count; ++i)
-    connections[i]->close(false);
+  for (const auto& connection: connections)
+    connection->close(false);
 }
 //------------------------------------------------------------------------------------------
 template<class t_connection_context>
