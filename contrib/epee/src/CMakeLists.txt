@@ -40,7 +40,7 @@ monero_add_library(epee byte_slice.cpp byte_stream.cpp hex.cpp abstract_http_cli
     ${EPEE_HEADERS_PUBLIC}
     )
 
-if (USE_READLINE AND (GNU_READLINE_FOUND OR (DEPENDS AND NOT MINGW)))
+if (EPEE_READLINE)
   monero_add_library(epee_readline readline_buffer.cpp)
 endif()
 
@@ -55,7 +55,7 @@ if (BUILD_GUI_DEPS)
     endif()
     install(TARGETS epee
         ARCHIVE DESTINATION ${lib_folder})
-    if (USE_READLINE AND GNU_READLINE_FOUND)
+    if (EPEE_READLINE)
       install(TARGETS epee_readline
           ARCHIVE DESTINATION ${lib_folder})
     endif()
@@ -73,13 +73,13 @@ target_link_libraries(epee
   PRIVATE
     ${EXTRA_LIBRARIES})
 
-if (USE_READLINE AND (GNU_READLINE_FOUND OR (DEPENDS AND NOT MINGW)))
+if (EPEE_READLINE)
   target_link_libraries(epee_readline
     PUBLIC
       easylogging
       ${Boost_SYSTEM_LIBRARY}
     PRIVATE
-    ${GNU_READLINE_LIBRARY})
+    linenoise)
 endif()
 
 target_include_directories(epee
