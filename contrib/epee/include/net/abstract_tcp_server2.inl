@@ -43,8 +43,6 @@
 #include <boost/utility/value_init.hpp>
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp> // TODO
-#include <boost/thread/condition_variable.hpp> // TODO
 #include <boost/make_shared.hpp>
 #include <boost/thread.hpp>
 #include "string_tools_lexical.h"
@@ -53,7 +51,10 @@
 #include "scope_guard.h"
 
 #include <algorithm>
+#include <chrono>
+#include <condition_variable>
 #include <functional>
+#include <mutex>
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net"
@@ -1716,13 +1717,13 @@ namespace net_utils
     struct local_async_context
     {
       boost::system::error_code ec;
-      boost::mutex connect_mut;
-      boost::condition_variable cond;
+      std::mutex connect_mut;
+      std::condition_variable cond;
     };
 
     boost::shared_ptr<local_async_context> local_shared_context(new local_async_context());
     local_shared_context->ec = boost::asio::error::would_block;
-    boost::unique_lock<boost::mutex> lock(local_shared_context->connect_mut);
+    std::unique_lock<std::mutex> lock(local_shared_context->connect_mut);
     auto connect_callback = [](boost::system::error_code ec_, boost::shared_ptr<local_async_context> shared_context)
     {
       shared_context->connect_mut.lock(); shared_context->ec = ec_; shared_context->cond.notify_one(); shared_context->connect_mut.unlock();
@@ -1731,14 +1732,14 @@ namespace net_utils
     sock_.async_connect(remote_endpoint, std::bind<void>(connect_callback, std::placeholders::_1, local_shared_context));
     while(local_shared_context->ec == boost::asio::error::would_block)
     {
-      bool r = local_shared_context->cond.timed_wait(lock, boost::get_system_time() + boost::posix_time::milliseconds(conn_timeout));
+      const bool timeout = local_shared_context->cond.wait_for(lock, std::chrono::milliseconds(conn_timeout)) == std::cv_status::timeout;
       if (m_stop_signal_sent)
       {
         if (sock_.is_open())
           sock_.close();
         return CONNECT_FAILURE;
       }
-      if(local_shared_context->ec == boost::asio::error::would_block && !r)
+      if(local_shared_context->ec == boost::asio::error::would_block && timeout)
       {
         //timeout
         sock_.close();
