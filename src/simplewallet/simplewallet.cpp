@@ -3323,7 +3323,8 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("export_transfers",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::export_transfers, _1),
                            tr("export_transfers [in|out|all|pending|failed|pool|coinbase] [index=<N1>[,<N2>,...]] [<min_height> [<max_height>]] [output=<filepath>] [option=<with_keys>]"),
-                           tr("Export to CSV the incoming/outgoing transfers within an optional height range."));
+                           tr("Export to CSV the incoming/outgoing transfers within an optional height range.\n"
+                              "The running balance includes all confirmed transfers in the current account, even when filters hide transfer rows."));
   m_cmd_binder.set_handler("unspent_outputs",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::unspent_outputs, _1),
                            tr(USAGE_UNSPENT_OUTPUTS),
@@ -8502,7 +8503,7 @@ bool simple_wallet::check_reserve_proof(const std::vector<std::string> &args)
 }
 //----------------------------------------------------------------------------------------------------
 // mutates local_args as it parses and consumes arguments
-bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vector<transfer_view>& transfers)
+bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vector<transfer_view>& transfers, bool include_history)
 {
   bool in = true;
   bool out = true;
@@ -8579,20 +8580,33 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
   }
 
   const uint64_t last_block_height = m_wallet->get_blockchain_current_height();
+  const std::set<uint32_t> all_indices;
+  const auto& query_indices = include_history ? all_indices : subaddr_indices;
+  const uint64_t query_min_height = include_history ? 0 : min_height;
+  const uint64_t query_max_height = include_history ? (uint64_t)-1 : max_height;
 
-  if (in || coinbase) {
+  if (in || coinbase || include_history) {
     std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
-    m_wallet->get_payments(payments, min_height, max_height, m_current_subaddress_account, subaddr_indices);
+    m_wallet->get_payments(payments, query_min_height, query_max_height, m_current_subaddress_account, query_indices);
     for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
       const tools::wallet2::payment_details &pd = i->second;
-      if (!pd.m_coinbase && !in)
+      const bool selected = (in || (coinbase && pd.m_coinbase)) &&
+        min_height < pd.m_block_height && pd.m_block_height <= max_height &&
+        (subaddr_indices.empty() || subaddr_indices.count(pd.m_subaddr_index.minor));
+      if (!include_history && !selected)
         continue;
+      const std::string type = pd.m_coinbase ? tr("block") : tr("in");
+      if (!selected)
+      {
+        transfers.push_back({type, pd.m_block_height, pd.m_timestamp, type, true, pd.m_amount,
+          pd.m_tx_hash, {}, 0, {}, {}, {}, {}, false});
+        continue;
+      }
       std::string payment_id = string_tools::pod_to_hex(i->first);
       if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
         payment_id = payment_id.substr(0,16);
       std::string note = m_wallet->get_tx_note(pd.m_tx_hash);
       std::string destination = m_wallet->get_subaddress_as_str({m_current_subaddress_account, pd.m_subaddr_index.minor});
-      const std::string type = pd.m_coinbase ? tr("block") : tr("in");
       const bool unlocked = m_wallet->is_transfer_unlocked(pd.m_unlock_time, pd.m_block_height);
       std::string locked_msg = "unlocked";
       if (!unlocked)
@@ -8625,18 +8639,28 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         {{destination, pd.m_amount}},
         {pd.m_subaddr_index.minor},
         note,
-        locked_msg
+        locked_msg,
+        selected
       });
     }
   }
 
-  if (out) {
+  if (out || include_history) {
     std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> payments;
-    m_wallet->get_payments_out(payments, min_height, max_height, m_current_subaddress_account, subaddr_indices);
+    m_wallet->get_payments_out(payments, query_min_height, query_max_height, m_current_subaddress_account, query_indices);
     for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
       const tools::wallet2::confirmed_transfer_details &pd = i->second;
+      const bool selected = out && min_height < pd.m_block_height && pd.m_block_height <= max_height &&
+        (subaddr_indices.empty() || std::any_of(pd.m_subaddr_indices.begin(), pd.m_subaddr_indices.end(),
+          [&subaddr_indices](uint32_t index) { return subaddr_indices.count(index) != 0; }));
       uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
       uint64_t fee = pd.m_amount_in - pd.m_amount_out;
+      if (!selected)
+      {
+        transfers.push_back({"out", pd.m_block_height, pd.m_timestamp, "out", true,
+          pd.m_amount_in - change - fee, i->first, {}, fee, {}, {}, {}, {}, false});
+        continue;
+      }
       std::vector<std::pair<std::string, uint64_t>> destinations;
       for (const auto &d: pd.m_dests) {
         destinations.push_back({d.address(m_wallet->nettype(), pd.m_payment_id), d.amount});
@@ -8658,7 +8682,8 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         destinations,
         pd.m_subaddr_indices,
         note,
-        "-"
+        "-",
+        selected
       });
     }
   }
@@ -8838,7 +8863,7 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
   std::vector<transfer_view> all_transfers;
 
   // might consumes arguments in local_args
-  if (!get_transfers(local_args, all_transfers))
+  if (!get_transfers(local_args, all_transfers, true))
     return true;
 
   // output filename
@@ -8888,7 +8913,7 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
 
   for (const auto& transfer : all_transfers)
   {
-    // ignore unconfirmed transfers in running balance
+    // include confirmed transfers hidden by the export filters in the account balance.
     if (transfer.confirmed)
     {
       if (transfer.direction == "in" || transfer.direction == "block")
@@ -8896,6 +8921,9 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
       else
         running_balance -= transfer.amount + transfer.fee;
     }
+
+    if (!transfer.selected)
+      continue;
 
     std::string key_string;
     if (export_keys)
