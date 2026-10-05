@@ -318,7 +318,6 @@ namespace cryptonote
           meta.last_failed_height = 0;
           meta.last_failed_id = null_hash;
           meta.relayed = relayed;
-          meta.double_spend_seen = false;
           meta.pruned = tx.pruned;
           meta.bf_padding = 0;
           memset(meta.padding, 0, sizeof(meta.padding));
