@@ -104,3 +104,4 @@ complete -c monerod -l rpc-max-connections-per-public-ip -d "Max RPC connections
 complete -c monerod -l rpc-max-connections-per-private-ip -d "Max RPC connections per private and localhost IP permitted. Default: 25"
 complete -c monerod -l rpc-max-connections -d "Max RPC connections permitted. Default: 100"
 complete -c monerod -l rpc-response-soft-limit -d "Max response bytes that can be queued, enforced at next response attempt. Default: 26214400"
+complete -c monerod -l rpc-threads -r -d "Number of threads to use for the RPC server"
