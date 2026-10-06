@@ -77,6 +77,8 @@ namespace crypto {
   const crypto::public_key null_pkey = crypto::public_key{};
   const crypto::secret_key null_skey = crypto::secret_key{};
 
+  static constexpr ec_point infinity = {{1}};
+
   static inline unsigned char *operator &(ec_point &point) {
     return &reinterpret_cast<unsigned char &>(point);
   }
@@ -220,6 +222,23 @@ namespace crypto {
   bool crypto_ops::check_key(const public_key &key) {
     ge_p3 point;
     return ge_frombytes_vartime(&point, &key) == 0;
+  }
+
+  bool get_valid_torsion_cleared_point_vartime(const ec_point &point, ec_point &torsion_cleared_out) {
+    ge_p3 p3;
+    if (ge_frombytes_vartime(&p3, &point) != 0)
+      return false;
+    ge_clear_torsion_vartime(&torsion_cleared_out, &p3);
+    if (torsion_cleared_out == EC_I)
+      return false;
+    return true;
+  }
+
+  public_key pubkey_clear_torsion(const public_key &pubkey) {
+    public_key result;
+    if (!get_valid_torsion_cleared_point_vartime(pubkey, result))
+      static_cast<ec_point &>(result) = EC_I;
+    return result;
   }
 
   bool crypto_ops::secret_key_to_public_key(const secret_key &sec, public_key &pub) {
@@ -377,7 +396,6 @@ namespace crypto {
     }
     ge_double_scalarmult_base_vartime(&tmp2, &sig.c, &tmp3, &sig.r);
     ge_tobytes(&buf.comm, &tmp2);
-    static const ec_point infinity = {{ 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}};
     if (memcmp(&buf.comm, &infinity, 32) == 0)
       return false;
     hash_to_scalar(&buf, sizeof(s_comm), c);
@@ -815,10 +833,15 @@ POP_WARNINGS
       assert(check_key(*pubs[i]));
     }
 #endif
+    if (0 == memcmp(image.data, infinity.data, sizeof(image)))
+      return false; // false if key image is identity
     if (ge_frombytes_vartime(&image_unp, &image) != 0) {
       return false;
     }
     ge_dsm_precomp(image_pre, &image_unp);
+    ge_scalarmult_p3(&image_unp, sc_l, &image_unp);
+    if (!ge_p3_is_point_at_infinity_vartime(&image_unp))
+      return false; // false if key image is torsioned
     sc_0(&sum);
     buf->h = prefix_hash;
     for (i = 0; i < pubs_count; i++) {

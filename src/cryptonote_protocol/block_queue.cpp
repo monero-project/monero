@@ -45,12 +45,12 @@
 namespace cryptonote
 {
 
-void block_queue::add_blocks(uint64_t height, std::vector<cryptonote::block_complete_entry> bcel, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, float rate, size_t size)
+void block_queue::add_blocks(uint64_t height, std::vector<cryptonote::block_complete_entry> bcel, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, float rate, size_t size, uint64_t sync_size)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   std::vector<crypto::hash> hashes;
   bool has_hashes = remove_span(height, &hashes);
-  blocks.insert(span(height, std::move(bcel), connection_id, addr, rate, size));
+  blocks.insert(span(height, std::move(bcel), connection_id, addr, rate, size, sync_size));
   if (has_hashes)
   {
     for (std::size_t i = 0; i < hashes.size(); ++i)
@@ -62,11 +62,11 @@ void block_queue::add_blocks(uint64_t height, std::vector<cryptonote::block_comp
   }
 }
 
-void block_queue::add_blocks(uint64_t height, uint64_t nblocks, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, boost::posix_time::ptime time)
+bool block_queue::add_blocks(uint64_t height, uint64_t nblocks, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, boost::posix_time::ptime time)
 {
   CHECK_AND_ASSERT_THROW_MES(nblocks > 0, "Empty span");
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  blocks.insert(span(height, nblocks, connection_id, addr, time));
+  return blocks.insert(span(height, nblocks, connection_id, addr, time)).second;
 }
 
 void block_queue::flush_spans(const boost::uuids::uuid &connection_id, bool all)
@@ -297,7 +297,8 @@ std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_hei
   uint64_t span_length = 0;
   std::vector<crypto::hash> hashes;
   bool first_is_pruned = sync_pruned_blocks && !tools::has_unpruned_block(span_start_height + span_length, blockchain_height, local_pruning_seed);
-  while (i != block_hashes.end() && span_length < max_blocks && (sync_pruned_blocks || tools::has_unpruned_block(span_start_height + span_length, blockchain_height, pruning_seed)))
+  while (i != block_hashes.end() && span_length < max_blocks && !requested_internal((*i).first) &&
+      (sync_pruned_blocks || tools::has_unpruned_block(span_start_height + span_length, blockchain_height, pruning_seed)))
   {
     // if we want to sync pruned blocks, stop at the first block for which we need full data
     if (sync_pruned_blocks && first_is_pruned == tools::has_unpruned_block(span_start_height + span_length, blockchain_height, local_pruning_seed))
@@ -314,8 +315,12 @@ std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_hei
     MDEBUG("span_length 0, cannot reserve");
     return std::make_pair(0, 0);
   }
+  if (!add_blocks(span_start_height, span_length, connection_id, addr, time))
+  {
+    MDEBUG("Span already starts at height " << span_start_height << ", cannot reserve");
+    return std::make_pair(0, 0);
+  }
   MDEBUG("Reserving span " << span_start_height << " - " << (span_start_height + span_length - 1) << " for " << connection_id);
-  add_blocks(span_start_height, span_length, connection_id, addr, time);
   set_span_hashes(span_start_height, connection_id, hashes);
   return std::make_pair(span_start_height, span_length);
 }
@@ -432,6 +437,32 @@ size_t block_queue::get_num_filled_spans() const
   if (!span.blocks.empty())
     ++size;
   return size;
+}
+
+uint64_t block_queue::get_num_filled_blocks() const
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  uint64_t size = 0;
+  for (const auto &span: blocks)
+  {
+    if (!span.blocks.empty())
+      size += span.nblocks;
+  }
+  return size;
+}
+
+uint64_t block_queue::get_max_block_size_average() const
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  uint64_t max_average = 0;
+  for (const auto &span: blocks)
+  {
+    if (span.blocks.empty())
+      continue;
+
+    max_average = std::max(max_average, span.sync_size / span.nblocks);
+  }
+  return max_average;
 }
 
 float block_queue::get_speed(const boost::uuids::uuid &connection_id) const

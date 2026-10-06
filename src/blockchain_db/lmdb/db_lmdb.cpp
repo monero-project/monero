@@ -3566,9 +3566,11 @@ std::vector<std::vector<uint64_t>> BlockchainLMDB::get_tx_amount_output_indices(
   {
     int result = mdb_cursor_get(m_cur_tx_outputs, &k_tx_id, &v, op);
     if (result == MDB_NOTFOUND)
-      LOG_PRINT_L0("WARNING: Unexpected: tx has no amount indices stored in "
-          "tx_outputs, but it should have an empty entry even if it's a tx without "
-          "outputs");
+    {
+      if (op == MDB_SET)
+        throw0(DB_ERROR(("Unexpected: no tx_outputs entry for tx id " + std::to_string(tx_id) + ", but every tx should have one even if it has no outputs").c_str()));
+      throw1(TX_DNE(("no tx_outputs entry for expected tx id " + std::to_string(tx_id + amount_output_indices_set.size())).c_str()));
+    }
     else if (result)
       throw0(DB_ERROR(lmdb_error("DB error attempting to get data for tx_outputs[tx_index]", result).c_str()));
 

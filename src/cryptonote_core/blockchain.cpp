@@ -93,7 +93,7 @@ Blockchain::Blockchain(tx_memory_pool& tx_pool) :
   m_long_term_block_weights_cache_rolling_median(CRYPTONOTE_LONG_TERM_BLOCK_WEIGHT_WINDOW_SIZE),
   m_difficulty_for_next_block_top_hash(crypto::null_hash),
   m_difficulty_for_next_block(1),
-  m_btc_valid(false),
+  m_btc_include_sensitive(true), m_btc_valid(false),
   m_batch_success(true),
   m_prepare_height(0)
 {
@@ -1518,7 +1518,7 @@ uint64_t Blockchain::get_current_cumulative_block_weight_median() const
 // in a lot of places.  That flag is not referenced in any of the code
 // nor any of the makefiles, however.  Need to look into whether or not it's
 // necessary at all.
-bool Blockchain::create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
+bool Blockchain::create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive)
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   size_t median_weight;
@@ -1536,7 +1536,8 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
     // this would be the case anyway if we'd lock, and the change happened
     // just after the block template was created
     if (!memcmp(&miner_address, &m_btc_address, sizeof(cryptonote::account_public_address)) && m_btc_nonce == ex_nonce
-      && m_btc_pool_cookie == m_tx_pool.cookie() && m_btc.prev_id == get_tail_id()) {
+      && m_btc_pool_cookie == m_tx_pool.cookie() && m_btc.prev_id == get_tail_id()
+      && m_btc_include_sensitive == include_sensitive) {
       MDEBUG("Using cached template");
       const uint64_t now = time(NULL);
       if (m_btc.timestamp < now) // ensures it can't get below the median of the last few blocks
@@ -1662,7 +1663,7 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 
   size_t txs_weight;
   uint64_t fee;
-  if (!m_tx_pool.fill_block_template(b, median_weight, already_generated_coins, txs_weight, fee, expected_reward, b.major_version))
+  if (!m_tx_pool.fill_block_template(b, median_weight, already_generated_coins, txs_weight, fee, expected_reward, b.major_version, include_sensitive))
   {
     return false;
   }
@@ -1781,16 +1782,16 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
 #endif
 
     if (!from_block)
-      cache_block_template(b, miner_address, ex_nonce, diffic, height, expected_reward, cumulative_weight, seed_height, seed_hash, pool_cookie);
+      cache_block_template(b, miner_address, ex_nonce, diffic, height, expected_reward, cumulative_weight, seed_height, seed_hash, pool_cookie, include_sensitive);
     return true;
   }
   LOG_ERROR("Failed to create_block_template with " << 10 << " tries");
   return false;
 }
 //------------------------------------------------------------------
-bool Blockchain::create_block_template(block& b, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
+bool Blockchain::create_block_template(block& b, const account_public_address& miner_address, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive)
 {
-  return create_block_template(b, NULL, miner_address, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash);
+  return create_block_template(b, NULL, miner_address, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash, include_sensitive);
 }
 //------------------------------------------------------------------
 bool Blockchain::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
@@ -2967,7 +2968,15 @@ bool Blockchain::get_tx_outputs_gindexs(const crypto::hash& tx_id, size_t n_txes
     MERROR_VER("get_tx_outputs_gindexs failed to find transaction with id = " << tx_id);
     return false;
   }
-  indexs = m_db->get_tx_amount_output_indices(tx_index, n_txes);
+  try
+  {
+    indexs = m_db->get_tx_amount_output_indices(tx_index, n_txes);
+  }
+  catch (const TX_DNE& e)
+  {
+    MERROR_VER("get_tx_outputs_gindexs: " << e.what());
+    return false;
+  }
   CHECK_AND_ASSERT_MES(n_txes == indexs.size(), false, "Wrong indexs size");
 
   return true;
@@ -4549,7 +4558,8 @@ void Blockchain::check_against_checkpoints(const checkpoints& points, bool enfor
   const auto& pts = points.get_points();
   bool stop_batch;
 
-  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  CRITICAL_REGION_LOCAL(m_tx_pool);
+  CRITICAL_REGION_LOCAL1(m_blockchain_lock);
   stop_batch = m_db->batch_start();
   const uint64_t blockchain_height = m_db->height();
   for (const auto& pt : pts)
@@ -4867,6 +4877,22 @@ bool Blockchain::has_block_weights(uint64_t height, uint64_t nblocks) const
   return true;
 }
 
+bool Blockchain::check_block_weights(uint64_t height, const std::vector<block_complete_entry> &blocks) const
+{
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  const uint64_t available = height < m_blocks_hash_check.size() ? m_blocks_hash_check.size() - height : 0;
+  for (size_t i = 0; i < blocks.size(); ++i)
+  {
+    const block_complete_entry &entry = blocks[i];
+    if (!entry.pruned)
+      continue;
+    // Check the remaining range before adding to height.
+    if (i >= available || entry.block_weight == 0 || entry.block_weight != m_blocks_hash_check[height + i].second)
+      return false;
+  }
+  return true;
+}
+
 //------------------------------------------------------------------
 // ND: Speedups:
 // 1. Thread long_hash computations if possible (m_max_prepare_blocks_threads = nthreads, default = 4)
@@ -4965,14 +4991,14 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
             return true;
           }
         }
-        if (have_block(block_hash))
+        if (!blocks_exist && have_block(block_hash))
           blocks_exist = true;
 
         std::advance(it, 1);
       }
     }
 
-    for (unsigned i = 0; i < extra && !blocks_exist; i++, blockidx++)
+    for (unsigned i = 0; i < extra; i++, blockidx++)
     {
       block &block = blocks[blockidx];
       crypto::hash block_hash;
@@ -4980,7 +5006,7 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       if (!parse_and_validate_block_from_blob(it->block, block, block_hash))
         return false;
 
-      if (have_block(block_hash))
+      if (!blocks_exist && have_block(block_hash))
         blocks_exist = true;
 
       std::advance(it, 1);
@@ -5450,7 +5476,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "2aea941d43024422a63f223c84b9d88d1f58d31e1f508c2d6d43cd637ba32d16";
+static const char expected_block_hashes_hash[] = "4871b67b077087affd07094be0f70bfd0d4e4105df126646e0a7524fe02b1d5d";
 void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints)
 {
   if (get_checkpoints == nullptr || !m_fast_sync)
@@ -5582,7 +5608,7 @@ void Blockchain::invalidate_block_template_cache()
   m_btc_valid = false;
 }
 
-void Blockchain::cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t cumulative_weight, uint64_t seed_height, const crypto::hash &seed_hash, uint64_t pool_cookie)
+void Blockchain::cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t cumulative_weight, uint64_t seed_height, const crypto::hash &seed_hash, uint64_t pool_cookie, bool include_sensitive)
 {
   MDEBUG("Setting block template cache");
   m_btc = b;
@@ -5595,6 +5621,7 @@ void Blockchain::cache_block_template(const block &b, const cryptonote::account_
   m_btc_seed_hash = seed_hash;
   m_btc_seed_height = seed_height;
   m_btc_pool_cookie = pool_cookie;
+  m_btc_include_sensitive = include_sensitive;
   m_btc_valid = true;
 }
 

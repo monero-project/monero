@@ -28,19 +28,13 @@
 
 #pragma once
 
-#include <boost/regex.hpp>
-
-#include "parserse_base_utils.h"
 #include "warnings.h"
 #include "misc_log_ex.h"
 
-#include <boost/lexical_cast.hpp>
 #include <boost/numeric/conversion/bounds.hpp>
+#include <limits>
+#include <type_traits>
 #include <typeinfo>
-
-#ifndef HAVE_STRPTIME
-#include <iomanip>
-#endif
 
 namespace epee
 {
@@ -138,36 +132,6 @@ POP_WARNINGS
       static void convert(const from_type& from, to_type& to)
       {
         ASSERT_AND_THROW_WRONG_CONVERSION();
-      }
-    };
-
-    // For MyMonero/OpenMonero backend compatibility
-    // MyMonero backend sends amount, fees and timestamp values as strings.
-    // Until MM backend is updated, this is needed for compatibility between OpenMonero and MyMonero. 
-    template<>
-    struct convert_to_integral<std::string, uint64_t, false>
-    {
-      static void convert(const std::string& from, uint64_t& to)
-      {
-        MTRACE("Converting std::string to uint64_t. Source: " << from);
-        // String only contains digits
-        if(std::all_of(from.begin(), from.end(), epee::misc_utils::parse::isdigit))
-          to = boost::lexical_cast<uint64_t>(from);
-        // MyMonero ISO 8061 timestamp (2017-05-06T16:27:06Z)
-        else if (boost::regex_match (from, boost::regex("\\d{4}-[01]\\d-[0-3]\\dT[0-2]\\d:[0-5]\\d:[0-5]\\dZ")))
-        {
-          // Convert to unix timestamp
-#ifdef HAVE_STRPTIME
-          struct tm tm;
-          if (strptime(from.c_str(), "%Y-%m-%dT%H:%M:%S", &tm))
-#else
-          std::tm tm = {};
-          std::istringstream ss(from);
-          if (ss >> std::get_time(&tm, "%Y-%m-%dT%H:%M:%S"))
-#endif
-            to = std::mktime(&tm);
-        } else
-          ASSERT_AND_THROW_WRONG_CONVERSION();
       }
     };
 

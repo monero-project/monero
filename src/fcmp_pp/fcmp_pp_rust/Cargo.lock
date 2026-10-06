@@ -258,6 +258,7 @@ version = "0.0.0"
 dependencies = [
  "ciphersuite",
  "dalek-ff-group 0.5.0",
+ "ec-divisors",
  "full-chain-membership-proofs",
  "helioselene",
  "monero-fcmp-plus-plus",

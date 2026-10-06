@@ -105,5 +105,22 @@ class AddressValidationTest():
             assert res.nettype == 'mainnet'
             assert res.openalias_address == address[1]
 
+            for idx, expect_dns in [(0, True), (4, False), (5, False)]:
+                wallet = Wallet(idx = idx)
+                try: wallet.close_wallet()
+                except: pass
+                try:
+                    wallet.get_address()
+                except AssertionError as e:
+                    assert e.args[0]['error']['code'] == -13
+                else:
+                    assert False
+                res = wallet.validate_address(address[0], any_net_type = True, allow_openalias = True)
+                assert res.valid == expect_dns
+                if expect_dns:
+                    assert res.openalias_address == address[1]
+                res = wallet.validate_address(address[1], any_net_type = True, allow_openalias = True)
+                assert res.valid
+
 if __name__ == '__main__':
     AddressValidationTest().run_test()

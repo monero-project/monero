@@ -121,8 +121,8 @@ Dates are provided in the format YYYY-MM-DD. The "Minimum" is the software versi
 | 1978433                        | 2019-11-30 | v12               | v0.15.0.0              | v0.16.0.0                  | New PoW based on RandomX, only allow >= 2 outputs, change to the block median used to calculate penalty, v1 coinbases are forbidden, rct sigs in coinbase forbidden, 10 block lock time for incoming outputs
 | 2210000                        | 2020-10-17 | v13               | v0.17.0.0              | v0.17.3.2                  | New CLSAG transaction format
 | 2210720                        | 2020-10-18 | v14               | v0.17.1.1              | v0.17.3.2                  | forbid old MLSAG transaction format
-| 2688888                        | 2022-08-13 | v15               | v0.18.0.0              | v0.18.5.1                  | ringsize = 16, bulletproofs+, view tags, adjusted dynamic block weight algorithm
-| 2689608                        | 2022-08-14 | v16               | v0.18.0.0              | v0.18.5.1                  | forbid old v14 transaction format
+| 2688888                        | 2022-08-13 | v15               | v0.18.0.0              | v0.18.5.3                  | ringsize = 16, bulletproofs+, view tags, adjusted dynamic block weight algorithm
+| 2689608                        | 2022-08-14 | v16               | v0.18.0.0              | v0.18.5.3                  | forbid old v14 transaction format
 | XXXXXXX                        | XXX-XX-XX | XXX                | vX.XX.X.X              | vX.XX.X.X                  | XXX |
 
 X's indicate that these details have not been determined as of commit date.
@@ -157,6 +157,7 @@ The following table summarizes the tools and libraries required to build. A few 
 | libusb       | ?             | NO       | `libusb-1.0-0-dev`   | `libusb`     | `libusb-devel`     | `libusb1-devel`     | YES      | Hardware wallet |
 | libprotobuf  | ?             | NO       | `libprotobuf-dev`    | `protobuf`   | `protobuf-devel`   | `protobuf-devel`    | YES      | Hardware wallet |
 | protoc       | ?             | NO       | `protobuf-compiler`  | `protobuf`   | `protobuf`         | `protobuf-compiler` | YES      | Hardware wallet |
+| Rust         | 1.85          | NO       | `rustc`, `cargo`     | `rust`       | `rust`             | `rust`, `cargo`     | NO       | FCMP++ crypto   |
 
 Install all dependencies at once on Debian/Ubuntu:
 
@@ -166,18 +167,18 @@ sudo apt update && sudo apt install build-essential cmake pkg-config libssl-dev 
 
 Install all dependencies at once on Arch:
 ```
-sudo pacman -Syu --needed base-devel cmake boost boost-libs openssl zeromq unbound libsodium libunwind readline python ccache doxygen graphviz hidapi libusb protobuf
+sudo pacman -Syu --needed base-devel cmake boost boost-libs openssl zeromq unbound libsodium libunwind readline python ccache doxygen graphviz hidapi libusb protobuf rust
 ```
 
 Install all dependencies at once on Fedora:
 ```
-sudo dnf install gcc gcc-c++ cmake pkgconf boost-devel openssl-devel zeromq-devel unbound-devel libsodium-devel libunwind-devel readline-devel ccache doxygen graphviz hidapi-devel libusb1-devel protobuf-devel protobuf-compiler
+sudo dnf install gcc gcc-c++ cmake pkgconf boost-devel openssl-devel zeromq-devel unbound-devel libsodium-devel libunwind-devel readline-devel ccache doxygen graphviz hidapi-devel libusb1-devel protobuf-devel protobuf-compiler rust cargo
 ```
 
 Install all dependencies at once on openSUSE:
 
 ```
-sudo zypper ref && sudo zypper in cppzmq-devel libboost_chrono-devel libboost_date_time-devel libboost_filesystem-devel libboost_locale-devel libboost_program_options-devel libboost_regex-devel libboost_serialization-devel libboost_system-devel libboost_thread-devel libsodium-devel libunwind-devel unbound-devel cmake doxygen ccache fdupes gcc-c++ libevent-devel libopenssl-devel pkgconf-pkg-config readline-devel patterns-devel-C-C++-devel_C_C++
+sudo zypper ref && sudo zypper in cppzmq-devel libboost_chrono-devel libboost_date_time-devel libboost_filesystem-devel libboost_locale-devel libboost_program_options-devel libboost_regex-devel libboost_serialization-devel libboost_system-devel libboost_thread-devel libsodium-devel libunwind-devel unbound-devel cmake doxygen ccache fdupes gcc-c++ libevent-devel libopenssl-devel pkgconf-pkg-config readline-devel patterns-devel-C-C++-devel_C_C++ rust cargo
 ```
 
 Install all dependencies at once on macOS with the provided Brewfile:
@@ -189,7 +190,7 @@ brew update && brew bundle --file=contrib/brew/Brewfile
 FreeBSD one-liner required to build dependencies:
 
 ```
-pkg install git gmake cmake pkgconf boost-libs libzmq4 libsodium unbound
+pkg install git gmake cmake pkgconf boost-libs libzmq4 libsodium unbound rust
 ```
 
 ### Cloning the repository
@@ -283,7 +284,7 @@ Tested on a Raspberry Pi 5B with a clean installation of Raspberry Pi OS (64-bit
     ```bash
     git clone --recursive https://github.com/monero-project/monero.git
     cd monero
-    git checkout v0.18.5.1
+    git checkout v0.18.5.3
     ```
 
 * Build:
@@ -342,10 +343,10 @@ Binaries for Windows can be built on Windows using the MinGW toolchain within [M
     cd monero
     ```
 
-* If you would like a specific [version/tag](https://github.com/monero-project/monero/tags), do a git checkout for that version. eg. 'v0.18.5.1'. If you don't care about the version and just want binaries from master, skip this step:
+* If you would like a specific [version/tag](https://github.com/monero-project/monero/tags), do a git checkout for that version. eg. 'v0.18.5.3'. If you don't care about the version and just want binaries from master, skip this step:
 
     ```bash
-    git checkout v0.18.5.1
+    git checkout v0.18.5.3
     ```
 
 * To build Monero, run:

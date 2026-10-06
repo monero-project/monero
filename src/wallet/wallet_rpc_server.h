@@ -69,6 +69,7 @@ namespace tools
 
     BEGIN_URI_MAP2()
       BEGIN_JSON_RPC_MAP("/json_rpc")
+        MAP_JON_RPC_WE("get_wallet_info",    on_get_wallet_info,    wallet_rpc::COMMAND_RPC_GET_WALLET_INFO)
         MAP_JON_RPC_WE("get_balance",        on_getbalance,         wallet_rpc::COMMAND_RPC_GET_BALANCE)
         MAP_JON_RPC_WE("get_address",        on_getaddress,         wallet_rpc::COMMAND_RPC_GET_ADDRESS)
         MAP_JON_RPC_WE("get_address_index",  on_getaddress_index,   wallet_rpc::COMMAND_RPC_GET_ADDRESS_INDEX)
@@ -145,6 +146,7 @@ namespace tools
         MAP_JON_RPC_WE("get_languages",      on_get_languages,      wallet_rpc::COMMAND_RPC_GET_LANGUAGES)
         MAP_JON_RPC_WE("create_wallet",      on_create_wallet,      wallet_rpc::COMMAND_RPC_CREATE_WALLET)
         MAP_JON_RPC_WE("open_wallet",        on_open_wallet,        wallet_rpc::COMMAND_RPC_OPEN_WALLET)
+        MAP_JON_RPC_WE("wallet_exists",      on_wallet_exists,      wallet_rpc::COMMAND_RPC_WALLET_EXISTS)
         MAP_JON_RPC_WE("close_wallet",       on_close_wallet,       wallet_rpc::COMMAND_RPC_CLOSE_WALLET)
         MAP_JON_RPC_WE("change_wallet_password",        on_change_wallet_password,        wallet_rpc::COMMAND_RPC_CHANGE_WALLET_PASSWORD)
         MAP_JON_RPC_WE("generate_from_keys", on_generate_from_keys, wallet_rpc::COMMAND_RPC_GENERATE_FROM_KEYS)
@@ -172,6 +174,7 @@ namespace tools
     END_URI_MAP2()
 
       //json_rpc
+      bool on_get_wallet_info(const wallet_rpc::COMMAND_RPC_GET_WALLET_INFO::request& req, wallet_rpc::COMMAND_RPC_GET_WALLET_INFO::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_getaddress(const wallet_rpc::COMMAND_RPC_GET_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_GET_ADDRESS::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_getaddress_index(const wallet_rpc::COMMAND_RPC_GET_ADDRESS_INDEX::request& req, wallet_rpc::COMMAND_RPC_GET_ADDRESS_INDEX::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
@@ -243,6 +246,7 @@ namespace tools
       bool on_get_languages(const wallet_rpc::COMMAND_RPC_GET_LANGUAGES::request& req, wallet_rpc::COMMAND_RPC_GET_LANGUAGES::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_create_wallet(const wallet_rpc::COMMAND_RPC_CREATE_WALLET::request& req, wallet_rpc::COMMAND_RPC_CREATE_WALLET::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_open_wallet(const wallet_rpc::COMMAND_RPC_OPEN_WALLET::request& req, wallet_rpc::COMMAND_RPC_OPEN_WALLET::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
+      bool on_wallet_exists(const wallet_rpc::COMMAND_RPC_WALLET_EXISTS::request& req, wallet_rpc::COMMAND_RPC_WALLET_EXISTS::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_close_wallet(const wallet_rpc::COMMAND_RPC_CLOSE_WALLET::request& req, wallet_rpc::COMMAND_RPC_CLOSE_WALLET::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_change_wallet_password(const wallet_rpc::COMMAND_RPC_CHANGE_WALLET_PASSWORD::request& req, wallet_rpc::COMMAND_RPC_CHANGE_WALLET_PASSWORD::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_generate_from_keys(const wallet_rpc::COMMAND_RPC_GENERATE_FROM_KEYS::request& req, wallet_rpc::COMMAND_RPC_GENERATE_FROM_KEYS::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
@@ -288,6 +292,8 @@ namespace tools
       void check_background_mining();
 
       wallet2 *m_wallet;
+      // set_daemon settings reused for wallets opened/created later
+      boost::optional<wallet2::daemon_config> m_pending_daemon;
       std::string m_wallet_dir;
       tools::private_file rpc_login_file;
       std::atomic<bool> m_stop;

@@ -32,6 +32,7 @@
 #include "fcmp_pp_rust/fcmp++.h"
 #include "fcmp_pp_types.h"
 
+#include <memory>
 #include <string>
 
 namespace fcmp_pp
@@ -47,6 +48,9 @@ class Curve
 //member functions
 public:
     virtual typename C::Point hash_init_point() const = 0;
+
+    // Read the x-coordinate from this curve's point to get this curve's cycle scalar
+    virtual typename C::CycleScalar point_to_cycle_scalar(const typename C::Point &point) const = 0;
 
     virtual typename C::Point hash_grow(
         const typename C::Point &existing_hash,
@@ -76,6 +80,8 @@ public:
 public:
     Point hash_init_point() const override;
 
+    CycleScalar point_to_cycle_scalar(const Point &point) const override;
+
     Point hash_grow(
         const Point &existing_hash,
         const std::size_t offset,
@@ -104,6 +110,8 @@ public:
 public:
     Point hash_init_point() const override;
 
+    CycleScalar point_to_cycle_scalar(const Point &point) const override;
+
     Point hash_grow(
         const Point &existing_hash,
         const std::size_t offset,
@@ -121,6 +129,11 @@ public:
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 SeleneScalar selene_scalar_from_bytes(const crypto::ec_coord &bytes);
+//----------------------------------------------------------------------------------------------------------------------
+template<typename C_POINTS, typename C_SCALARS>
+void extend_scalars_from_cycle_points(const std::unique_ptr<C_POINTS> &curve,
+    const std::vector<typename C_POINTS::Point> &points,
+    std::vector<typename C_SCALARS::Scalar> &scalars_out);
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace tower_cycle
