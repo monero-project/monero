@@ -70,6 +70,7 @@ target_link_libraries(common
   PUBLIC
     cncrypto
     unbound
+    utf8proc
     ${LIBUNWIND_LIBRARIES}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}

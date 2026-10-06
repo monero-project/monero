@@ -48,3 +48,47 @@ TEST(LocalAddress, valid_domain) { ASSERT_FALSE(tools::is_local_address("getmone
 TEST(LocalAddress, local_prefix) { ASSERT_FALSE(tools::is_local_address("localhost.com")); }
 TEST(LocalAddress, invalid) { ASSERT_FALSE(tools::is_local_address("test")); }
 TEST(LocalAddress, empty) { ASSERT_FALSE(tools::is_local_address("")); }
+
+TEST(SplitStringByWidth, ascii_wraps_on_columns)
+{
+  const auto lines = tools::split_string_by_width("the quick brown fox", 10);
+  ASSERT_EQ(lines.size(), 2);
+  ASSERT_EQ(lines[0].first, "the quick");
+  ASSERT_EQ(lines[0].second, 9);
+  ASSERT_EQ(lines[1].first, "brown fox");
+  ASSERT_EQ(lines[1].second, 9);
+}
+
+TEST(SplitStringByWidth, narrow_multibyte_counts_as_one_column)
+{
+  // "héllo" has 5 codepoints but 6 bytes (é is 2 bytes), and should occupy 5 columns, not 6
+  const auto lines = tools::split_string_by_width("h\xc3\xa9llo", 80);
+  ASSERT_EQ(lines.size(), 1);
+  ASSERT_EQ(lines[0].first, "h\xc3\xa9llo");
+  ASSERT_EQ(lines[0].second, 5);
+}
+
+TEST(SplitStringByWidth, wide_cjk_counts_as_two_columns)
+{
+  // Three CJK codepoints (U+4E2D each encoded as 3 bytes in UTF-8), each 2 columns wide
+  const std::string cjk3 = "\xe4\xb8\xad\xe4\xb8\xad\xe4\xb8\xad";
+  ASSERT_EQ(tools::get_string_width(cjk3), 6);
+
+  // With a 4 column budget, only two wide characters (4 columns) fit on the first line
+  const auto lines = tools::split_string_by_width(cjk3, 4);
+  ASSERT_EQ(lines.size(), 2);
+  ASSERT_EQ(lines[0].first, "\xe4\xb8\xad\xe4\xb8\xad");
+  ASSERT_EQ(lines[0].second, 4);
+  ASSERT_EQ(lines[1].first, "\xe4\xb8\xad");
+  ASSERT_EQ(lines[1].second, 2);
+}
+
+TEST(SplitStringByWidth, invalid_utf8_falls_back_to_byte_length)
+{
+  // a lone continuation byte is not valid UTF-8 on its own
+  const std::string invalid = "\x80\x80";
+  const auto lines = tools::split_string_by_width(invalid, 80);
+  ASSERT_EQ(lines.size(), 1);
+  ASSERT_EQ(lines[0].first, invalid);
+  ASSERT_EQ(lines[0].second, invalid.size());
+}
