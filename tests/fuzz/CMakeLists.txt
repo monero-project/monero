@@ -310,7 +310,7 @@ set_property(TARGET tx-extra_fuzz_tests
 monero_add_minimal_executable(utf8_fuzz_tests utf8.cpp fuzzer.cpp)
 target_link_libraries(utf8_fuzz_tests
   PRIVATE
-    common
+    mnemonics
     epee
     ${Boost_THREAD_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
