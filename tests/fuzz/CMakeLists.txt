@@ -96,18 +96,17 @@ set_property(TARGET fuzz_zmq
   PROPERTY
     FOLDER "tests")
 
-monero_add_minimal_executable(wallet-proof-uri_fuzz_tests wallet-proof-uri.cpp fuzzer.cpp)
-target_link_libraries(wallet-proof-uri_fuzz_tests
+monero_add_minimal_executable(p2p-commands_fuzz_tests p2p-commands.cpp fuzzer.cpp)
+target_link_libraries(p2p-commands_fuzz_tests
   PRIVATE
-    wallet
-    cryptonote_core
     p2p
+    cryptonote_protocol
+    cryptonote_core
     epee
-    device
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES}
     $ENV{LIB_FUZZING_ENGINE})
-set_property(TARGET wallet-proof-uri_fuzz_tests
+set_property(TARGET p2p-commands_fuzz_tests
   PROPERTY
     FOLDER "tests")
 endif()
