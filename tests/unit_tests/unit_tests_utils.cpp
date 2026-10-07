@@ -35,7 +35,7 @@
 #include "serialization/crypto.h"
 #include "serialization/serialization.h"
 
-#include <filesystem>
+#include <boost/filesystem.hpp>
 #include <iosfwd>
 
 static std::string get_fcmp_pp_filename(const std::size_t n_inputs)
@@ -65,6 +65,8 @@ struct SerializableFcmpPpVerify final
 
 namespace unit_test
 {
+  boost::filesystem::path data_dir;
+
   bool write_fcmp_pp_verify_input_to_file(
     const std::size_t n_inputs,
     const crypto::hash &signable_tx_hash,
@@ -118,7 +120,7 @@ namespace unit_test
     CHECK_AND_ASSERT_MES(file, false, "Failed to open file");
 
     // Read the file into a string buffer
-    const auto blob_size = std::filesystem::file_size(filename);
+    const auto blob_size = boost::filesystem::file_size(filename);
     std::string blob(blob_size, '\0');
     file.read(blob.data(), blob_size);
 
@@ -136,9 +138,8 @@ namespace unit_test
 
     const auto curve_trees = fcmp_pp::curve_trees::curve_trees_v1();
     const crypto::ec_point tree_root_bytes = serializable_fcmp_pp_verify.tree_root;
-    tree_root = n_layers % 2 == 0
-        ? fcmp_pp::helios_tree_root(curve_trees->m_c2->from_bytes(tree_root_bytes))
-        : fcmp_pp::selene_tree_root(curve_trees->m_c1->from_bytes(tree_root_bytes));
+    tree_root = curve_trees->get_tree_root_from_bytes(n_layers, tree_root_bytes);
+    CHECK_AND_ASSERT_MES(tree_root != nullptr, false, "Failed to get tree root from bytes");
 
     pseudo_outs = std::move(serializable_fcmp_pp_verify.pseudo_outs);
     key_images = std::move(serializable_fcmp_pp_verify.key_images);

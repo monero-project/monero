@@ -1595,9 +1595,9 @@ namespace rct {
         return true;
 
       tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
-      tools::threadpool::waiter waiter(tpool);
 
       std::atomic<bool> all_valid{true};
+      tools::threadpool::waiter waiter(tpool);
       for (std::size_t i = 0; i < pts.size(); ++i)
       {
         tpool.submit(&waiter, [&pts, &all_valid, i]
@@ -1631,7 +1631,6 @@ namespace rct {
       { return fcmp_pp::n_inputs_in_fcmp_pp(a) > fcmp_pp::n_inputs_in_fcmp_pp(b); });
 
       tools::threadpool &tpool = tools::threadpool::getInstanceForCompute();
-      tools::threadpool::waiter waiter(tpool);
       const std::size_t n_threads = std::max<std::size_t>(1, tpool.get_max_concurrency());
       const bool multithreaded = n_threads > 1;
 
@@ -1688,6 +1687,7 @@ namespace rct {
       CHECK_AND_ASSERT_MES(batches.size() <= n_batches, false, "Too many batches");
 
       std::atomic<bool> all_valid{true};
+      tools::threadpool::waiter batch_verify_waiter(tpool);
       for (std::size_t i = 0; i < batches.size(); ++i)
       {
         CHECK_AND_ASSERT_MES(batches[i].batch.size(), false, "Empty batch in batchVerifyFcmpPpProofs");
@@ -1704,7 +1704,7 @@ namespace rct {
           continue;
         }
 
-        tpool.submit(&waiter,
+        tpool.submit(&batch_verify_waiter,
             [&batches, &all_valid, i]()
             {
               if (!fcmp_pp::verify(batches[i].batch))
@@ -1718,7 +1718,7 @@ namespace rct {
       }
 
       if (multithreaded)
-        CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "Failed to batch verify FCMP++ proofs");
+        CHECK_AND_ASSERT_THROW_MES(batch_verify_waiter.wait(), "Failed to batch verify FCMP++ proofs");
 
       CHECK_AND_ASSERT_MES(all_valid.load(), false, "FCMP++ proofs failed batch verification");
       return true;
