@@ -455,7 +455,8 @@ namespace tools
       std::move(rpc_config->access_control_origins), std::move(http_login),
       std::move(rpc_config->ssl_options),
       max_connections_public, max_connections_private, max_connections,
-      command_line::get_arg(vm, arg_rpc_response_soft_limit)
+      command_line::get_arg(vm, arg_rpc_response_soft_limit),
+      rpc_config->disable_md5
     );
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -627,6 +628,55 @@ namespace tools
     entry.subaddr_indices.push_back(pd.m_subaddr_index);
     entry.address = m_wallet->get_subaddress_as_str(pd.m_subaddr_index);
     set_confirmations(entry, m_wallet->get_blockchain_current_height(), m_wallet->get_last_block_reward(), pd.m_unlock_time);
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  bool wallet_rpc_server::on_get_wallet_info(const wallet_rpc::COMMAND_RPC_GET_WALLET_INFO::request& req, wallet_rpc::COMMAND_RPC_GET_WALLET_INFO::response& res, epee::json_rpc::error& er, const connection_context *ctx)
+  {
+    if (m_restricted)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_DENIED;
+      er.message = "Command unavailable in restricted mode.";
+      return false;
+    }
+    if (!m_wallet) return not_open(er);
+    res.filename = m_wallet->get_wallet_file();
+    res.description = m_wallet->get_description();
+    res.address = m_wallet->get_subaddress_as_str({0,0});
+    const auto ms_status{m_wallet->get_multisig_status()};
+    if (m_wallet->watch_only())
+      res.wallet_type = "Watch only";
+    else if (ms_status.multisig_is_active)
+      res.wallet_type = (boost::format("%u/%u multisig%s") % ms_status.threshold % ms_status.total % (ms_status.is_ready ? "" : " (not yet finalized)")).str();
+    else if (m_wallet->is_background_wallet())
+      res.wallet_type = "Background wallet";
+    else
+      res.wallet_type = "Normal";
+    res.network_type = m_wallet->nettype() == cryptonote::TESTNET ? "Testnet"
+                     : m_wallet->nettype() == cryptonote::STAGENET ? "Stagenet"
+                     : "Mainnet";
+    res.daemon_address = m_wallet->get_daemon_address();
+    res.daemon_proxy = m_wallet->get_proxy();
+    res.wallet_block_height = m_wallet->get_blockchain_current_height();
+
+    res.daemon_block_height = 0;
+    res.daemon_rpc_version = 0;
+    res.daemon_ssl = false;
+    if (m_wallet->check_connection(&res.daemon_rpc_version, &res.daemon_ssl))
+    {
+      std::string err;
+      res.daemon_block_height = m_wallet->get_daemon_blockchain_height(err);
+      if (!err.empty())
+        res.daemon_block_height = 0;
+    }
+
+    if (ms_status.multisig_is_active)
+      res.seed_type = tr("Multisig");
+    else if (m_wallet->is_polyseed())
+      res.seed_type = tr("Polyseed");
+    else
+      res.seed_type = tr("Legacy");
+
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool wallet_rpc_server::on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er, const connection_context *ctx)
@@ -2401,6 +2451,16 @@ namespace tools
           }
           CHECK_IF_BACKGROUND_SYNCING();
           epee::wipeable_string key = epee::to_hex::wipeable_string(m_wallet->get_account().get_keys().m_spend_secret_key);
+          res.key = std::string(key.data(), key.size());
+      }
+      else if(req.key_type.compare("public_view_key") == 0)
+      {
+          epee::wipeable_string key = epee::to_hex::wipeable_string(m_wallet->get_account().get_keys().m_account_address.m_view_public_key);
+          res.key = std::string(key.data(), key.size());
+      }
+      else if(req.key_type.compare("public_spend_key") == 0)
+      {
+          epee::wipeable_string key = epee::to_hex::wipeable_string(m_wallet->get_account().get_keys().m_account_address.m_spend_public_key);
           res.key = std::string(key.data(), key.size());
       }
       else
@@ -4820,6 +4880,8 @@ namespace tools
   bool wallet_rpc_server::on_validate_address(const wallet_rpc::COMMAND_RPC_VALIDATE_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_VALIDATE_ADDRESS::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     cryptonote::address_parse_info info;
+    const bool allow_dns = m_wallet ? m_wallet->is_dns_enabled()
+      : wallet2::has_dns_option(*m_vm) && !wallet2::has_offline_option(*m_vm);
     static const struct { cryptonote::network_type type; const char *stype; } net_types[] = {
       { cryptonote::MAINNET, "mainnet" },
       { cryptonote::TESTNET, "testnet" },
@@ -4833,7 +4895,7 @@ namespace tools
       if (req.allow_openalias)
       {
         std::string address;
-        res.valid = get_account_address_from_str_or_url(info, net_type.type, req.address, !m_wallet || m_wallet->is_dns_enabled(),
+        res.valid = get_account_address_from_str_or_url(info, net_type.type, req.address, allow_dns,
           [&er, &address](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid)->std::string {
             if (!dnssec_valid)
             {

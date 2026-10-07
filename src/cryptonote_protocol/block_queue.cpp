@@ -45,12 +45,12 @@
 namespace cryptonote
 {
 
-void block_queue::add_blocks(uint64_t height, std::vector<cryptonote::block_complete_entry> bcel, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, float rate, size_t size)
+void block_queue::add_blocks(uint64_t height, std::vector<cryptonote::block_complete_entry> bcel, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, float rate, size_t size, uint64_t sync_size)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   std::vector<crypto::hash> hashes;
   bool has_hashes = remove_span(height, &hashes);
-  blocks.insert(span(height, std::move(bcel), connection_id, addr, rate, size));
+  blocks.insert(span(height, std::move(bcel), connection_id, addr, rate, size, sync_size));
   if (has_hashes)
   {
     for (std::size_t i = 0; i < hashes.size(); ++i)
@@ -437,6 +437,32 @@ size_t block_queue::get_num_filled_spans() const
   if (!span.blocks.empty())
     ++size;
   return size;
+}
+
+uint64_t block_queue::get_num_filled_blocks() const
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  uint64_t size = 0;
+  for (const auto &span: blocks)
+  {
+    if (!span.blocks.empty())
+      size += span.nblocks;
+  }
+  return size;
+}
+
+uint64_t block_queue::get_max_block_size_average() const
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  uint64_t max_average = 0;
+  for (const auto &span: blocks)
+  {
+    if (span.blocks.empty())
+      continue;
+
+    max_average = std::max(max_average, span.sync_size / span.nblocks);
+  }
+  return max_average;
 }
 
 float block_queue::get_speed(const boost::uuids::uuid &connection_id) const

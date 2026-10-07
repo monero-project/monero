@@ -119,10 +119,13 @@ TEST(http_server, response_soft_limit)
   req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
   req.body() = make_payload();
   req.prepare_payload();
-  http::write(stream, req, error);
-  EXPECT_FALSE(bool(error));
-
+  // Reading a complete oversized response must allow another on the same
+  // keep-alive connection, even with only one worker available.
+  for (unsigned i = 0; i < 4; ++i)
   {
+    http::write(stream, req, error);
+    ASSERT_FALSE(bool(error));
+
     dummy::response payload{};
     boost::beast::flat_buffer buffer;
     http::response_parser<http::basic_string_body<char>> parser;
@@ -139,6 +142,82 @@ TEST(http_server, response_soft_limit)
   while (!error)
     http::write(stream, req, error);
   server.send_stop_signal();
+}
+
+TEST(http_server, send_failure_stops_requests)
+{
+  namespace http = epee::net_utils::http;
+
+  struct endpoint_t final : epee::net_utils::i_service_endpoint
+  {
+    bool do_send(epee::byte_slice) override
+    {
+      ++send_count;
+      return allow_send;
+    }
+    bool send_done() override { ++done_count; return true; }
+    bool close(bool) override { return true; }
+    bool call_run_once_service_io() override { return true; }
+    bool request_callback() override { return true; }
+    boost::asio::io_context& get_io_context() override { return context; }
+
+    boost::asio::io_context context;
+    bool allow_send = true;
+    std::size_t send_count = 0;
+    std::size_t done_count = 0;
+  };
+
+  struct handler_t final : http::simple_http_connection_handler<>
+  {
+    using http::simple_http_connection_handler<>::simple_http_connection_handler;
+
+    bool handle_request(const http::http_request_info&, http::http_response_info& response) override
+    {
+      ++request_count;
+      response.m_response_code = 200;
+      response.m_response_comment = "OK";
+      return true;
+    }
+
+    std::size_t request_count = 0;
+  };
+
+  // Exercise all three response paths: absent, empty, and nonempty bodies.
+  const std::string requests[] = {
+    "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n",
+    "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n",
+    "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 1\r\n\r\nx"
+  };
+  for (const auto& request : requests)
+  {
+    for (const auto& input : {request, request + request})
+    {
+      for (const std::size_t successful_requests : {0u, 1u})
+      {
+        SCOPED_TRACE(input);
+        SCOPED_TRACE(successful_requests);
+        endpoint_t endpoint;
+        http::http_server_config config;
+        epee::net_utils::connection_context_base context;
+        handler_t handler{&endpoint, config, context};
+
+        for (std::size_t i = 0; i < successful_requests; ++i)
+          ASSERT_TRUE(handler.handle_recv(request.data(), request.size()));
+
+        endpoint.allow_send = false;
+        // Check both an exhausted input buffer and another pipelined request.
+        EXPECT_FALSE(handler.handle_recv(input.data(), input.size()));
+        EXPECT_EQ(successful_requests + 1, handler.request_count);
+        EXPECT_EQ(successful_requests + 1, endpoint.send_count);
+        EXPECT_EQ(successful_requests, endpoint.done_count);
+
+        // A failed response must leave the parser in its terminal error state.
+        EXPECT_FALSE(handler.handle_recv(request.data(), request.size()));
+        EXPECT_EQ(successful_requests + 1, handler.request_count);
+        EXPECT_EQ(successful_requests + 1, endpoint.send_count);
+      }
+    }
+  }
 }
 
 TEST(http_server, private_ip_limit)

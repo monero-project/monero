@@ -52,6 +52,7 @@ class WalletTest():
       self.wallet_exists()
       self.languages()
       self.generate_from_keys()
+      self.generate_from_json()
       self.change_password()
       self.store()
 
@@ -100,6 +101,10 @@ class WalletTest():
         assert res.key == '49774391fa5e8d249fc2c5b45dadef13534bf2483dede880dac88f061e809100'
         res = wallet.query_key('spend_key')
         assert res.key == '148d78d2aba7dbca5cd8f6abcfb0b3c009ffbdbea1ff373d50ed94d78286640e'
+        res = wallet.query_key('public_view_key')
+        assert res.key == '231c9bf8341c6a870d92e3fb98063a90a355fb8dbf74a8561b9d7f9273247e99'
+        res = wallet.query_key('public_spend_key')
+        assert res.key == '1b3bd040020d3712ab84992b773d0a965134eb2df0392fb84af95de8a17be2ab'
         res = wallet.query_key('mnemonic')
         assert res.key == 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
 
@@ -426,6 +431,17 @@ class WalletTest():
 
         wallet.close_wallet()
         util_resources.remove_wallet_files(filename)
+
+    def generate_from_json(self):
+        print('Testing wallet generated from JSON with a Polyseed and a seed passphrase')
+        wallet = Wallet(idx = 7)
+        res = wallet.get_address()
+        # 455jFA8H... without the passphrase, see create()
+        assert res.address == '49PemLZHxP1hCUsbcRZVrAJWBjn7dYi9UQGEqTVAo3hWY1a8PD14Mdcf2fNC5QN3iM6XahTc9qdMi2W3i75C2KU5B7ZDiqn'
+        res = wallet.query_key('mnemonic')
+        assert res.key == 'pulse tone truth head invite orphan sock wet crumble oven price corn pilot antenna luxury strategy'
+        assert res.polyseed_birthday == 1783033776
+        assert not res.polyseed_is_encrypted
 
     def change_password(self):
         print('Testing password change')

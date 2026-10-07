@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -32,6 +32,7 @@
 #include <stddef.h>
 #include <string.h>
 
+#include "c_threads.h"
 #include "hash-ops.h"
 #include "initializer.h"
 #include "random.h"
@@ -97,18 +98,22 @@ static void generate_system_random_bytes(size_t n, void *result) {
 #endif
 
 static union hash_state state;
-unsigned char crypto_siphash_key[16];
+static unsigned char crypto_siphash_key[16];
 
 #if !defined(NDEBUG)
 static volatile int curstate; /* To catch thread safety problems. */
 #endif
+static CTHR_ONCE_FLAG init_random_once = CTHR_ONCE_INIT;
 
 FINALIZER(deinit_random) {
 #if !defined(NDEBUG)
-  assert(curstate == 1);
+  assert(curstate == 1 || curstate == 0);
   curstate = 0;
 #endif
   memset(&state, 0, sizeof(union hash_state));
+}
+
+FINALIZER(deinit_sip) {
   memset(crypto_siphash_key, 0, sizeof(crypto_siphash_key));
 }
 
@@ -122,19 +127,20 @@ static void lock_random_state(void) {
 
 #define HASH_CAPACITY_AREA 64
 
-INITIALIZER(init_random) {
+static CTHR_ONCE_DECLARE_CB(init_random) {
   static_assert(sizeof(state) == HASH_DATA_AREA + HASH_CAPACITY_AREA,
     "Keccak state is the wrong size");
   lock_random_state();
   generate_system_random_bytes(HASH_DATA_AREA, &state);
   hash_permutation(&state);
 
-  generate_system_random_bytes(sizeof(crypto_siphash_key), crypto_siphash_key);
   REGISTER_FINALIZER(deinit_random);
 #if !defined(NDEBUG)
   assert(curstate == 0);
   curstate = 1;
 #endif
+
+  return CTHR_ONCE_CB_SUCCESS;
 }
 
 void generate_random_bytes_not_thread_safe(size_t n, void *result) {
@@ -143,6 +149,9 @@ void generate_random_bytes_not_thread_safe(size_t n, void *result) {
    * *after* squeezing so that a memory leak of the state immediately after
    * leaving this function does not leak the previous squeezed values.
    */
+
+  const int r = CTHR_ONCE_CALL(&init_random_once, init_random);
+  (void) r; assert(r);
 
 #if !defined(NDEBUG)
   assert(curstate == 1);
@@ -171,6 +180,14 @@ void generate_random_bytes_not_thread_safe(size_t n, void *result) {
 
 void add_extra_entropy_not_thread_safe(const void *ptr, size_t bytes)
 {
+  const int r = CTHR_ONCE_CALL(&init_random_once, init_random);
+  (void) r; assert(r);
+
+#if !defined(NDEBUG)
+  assert(curstate == 1);
+  curstate = 2;
+#endif
+
   size_t i;
 
   while (bytes > 0)
@@ -182,4 +199,24 @@ void add_extra_entropy_not_thread_safe(const void *ptr, size_t bytes)
     ptr = cpadd(ptr, round_bytes);
     hash_permutation(&state);
   }
+
+#if !defined(NDEBUG)
+  assert(curstate == 2);
+  curstate = 1;
+#endif
+}
+
+static CTHR_ONCE_DECLARE_CB(init_sip)
+{
+  generate_system_random_bytes(sizeof(crypto_siphash_key), crypto_siphash_key);
+  REGISTER_FINALIZER(deinit_sip);
+  return CTHR_ONCE_CB_SUCCESS;
+}
+
+const unsigned char *get_static_siphash_key(void)
+{
+  static CTHR_ONCE_FLAG once = CTHR_ONCE_INIT;
+  const int r = CTHR_ONCE_CALL(&once, init_sip);
+  (void) r; assert(r);
+  return crypto_siphash_key;
 }

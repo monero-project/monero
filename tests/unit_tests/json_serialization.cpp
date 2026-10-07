@@ -544,6 +544,12 @@ TEST(JsonSerialization, VectorBytes)
     EXPECT_EQ(std::vector<std::uint8_t>{0x00}, test_json(std::vector<std::uint8_t>{0x00}));
 }
 
+TEST(JsonSerialization, StringWithEmbeddedNull)
+{
+    const std::string input{"foo\0bar", 7};
+    EXPECT_EQ(input, test_json(input));
+}
+
 TEST(JsonSerialization, InvalidVectorBytes)
 {
     rapidjson::Document doc;

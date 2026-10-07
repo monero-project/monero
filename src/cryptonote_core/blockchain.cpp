@@ -4877,6 +4877,22 @@ bool Blockchain::has_block_weights(uint64_t height, uint64_t nblocks) const
   return true;
 }
 
+bool Blockchain::check_block_weights(uint64_t height, const std::vector<block_complete_entry> &blocks) const
+{
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  const uint64_t available = height < m_blocks_hash_check.size() ? m_blocks_hash_check.size() - height : 0;
+  for (size_t i = 0; i < blocks.size(); ++i)
+  {
+    const block_complete_entry &entry = blocks[i];
+    if (!entry.pruned)
+      continue;
+    // Check the remaining range before adding to height.
+    if (i >= available || entry.block_weight == 0 || entry.block_weight != m_blocks_hash_check[height + i].second)
+      return false;
+  }
+  return true;
+}
+
 //------------------------------------------------------------------
 // ND: Speedups:
 // 1. Thread long_hash computations if possible (m_max_prepare_blocks_threads = nthreads, default = 4)
@@ -5460,7 +5476,7 @@ void Blockchain::cancel()
 }
 
 #if defined(PER_BLOCK_CHECKPOINT)
-static const char expected_block_hashes_hash[] = "2aea941d43024422a63f223c84b9d88d1f58d31e1f508c2d6d43cd637ba32d16";
+static const char expected_block_hashes_hash[] = "4871b67b077087affd07094be0f70bfd0d4e4105df126646e0a7524fe02b1d5d";
 void Blockchain::load_compiled_in_block_hashes(const GetCheckpointsCallback& get_checkpoints)
 {
   if (get_checkpoints == nullptr || !m_fast_sync)

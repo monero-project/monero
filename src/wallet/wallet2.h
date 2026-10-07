@@ -218,6 +218,8 @@ private:
     static bool has_testnet_option(const boost::program_options::variables_map& vm);
     static bool has_stagenet_option(const boost::program_options::variables_map& vm);
     static bool has_password_option(const boost::program_options::variables_map& vm);
+    static bool has_offline_option(const boost::program_options::variables_map& vm);
+    static bool has_dns_option(const boost::program_options::variables_map& vm);
     static std::string device_name_option(const boost::program_options::variables_map& vm);
     static std::string device_derivation_path_option(const boost::program_options::variables_map &vm);
     static void init_options(boost::program_options::options_description& desc_params);
@@ -825,6 +827,7 @@ private:
       epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect,
       const std::string &proxy = "");
     bool set_proxy(const std::string &address);
+    std::string get_proxy() const;
 
     void stop() { m_run.store(false, std::memory_order_relaxed); m_message_store.stop(); }
     // teardown-only: a permanent stop that also aborts an in-flight daemon request
@@ -968,6 +971,7 @@ private:
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::pool_payment_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void sanity_check_pending_tx(const wallet2::pending_tx &ptx, const bool redacted, const bool expect_imported_key_images, std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver, const bool allow_read_only) const;
+    void sanity_check_pending_tx_set(const std::vector<pending_tx> &ptxs, const bool redacted, const bool expect_imported_key_images, std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver, const bool allow_read_only) const;
 
     uint64_t get_blockchain_current_height() const { return m_blockchain.size(); }
     void rescan_spent();
@@ -1551,6 +1555,7 @@ private:
     bool load_keys_buf(const std::string& keys_buf, const epee::wipeable_string& password);
     bool load_keys_buf(const std::string& keys_buf, const epee::wipeable_string& password, boost::optional<crypto::chacha_key>& keys_to_encrypt);
     void load_wallet_cache(const bool use_fs, const std::string& cache_buf = "");
+    void trim_transfer_maps(size_t num_transfers);
     void process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint8_t block_version, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL, bool ignore_callbacks = false);
     bool should_skip_block(const cryptonote::block &b, uint64_t height) const;
     void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);

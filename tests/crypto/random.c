@@ -33,6 +33,7 @@
 #include "crypto-tests.h"
 
 void setup_random(void) {
+    generate_random_bytes_not_thread_safe(0, NULL);
     memset(&state, 42, sizeof(union hash_state));
     hash_permutation(&state);
 }
