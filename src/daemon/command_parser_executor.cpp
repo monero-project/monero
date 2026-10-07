@@ -681,7 +681,7 @@ bool t_command_parser_executor::ban(const std::vector<std::string>& args)
       std::cout << "Invalid syntax: Failed to parse seconds. For more details, use the help command." << std::endl;
       return true;
     }
-    if (seconds == 0)
+    if (seconds <= 0)
     {
       std::cout << "Seconds must be greater than 0." << std::endl;
       return true;
