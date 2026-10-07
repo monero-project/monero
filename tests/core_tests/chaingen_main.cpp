@@ -165,6 +165,7 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(txpool_double_spend_norelay);
     GENERATE_AND_PLAY(txpool_double_spend_local);
     GENERATE_AND_PLAY(txpool_double_spend_keyimage);
+    GENERATE_AND_PLAY(txpool_forward_relay);
     GENERATE_AND_PLAY(txpool_stem_loop);
 
     // Double spend

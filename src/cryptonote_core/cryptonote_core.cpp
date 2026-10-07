@@ -1096,8 +1096,10 @@ namespace cryptonote
     uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
     const bool res = m_mempool.add_tx(tx, tx_hash, blob, tx_weight, tvc, tx_relay, relayed, version);
 
-    // If new incoming tx passed verification and entered the pool, notify ZMQ
-    if (!tvc.m_verifivation_failed && res && matches_category(tvc.m_relay, relay_category::legacy))
+    // Check stored visibility: m_relay == none also means a hidden transaction
+    // is waiting for its forwarding timer, not just an RPC do_not_relay request.
+    if (!tvc.m_verifivation_failed && res && (tvc.m_added_to_pool || tvc.m_relay != relay_method::none)
+        && m_mempool.have_tx(tx_hash, relay_category::legacy))
     {
       m_blockchain_storage.notify_txpool_event({txpool_event{
         .tx = tx,

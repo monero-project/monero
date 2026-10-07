@@ -890,7 +890,13 @@ namespace cryptonote
           meta.upgrade_relay_method(method);
           meta.relayed = true;
 
-          if (meta.dandelionpp_stem)
+          if (meta.is_forwarding)
+          {
+            // A local send selected before an incoming forward may finish
+            // afterward. Its callback must not shorten the forwarding delay.
+            next_relay = std::min(next_relay, meta.last_relayed_time);
+          }
+          else if (meta.dandelionpp_stem)
           {
             meta.last_relayed_time = std::chrono::system_clock::to_time_t(now + embargo_duration());
             next_relay = std::min(next_relay, meta.last_relayed_time);

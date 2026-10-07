@@ -28,10 +28,13 @@
 
 #include "tx_pool.h"
 
+#include <ctime>
 #include <boost/chrono/chrono.hpp>
 #include <boost/thread/thread_only.hpp>
 #include <limits>
 #include "string_tools.h"
+#include "cryptonote_basic/events.h"
+#include "scope_guard.h"
 
 #define INIT_MEMPOOL_TEST()                                   \
   uint64_t send_amount = 1000;                                \
@@ -527,7 +530,7 @@ bool txpool_double_spend_local::generate(std::vector<test_event_entry>& events) 
   DO_CALLBACK(events, "check_unchanged");
   SET_EVENT_VISITOR_SETT(events, 0);
   DO_CALLBACK(events, "timestamp_change_pause");
-  events.push_back(tx_0);
+  DO_CALLBACK(events, "check_local_tx_return");
   DO_CALLBACK(events, "check_txpool_spent_keys");
   DO_CALLBACK(events, "mark_timestamp_change");
   DO_CALLBACK(events, "check_new_broadcasted");
@@ -536,6 +539,151 @@ bool txpool_double_spend_local::generate(std::vector<test_event_entry>& events) 
   events.push_back(tx_0);
   DO_CALLBACK(events, "check_unchanged");
 
+  return true;
+}
+
+bool txpool_double_spend_local::check_local_tx_return(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& /*events*/)
+{
+  std::vector<cryptonote::transaction> txs;
+  CHECK_AND_ASSERT_MES(c.get_pool_transactions(txs, true) && txs.size() == 1, false, "Expected one local transaction");
+  const crypto::hash hash = cryptonote::get_transaction_hash(txs.front());
+  cryptonote::blobdata blob;
+  CHECK_AND_ASSERT_MES(c.get_pool_transaction(hash, blob, cryptonote::relay_category::all), false, "Failed to retrieve local transaction");
+
+  const auto& db = c.get_blockchain_storage().get_db();
+  cryptonote::txpool_tx_meta_t original{};
+  CHECK_AND_ASSERT_MES(db.get_txpool_tx_meta(hash, original), false, "Failed to retrieve local transaction metadata");
+  CHECK_AND_ASSERT_MES(original.get_relay_method() == cryptonote::relay_method::local, false, "Expected local relay state");
+
+  size_t public_notifications = 0;
+  c.get_blockchain_storage().set_txpool_notify([&public_notifications](std::vector<cryptonote::txpool_event> txs) {
+    public_notifications += txs.size();
+  });
+  const epee::scope_guard clear_notifier([&c] {
+    c.get_blockchain_storage().set_txpool_notify(cryptonote::TxpoolNotifyCallback{});
+  });
+
+  cryptonote::tx_verification_context tvc{};
+  CHECK_AND_ASSERT_MES(c.handle_incoming_tx(blob, tvc, cryptonote::relay_method::stem, true),
+    false, "Public stem return was rejected");
+  CHECK_AND_ASSERT_MES(!tvc.m_verifivation_failed && !tvc.m_added_to_pool && tvc.m_relay == cryptonote::relay_method::stem,
+    false, "Public stem return incorrectly detected a loop");
+  cryptonote::txpool_tx_meta_t current{};
+  CHECK_AND_ASSERT_MES(db.get_txpool_tx_meta(hash, current) && current.get_relay_method() == cryptonote::relay_method::stem,
+    false, "Public stem return did not promote local transaction");
+  CHECK_AND_ASSERT_MES(!c.pool_has_tx(hash) && public_notifications == 0, false, "Public stem return exposed local transaction");
+
+  CHECK_AND_ASSERT_MES(c.handle_incoming_tx(blob, tvc, cryptonote::relay_method::fluff, true),
+    false, "Public return was rejected");
+  CHECK_AND_ASSERT_MES(!tvc.m_verifivation_failed && !tvc.m_added_to_pool && tvc.m_relay == cryptonote::relay_method::fluff,
+    false, "Public return did not request fluff relay");
+  CHECK_AND_ASSERT_MES(db.get_txpool_tx_meta(hash, current) && current.get_relay_method() == cryptonote::relay_method::fluff,
+    false, "Public return did not promote local transaction");
+  CHECK_AND_ASSERT_MES(public_notifications == 1, false, "Public return did not emit a txpool notification");
+  CHECK_AND_ASSERT_MES(c.handle_incoming_tx(blob, tvc, cryptonote::relay_method::fluff, true),
+    false, "Public duplicate was rejected");
+  CHECK_AND_ASSERT_MES(public_notifications == 1, false, "Public duplicate emitted another txpool notification");
+  return true;
+}
+
+bool txpool_forward_relay::generate(std::vector<test_event_entry>& events) const
+{
+  INIT_MEMPOOL_TEST();
+
+  // The callback controls the initial relay method of the following transaction.
+  DO_CALLBACK(events, "check_forward_relay");
+  MAKE_TX(events, tx_0, miner_account, bob_account, send_amount, blk_0r);
+  return true;
+}
+
+bool txpool_forward_relay::check_forward_relay(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events)
+{
+  const auto& tx = boost::get<cryptonote::transaction>(events.at(ev_index + 1));
+  const crypto::hash hash = cryptonote::get_transaction_hash(tx);
+  const cryptonote::blobdata blob = cryptonote::tx_to_blob(tx);
+  const std::vector<cryptonote::blobdata> blobs{blob};
+  auto& db = c.get_blockchain_storage().get_db();
+
+  size_t public_notifications = 0;
+  c.get_blockchain_storage().set_txpool_notify([&public_notifications](std::vector<cryptonote::txpool_event> txs) {
+    public_notifications += txs.size();
+  });
+  const epee::scope_guard clear_notifier([&c] {
+    c.get_blockchain_storage().set_txpool_notify(cryptonote::TxpoolNotifyCallback{});
+  });
+
+  for (const auto initial_method : {cryptonote::relay_method::forward, cryptonote::relay_method::local})
+  {
+    const size_t notifications_before = public_notifications;
+    cryptonote::tx_verification_context tvc{};
+    CHECK_AND_ASSERT_MES(c.handle_incoming_tx(blob, tvc, initial_method, initial_method == cryptonote::relay_method::forward),
+      false, "Initial hidden submission was rejected");
+    CHECK_AND_ASSERT_MES(!tvc.m_verifivation_failed && tvc.m_added_to_pool, false, "Initial hidden transaction was not added");
+    CHECK_AND_ASSERT_MES(!c.pool_has_tx(hash) && public_notifications == notifications_before,
+      false, "Initial hidden submission emitted a public txpool notification");
+
+    // do_not_relay is public for legacy RPC compatibility only when it is the
+    // stored relay method. It must not expose an existing hidden transaction.
+    CHECK_AND_ASSERT_MES(c.handle_incoming_tx(blob, tvc, cryptonote::relay_method::none, false), false, "Hidden do_not_relay duplicate was rejected");
+    CHECK_AND_ASSERT_MES(!tvc.m_added_to_pool && public_notifications == notifications_before,
+      false, "Hidden do_not_relay duplicate emitted a public txpool notification");
+
+    CHECK_AND_ASSERT_MES(c.handle_incoming_tx(blob, tvc, cryptonote::relay_method::forward, true), false, "Forward submission was rejected");
+    CHECK_AND_ASSERT_MES(!tvc.m_verifivation_failed && !tvc.m_added_to_pool && tvc.m_relay == cryptonote::relay_method::none,
+      false, "Forward submission requested immediate relay");
+    cryptonote::txpool_tx_meta_t meta{};
+    CHECK_AND_ASSERT_MES(db.get_txpool_tx_meta(hash, meta) && meta.get_relay_method() == cryptonote::relay_method::forward,
+      false, "Transaction did not enter forwarding state");
+    CHECK_AND_ASSERT_MES(!c.pool_has_tx(hash) && public_notifications == notifications_before,
+      false, "Forward submission exposed the transaction");
+
+    // Fix the deadline in the future so the stale-callback regression does not
+    // depend on the random delay being nonzero or on racing real threads.
+    const uint64_t deadline = std::time(nullptr) + 3600;
+    meta.last_relayed_time = deadline;
+    {
+      cryptonote::db_wtxn_guard guard{&db};
+      db.update_txpool_tx(hash, meta);
+    }
+    CHECK_AND_ASSERT_MES(c.handle_incoming_tx(blob, tvc, cryptonote::relay_method::forward, true), false, "Forward duplicate was rejected");
+    CHECK_AND_ASSERT_MES(db.get_txpool_tx_meta(hash, meta) && meta.last_relayed_time == deadline,
+      false, "Forward duplicate changed the forwarding deadline");
+
+    // A local send selected before local->forward may report completion later.
+    c.on_transactions_relayed(epee::to_span(blobs), cryptonote::relay_method::local);
+    CHECK_AND_ASSERT_MES(db.get_txpool_tx_meta(hash, meta) && meta.get_relay_method() == cryptonote::relay_method::forward
+        && meta.last_relayed_time == deadline && meta.relayed,
+      false, "Stale local relay erased the forwarding deadline");
+    CHECK_AND_ASSERT_MES(!c.pool_has_tx(hash) && public_notifications == notifications_before,
+      false, "Forward duplicate or stale local relay exposed the transaction");
+
+    c.on_transactions_relayed(epee::to_span(blobs), cryptonote::relay_method::stem);
+    CHECK_AND_ASSERT_MES(db.get_txpool_tx_meta(hash, meta) && meta.get_relay_method() == cryptonote::relay_method::stem,
+      false, "Forwarded transaction did not enter stem state");
+    CHECK_AND_ASSERT_MES(!c.pool_has_tx(hash) && public_notifications == notifications_before,
+      false, "Stem relay emitted a public txpool notification");
+
+    c.on_transactions_relayed(epee::to_span(blobs), cryptonote::relay_method::fluff);
+    CHECK_AND_ASSERT_MES(db.get_txpool_tx_meta(hash, meta) && meta.get_relay_method() == cryptonote::relay_method::fluff,
+      false, "Forwarded transaction did not enter fluff state");
+    CHECK_AND_ASSERT_MES(c.pool_has_tx(hash) && public_notifications == notifications_before + 1,
+      false, "Fluff relay did not emit exactly one public txpool notification");
+    c.on_transactions_relayed(epee::to_span(blobs), cryptonote::relay_method::fluff);
+    CHECK_AND_ASSERT_MES(c.handle_incoming_tx(blob, tvc, cryptonote::relay_method::fluff, true), false, "Fluff duplicate was rejected");
+    CHECK_AND_ASSERT_MES(public_notifications == notifications_before + 1,
+      false, "Repeated fluff emitted another public txpool notification");
+
+    CHECK_AND_ASSERT_MES(c.get_blockchain_storage().flush_txes_from_pool({hash}), false, "Failed to reset the pool");
+  }
+
+  const size_t notifications_before = public_notifications;
+  cryptonote::tx_verification_context tvc{};
+  CHECK_AND_ASSERT_MES(c.handle_incoming_tx(blob, tvc, cryptonote::relay_method::none, false), false, "New do_not_relay transaction was rejected");
+  CHECK_AND_ASSERT_MES(tvc.m_added_to_pool && c.pool_has_tx(hash) && public_notifications == notifications_before + 1,
+    false, "New do_not_relay transaction lost its legacy txpool notification");
+  CHECK_AND_ASSERT_MES(c.handle_incoming_tx(blob, tvc, cryptonote::relay_method::none, false), false, "do_not_relay duplicate was rejected");
+  CHECK_AND_ASSERT_MES(!tvc.m_added_to_pool && public_notifications == notifications_before + 1,
+    false, "do_not_relay duplicate emitted another txpool notification");
   return true;
 }
 
