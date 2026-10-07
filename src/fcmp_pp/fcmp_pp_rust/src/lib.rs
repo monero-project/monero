@@ -345,6 +345,10 @@ pub struct FcmpPpVerifyInput {
 ///
 /// This function assumes that the signable tx hash is 32 bytes, the tree root is heap
 /// allocated via a CResult, and pseudo outs and key images are 32 bytes each
+///
+/// The caller is expected to ensure the tree root is on the correct layer
+/// of the expected curve, n_inputs <= FCMP_PLUS_PLUS_MAX_INPUTS,
+/// n_tree_layers <= FCMP_PLUS_PLUS_MAX_LAYERS.
 #[no_mangle]
 pub unsafe extern "C" fn fcmp_pp_verify_input_new(
     signable_tx_hash: *const u8,
@@ -356,13 +360,16 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
     key_images: Slice<*const u8>,
     fcmp_pp_verify_input_out: *mut *mut FcmpPpVerifyInput,
 ) -> c_int {
-    if fcmp_pp_verify_input_out.is_null() {
+    if signable_tx_hash.is_null()
+        || proof.is_null()
+        || tree_root.is_null()
+        || fcmp_pp_verify_input_out.is_null() {
         return -1;
     }
 
     // Early checks
     let n_inputs = pseudo_outs.len;
-    if n_inputs == 0 {
+    if n_inputs == 0 || n_tree_layers == 0 {
         return -2;
     }
     if n_inputs != key_images.len {
@@ -383,6 +390,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
     let pseudo_outs: Vec<[u8; 32]> = pseudo_outs
         .iter()
         .map(|&x| {
+            assert!(!x.is_null());
             let x = unsafe { core::slice::from_raw_parts(x, 32) };
             let mut pseudo_out = [0u8; 32];
             pseudo_out.copy_from_slice(x);
@@ -401,6 +409,7 @@ pub unsafe extern "C" fn fcmp_pp_verify_input_new(
     let key_images_slice: &[*const u8] = key_images.into();
     let mut key_images = Vec::with_capacity(key_images_slice.len());
     for compressed_ki in key_images_slice {
+        assert!(!compressed_ki.is_null());
         let Ok(key_image) = ed25519_point_from_bytes(*compressed_ki) else {
             return -7;
         };
