@@ -407,6 +407,20 @@ class BlockchainTest():
 
         daemon.generateblocks(main_address, 1)
 
+        print('Calling /getblocks_by_height.bin with full and pruned transactions...')
+
+        tx_height = daemon.get_height().height - 1
+        full = daemon.get_blocks_by_height([tx_height])
+        pruned = daemon.get_blocks_by_height([tx_height], prune = True)
+        assert len(full.blocks) == len(pruned.blocks) == 1
+        assert not full.blocks[0].get('pruned', False)
+        assert pruned.blocks[0].pruned
+        assert full.blocks[0].block == pruned.blocks[0].block
+        assert len(full.blocks[0].txs) == len(pruned.blocks[0].txs) == 2
+        for full_tx, pruned_tx in zip(full.blocks[0].txs, pruned.blocks[0].txs):
+            assert full_tx.startswith(pruned_tx.blob)
+            assert pruned_tx.prunable_hash != (b'\0' * 32)
+
         print('Calling /get_blocks.bin (blocks only) and testing response...')
 
         res = daemon.get_blocks_fast(0, [target_block_id, genesis_block_id])

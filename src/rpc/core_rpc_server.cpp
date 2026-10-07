@@ -571,13 +571,19 @@ namespace cryptonote
         res.status = "Error retrieving block at height " + std::to_string(height);
         return true;
       }
-      std::vector<transaction> txs;
+      std::vector<tx_blob_entry> txs;
       std::vector<crypto::hash> missed_txs;
-      m_core.get_transactions(blk.tx_hashes, txs, missed_txs);
+      const bool got_txs = m_core.get_transactions(blk.tx_hashes, txs, missed_txs, req.prune);
+      if (req.prune && (!got_txs || !missed_txs.empty()))
+      {
+        res.blocks.clear();
+        res.status = "Error retrieving transactions at height " + std::to_string(height);
+        return true;
+      }
       res.blocks.resize(res.blocks.size() + 1);
+      res.blocks.back().pruned = req.prune;
       res.blocks.back().block = block_to_blob(blk);
-      for (auto& tx : txs)
-        res.blocks.back().txs.push_back({tx_to_blob(tx), crypto::null_hash});
+      res.blocks.back().txs = std::move(txs);
     }
     res.status = CORE_RPC_STATUS_OK;
     return true;
