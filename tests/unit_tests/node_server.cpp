@@ -35,6 +35,8 @@
 #include "cryptonote_core/i_core_events.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.inl"
+#include "net/i2p_address.h"
+#include "net/tor_address.h"
 #include "unit_tests_utils.h"
 #include <algorithm>
 #include <condition_variable>
@@ -66,6 +68,11 @@ namespace cryptonote {
 class test_core : public cryptonote::i_core_events
 {
 public:
+  size_t incoming_tx_count = 0;
+  epee::net_utils::zone incoming_tx_origin = epee::net_utils::zone::invalid;
+  cryptonote::relay_method incoming_tx_relay = cryptonote::relay_method::none;
+  bool incoming_tx_relayed = false;
+
   virtual bool is_synchronized() const final { return true; }
   void on_synchronized(){}
   void safesyncmode(const bool){}
@@ -77,7 +84,15 @@ public:
   bool have_block(const crypto::hash& id, int *where = NULL) const {return false;}
   bool have_block_unlocked(const crypto::hash& id, int *where = NULL) const {return false;}
   void get_blockchain_top(uint64_t& height, crypto::hash& top_id)const{height=0;top_id=crypto::null_hash;}
-  bool handle_incoming_tx(const cryptonote::blobdata& tx_blob, cryptonote::tx_verification_context& tvc, cryptonote::relay_method tx_relay, bool relayed) { return true; }
+  bool handle_incoming_tx(const cryptonote::blobdata& tx_blob, cryptonote::tx_verification_context& tvc, cryptonote::relay_method tx_relay, bool relayed,
+    epee::net_utils::zone origin = epee::net_utils::zone::invalid)
+  {
+    ++incoming_tx_count;
+    incoming_tx_origin = origin;
+    incoming_tx_relay = tx_relay;
+    incoming_tx_relayed = relayed;
+    return true;
+  }
   bool handle_single_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *b, cryptonote::block_verification_context& bvc, cryptonote::pool_supplement& extra_block_txs, bool update_miner_blocktemplate = true) { return true; }
   bool handle_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *block, cryptonote::block_verification_context& bvc, bool update_miner_blocktemplate = true) { return true; }
   bool handle_incoming_block(const cryptonote::blobdata& block_blob, const cryptonote::block *block, cryptonote::block_verification_context& bvc, cryptonote::pool_supplement& extra_block_txs, bool update_miner_blocktemplate = true) { return true; }
@@ -141,6 +156,56 @@ TEST(node_server, ipv6_peer_group)
   EXPECT_NE(*first, *different);
   EXPECT_FALSE(nodetool::get_ipv6_peer_group(make_ipv6("::ffff:192.0.2.1")));
   EXPECT_FALSE(nodetool::get_ipv6_peer_group(MAKE_IPV4_ADDRESS(192, 0, 2, 1)));
+}
+
+TEST(node_server, transaction_ingress_zone_and_direction)
+{
+  const epee::net_utils::network_address addresses[] = {
+    net::tor_address::unknown(),
+    net::i2p_address::unknown(),
+    MAKE_IPV4_ADDRESS_PORT(192, 0, 2, 1, 18080)
+  };
+
+  for (const auto& address : addresses)
+  {
+    for (const bool incoming : {false, true})
+    {
+      for (const bool fluff : {false, true})
+      {
+        SCOPED_TRACE(::testing::Message() << address.str() << ", incoming=" << incoming << ", fluff=" << fluff);
+        test_core core;
+        cryptonote::t_cryptonote_protocol_handler<test_core> protocol(core, nullptr, true);
+        ASSERT_TRUE(protocol.is_synchronized());
+        cryptonote::cryptonote_connection_context context;
+        static_cast<epee::net_utils::connection_context_base&>(context) =
+          epee::net_utils::connection_context_base{boost::uuids::nil_uuid(), address, incoming, false};
+        context.set_state_normal();
+
+        cryptonote::NOTIFY_NEW_TRANSACTIONS::request request{};
+        request.txs.push_back(cryptonote::tx_to_blob(cryptonote::transaction{}));
+        request.dandelionpp_fluff = fluff;
+        epee::byte_slice buffer;
+        ASSERT_TRUE(epee::serialization::store_t_to_binary(request, buffer));
+        epee::byte_stream response;
+        bool handled = false;
+        ASSERT_EQ(1, protocol.handle_invoke_map(true, cryptonote::NOTIFY_NEW_TRANSACTIONS::ID,
+          epee::to_span(buffer), response, context, handled));
+        ASSERT_TRUE(handled);
+
+        const bool is_public = address.get_zone() == epee::net_utils::zone::public_;
+        if (!is_public && !incoming)
+        {
+          EXPECT_EQ(0u, core.incoming_tx_count);
+          continue;
+        }
+        ASSERT_EQ(1u, core.incoming_tx_count);
+        EXPECT_EQ(address.get_zone(), core.incoming_tx_origin);
+        EXPECT_EQ(fluff ? cryptonote::relay_method::fluff :
+          (is_public ? cryptonote::relay_method::stem : cryptonote::relay_method::forward), core.incoming_tx_relay);
+        EXPECT_TRUE(core.incoming_tx_relayed);
+      }
+    }
+  }
 }
 
 static bool is_blocked(Server &server, const epee::net_utils::network_address &address, time_t *t = NULL)
