@@ -57,8 +57,6 @@ if(ARCH_ID STREQUAL "i386" OR ARCH_ID STREQUAL "x86_64" OR ARCH_ID STREQUAL "x86
 list(APPEND crypto_sources CryptonightR_template.S)
 endif()
 
-include_directories(${RANDOMX_INCLUDE})
-
 set(crypto_headers)
 
 monero_find_all_headers(crypto_private_headers "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -77,6 +75,11 @@ target_link_libraries(cncrypto
     ${sodium_LIBRARIES}
   PRIVATE
     ${EXTRA_LIBRARIES})
+target_include_directories(cncrypto
+  PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/.."
+  PRIVATE
+    ${RANDOMX_INCLUDE})
 
 if (ARM)
   option(NO_OPTIMIZED_MULTIPLY_ON_ARM

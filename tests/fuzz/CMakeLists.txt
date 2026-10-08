@@ -100,6 +100,7 @@ endif()
 monero_add_minimal_executable(block_fuzz_tests block.cpp fuzzer.cpp)
 target_link_libraries(block_fuzz_tests
   PRIVATE
+    common
     cryptonote_core
     p2p
     epee
@@ -114,6 +115,7 @@ set_property(TARGET block_fuzz_tests
 monero_add_minimal_executable(transaction_fuzz_tests transaction.cpp fuzzer.cpp)
 target_link_libraries(transaction_fuzz_tests
   PRIVATE
+    common
     cryptonote_core
     p2p
     epee
@@ -128,6 +130,7 @@ set_property(TARGET transaction_fuzz_tests
 monero_add_minimal_executable(signature_fuzz_tests signature.cpp fuzzer.cpp)
 target_link_libraries(signature_fuzz_tests
   PRIVATE
+    common
     wallet
     cryptonote_core
     p2p
@@ -143,6 +146,7 @@ set_property(TARGET signature_fuzz_tests
 monero_add_minimal_executable(cold-outputs_fuzz_tests cold-outputs.cpp fuzzer.cpp)
 target_link_libraries(cold-outputs_fuzz_tests
   PRIVATE
+    common
     wallet
     cryptonote_core
     p2p
@@ -158,6 +162,7 @@ set_property(TARGET cold-outputs_fuzz_tests
 monero_add_minimal_executable(cold-transaction_fuzz_tests cold-transaction.cpp fuzzer.cpp)
 target_link_libraries(cold-transaction_fuzz_tests
   PRIVATE
+    common
     wallet
     cryptonote_core
     p2p
@@ -212,6 +217,7 @@ set_property(TARGET base58_fuzz_tests
 monero_add_minimal_executable(parse-url_fuzz_tests parse_url.cpp fuzzer.cpp)
 target_link_libraries(parse-url_fuzz_tests
   PRIVATE
+    common
     epee
     ${Boost_REGEX_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
@@ -226,6 +232,7 @@ set_property(TARGET parse-url_fuzz_tests
 monero_add_minimal_executable(network-address_fuzz_tests network_address.cpp fuzzer.cpp)
 target_link_libraries(network-address_fuzz_tests
   PRIVATE
+    common
     net
     epee
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
@@ -239,6 +246,7 @@ set_property(TARGET network-address_fuzz_tests
 monero_add_minimal_executable(http-client_fuzz_tests http-client.cpp fuzzer.cpp)
 target_link_libraries(http-client_fuzz_tests
   PRIVATE
+    common
     epee
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
@@ -269,6 +277,7 @@ set_property(TARGET levin_fuzz_tests
 monero_add_minimal_executable(bulletproof_fuzz_tests bulletproof.cpp fuzzer.cpp)
 target_link_libraries(bulletproof_fuzz_tests
   PRIVATE
+    common
     ringct
     serialization
     ${CMAKE_THREAD_LIBS_INIT}
@@ -281,6 +290,7 @@ set_property(TARGET bulletproof_fuzz_tests
 monero_add_minimal_executable(bulletproof-plus_fuzz_tests bulletproof-plus.cpp fuzzer.cpp)
 target_link_libraries(bulletproof-plus_fuzz_tests
   PRIVATE
+    common
     ringct
     serialization
     ${CMAKE_THREAD_LIBS_INIT}
@@ -320,6 +330,7 @@ target_link_libraries(utf8_fuzz_tests
 monero_add_minimal_executable(clsag_fuzz_tests clsag.cpp clsag_init.h fuzzer.cpp)
 target_link_libraries(clsag_fuzz_tests
   PRIVATE
+    common
     cryptonote_core
     serialization
     ${CMAKE_THREAD_LIBS_INIT}
@@ -332,6 +343,7 @@ set_property(TARGET clsag_fuzz_tests
 monero_add_minimal_executable(clsag_cout_fuzz_tests clsag_cout.cpp clsag_init.h fuzzer.cpp)
 target_link_libraries(clsag_cout_fuzz_tests
   PRIVATE
+    common
     cryptonote_core
     serialization
     ${CMAKE_THREAD_LIBS_INIT}
@@ -344,6 +356,7 @@ set_property(TARGET clsag_cout_fuzz_tests
 monero_add_minimal_executable(clsag_message_fuzz_tests clsag_message.cpp clsag_init.h fuzzer.cpp)
 target_link_libraries(clsag_message_fuzz_tests
   PRIVATE
+    common
     cryptonote_core
     serialization
     ${CMAKE_THREAD_LIBS_INIT}
@@ -356,6 +369,7 @@ set_property(TARGET clsag_message_fuzz_tests
 monero_add_minimal_executable(clsag_pubs_fuzz_tests clsag_pubs.cpp clsag_init.h fuzzer.cpp)
 target_link_libraries(clsag_pubs_fuzz_tests
   PRIVATE
+    common
     cryptonote_core
     serialization
     ${CMAKE_THREAD_LIBS_INIT}
