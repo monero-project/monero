@@ -348,14 +348,17 @@ class ColdSigningTest():
     def self_transfer_to_other_account(self):
         print("Self-spending to another account in a view-only wallet")
         self.export_import(False)
-        destination = self.hot_wallet.create_account().address
+        destination_account = self.hot_wallet.create_account()
+        destination = destination_account.address
         assert self.cold_wallet.create_account().address == destination
 
         observer = Wallet(idx = 1)
         try: observer.close_wallet()
         except: pass
         observer.generate_from_keys(viewkey = self.cold_wallet.query_key("view_key").key, address = STANDARD_ADDRESS)
-        assert observer.create_account().address == destination
+        for _ in range(destination_account.account_index):
+            observer.create_account()
+        assert observer.get_address(account_index = destination_account.account_index).address == destination
         observer.refresh()
 
         amount = 1000000000000
