@@ -93,6 +93,9 @@ set(unit_tests_sources
   hardfork.cpp
   unbound.cpp
   uri.cpp
+  uri_multi.cpp
+  uri_multi_integration.cpp
+  uri_multi_rpc.cpp
   util.cpp
   varint.cpp
   verRctNonSemanticsSimple.cpp
