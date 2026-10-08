@@ -9950,6 +9950,8 @@ bool simple_wallet::wallet_info(const std::vector<std::string> &args)
     type = (boost::format(tr("%u/%u multisig%s")) % ms_status.threshold % ms_status.total % (ms_status.is_ready ? "" : " (not yet finalized)")).str();
   else if (m_wallet->is_background_wallet())
     type = tr("Background wallet");
+  else if (!m_wallet->is_deterministic())
+    type = tr("Non-deterministic");
   else
     type = tr("Normal");
   message_writer() << tr("Type: ") << type;
@@ -9965,6 +9967,10 @@ bool simple_wallet::wallet_info(const std::vector<std::string> &args)
   else if (m_wallet->is_polyseed())
   {
     type = tr("Polyseed");
+  }
+  else if (!m_wallet->is_deterministic())
+  {
+    type = tr("");
   }
   else
   {
