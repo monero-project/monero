@@ -166,7 +166,8 @@ namespace
   const command_line::arg_descriptor<std::string> arg_generate_from_multisig_keys = {"generate-from-multisig-keys", sw::tr("Generate a master wallet from multisig wallet keys"), ""};
   const auto arg_generate_from_json = wallet_args::arg_generate_from_json();
   const command_line::arg_descriptor<std::string> arg_mnemonic_language = {"mnemonic-language", sw::tr("Language for mnemonic"), ""};
-  const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", sw::tr("Specify Electrum seed for wallet recovery/creation"), ""};
+  const command_line::arg_descriptor<std::string> arg_seed = {"seed", sw::tr("Specify seed for wallet recovery"), ""};
+  const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", sw::tr("Deprecated alias for --seed"), ""};
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", sw::tr("Recover wallet using Electrum-style mnemonic seed"), false};
   const command_line::arg_descriptor<bool> arg_restore_from_seed = {"restore-from-seed", sw::tr("alias for --restore-deterministic-wallet"), false};
   const command_line::arg_descriptor<bool> arg_restore_multisig_wallet = {"restore-multisig-wallet", sw::tr("Recover multisig wallet using Electrum-style mnemonic seed"), false};
@@ -4001,7 +4002,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
               return false;
             if (m_electrum_seed.empty())
             {
-              fail_msg_writer() << tr("specify a recovery parameter with the --electrum-seed=\"multisig seed here\"");
+              fail_msg_writer() << tr("specify a recovery parameter with the --seed=\"multisig seed here\"");
               return false;
             }
         }
@@ -4014,7 +4015,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
             return false;
           if (electrum_seed.empty())
           {
-            fail_msg_writer() << tr("specify a recovery parameter with the --electrum-seed=\"words list here\"");
+            fail_msg_writer() << tr("specify a recovery parameter with the --seed=\"words list here\"");
             return false;
           }
           m_electrum_seed = electrum_seed;
@@ -4610,7 +4611,7 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
   m_generate_from_multisig_keys   = command_line::get_arg(vm, arg_generate_from_multisig_keys);
   m_generate_from_json            = command_line::get_arg(vm, arg_generate_from_json);
   m_mnemonic_language             = command_line::get_arg(vm, arg_mnemonic_language);
-  m_electrum_seed                 = command_line::get_arg(vm, arg_electrum_seed);
+  m_electrum_seed                 = command_line::get_arg(vm, arg_seed);
   m_restore_deterministic_wallet  = command_line::get_arg(vm, arg_restore_deterministic_wallet) || command_line::get_arg(vm, arg_restore_from_seed);
   m_restore_multisig_wallet       = command_line::get_arg(vm, arg_restore_multisig_wallet);
   m_non_deterministic             = command_line::get_arg(vm, arg_non_deterministic);
@@ -4628,6 +4629,17 @@ bool simple_wallet::handle_command_line(const boost::program_options::variables_
                                     !m_generate_from_device.empty() ||
                                     m_restore_deterministic_wallet ||
                                     m_restore_multisig_wallet;
+
+  if (!command_line::is_arg_defaulted(vm, arg_electrum_seed))
+  {
+    if (!command_line::is_arg_defaulted(vm, arg_seed))
+    {
+      fail_msg_writer() << tr("can't specify both --seed and --electrum-seed");
+      return false;
+    }
+    message_writer(console_color_yellow, false) << tr("Warning: --electrum-seed is deprecated and will be removed in a future version. Use --seed instead.");
+    m_electrum_seed = command_line::get_arg(vm, arg_electrum_seed);
+  }
 
   if (!command_line::is_arg_defaulted(vm, arg_restore_date))
   {
@@ -10557,6 +10569,7 @@ int main(int argc, char* argv[])
   command_line::add_arg(desc_params, arg_restore_from_seed );
   command_line::add_arg(desc_params, arg_restore_multisig_wallet );
   command_line::add_arg(desc_params, arg_non_deterministic );
+  command_line::add_arg(desc_params, arg_seed);
   command_line::add_arg(desc_params, arg_electrum_seed );
   command_line::add_arg(desc_params, arg_restore_height);
   command_line::add_arg(desc_params, arg_restore_date);
