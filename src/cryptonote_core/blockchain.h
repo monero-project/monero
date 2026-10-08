@@ -1224,6 +1224,7 @@ namespace cryptonote
 
     // some invalid blocks
     blocks_ext_by_hash m_invalid_blocks;     // crypto::hash -> block_extended_info
+    mutable epee::critical_section m_invalid_blocks_lock;
 
 
     checkpoints m_checkpoints;
