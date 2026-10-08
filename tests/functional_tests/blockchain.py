@@ -29,9 +29,12 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import io
 import os
 import subprocess
 import time
+
+import requests
 
 """Test daemon blockchain RPC calls
 
@@ -44,6 +47,7 @@ Test the following RPCs:
 
 """
 
+from framework import epee_binary
 from framework.daemon import Daemon
 from framework.wallet import Wallet
 
@@ -55,6 +59,28 @@ class BlockchainTest():
         self._test_generateblocks(5)
         self._test_alt_chains()
         self.test_get_blocks_fast()
+        self.test_restricted_blocks_by_height_limit()
+
+    def test_restricted_blocks_by_height_limit(self):
+        print('Test restricted getblocks_by_height block limit')
+        daemon = Daemon()
+        restricted = Daemon(port=18580)
+        target = daemon.get_height().height - 1
+
+        accepted = restricted.rpc.send_binary_request('/getblocks_by_height.bin', {'heights': [target] * 500})
+        assert len(accepted.blocks) == 500
+
+        raw = epee_binary.Serializer().serialize({'heights': [target] * 501})
+        response = requests.post(restricted.rpc.url + '/getblocks_by_height.bin', data=raw,
+                                 headers={'content-type': 'application/octet-stream'}, timeout=120)
+        assert response.status_code == 200
+        result = epee_binary.Deserializer(io.BytesIO(response.content)).deserialize()
+        assert result['status'] == b'Too many blocks requested in restricted mode'
+        assert not result.get('blocks')
+
+        block_hash = daemon.getblockheaderbyheight(target).block_header.hash
+        headers = restricted.getblockheaderbyhash(hashes=[block_hash] * 501)
+        assert len(headers.block_headers) == 501
 
     def reset(self):
         print('Resetting blockchain')
