@@ -295,6 +295,16 @@ static bool is_canonical_fcmp_plus_plus_layout(const uint64_t reference_block, c
     return true;
 }
 
+static bool needs_torsion_check(const cryptonote::transaction &tx)
+{
+    for (const auto &out : tx.vout)
+    {
+        if (cryptonote::output_checked_for_torsion(out.target))
+            return true;
+    }
+    return false;
+}
+
 template <class TxForwardIt>
 static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt tx_end,
         const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments,
@@ -354,18 +364,8 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
         if (tx.version >= 2)
             rvv.push_back(&tx.rct_signatures);
 
-        // Check if we need to do the torsion check on this tx's outs
-        bool do_torsion_check = false;
-        for (const auto &out : tx.vout)
-        {
-            if (!cryptonote::output_checked_for_torsion(out.target))
-                continue;
-            do_torsion_check = true;
-            break;
-        }
-
         // Collect pubkeys and commitments for torsion check
-        if (do_torsion_check && !collect_pubkeys_and_commitments(tx, transparent_amount_commitments, pubkeys_and_commitments))
+        if (needs_torsion_check(tx) && !collect_pubkeys_and_commitments(tx, transparent_amount_commitments, pubkeys_and_commitments))
         {
             tvc.m_verifivation_failed = true;
             return false;
@@ -611,7 +611,8 @@ bool ver_input_proofs_rings(transaction& tx, const rct::ctkeyM &dereferenced_mix
     }
 }
 
-bool ver_input_proofs_fcmps(transaction& tx, const crypto::ec_point &dereferenced_fcmp_root)
+bool ver_input_proofs_fcmps(transaction& tx,
+    const std::pair<crypto::ec_point, uint8_t> &dereferenced_fcmp_root)
 {
     // Hello future Monero dev! If you got this assert, read the following carefully:
     //
@@ -631,8 +632,7 @@ bool ver_input_proofs_fcmps(transaction& tx, const crypto::ec_point &dereference
 
     fcmp_pp::TreeRootShared decompressed_root;
     std::vector<fcmp_pp::FcmpPpVerifyInput> fcmp_pp_verify_inputs(1); // @TODO: make non-vector verify() overload
-    if (!collect_fcmp_pp_tx_verify_input(tx, {dereferenced_fcmp_root, tx.rct_signatures.p.n_tree_layers},
-        decompressed_root, fcmp_pp_verify_inputs.back()))
+    if (!collect_fcmp_pp_tx_verify_input(tx, dereferenced_fcmp_root, decompressed_root, fcmp_pp_verify_inputs.back()))
     {
         return false;
     }
@@ -661,8 +661,7 @@ crypto::hash make_input_verification_id(const crypto::hash &tx_hash, const rct::
 }
 
 crypto::hash make_input_verification_id(const crypto::hash &tx_hash,
-    const crypto::ec_point &dereferenced_fcmp_root,
-    const uint8_t n_tree_layers)
+    const std::pair<crypto::ec_point, uint8_t> &dereferenced_fcmp_root)
 {
     std::stringstream ss;
 
@@ -673,10 +672,10 @@ crypto::hash make_input_verification_id(const crypto::hash &tx_hash,
     ss.write(tx_hash.data, sizeof(crypto::hash));
 
     // Then serialize FCMP tree root
-    ss.write(dereferenced_fcmp_root.data, sizeof(dereferenced_fcmp_root));
+    ss.write(dereferenced_fcmp_root.first.data, sizeof(crypto::ec_point));
 
     // Then serialize n tree layers
-    ss << n_tree_layers;
+    ss << dereferenced_fcmp_root.second;
 
     // Calculate hash of TX hash and FCMP tree root blob
     crypto::hash input_verification_id;
@@ -686,11 +685,11 @@ crypto::hash make_input_verification_id(const crypto::hash &tx_hash,
 
 crypto::hash make_input_verification_id(const transaction &tx,
     const rct::ctkeyM &dereferenced_mix_ring,
-    const crypto::ec_point &dereferenced_fcmp_root)
+    const std::pair<crypto::ec_point, uint8_t> &dereferenced_fcmp_root)
 {
     CHECK_AND_ASSERT_THROW_MES(!tx.pruned, "make_input_verification_id: tx is pruned");
     if (rct::is_rct_fcmp(tx.rct_signatures.type))
-        return make_input_verification_id(get_transaction_hash(tx), dereferenced_fcmp_root, tx.rct_signatures.p.n_tree_layers);
+        return make_input_verification_id(get_transaction_hash(tx), dereferenced_fcmp_root);
     else
         return make_input_verification_id(get_transaction_hash(tx), dereferenced_mix_ring);
 }
@@ -820,7 +819,7 @@ bool batch_ver_fcmp_pp_consensus(pool_supplement& ps,
         }
 
         const auto &root_pair = tree_root_by_block_index.at(reference_block);
-        input_verification_id_by_txid[txid] = make_input_verification_id(txid, root_pair.first, root_pair.second);
+        input_verification_id_by_txid[txid] = make_input_verification_id(txid, root_pair);
     }
 
     if (fcmp_pp_verify_inputs.empty())
@@ -846,8 +845,10 @@ bool batch_ver_fcmp_pp_consensus(pool_supplement& ps,
 bool ver_non_input_consensus(const transaction& tx, tx_verification_context& tvc,
     std::uint8_t hf_version)
 {
+    // We only need to collect transparent amount commitments for the torsion check here
     std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
-    collect_transparent_amount_commitments_static({std::cref(tx)}, transparent_amount_commitments);
+    if (needs_torsion_check(tx))
+        collect_transparent_amount_commitments_static({std::cref(tx)}, transparent_amount_commitments);
     return ver_non_input_consensus_templated(&tx, &tx + 1, transparent_amount_commitments, tvc, hf_version);
 }
 

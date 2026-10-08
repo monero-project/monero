@@ -89,9 +89,9 @@ namespace
 static bool get_fcmp_tx_tree_root(const BlockchainDB *db,
   const HardFork *m_hardfork,
   const cryptonote::transaction &tx,
-  crypto::ec_point &tree_root_out)
+  std::pair<crypto::ec_point, uint8_t> &tree_root_out)
 {
-  tree_root_out = crypto::ec_point{};
+  tree_root_out = {crypto::ec_point{}, 0};
   if (!rct::is_rct_fcmp(tx.rct_signatures.type))
     return true;
   CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't get root for pruned FCMP txs");
@@ -106,7 +106,8 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db,
       "tx " << get_transaction_hash(tx) << " included reference block that was too low");
 
   // Get the tree root and n tree layers at provided block
-  const uint8_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out);
+  const uint8_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out.first);
+  tree_root_out.second = n_tree_layers;
 
   // Make sure the provided n tree layers matches expected
   // IMPORTANT!
@@ -140,14 +141,15 @@ static bool set_fcmp_tx_tree_root(const BlockchainDB *db,
   }
 
   // Get ref block's tree root from the db
-  crypto::ec_point tree_root;
+  std::pair<crypto::ec_point, uint8_t> tree_root;
   if (!get_fcmp_tx_tree_root(db, m_hardfork, tx, tree_root))
   {
     MERROR_VER("Failed to get referenced tree root");
     return false;
   }
 
-  tree_root_by_block_idx_inout[ref_block_index] = {std::move(tree_root), tx.rct_signatures.p.n_tree_layers};
+  tree_root_by_block_idx_inout[ref_block_index] = std::move(tree_root);
+
   return true;
 }
 //------------------------------------------------------------------
@@ -805,10 +807,10 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
       }
       else if (rct::is_rct_fcmp(tx.rct_signatures.type))
       {
-        crypto::ec_point ref_tree_root{};
+        std::pair<crypto::ec_point, uint8_t> ref_tree_root{};
         if (get_fcmp_tx_tree_root(m_db, m_hardfork, tx, ref_tree_root))
         {
-          valid_input_verification_id = make_input_verification_id(get_transaction_hash(tx), ref_tree_root, tx.rct_signatures.p.n_tree_layers);
+          valid_input_verification_id = make_input_verification_id(get_transaction_hash(tx), ref_tree_root);
         }
         else
         {
@@ -3752,7 +3754,7 @@ bool Blockchain::check_tx_inputs(transaction& tx,
     sig_index++;
   }
 
-  crypto::ec_point ref_tree_root{};
+  std::pair<crypto::ec_point, uint8_t> ref_tree_root{};
   if (rct::is_rct_fcmp(tx.rct_signatures.type))
   {
     if (pmax_used_block_height)

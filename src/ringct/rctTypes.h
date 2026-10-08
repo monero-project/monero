@@ -652,18 +652,6 @@ namespace rct {
           }
           return ar.good();
         }
-
-        BEGIN_SERIALIZE_OBJECT()
-          FIELD(rangeSigs)
-          FIELD(bulletproofs)
-          FIELD(bulletproofs_plus)
-          FIELD(MGs)
-          FIELD(CLSAGs)
-          VARINT_FIELD(reference_block)
-          FIELD(n_tree_layers)
-          FIELD(fcmp_pp)
-          FIELD(pseudoOuts)
-        END_SERIALIZE()
     };
     struct rctSig: public rctSigBase {
         rctSigPrunable p;
@@ -680,7 +668,21 @@ namespace rct {
 
         BEGIN_SERIALIZE_OBJECT()
           FIELDS((rctSigBase&)*this)
-          FIELD(p)
+          ar.tag("p");
+          ar.begin_object();
+          FIELD_N("rangeSigs", p.rangeSigs)
+          FIELD_N("bulletproofs", p.bulletproofs)
+          FIELD_N("bulletproofs_plus", p.bulletproofs_plus)
+          FIELD_N("MGs", p.MGs)
+          FIELD_N("CLSAGs", p.CLSAGs)
+          if (type == RCTTypeFcmpPlusPlus)
+          {
+            VARINT_FIELD_N("reference_block", p.reference_block)
+            FIELD_N("n_tree_layers", p.n_tree_layers)
+            FIELD_N("fcmp_pp", p.fcmp_pp)
+          }
+          FIELD_N("pseudoOuts", p.pseudoOuts)
+          ar.end_object();
         END_SERIALIZE()
     };
 
