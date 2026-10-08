@@ -27,6 +27,7 @@
 
 #include "db_lmdb.h"
 
+#include <boost/endian/conversion.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <boost/format.hpp>
@@ -123,6 +124,16 @@ int BlockchainLMDB::compare_uint64(const MDB_val *a, const MDB_val *b)
   uint64_t va, vb;
   memcpy(&va, a->mv_data, sizeof(va));
   memcpy(&vb, b->mv_data, sizeof(vb));
+  return (va < vb) ? -1 : va > vb;
+}
+
+int BlockchainLMDB::compare_little_endian_uint64(const MDB_val *a, const MDB_val *b)
+{
+  uint64_t va, vb;
+  memcpy(&va, a->mv_data, sizeof(va));
+  memcpy(&vb, b->mv_data, sizeof(vb));
+  boost::endian::little_to_native_inplace(va);
+  boost::endian::little_to_native_inplace(vb);
   return (va < vb) ? -1 : va > vb;
 }
 
@@ -1239,8 +1250,12 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
 
   const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(unlock_time, output_height);
 
+  // Since the UnifiedOutput unified_id is stored little endian always, we have
+  // to convert to LE here for the lookup to work as expected for BE systems.
+  const uint64_t unified_id_le = boost::endian::native_to_little(unified_id);
+
   MDB_val_set(k_block_id, last_locked_block);
-  MDB_val_set(v_output, unified_id);
+  MDB_val_set(v_output, unified_id_le);
 
   result = mdb_cursor_get(m_cur_locked_outputs, &k_block_id, &v_output, MDB_GET_BOTH);
   if (result == MDB_NOTFOUND)
@@ -1262,7 +1277,7 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
   CURSOR(timelocked_outputs);
 
   MDB_val_set(k_timelocked_block_id, last_locked_block);
-  MDB_val_set(v_timelocked_output, unified_id);
+  MDB_val_set(v_timelocked_output, unified_id_le);
 
   result = mdb_cursor_get(m_cur_timelocked_outputs, &k_timelocked_block_id, &v_timelocked_output, MDB_GET_BOTH);
   if (result == MDB_NOTFOUND)
@@ -1391,6 +1406,7 @@ void BlockchainLMDB::add_locked_outs(const fcmp_pp::OutsByLastLockedBlock& outs_
       const cryptonote::blobdata output_blob = cryptonote::t_serializable_object_to_blob(locked_output);
       if (output_blob.size() != SIZEOF_SERIALIZED_UNIFIED_OUTPUT)
         throw0(DB_ERROR(("Out " + std::to_string(locked_output.unified_id) + " has unexpected blob size" + std::to_string(output_blob.size())).c_str()));
+      static_assert(SIZEOF_SERIALIZED_UNIFIED_OUTPUT == 73, "Unified output is stored serialized in 73 bytes");
 
       MDB_val_set(k_block_id, last_locked_block_idx);
       MDB_val_sized(v_output, output_blob);
@@ -1821,6 +1837,7 @@ uint64_t BlockchainLMDB::trim_leaves(const uint64_t new_n_leaf_tuples, const uin
     const cryptonote::blobdata output_blob = cryptonote::t_serializable_object_to_blob(unified_output);
     if (output_blob.size() != SIZEOF_SERIALIZED_UNIFIED_OUTPUT)
       throw0(DB_ERROR(("Output " + std::to_string(unified_output.unified_id) + " has unexpected blob size" + std::to_string(output_blob.size())).c_str()));
+    static_assert(SIZEOF_SERIALIZED_UNIFIED_OUTPUT == 73, "Unified output is stored serialized in 73 bytes");
 
     MDB_val_sized(v_output, output_blob);
     MDEBUG("Re-adding locked unified_id: " << unified_output.unified_id << " , last locked block: " << trim_block_idx);
@@ -2282,8 +2299,11 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   mdb_set_dupsort(txn, m_tx_indices, compare_hash32);
   mdb_set_dupsort(txn, m_output_amounts, compare_uint64);
 #ifdef ENABLE_FCMP_INTEGRATION
-  mdb_set_dupsort(txn, m_locked_outputs, compare_uint64);
-  mdb_set_dupsort(txn, m_timelocked_outputs, compare_uint64);
+  // We have to use little endian uint64 compare because we're using the binary serializer
+  // to serialize these types to/from compact blobs, which uses LE order for fixed size uints.
+  mdb_set_dupsort(txn, m_locked_outputs, compare_little_endian_uint64);
+  mdb_set_dupsort(txn, m_timelocked_outputs, compare_little_endian_uint64);
+
   mdb_set_dupsort(txn, m_leaves, compare_uint64);
   mdb_set_dupsort(txn, m_layers, compare_uint64);
   mdb_set_compare(txn, m_tree_edges, compare_uint64);
