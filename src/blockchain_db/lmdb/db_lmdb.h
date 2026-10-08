@@ -386,6 +386,7 @@ public:
 
   // helper functions
   static int compare_uint64(const MDB_val *a, const MDB_val *b);
+  static int compare_little_endian_uint64(const MDB_val *a, const MDB_val *b);
   static int compare_hash32(const MDB_val *a, const MDB_val *b);
   static int compare_string(const MDB_val *a, const MDB_val *b);
 
