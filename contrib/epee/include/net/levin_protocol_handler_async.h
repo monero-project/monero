@@ -727,7 +727,6 @@ void async_protocol_handler_config<t_connection_context>::delete_connections(siz
   }
 
   // close random connections from  the provided set
-  // TODO or better just keep removing random elements (performance)
   unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
   shuffle(connections.begin(), connections.end(), std::default_random_engine(seed));
   for (size_t i = 0; i < connections.size() && i < count; ++i)
