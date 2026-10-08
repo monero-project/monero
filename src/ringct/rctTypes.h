@@ -45,6 +45,8 @@ extern "C" {
 }
 #include "crypto/generic-ops.h"
 #include "crypto/crypto.h"
+#include "cryptonote_config.h"
+#include "fcmp_pp/fcmp_pp_types.h"
 
 #include "hex.h"
 #include "span.h"
@@ -304,6 +306,7 @@ namespace rct {
       RCTTypeBulletproof2 = 4,
       RCTTypeCLSAG = 5,
       RCTTypeBulletproofPlus = 6,
+      RCTTypeFcmpPlusPlus = 7,
     };
     enum RangeProofType { RangeProofBorromean, RangeProofPaddedBulletproof };
     struct RCTConfig {
@@ -316,6 +319,15 @@ namespace rct {
         VARINT_FIELD(bp_version)
       END_SERIALIZE()
     };
+
+    bool is_rct_simple(int type);
+    bool is_rct_bulletproof(int type);
+    bool is_rct_bulletproof_plus(int type);
+    bool is_rct_borromean(int type);
+    bool is_rct_clsag(int type);
+    bool is_rct_short_amount(int type);
+    bool is_rct_fcmp(int type);
+
     struct rctSigBase {
         uint8_t type;
         key message;
@@ -336,7 +348,7 @@ namespace rct {
           FIELD(type)
           if (type == RCTTypeNull)
             return ar.good();
-          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2 && type != RCTTypeCLSAG && type != RCTTypeBulletproofPlus)
+          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2 && type != RCTTypeCLSAG && type != RCTTypeBulletproofPlus && type != RCTTypeFcmpPlusPlus)
             return false;
           VARINT_FIELD(txnFee)
           // inputs/outputs not saved, only here for serialization help
@@ -361,9 +373,7 @@ namespace rct {
           ar.tag("ecdhInfo");
           ar.begin_array();
 
-          const bool compressed_ecdh =
-            (type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus);
-          const std::size_t min_size = compressed_ecdh ? sizeof(crypto::hash8) : sizeof(key) * 2;
+          const std::size_t min_size = rct::is_rct_short_amount(type) ? sizeof(crypto::hash8) : sizeof(key) * 2;
 
           PREPARE_CUSTOM_VECTOR_SERIALIZATION(outputs, ecdhInfo, min_size);
           if (ecdhInfo.size() != outputs)
@@ -371,7 +381,7 @@ namespace rct {
 
           for (size_t i = 0; i < outputs; ++i)
           {
-            if (compressed_ecdh)
+            if (rct::is_rct_short_amount(type))
             {
               // Since RCTTypeBulletproof2 enote types, we don't serialize the blinding factor, and only serialize the
               // first 8 bytes of ecdhInfo[i].amount
@@ -427,6 +437,11 @@ namespace rct {
         std::vector<mgSig> MGs; // simple rct has N, full has 1
         std::vector<clsag> CLSAGs;
         keyV pseudoOuts; //C - for simple rct
+        // FCMP data
+        uint64_t reference_block{0}; // used to get the tree root as of when this reference block index enters the chain
+        uint8_t n_tree_layers{0}; // number of layers in the tree as of the block when the reference block index enters the chain
+        fcmp_pp::FcmpPpProof fcmp_pp; // FCMP++ SAL and membership proof
+        fcmp_pp::FcmpVerifyHelperData fcmp_ver_helper_data; // used to verify FCMP proofs (not serialized, reconstructed)
 
         // when changing this function, update cryptonote::get_pruned_transaction_weight
         template<bool W, template <bool> class Archive>
@@ -440,9 +455,9 @@ namespace rct {
             return false;
           if (type == RCTTypeNull)
             return ar.good();
-          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2 && type != RCTTypeCLSAG && type != RCTTypeBulletproofPlus)
+          if (type != RCTTypeFull && type != RCTTypeSimple && type != RCTTypeBulletproof && type != RCTTypeBulletproof2 && type != RCTTypeCLSAG && type != RCTTypeBulletproofPlus && type != RCTTypeFcmpPlusPlus)
             return false;
-          if (type == RCTTypeBulletproofPlus)
+          if (type == RCTTypeBulletproofPlus || type == RCTTypeFcmpPlusPlus)
           {
             uint32_t nbp = bulletproofs_plus.size();
             VARINT_FIELD(nbp)
@@ -499,7 +514,31 @@ namespace rct {
             ar.end_array();
           }
 
-          if (type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus)
+          if (type == RCTTypeFcmpPlusPlus)
+          {
+            VARINT_FIELD(reference_block)
+            // n_tree_layers can be inferred from the reference_block, however, if we didn't save n_tree_layers on the
+            // tx, we would need a db read (for n_tree_layers as of the block) in order to de-serialize the FCMP++ proof
+            FIELD(n_tree_layers)
+            ar.tag("fcmp_pp");
+            if (inputs == 0)
+              return false;
+            if (inputs > FCMP_PLUS_PLUS_MAX_INPUTS)
+              return false;
+            if (n_tree_layers == 0)
+              return false;
+            if (n_tree_layers > FCMP_PLUS_PLUS_MAX_LAYERS)
+              return false;
+            const std::size_t proof_len = fcmp_pp::fcmp_pp_proof_len(inputs, n_tree_layers);
+            if (!typename Archive<W>::is_saving())
+              fcmp_pp.resize(proof_len);
+            if (fcmp_pp.size() != proof_len)
+              return false;
+            ar.serialize_blob(fcmp_pp.data(), proof_len);
+            if (!ar.good())
+              return false;
+          }
+          else if (type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus)
           {
             ar.tag("CLSAGs");
             ar.begin_array();
@@ -596,7 +635,7 @@ namespace rct {
             }
             ar.end_array();
           }
-          if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus)
+          if (type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus || type == RCTTypeFcmpPlusPlus)
           {
             ar.tag("pseudoOuts");
             ar.begin_array();
@@ -613,32 +652,37 @@ namespace rct {
           }
           return ar.good();
         }
-
-        BEGIN_SERIALIZE_OBJECT()
-          FIELD(rangeSigs)
-          FIELD(bulletproofs)
-          FIELD(bulletproofs_plus)
-          FIELD(MGs)
-          FIELD(CLSAGs)
-          FIELD(pseudoOuts)
-        END_SERIALIZE()
     };
     struct rctSig: public rctSigBase {
         rctSigPrunable p;
 
         keyV& get_pseudo_outs()
         {
-          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus ? p.pseudoOuts : pseudoOuts;
+          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus || type == RCTTypeFcmpPlusPlus ? p.pseudoOuts : pseudoOuts;
         }
 
         keyV const& get_pseudo_outs() const
         {
-          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus ? p.pseudoOuts : pseudoOuts;
+          return type == RCTTypeBulletproof || type == RCTTypeBulletproof2 || type == RCTTypeCLSAG || type == RCTTypeBulletproofPlus || type == RCTTypeFcmpPlusPlus ? p.pseudoOuts : pseudoOuts;
         }
 
         BEGIN_SERIALIZE_OBJECT()
           FIELDS((rctSigBase&)*this)
-          FIELD(p)
+          ar.tag("p");
+          ar.begin_object();
+          FIELD_N("rangeSigs", p.rangeSigs)
+          FIELD_N("bulletproofs", p.bulletproofs)
+          FIELD_N("bulletproofs_plus", p.bulletproofs_plus)
+          FIELD_N("MGs", p.MGs)
+          FIELD_N("CLSAGs", p.CLSAGs)
+          if (type == RCTTypeFcmpPlusPlus)
+          {
+            VARINT_FIELD_N("reference_block", p.reference_block)
+            FIELD_N("n_tree_layers", p.n_tree_layers)
+            FIELD_N("fcmp_pp", p.fcmp_pp)
+          }
+          FIELD_N("pseudoOuts", p.pseudoOuts)
+          ar.end_object();
         END_SERIALIZE()
     };
 
@@ -738,12 +782,6 @@ namespace rct {
     bool h2d(xmr_amount &amountd, const key &test);
     //int[64] to uint long long
     xmr_amount b2d(bits amountb);
-
-    bool is_rct_simple(int type);
-    bool is_rct_bulletproof(int type);
-    bool is_rct_bulletproof_plus(int type);
-    bool is_rct_borromean(int type);
-    bool is_rct_clsag(int type);
 
     static inline const rct::key &pk2rct(const crypto::public_key &pk) { return (const rct::key&)pk; }
     static inline const rct::key &sk2rct(const crypto::secret_key &sk) { return (const rct::key&)sk; }

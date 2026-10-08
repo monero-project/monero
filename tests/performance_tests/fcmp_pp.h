@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2025, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -30,65 +30,53 @@
 
 #pragma once
 
-#include <atomic>
-#include <boost/filesystem.hpp>
-
+#include "crypto/crypto.h"
+#include "crypto/hash.h"
 #include "fcmp_pp/fcmp_pp_types.h"
+#include "fcmp_pp/verify.h"
+#include "unit_tests_utils.h"
 
-namespace unit_test
+#include <iosfwd>
+
+template<std::size_t n_inputs>
+class test_fcmp_pp_verify
 {
-  extern boost::filesystem::path data_dir;
+public:
+    static constexpr size_t loop_count =
+        n_inputs < 2 ? 1000 :
+        n_inputs < 16 ? 100 :
+        /*n_inputs >= 16*/ 8;
 
-  class call_counter
-  {
-  public:
-    call_counter()
-      : m_counter(0)
+    bool init()
     {
+        return unit_test::read_fcmp_pp_verify_input_from_file(
+                n_inputs,
+                signable_tx_hash,
+                fcmp_pp_proof,
+                n_layers,
+                tree_root,
+                pseudo_outs,
+                key_images
+            );
     }
 
-    void inc() volatile
+    bool test()
     {
-      // memory_order_relaxed is enough for call counter
-      m_counter.fetch_add(1, std::memory_order_relaxed);
+        return fcmp_pp::verify(
+                signable_tx_hash,
+                fcmp_pp_proof,
+                n_layers,
+                tree_root,
+                pseudo_outs,
+                key_images
+            );
     }
 
-    size_t get() volatile const
-    {
-      return m_counter.load(std::memory_order_relaxed);
-    }
-
-    void reset() volatile
-    {
-      m_counter.store(0, std::memory_order_relaxed);
-    }
-
-  private:
-    std::atomic<size_t> m_counter;
-  };
-
-  bool write_fcmp_pp_verify_input_to_file(
-    const std::size_t n_inputs,
-    const crypto::hash &signable_tx_hash,
-    const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
-    const uint8_t n_layers,
-    const crypto::ec_point &tree_root_bytes,
-    const std::vector<crypto::ec_point> &pseudo_outs,
-    const std::vector<crypto::key_image> &key_images);
-
-  bool read_fcmp_pp_verify_input_from_file(
-    const std::size_t n_inputs,
-    crypto::hash &signable_tx_hash,
-    fcmp_pp::FcmpPpProof &fcmp_pp_proof,
-    uint8_t &n_layers,
-    fcmp_pp::TreeRootShared &tree_root,
-    std::vector<crypto::ec_point> &pseudo_outs,
-    std::vector<crypto::key_image> &key_images);
-}
-
-# define ASSERT_EQ_MAP(val, map, key) \
-  do { \
-    auto found = map.find(key); \
-    ASSERT_TRUE(found != map.end()); \
-    ASSERT_EQ(val, found->second); \
-  } while (false)
+private:
+    crypto::hash signable_tx_hash;
+    std::vector<uint8_t> fcmp_pp_proof;
+    uint8_t n_layers;
+    fcmp_pp::TreeRootShared tree_root;
+    std::vector<crypto::ec_point> pseudo_outs;
+    std::vector<crypto::key_image> key_images;
+};

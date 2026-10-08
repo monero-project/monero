@@ -286,10 +286,6 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool get_transaction_unprunable_summary(const blobdata_ref tx_blob, unprunable_summary_t &summary_out)
   {
-    //! @TODO: update for FCMP++:
-    //!    * Allow rct::RctTypeFcmpPlusPlus
-    //!    * Set output length for txout_to_carrot_v1
-
     const unsigned char *p = reinterpret_cast<const unsigned char*>(tx_blob.data());
     const unsigned char *end = reinterpret_cast<const unsigned char*>(tx_blob.data() + tx_blob.size());
 
@@ -345,11 +341,21 @@ namespace cryptonote
       std::ptrdiff_t output_length = 0;
       switch (output_tag)
       {
+      case 0x01: //txout_to_carrot_v1
+        // TODO: the rest of Carrot
+        static constexpr std::size_t CARROT_OUT_V1_LEN = 32;
+        output_length = CARROT_OUT_V1_LEN;
+        static_assert(sizeof(cryptonote::txout_to_carrot_v1) == CARROT_OUT_V1_LEN, "Unexpected sizeof txout_to_carrot_v1");
+        break;
       case 0x02: //txout_to_key
-        output_length = 32;
+        static constexpr std::size_t TXOUT_TO_KEY_LEN = 32;
+        output_length = TXOUT_TO_KEY_LEN;
+        static_assert(sizeof(cryptonote::txout_to_key) == TXOUT_TO_KEY_LEN, "Unexpected sizeof txout_to_key");
         break;
       case 0x03: //txout_to_tagged_key
-        output_length = 32 + 1;
+        static constexpr std::size_t TXOUT_TO_TAGGED_KEY_LEN = 32+1;
+        output_length = TXOUT_TO_TAGGED_KEY_LEN;
+        static_assert(sizeof(cryptonote::txout_to_tagged_key) == TXOUT_TO_TAGGED_KEY_LEN, "Unexpected sizeof txout_to_tagged_key");
         break;
       default:
         return false;
@@ -371,7 +377,7 @@ namespace cryptonote
       // read RingCT type
       std::uint8_t rct_type = std::numeric_limits<std::uint8_t>::max();
       READ_BYTE(rct_type);
-      if (rct_type > rct::RCTTypeBulletproofPlus)
+      if (rct_type > rct::RCTTypeFcmpPlusPlus)
         return false;
 
       // skip unprunable RingCT fields
@@ -387,8 +393,7 @@ namespace cryptonote
         }
 
         // skip ECDH info and amount commitments
-        const bool short_amount = rct_type >= rct::RCTTypeBulletproof2;
-        const std::ptrdiff_t ecdh_tuple_len = short_amount ? 8 : 64;
+        const std::ptrdiff_t ecdh_tuple_len = rct::is_rct_short_amount(rct_type) ? 8 : 64;
         const std::ptrdiff_t output_stuff_len = summary_out.n_outputs * (ecdh_tuple_len + 32);
         SKIP(output_stuff_len);
       }
@@ -1052,10 +1057,13 @@ namespace cryptonote
   {
     // before HF_VERSION_VIEW_TAGS, outputs with public keys are of type txout_to_key
     // after HF_VERSION_VIEW_TAGS, outputs with public keys are of type txout_to_tagged_key
+    // after HF_VERSION_FCMP_PLUS_PLUS, outputs with public keys are of type txout_to_carrot_v1
     if (out.target.type() == typeid(txout_to_key))
       output_public_key = boost::get< txout_to_key >(out.target).key;
     else if (out.target.type() == typeid(txout_to_tagged_key))
       output_public_key = boost::get< txout_to_tagged_key >(out.target).key;
+    else if (out.target.type() == typeid(txout_to_carrot_v1))
+      output_public_key = boost::get< txout_to_carrot_v1 >(out.target).key;
     else
     {
       LOG_ERROR("Unexpected output target type found: " << out.target.type().name());
@@ -1070,6 +1078,33 @@ namespace cryptonote
     return out.target.type() == typeid(txout_to_tagged_key)
       ? boost::optional<crypto::view_tag>(boost::get< txout_to_tagged_key >(out.target).view_tag)
       : boost::optional<crypto::view_tag>();
+  }
+  //---------------------------------------------------------------
+  bool commitment_is_in_rct_signatures(const transaction_prefix& tx)
+  {
+    return tx.version >= 2 && !tx.is_coinbase();
+  }
+  //---------------------------------------------------------------
+  bool get_commitment(const transaction& tx, const std::size_t o_idx, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, rct::key &c_out)
+  {
+    static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with 2 tx versions in mind. "
+      "Revisit this section and update for the new tx version.");
+    CHECK_AND_ASSERT_THROW_MES(tx.version == 1 || tx.version == 2, "encountered unexpected tx version");
+
+    if (commitment_is_in_rct_signatures(tx))
+    {
+      CHECK_AND_ASSERT_MES(tx.rct_signatures.outPk.size() > o_idx, false, "get_commitment: o_idx must be < tx.rct_signatures.outPk.size()");
+      c_out = tx.rct_signatures.outPk.at(o_idx).mask;
+      return true;
+    }
+
+    // tx version 1 OR miner tx
+    // return the pre-calculated transparent amount commitment
+    CHECK_AND_ASSERT_MES(tx.vout.size() > o_idx, false, "get_commitment: o_idx must be < tx.vout.size()");
+    const auto it = transparent_amount_commitments.find(tx.vout.at(o_idx).amount);
+    CHECK_AND_ASSERT_MES(it != transparent_amount_commitments.end(), false, "get_commitment: transparent amount commitment missing");
+    c_out = it->second;
+    return true;
   }
   //---------------------------------------------------------------
   //---------------------------------------------------------------
@@ -1093,33 +1128,47 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool check_output_types(const transaction& tx, const uint8_t hf_version)
   {
+    if (tx.vout.empty())
+      return true;
+
+    // require all outputs in a tx be of the same type
+    const std::type_info &o_type = tx.vout.at(0).target.type();
     for (const auto &o: tx.vout)
     {
-      if (hf_version > HF_VERSION_VIEW_TAGS)
-      {
-        // from v15, require outputs have view tags
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_tagged_key), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
-      }
-      else if (hf_version < HF_VERSION_VIEW_TAGS)
-      {
-        // require outputs to be of type txout_to_key
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_key), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_key in transaction id=" << get_transaction_hash(tx));
-      }
-      else  //(hf_version == HF_VERSION_VIEW_TAGS)
-      {
-        // require outputs be of type txout_to_key OR txout_to_tagged_key
-        // to allow grace period before requiring all to be txout_to_tagged_key
-        CHECK_AND_ASSERT_MES(o.target.type() == typeid(txout_to_key) || o.target.type() == typeid(txout_to_tagged_key), false, "wrong variant type: "
-          << o.target.type().name() << ", expected txout_to_key or txout_to_tagged_key in transaction id=" << get_transaction_hash(tx));
-
-        // require all outputs in a tx be of the same type
-        CHECK_AND_ASSERT_MES(o.target.type() == tx.vout[0].target.type(), false, "non-matching variant types: "
-          << o.target.type().name() << " and " << tx.vout[0].target.type().name() << ", "
-          << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
-      }
+      const std::type_info &cur_type = o.target.type();
+      CHECK_AND_ASSERT_MES(cur_type == o_type, false, "non-matching variant types: "
+        << o_type.name() << " and " << cur_type.name() << ", "
+        << "expected matching variant types in transaction id=" << get_transaction_hash(tx));
     }
+
+    const bool is_coinbase = tx.is_coinbase();
+
+    bool is_correct_output_type = false;
+    if (hf_version < HF_VERSION_VIEW_TAGS)
+      is_correct_output_type = o_type == typeid(txout_to_key);
+    else if (hf_version == HF_VERSION_VIEW_TAGS)
+      is_correct_output_type = (o_type == typeid(txout_to_key) || o_type == typeid(txout_to_tagged_key));
+    else if (hf_version < HF_VERSION_CARROT)
+      is_correct_output_type = o_type == typeid(txout_to_tagged_key);
+    else if (hf_version == HF_VERSION_CARROT)
+      is_correct_output_type = (o_type == typeid(txout_to_tagged_key) && !is_coinbase)
+        || (o_type == typeid(txout_to_carrot_v1));
+    else // (hf_version > HF_VERSION_CARROT)
+      is_correct_output_type = o_type == typeid(txout_to_carrot_v1);
+
+    CHECK_AND_ASSERT_MES(is_correct_output_type, false,
+      "wrong " << (is_coinbase ? "" : "non-") << "coinbase transaction output type '" << o_type.name()
+      << "' for fork v" << static_cast<int>(hf_version) << " in transaction id=" << get_transaction_hash(tx));
+
+    // during v17, require non-coinbase carrot txs use FCMP++ and legacy use BP+
+    if (hf_version == HF_VERSION_CARROT && !is_coinbase)
+    {
+      CHECK_AND_ASSERT_MES(
+        (o_type == typeid(txout_to_carrot_v1) && tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus) ||
+        (o_type == typeid(txout_to_tagged_key) && tx.rct_signatures.type == rct::RCTTypeBulletproofPlus),
+        false, "mismatched output type to tx proof type in transaction id=" << get_transaction_hash(tx));
+    }
+
     return true;
   }
   //---------------------------------------------------------------
@@ -1432,7 +1481,7 @@ namespace cryptonote
       binary_archive<true> ba(ss);
       const size_t inputs = t.vin.size();
       const size_t outputs = t.vout.size();
-      const size_t mixin = t.vin.empty() ? 0 : t.vin[0].type() == typeid(txin_to_key) ? boost::get<txin_to_key>(t.vin[0]).key_offsets.size() - 1 : 0;
+      const size_t mixin = t.n_mixin();
       bool r = tt.rct_signatures.p.serialize_rctsig_prunable(ba, t.rct_signatures.type, inputs, outputs, mixin);
       CHECK_AND_ASSERT_MES(r, false, "Failed to serialize rct signatures prunable");
       cryptonote::get_blob_hash(ss.str(), res);
@@ -1827,5 +1876,189 @@ namespace cryptonote
     crypto::cn_slow_hash(passphrase.data(), passphrase.size(), hash);
     sc_sub((unsigned char*)key.data, (const unsigned char*)key.data, (const unsigned char*)hash.data);
     return key;
+  }
+  //---------------------------------------------------------------
+  uint64_t get_default_last_locked_block_index(const uint64_t block_included_in_chain)
+  {
+    static_assert(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > 0, "unexpected default spendable age");
+    return block_included_in_chain + (CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE - 1);
+  }
+  //---------------------------------------------------------------
+  // TODO: write tests for this func that match with current daemon logic
+  uint64_t get_last_locked_block_index(uint64_t unlock_time, uint64_t block_included_in_chain)
+  {
+    uint64_t last_locked_block_index = 0;
+
+    const uint64_t default_block_index = get_default_last_locked_block_index(block_included_in_chain);
+
+    if (unlock_time == 0)
+    {
+      last_locked_block_index = default_block_index;
+    }
+    else if (unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
+    {
+      // The unlock_time in this case is supposed to be the chain height at which the output unlocks
+      // The chain height is 1 higher than the highest block index, so we subtract 1 for this delta
+      last_locked_block_index = unlock_time > 0 ? (unlock_time - 1) : 0;
+    }
+    else
+    {
+      // Interpret the unlock_time as time
+      // TODO: hardcode correct times for each network and take in nettype
+      const auto hf_v15_time = 1656629118;
+      const auto hf_v15_height = 2689608;
+
+      // Use the last hard fork's time and block combo to convert the time-based timelock into an last locked block
+      // TODO: consider taking into account 60s block times when that was consensus
+      if (hf_v15_time > unlock_time)
+      {
+        const auto seconds_since_unlock = hf_v15_time - unlock_time;
+        const auto blocks_since_unlock = seconds_since_unlock / DIFFICULTY_TARGET_V2;
+
+        last_locked_block_index = hf_v15_height > blocks_since_unlock
+          ? (hf_v15_height - blocks_since_unlock)
+          : default_block_index;
+      }
+      else
+      {
+        const auto seconds_until_unlock = unlock_time - hf_v15_time;
+        const auto blocks_until_unlock = seconds_until_unlock / DIFFICULTY_TARGET_V2;
+        last_locked_block_index = hf_v15_height + blocks_until_unlock;
+      }
+
+      /* Note: since this function was introduced for the hf that included fcmp's, it's possible for an output to be
+          spent before it reaches the last_locked_block_index going by the old rules; this is ok. It can't be spent again b/c
+          it'll have a duplicate key image. It's also possible for an output to unlock by old rules, and then re-lock
+          again at the fork. This is also ok, we just need to be sure that the new hf rules use this last_locked_block_index
+          starting at the fork for fcmp's.
+      */
+
+      // TODO: double check the accuracy of this calculation
+      MDEBUG("unlock time: " << unlock_time << " , last_locked_block_index: " << last_locked_block_index);
+    }
+
+    // Can't unlock earlier than the default last locked block
+    return std::max(last_locked_block_index, default_block_index);
+  }
+  //---------------------------------------------------------------
+  bool is_custom_timelocked(bool is_coinbase, uint64_t last_locked_block_idx, uint64_t block_included_in_chain)
+  {
+    if (is_coinbase)
+      return false;
+
+    return last_locked_block_idx > cryptonote::get_default_last_locked_block_index(block_included_in_chain);
+  }
+  //---------------------------------------------------------------
+  // Helper function to group outputs by last locked block idx
+  static uint64_t set_tx_outs_by_last_locked_block(const cryptonote::transaction &tx,
+    const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
+    const uint64_t &first_unified_id,
+    const uint64_t block_idx,
+    fcmp_pp::OutsByLastLockedBlock &outs_by_last_locked_block_inout,
+    std::unordered_map<uint64_t/*unified_id*/, uint64_t/*last locked block_id*/> &timelocked_outputs_inout)
+  {
+    const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(tx.unlock_time, block_idx);
+    const bool has_custom_timelock = cryptonote::is_custom_timelocked(tx.is_coinbase(),
+      last_locked_block,
+      block_idx);
+
+    for (std::size_t i = 0; i < tx.vout.size(); ++i)
+    {
+      const uint64_t unified_id = first_unified_id + i;
+      const auto &out = tx.vout[i];
+
+      rct::key commitment;
+      CHECK_AND_ASSERT_THROW_MES(cryptonote::get_commitment(tx, i, transparent_amount_commitments, commitment),
+          "failed to get tx commitment");
+
+      const fcmp_pp::UnifiedOutput unified_output{
+              .unified_id  = unified_id,
+              .output_pair = cryptonote::to_output_pair(out.target, commitment)
+          };
+
+      if (has_custom_timelock)
+      {
+          timelocked_outputs_inout[unified_id] = last_locked_block;
+      }
+
+      outs_by_last_locked_block_inout[last_locked_block].emplace_back(unified_output);
+    }
+
+    return tx.vout.size();
+  }
+  //---------------------------------------------------------------
+  static OutsByLastLockedBlockMeta get_outs_by_last_locked_block(
+    const std::vector<std::reference_wrapper<const cryptonote::transaction>> &txs,
+    const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
+    const uint64_t first_unified_id,
+    const uint64_t block_idx)
+  {
+    OutsByLastLockedBlockMeta outs;
+    outs.next_unified_id = first_unified_id;
+
+    for (const auto &tx : txs)
+    {
+      outs.next_unified_id += set_tx_outs_by_last_locked_block(
+        tx.get(),
+        transparent_amount_commitments,
+        outs.next_unified_id,
+        block_idx,
+        outs.outs_by_last_locked_block,
+        outs.timelocked_outputs);
+    }
+
+    return outs;
+  }
+  //---------------------------------------------------------------
+  OutsByLastLockedBlockMeta get_outs_by_last_locked_block(
+    const cryptonote::transaction &miner_tx,
+    const std::vector<cryptonote::transaction> &txs,
+    const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
+    const uint64_t first_unified_id,
+    const uint64_t block_idx)
+  {
+    std::vector<std::reference_wrapper<const transaction>> tx_refs;
+    tx_refs.reserve(1 + txs.size());
+    tx_refs.push_back(std::cref(miner_tx));
+    for (const auto &tx : txs)
+      tx_refs.push_back(std::cref(tx));
+    return get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_unified_id, block_idx);
+  }
+
+  OutsByLastLockedBlockMeta get_outs_by_last_locked_block(
+    const cryptonote::transaction &miner_tx,
+    const std::vector<std::pair<transaction, blobdata>> &tx_pairs,
+    const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
+    const uint64_t first_unified_id,
+    const uint64_t block_idx)
+  {
+    std::vector<std::reference_wrapper<const transaction>> tx_refs;
+    tx_refs.reserve(1 + tx_pairs.size());
+    tx_refs.push_back(std::cref(miner_tx));
+    for (const auto &tx : tx_pairs)
+      tx_refs.push_back(std::cref(tx.first));
+    return get_outs_by_last_locked_block(tx_refs, transparent_amount_commitments, first_unified_id, block_idx);
+  }
+  //---------------------------------------------------------------
+  fcmp_pp::OutputPair to_output_pair(const cryptonote::txout_target_v &tx_out, const rct::key &commitment)
+  {
+    struct tx_out_visitor
+    {
+        const crypto::public_key &O;
+        const crypto::ec_point &C;
+
+        fcmp_pp::OutputPair operator()(const cryptonote::txout_to_carrot_v1&) const
+        { return fcmp_pp::CarrotOutputPairV1{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const cryptonote::txout_to_tagged_key&) const
+        { return fcmp_pp::LegacyOutputPair{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const cryptonote::txout_to_key&) const
+        { return fcmp_pp::LegacyOutputPair{{O, C}}; }
+        fcmp_pp::OutputPair operator()(const cryptonote::txout_to_script&) const
+        { throw std::logic_error("cannot convert txout to script into an output pair"); }
+    };
+
+    const crypto::public_key &O = cryptonote::output_pubkey_cref(tx_out);
+    const crypto::ec_point &C = rct::rct2pt(commitment);
+    return boost::apply_visitor(tx_out_visitor{O, C}, tx_out);
   }
 }
