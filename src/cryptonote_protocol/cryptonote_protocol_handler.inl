@@ -2051,6 +2051,47 @@ skip:
     });
     m_block_queue.flush_stale_spans(live_connections);
 
+    enum class span_match { matches, missing_history, different_chain };
+    const auto match_span = [&context](uint64_t start_height, const std::vector<crypto::hash>& hashes) {
+      // Object validation also needs the predecessor of the first requested block.
+      if (start_height == 0 || hashes.empty() || !context.get_expected_hash(start_height - 1)
+          || !context.get_expected_hash(start_height + hashes.size() - 1))
+        return span_match::missing_history;
+      for (size_t i = 0; i < hashes.size(); ++i)
+        if (context.get_expected_hash(start_height + i) != hashes[i])
+          return span_match::different_chain;
+      return span_match::matches;
+    };
+
+    const auto request_chain = [this, &context](bool refresh) {
+      if (refresh)
+      {
+        // Refresh history from the committed chain.
+        context.m_needed_objects.clear();
+        context.m_last_known_hash = crypto::null_hash;
+      }
+
+      NOTIFY_REQUEST_CHAIN::request r = {};
+      m_core.get_short_chain_history(r.block_ids, context.m_expect_height);
+      CHECK_AND_ASSERT_MES(!r.block_ids.empty(), false, "Short chain history is empty");
+
+      // Continue from this peer's last known block, which may still be queued.
+      if (context.m_last_known_hash != crypto::null_hash && r.block_ids.front() != context.m_last_known_hash)
+      {
+        context.m_expect_height = std::numeric_limits<uint64_t>::max();
+        r.block_ids.push_front(context.m_last_known_hash);
+      }
+
+      handler_request_blocks_history(r.block_ids);
+      r.prune = m_sync_pruned_blocks;
+      context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+      context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
+      MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size());
+      post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
+      MLOG_PEER_STATE("requesting chain");
+      return true;
+    };
+
     // if we don't need to get next span, and the block queue is full enough, wait a bit
     if (!force_next_span)
     {
@@ -2219,6 +2260,27 @@ skip:
           span = m_block_queue.get_next_span_if_scheduled(hashes, span_connection_id, time);
           if (span.second > 0)
           {
+            const auto match = match_span(span.first, hashes);
+            if (match == span_match::missing_history)
+            {
+              if (context.m_remote_blockchain_height < span.first + span.second
+                  || (!m_sync_pruned_blocks && tools::get_next_pruned_block_height(span.first,
+                      context.m_remote_blockchain_height, context.m_pruning_seed) < span.first + span.second))
+              {
+                MDEBUG(context << "Peer cannot serve the full span " << span.first << " - "
+                    << (span.first + span.second - 1) << ", going to standby");
+                context.m_state = cryptonote_connection_context::state_standby;
+                return true;
+              }
+              MDEBUG(context << "Missing peer history for span " << span.first << " - " << (span.first + span.second - 1) << ", refreshing chain");
+              return request_chain(true);
+            }
+            if (match == span_match::different_chain)
+            {
+              MDEBUG(context << "Span " << span.first << " - " << (span.first + span.second - 1) << " does not match peer history, going to standby");
+              context.m_state = cryptonote_connection_context::state_standby;
+              return true;
+            }
             is_next = true;
             req.blocks.reserve(hashes.size());
             for (const auto &hash: hashes)
@@ -2280,6 +2342,27 @@ skip:
           span = std::make_pair(0, 0);
         if (span.second > 0)
         {
+          const auto match = match_span(span.first, hashes);
+          if (match == span_match::missing_history)
+          {
+            if (context.m_remote_blockchain_height < span.first + span.second
+                || (!m_sync_pruned_blocks && tools::get_next_pruned_block_height(span.first,
+                    context.m_remote_blockchain_height, context.m_pruning_seed) < span.first + span.second))
+            {
+              MDEBUG(context << "Peer cannot serve the full span " << span.first << " - "
+                  << (span.first + span.second - 1) << ", going to standby");
+              context.m_state = cryptonote_connection_context::state_standby;
+              return true;
+            }
+            MDEBUG(context << "Missing peer history for span " << span.first << " - " << (span.first + span.second - 1) << ", refreshing chain");
+            return request_chain(true);
+          }
+          if (match == span_match::different_chain)
+          {
+            MDEBUG(context << "Span " << span.first << " - " << (span.first + span.second - 1) << " does not match peer history, going to standby");
+            context.m_state = cryptonote_connection_context::state_standby;
+            return true;
+          }
           is_next = true;
           req.blocks.reserve(hashes.size());
           for (const auto &hash: hashes)
@@ -2396,34 +2479,9 @@ skip:
       }
     }
 
-    if(context.m_last_response_height < context.m_remote_blockchain_height-1)
-    {//we have to fetch more objects ids, request blockchain entry
-
-      NOTIFY_REQUEST_CHAIN::request r = {};
-      m_core.get_short_chain_history(r.block_ids, context.m_expect_height);
-      CHECK_AND_ASSERT_MES(!r.block_ids.empty(), false, "Short chain history is empty");
-
-      // we'll want to start off from where we are on that peer, which may not be added yet
-      if (context.m_last_known_hash != crypto::null_hash && r.block_ids.front() != context.m_last_known_hash)
-      {
-        context.m_expect_height = std::numeric_limits<uint64_t>::max();
-        r.block_ids.push_front(context.m_last_known_hash);
-      }
-
-      handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
-      r.prune = m_sync_pruned_blocks;
-
-      //std::string blob; // for calculate size of request
-      //epee::serialization::store_t_to_binary(r, blob);
-      //epee::net_utils::network_throttle_manager::get_global_throttle_inreq().logger_handle_net("log/dr-monero/net/req-all.data", sec, get_avg_block_size());
-      //LOG_PRINT_CCONTEXT_L1("r = " << 200);
-
-      context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
-      context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
-      MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size());
-      post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
-      MLOG_PEER_STATE("requesting chain");
-    }else
+    if (context.m_last_response_height < context.m_remote_blockchain_height-1)
+      return request_chain(false);
+    else
     {
       CHECK_AND_ASSERT_MES(context.m_last_response_height == context.m_remote_blockchain_height-1
                            && !context.m_needed_objects.size()
