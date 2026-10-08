@@ -358,9 +358,19 @@ namespace net_utils
           return false;
         }
 
+				const size_t old_size = m_header_cache.size();
 				m_header_cache += recv_buff;
 				recv_buff.clear();
-				std::string::size_type pos = m_header_cache.find("\r\n\r\n");
+				const std::string::size_type pos = m_header_cache.find("\r\n\r\n", old_size > 3 ? old_size - 3 : 0);
+				constexpr size_t max_header_len = 100000;
+				const size_t header_len = pos == std::string::npos ? m_header_cache.size() : pos + 4;
+				if (header_len > max_header_len)
+				{
+					LOG_ERROR("HTTP response header exceeds " << max_header_len << " bytes");
+					m_state = reciev_machine_state_error;
+					disconnect();
+					return false;
+				}
 				if(pos != std::string::npos)
 				{
 					recv_buff.assign(m_header_cache.begin()+pos+4, m_header_cache.end());
