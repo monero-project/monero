@@ -555,8 +555,15 @@ quitting:
   core.get_blockchain_storage().get_db().show_stats();
   MINFO("Number of blocks imported: " << num_imported);
   if (h > 0)
-    // TODO: if there was an error, the last added block is probably at zero-based height h-2
-    MINFO("Finished at block: " << h-1 << "  total blocks: " << h);
+  {
+    // h is incremented before the block is added, so if there was an error
+    // the block at zero-based height h-1 was not added and the last added
+    // block is probably at zero-based height h-2
+    if (quit > 1 && h >= 2)
+      MINFO("Finished at block: " << h-2 << "  total blocks: " << h-1);
+    else
+      MINFO("Finished at block: " << h-1 << "  total blocks: " << h);
+  }
 
   std::cout << ENDL;
   return 0;
