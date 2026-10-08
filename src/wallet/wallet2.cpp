@@ -14471,7 +14471,7 @@ std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_det
   {
     const transfer_details &td = m_transfers[n];
 
-    exported_transfer_details etd;
+    exported_transfer_details etd{};
     etd.m_pubkey = td.get_public_key();
     etd.m_tx_pubkey = get_tx_pub_key_from_extra(td.m_tx, td.m_pk_index);
     etd.m_internal_output_index = td.m_internal_output_index;
@@ -14483,10 +14483,50 @@ std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_det
     etd.m_flags.m_key_image_known = td.m_key_image_known;
     etd.m_flags.m_key_image_request = td.m_key_image_request;
     etd.m_flags.m_key_image_partial = td.m_key_image_partial;
+    etd.m_flags.m_coinbase = td.m_tx.is_coinbase();
     etd.m_amount = td.m_amount;
     etd.m_additional_tx_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
     etd.m_subaddr_index_major = td.m_subaddr_index.major;
     etd.m_subaddr_index_minor = td.m_subaddr_index.minor;
+
+    // Determine whether to export long ECDH mask
+    if (etd.m_flags.m_rct && !etd.m_flags.m_coinbase)
+    {
+      hw::device &hwdev = m_account.get_device();
+
+      crypto::key_derivation main_deriv;
+      std::vector<crypto::key_derivation> additional_derivs;
+      hwdev.set_mode(hw::device::TRANSACTION_PARSE);
+      if (!hwdev.generate_key_derivation(etd.m_tx_pubkey, m_account.get_keys().m_view_secret_key, main_deriv))
+      {
+        static_assert(sizeof(main_deriv) == sizeof(rct::key), "Mismatched sizes of key_derivation and rct::key");
+        memcpy(&main_deriv, rct::identity().bytes, sizeof(main_deriv));
+      }
+      for (size_t i = 0; i < etd.m_additional_tx_keys.size(); ++i)
+      {
+        additional_derivs.push_back({});
+        if (!hwdev.generate_key_derivation(etd.m_additional_tx_keys.at(i), m_account.get_keys().m_view_secret_key, additional_derivs.back()))
+        {
+          memcpy(&additional_derivs.back(), rct::identity().bytes, sizeof(crypto::key_derivation));
+        }
+      }
+
+      const auto recv_info = cryptonote::is_out_to_acc_precomp(m_subaddresses, etd.m_pubkey,
+        main_deriv, additional_derivs, etd.m_internal_output_index, hwdev, boost::none);
+      if (recv_info)
+      {
+        crypto::secret_key derivation_scalar;
+        if (hwdev.derivation_to_scalar(recv_info->derivation, etd.m_internal_output_index, derivation_scalar))
+        {
+          const rct::key short_ecdh_mask = hwdev.genCommitmentMask(rct::sk2rct(derivation_scalar));
+          if (short_ecdh_mask != td.m_mask)
+          {
+            etd.m_flags.m_long_ecdh = true;
+            etd.m_long_ecdh_mask = td.m_mask;
+          }
+        }
+      }
+    }
 
     outs.push_back(etd);
   }
@@ -14676,6 +14716,16 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
     add_tx_pub_key_to_extra(td.m_tx, etd.m_tx_pubkey);
     if (!etd.m_additional_tx_keys.empty())
       add_additional_tx_pub_keys_to_extra(td.m_tx.extra, etd.m_additional_tx_keys);
+
+    // save whether output is coinbase by populating vin
+    if (etd.m_flags.m_coinbase)
+      td.m_tx.vin.emplace_back(cryptonote::txin_gen{});
+    THROW_WALLET_EXCEPTION_IF(td.m_tx.is_coinbase() != etd.m_flags.m_coinbase,
+      error::wallet_internal_error, "Failed to save coinbase flag");
+
+    // save long ECDH mask if applicable
+    if (etd.m_flags.m_long_ecdh)
+      td.m_mask = etd.m_long_ecdh_mask;
 
     // the hot wallet wouldn't have known about key images (except if we already exported them)
     cryptonote::keypair in_ephemeral;
