@@ -93,6 +93,9 @@ public:
 class dummy_client
 {
 public:
+  static constexpr size_t recv_size = 16384;
+  static size_t recv_calls;
+
   bool connect(const std::string&, int, std::chrono::milliseconds, bool = false, const std::string& = "0.0.0.0") { return true; }
   bool connect(const std::string&, const std::string&, std::chrono::milliseconds, bool = false, const std::string& = "0.0.0.0") { return true; }
   bool disconnect() { return true; }
@@ -101,8 +104,9 @@ public:
   bool send(const void*, size_t) { return true; }
   bool recv(std::string& buff, std::chrono::milliseconds)
   {
-    buff = data;
-    data.clear();
+    ++recv_calls;
+    buff.assign(data, 0, recv_size);
+    data.erase(0, buff.size());
     return true;
   }
   void set_ssl(epee::net_utils::ssl_options_t) { }
@@ -110,11 +114,13 @@ public:
   uint64_t get_bytes_sent() const { return 1; }
   uint64_t get_bytes_received() const { return 1; }
 
-  void set_test_data(const std::string& s) { data = s; }
+  void set_test_data(const std::string& s) { data = s; recv_calls = 0; }
 
 private:
   std::string data;
 };
+
+size_t dummy_client::recv_calls = 0;
 
 class test_http_client final : public http::http_simple_client_template<dummy_client>
 {
@@ -123,10 +129,18 @@ public:
   {
     ++headers_seen;
     last_headers = headers;
+    body_seen.clear();
     return true;
   }
 
+  bool handle_target_data(std::string& piece) override
+  {
+    body_seen += piece;
+    return http::http_simple_client_template<dummy_client>::handle_target_data(piece);
+  }
+
   http::http_response_info last_headers;
+  std::string body_seen;
   unsigned headers_seen = 0;
 };
 
@@ -1562,6 +1576,47 @@ TEST(HTTP, Client_Rejects_Malformed_Response_Header)
 
   EXPECT_FALSE(result);
   EXPECT_EQ(0u, client.headers_seen);
+}
+
+TEST(HTTP, Client_Rejects_Oversized_Chunk_Header)
+{
+  const std::string header = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n";
+  const std::string oversized(100001, '0');
+
+  test_http_client incomplete;
+  const std::string incomplete_response = header + oversized + std::string(100000, 'a');
+  EXPECT_FALSE(incomplete.test(incomplete_response, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(7u, dummy_client::recv_calls);
+  EXPECT_TRUE(incomplete.test(header + "1\r\na\r\n0\r\n\r\n", std::chrono::milliseconds(1000)));
+
+  test_http_client terminal;
+  const std::string terminal_response = header + "0\r\n" + std::string(100001, '\r') + std::string(100000, 'a');
+  EXPECT_FALSE(terminal.test(terminal_response, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(7u, dummy_client::recv_calls);
+
+  test_http_client separators;
+  const std::string separators_response = header + "1\r\na" + std::string(100001, '\r') + std::string(100000, 'a');
+  EXPECT_FALSE(separators.test(separators_response, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(7u, dummy_client::recv_calls);
+
+  test_http_client valid;
+  EXPECT_TRUE(valid.test(header + "1\r\na\r\n0\r\n\r\n", std::chrono::milliseconds(1000)));
+
+  test_http_client large_body;
+  EXPECT_TRUE(large_body.test(header + "186a1\r\n" + std::string(100001, 'a') + "\r\n0\r\n\r\n",
+    std::chrono::milliseconds(1000)));
+}
+
+TEST(HTTP, Client_Drops_Chunked_Trailing_Bytes)
+{
+  const std::string header = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n";
+  test_http_client client;
+
+  ASSERT_TRUE(client.test(header + "1\r\na\r\n0\r\n\r\n1\r\nx\r\n0\r\n\r\n", std::chrono::milliseconds(1000)));
+  EXPECT_EQ("a", client.body_seen);
+  client.set_server("daemon-b", "18081", boost::none);
+  ASSERT_TRUE(client.test(header + "1\r\nb\r\n0\r\n\r\n", std::chrono::milliseconds(1000)));
+  EXPECT_EQ("b", client.body_seen);
 }
 
 TEST(HTTP, Add_Field)

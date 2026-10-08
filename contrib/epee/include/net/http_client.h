@@ -93,6 +93,7 @@ namespace net_utils
 			reciev_machine_state m_state;
 			chunked_state m_chunked_state;
 			std::string m_chunked_cache;
+			static constexpr size_t max_chunk_metadata_len = 100000;
 			bool m_auto_connect;
 			critical_section m_lock;
 
@@ -332,6 +333,7 @@ namespace net_utils
 
 				}
 				m_header_cache.clear();
+				m_chunked_cache.clear();
 				if(m_state != reciev_machine_state_error)
 				{
 					if(m_response_info.m_header_info.m_connection.size() && !string_tools::compare_no_case("close", m_response_info.m_header_info.m_connection))
@@ -456,6 +458,8 @@ namespace net_utils
 				size_t offset = 0;
 				for(std::string::iterator it = buff.begin(); it!= buff.end(); it++, offset++)
 				{
+					if(static_cast<size_t>(it - buff.begin()) >= max_chunk_metadata_len)
+						return false;
 					if(!is_hex_symbol(*it))
 					{
 						if(*it == '\r' || *it == ' ' )
@@ -477,6 +481,8 @@ namespace net_utils
 
 								for(it++;it != buff.end(); it++)
 								{
+									if(static_cast<size_t>(it - buff.begin()) >= max_chunk_metadata_len)
+										return false;
 									if('\r' == *it)
 										continue;
 									else if('\n' == *it)
@@ -532,17 +538,30 @@ namespace net_utils
 					case http_chunked_state_chunk_head:
 						if(m_chunked_cache[0] == '\n' || m_chunked_cache[0] == '\r')
 						{
-							//optimize a bit
-							if(m_chunked_cache[0] == '\r' && m_chunked_cache.size()>1 && m_chunked_cache[1] == '\n')
-								m_chunked_cache.erase(0, 2);
-							else
-								m_chunked_cache.erase(0, 1);
+							const size_t prefix_len = m_chunked_cache.find_first_not_of("\r\n");
+							if(prefix_len == std::string::npos)
+							{
+								if(m_chunked_cache.size() < max_chunk_metadata_len)
+								{
+									need_more_data = true;
+									return true;
+								}
+							}
+							if(prefix_len == std::string::npos || prefix_len >= max_chunk_metadata_len)
+							{
+								LOG_ERROR("http_stream_filter::handle_chunked(*) Chunk separator too long");
+								m_state = reciev_machine_state_error;
+								disconnect();
+								return false;
+							}
+							m_chunked_cache.erase(0, prefix_len);
 							break;
 						}
 						if(!get_chunk_head(m_chunked_cache, m_len_in_remain, is_matched))
 						{
 							LOG_ERROR("http_stream_filter::handle_chunked(*) Failed to get length from chunked head (" << m_chunked_cache.size() << " bytes)");
 							m_state = reciev_machine_state_error;
+							disconnect();
 							return false;
 						}
 
