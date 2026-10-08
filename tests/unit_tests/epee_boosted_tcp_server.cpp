@@ -138,6 +138,17 @@ TEST(boosted_tcp_server, worker_threads_are_exception_resistant)
   ASSERT_TRUE(srv.deinit_server());
 }
 
+TEST(boosted_tcp_server, bound_ports_reflect_successful_listeners)
+{
+  test_tcp_server srv(epee::net_utils::e_connection_type_RPC);
+  ASSERT_TRUE(srv.init_server(0, test_server_host, 1, "[::ffff::]", true, true,
+    epee::net_utils::ssl_support_t::e_ssl_support_disabled));
+
+  EXPECT_GT(srv.get_binded_port(), 0);
+  EXPECT_EQ(srv.get_binded_port_ipv6(), 0);
+  ASSERT_TRUE(srv.deinit_server());
+}
+
 
 TEST(test_epee_connection, test_lifetime)
 {
