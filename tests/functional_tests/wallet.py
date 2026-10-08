@@ -75,6 +75,15 @@ class WalletTest():
         # Don't check the returned legacy seed against the Polyseed, it's of course different
         wallet.close_wallet()
 
+        print('Checking explicit language for an ambiguous legacy seed')
+        seed = ' '.join(['pluma'] * 25)
+        wallet.restore_deterministic_wallet(seed = seed)
+        assert wallet.query_key('spend_key').key == '3b040000' * 8
+        wallet.close_wallet()
+        wallet.restore_deterministic_wallet(seed = seed, language = 'Spanish')
+        assert wallet.query_key('spend_key').key == 'b4050000' * 8
+        wallet.close_wallet()
+
         print('Creating legacy seed wallet')
         wallet = Wallet()
         try: wallet.close_wallet()
