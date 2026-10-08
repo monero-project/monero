@@ -108,6 +108,23 @@ uint16_t parse_public_rpc_port(const po::variables_map &vm)
   return rpc_port;
 }
 
+bf::path get_config_file_path(const po::variables_map &vm)
+{
+  const bf::path config_path(command_line::get_arg(vm, daemon_args::arg_config_file));
+  if (!command_line::is_arg_defaulted(vm, daemon_args::arg_config_file) ||
+      command_line::is_arg_defaulted(vm, cryptonote::arg_data_dir))
+    return config_path;
+
+  const bf::path data_dir_config =
+      bf::absolute(bf::path(command_line::get_arg(vm, cryptonote::arg_data_dir))) /
+      std::string(CRYPTONOTE_NAME ".conf");
+  boost::system::error_code ec;
+  if (bf::exists(data_dir_config, ec))
+    return data_dir_config;
+
+  return config_path;
+}
+
 #ifdef WIN32
 bool isFat32(const wchar_t* root_path)
 {
@@ -205,8 +222,7 @@ int main(int argc, char const * argv[])
       return 0;
     }
 
-    std::string config = command_line::get_arg(vm, daemon_args::arg_config_file);
-    boost::filesystem::path config_path(config);
+    boost::filesystem::path config_path = get_config_file_path(vm);
     boost::system::error_code ec;
     if (bf::exists(config_path, ec))
     {
@@ -236,7 +252,7 @@ int main(int argc, char const * argv[])
     }
     else if (!command_line::is_arg_defaulted(vm, daemon_args::arg_config_file))
     {
-      std::cerr << "Can't find config file " << config << std::endl;
+      std::cerr << "Can't find config file " << config_path.string() << std::endl;
       return 1;
     }
 
