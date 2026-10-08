@@ -26,6 +26,20 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+monero_add_library(unit_tests_utils
+  unit_tests_utils.cpp)
+
+target_link_libraries(unit_tests_utils
+  PUBLIC
+    fcmp_pp
+    serialization
+  PRIVATE
+    ${EXTRA_LIBRARIES})
+
+target_include_directories(unit_tests_utils
+  PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR})
+
 set(unit_tests_sources
   account.cpp
   apply_permutation.cpp
@@ -54,6 +68,7 @@ set(unit_tests_sources
   epee_serialization.cpp
   epee_utils.cpp
   expect.cpp
+  fcmp_pp.cpp
   json_serialization.cpp
   get_xtype_from_string.cpp
   hashchain.cpp
@@ -126,6 +141,7 @@ target_link_libraries(unit_tests
     rpc
     net
     serialization
+    unit_tests_utils
     wallet
     p2p
     version
