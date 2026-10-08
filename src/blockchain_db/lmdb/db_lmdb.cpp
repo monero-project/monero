@@ -61,7 +61,11 @@ using epee::string_tools::pod_to_hex;
 using namespace crypto;
 
 // Increase when the DB structure changes
+#ifdef ENABLE_FCMP_INTEGRATION
+#define VERSION 7
+#else
 #define VERSION 5
+#endif
 
 namespace
 {
@@ -875,7 +879,9 @@ void BlockchainLMDB::remove_block()
   CURSOR(block_heights)
   CURSOR(blocks)
 
-  // BlockchainDB::trim_block();
+#ifdef ENABLE_FCMP_INTEGRATION
+  BlockchainDB::trim_block();
+#endif
 
   MDB_val_copy<uint64_t> k(m_height - 1);
   MDB_val h = k;
@@ -1194,7 +1200,12 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
     throw0(DB_ERROR(lmdb_error("DB error attempting to get an output", result).c_str()));
 
   const pre_rct_outkey *ok = (const pre_rct_outkey *)v.mv_data;
-  MDB_val_set(otxk, ok->unified_id);
+
+  const uint64_t unlock_time = ok->data.unlock_time;
+  const uint64_t output_height = ok->data.height;
+  const uint64_t unified_id = ok->unified_id;
+
+  MDB_val_set(otxk, unified_id);
   result = mdb_cursor_get(m_cur_output_txs, (MDB_val *)&zerokval, &otxk, MDB_GET_BOTH);
   if (result == MDB_NOTFOUND)
   {
@@ -1213,60 +1224,62 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
   if (result)
     throw0(DB_ERROR(lmdb_error(std::string("Error deleting amount for output index ").append(boost::lexical_cast<std::string>(out_index).append(": ")).c_str(), result).c_str()));
 
-  // // Remove output from locked outputs table if present. We expect all valid
-  // // outputs to be in the locked outputs table because remove_output is called
-  // // when removing the top block from the chain, and all outputs from the top
-  // // block are expected to be locked until they are at least 10 blocks old (10
-  // // is the lower bound). An output might not be in the locked outputs table if
-  // // it is invalid, then gets removed from the locked outputs table upon growing
-  // // the tree.
-  // // TODO: test case where we add an invalid output to the chain, grow the tree
-  // // in the block in which that output unlocks, pop blocks to remove that output
-  // // from the chain, then progress the chain again.
-  // CURSOR(locked_outputs);
+#ifdef ENABLE_FCMP_INTEGRATION
+  // Remove output from locked outputs table if present. We expect all valid
+  // outputs to be in the locked outputs table because remove_output is called
+  // when removing the top block from the chain, and all outputs from the top
+  // block are expected to be locked until they are at least 10 blocks old (10
+  // is the lower bound). An output might not be in the locked outputs table if
+  // it is invalid, then gets removed from the locked outputs table upon growing
+  // the tree.
+  // TODO: test case where we add an invalid output to the chain, grow the tree
+  // in the block in which that output unlocks, pop blocks to remove that output
+  // from the chain, then progress the chain again.
+  CURSOR(locked_outputs);
 
-  // const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(ok->data.unlock_time, ok->data.height);
+  const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(unlock_time, output_height);
 
-  // MDB_val_set(k_block_id, last_locked_block);
-  // MDB_val_set(v_output, ok->unified_id);
+  MDB_val_set(k_block_id, last_locked_block);
+  MDB_val_set(v_output, unified_id);
 
-  // result = mdb_cursor_get(m_cur_locked_outputs, &k_block_id, &v_output, MDB_GET_BOTH);
-  // if (result == MDB_NOTFOUND)
-  // {
-  //   // We expect this output is invalid
-  // }
-  // else if (result)
-  // {
-  //   throw1(DB_ERROR(lmdb_error("Error adding removal of locked output to db transaction", result).c_str()));
-  // }
-  // else
-  // {
-  //   result = mdb_cursor_del(m_cur_locked_outputs, 0);
-  //   if (result)
-  //     throw0(DB_ERROR(lmdb_error(std::string("Error deleting locked output index ").append(boost::lexical_cast<std::string>(out_index).append(": ")).c_str(), result).c_str()));
-  // }
+  result = mdb_cursor_get(m_cur_locked_outputs, &k_block_id, &v_output, MDB_GET_BOTH);
+  if (result == MDB_NOTFOUND)
+  {
+    // We expect this output is invalid
+  }
+  else if (result)
+  {
+    throw1(DB_ERROR(lmdb_error("Error adding removal of locked output to db transaction", result).c_str()));
+  }
+  else
+  {
+    result = mdb_cursor_del(m_cur_locked_outputs, 0);
+    if (result)
+      throw0(DB_ERROR(lmdb_error(std::string("Error deleting locked output index ").append(boost::lexical_cast<std::string>(out_index).append(": ")).c_str(), result).c_str()));
+  }
 
-  // // Remove output from custom timelocked outputs table if present
-  // CURSOR(timelocked_outputs);
+  // Remove output from custom timelocked outputs table if present
+  CURSOR(timelocked_outputs);
 
-  // MDB_val_set(k_timelocked_block_id, last_locked_block);
-  // MDB_val_set(v_timelocked_output, ok->unified_id);
+  MDB_val_set(k_timelocked_block_id, last_locked_block);
+  MDB_val_set(v_timelocked_output, unified_id);
 
-  // result = mdb_cursor_get(m_cur_timelocked_outputs, &k_timelocked_block_id, &v_timelocked_output, MDB_GET_BOTH);
-  // if (result == MDB_NOTFOUND)
-  // {
-  //   // Output is either not timelocked or is invalid
-  // }
-  // else if (result)
-  // {
-  //   throw1(DB_ERROR(lmdb_error("Error adding removal of timelocked output to db transaction", result).c_str()));
-  // }
-  // else
-  // {
-  //   result = mdb_cursor_del(m_cur_timelocked_outputs, 0);
-  //   if (result)
-  //     throw0(DB_ERROR(lmdb_error(std::string("Error deleting timelocked output index ").append(boost::lexical_cast<std::string>(out_index).append(": ")).c_str(), result).c_str()));
-  // }
+  result = mdb_cursor_get(m_cur_timelocked_outputs, &k_timelocked_block_id, &v_timelocked_output, MDB_GET_BOTH);
+  if (result == MDB_NOTFOUND)
+  {
+    // Output is either not timelocked or is invalid
+  }
+  else if (result)
+  {
+    throw1(DB_ERROR(lmdb_error("Error adding removal of timelocked output to db transaction", result).c_str()));
+  }
+  else
+  {
+    result = mdb_cursor_del(m_cur_timelocked_outputs, 0);
+    if (result)
+      throw0(DB_ERROR(lmdb_error(std::string("Error deleting timelocked output index ").append(boost::lexical_cast<std::string>(out_index).append(": ")).c_str(), result).c_str()));
+  }
+#endif
 }
 
 void BlockchainLMDB::prune_outputs(uint64_t amount)
@@ -2224,12 +2237,30 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
 
   lmdb_db_open(txn, LMDB_SPENT_KEYS, MDB_INTEGERKEY | MDB_CREATE | MDB_DUPSORT | MDB_DUPFIXED, m_spent_keys, "Failed to open db handle for m_spent_keys");
 
-  lmdb_db_open(txn, LMDB_LOCKED_OUTPUTS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_locked_outputs, "Failed to open db handle for m_locked_outputs");
+#ifdef ENABLE_FCMP_INTEGRATION
+  try
+  {
+    lmdb_db_open(txn, LMDB_LOCKED_OUTPUTS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_locked_outputs, "Failed to open db handle for m_locked_outputs");
+  }
+  catch (cryptonote::DB_OPEN_FAILURE&)
+  {
+    if (mdb_flags & MDB_RDONLY)
+    {
+      txn.abort();
+      mdb_env_close(m_env);
+      m_open = false;
+      MFATAL("Existing lmdb database needs to be converted, which cannot be done on a read-only database.");
+      MFATAL("Please run monerod once to convert the database.");
+      return;
+    }
+    throw;
+  }
   lmdb_db_open(txn, LMDB_TIMELOCKED_OUTPUTS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_timelocked_outputs, "Failed to open db handle for m_timelocked_outputs");
   lmdb_db_open(txn, LMDB_LEAVES, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_leaves, "Failed to open db handle for m_leaves");
   lmdb_db_open(txn, LMDB_LAYERS, MDB_INTEGERKEY | MDB_DUPSORT | MDB_DUPFIXED | MDB_CREATE, m_layers, "Failed to open db handle for m_layers");
   lmdb_db_open(txn, LMDB_TREE_EDGES, MDB_INTEGERKEY | MDB_CREATE, m_tree_edges, "Failed to open db handle for m_tree_edges");
   lmdb_db_open(txn, LMDB_TREE_META, MDB_INTEGERKEY | MDB_CREATE, m_tree_meta, "Failed to open db handle for m_tree_meta");
+#endif
 
   lmdb_db_open(txn, LMDB_TXPOOL_META, MDB_CREATE, m_txpool_meta, "Failed to open db handle for m_txpool_meta");
   lmdb_db_open(txn, LMDB_TXPOOL_BLOB, MDB_CREATE, m_txpool_blob, "Failed to open db handle for m_txpool_blob");
@@ -2250,12 +2281,14 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   mdb_set_dupsort(txn, m_block_heights, compare_hash32);
   mdb_set_dupsort(txn, m_tx_indices, compare_hash32);
   mdb_set_dupsort(txn, m_output_amounts, compare_uint64);
+#ifdef ENABLE_FCMP_INTEGRATION
   mdb_set_dupsort(txn, m_locked_outputs, compare_uint64);
   mdb_set_dupsort(txn, m_timelocked_outputs, compare_uint64);
   mdb_set_dupsort(txn, m_leaves, compare_uint64);
   mdb_set_dupsort(txn, m_layers, compare_uint64);
   mdb_set_compare(txn, m_tree_edges, compare_uint64);
   mdb_set_compare(txn, m_tree_meta, compare_uint64);
+#endif
   mdb_set_dupsort(txn, m_output_txs, compare_uint64);
   mdb_set_dupsort(txn, m_block_info, compare_uint64);
   if (!(mdb_flags & MDB_RDONLY))
@@ -2433,6 +2466,7 @@ void BlockchainLMDB::reset()
     throw0(DB_ERROR(lmdb_error("Failed to drop m_output_amounts: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_spent_keys, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_spent_keys: ", result).c_str()));
+#ifdef ENABLE_FCMP_INTEGRATION
   if (auto result = mdb_drop(txn, m_locked_outputs, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_locked_outputs: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_timelocked_outputs, 0))
@@ -2445,6 +2479,7 @@ void BlockchainLMDB::reset()
     throw0(DB_ERROR(lmdb_error("Failed to drop m_tree_edges: ", result).c_str()));
   if (auto result = mdb_drop(txn, m_tree_meta, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_tree_meta: ", result).c_str()));
+#endif
   (void)mdb_drop(txn, m_hf_starting_heights, 0); // this one is dropped in new code
   if (auto result = mdb_drop(txn, m_hf_versions, 0))
     throw0(DB_ERROR(lmdb_error("Failed to drop m_hf_versions: ", result).c_str()));
@@ -6574,14 +6609,36 @@ void BlockchainLMDB::migrate_4_5()
   txn.commit();
 }
 
-void BlockchainLMDB::migrate_5_6()
+void BlockchainLMDB::migrate_5_7()
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   uint64_t i;
   int result;
   mdb_txn_safe txn(false);
 
-  MGINFO_YELLOW("Migrating blockchain from DB version 5 to 6 - this may take a while:");
+  MGINFO_YELLOW("Migrating blockchain from DB version 5 to 7 - this may take a while:");
+
+  const uint32_t DB_VERSION_IN_PROGRESS = 6;
+  const uint32_t DB_VERSION_ONCE_COMPLETE = 7;
+
+  const auto update_db_version = [this, &txn](uint32_t version)
+  {
+    MDB_val v;
+    v.mv_data = (void *)&version;
+    v.mv_size = sizeof(version);
+    MDB_val_str(vk, "version");
+    int result = mdb_txn_begin(m_env, NULL, 0, txn);
+    if (result)
+      throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
+    result = mdb_put(txn, m_properties, &vk, &v, 0);
+    if (result)
+      throw0(DB_ERROR(lmdb_error("Failed to update version for the db: ", result).c_str()));
+  };
+
+  // Start by setting DB version to 6, which indicates the migration is in progress and prevents
+  // a monerod at a lower version from modifying the db once the migration is already in progress.
+  update_db_version(DB_VERSION_IN_PROGRESS);
+  txn.commit();
 
   MDB_dbi m_tmp_last_output;
   do
@@ -6907,18 +6964,8 @@ void BlockchainLMDB::migrate_5_6()
     }
   } while(0);
 
-  // Update db version
-  uint32_t version = 6;
-  MDB_val v;
-  v.mv_data = (void *)&version;
-  v.mv_size = sizeof(version);
-  MDB_val_str(vk, "version");
-  result = mdb_txn_begin(m_env, NULL, 0, txn);
-  if (result)
-    throw0(DB_ERROR(lmdb_error("Failed to create a transaction for the db: ", result).c_str()));
-  result = mdb_put(txn, m_properties, &vk, &v, 0);
-  if (result)
-    throw0(DB_ERROR(lmdb_error("Failed to update version for the db: ", result).c_str()));
+  // Migration complete, now bump db version to 7
+  update_db_version(DB_VERSION_ONCE_COMPLETE);
 
   // We only needed the temp last output table for this migration, drop it
   result = mdb_drop(txn, m_tmp_last_output, 1);
@@ -6940,8 +6987,10 @@ void BlockchainLMDB::migrate(const uint32_t oldversion)
     migrate_3_4();
   if (oldversion < 5)
     migrate_4_5();
-  // if (oldversion < 6)
-  //   migrate_5_6();
+#ifdef ENABLE_FCMP_INTEGRATION
+  if (oldversion < 7)
+    migrate_5_7();
+#endif
 }
 
 }  // namespace cryptonote
