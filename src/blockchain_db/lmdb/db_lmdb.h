@@ -508,8 +508,8 @@ private:
   // migrate from DB version 4 to 5
   void migrate_4_5();
 
-  // migrate from DB version 5 to 6
-  void migrate_5_6();
+  // migrate from DB version 5 to 7
+  void migrate_5_7();
 
   void cleanup_batch();
 

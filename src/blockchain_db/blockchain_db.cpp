@@ -297,11 +297,13 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   TIME_MEASURE_FINISH(time1);
   time_add_block1 += time1;
 
-  // // call out to handle growing the FCMP tree
-  // time1 = epee::misc_utils::get_tick_count();
-  // handle_fcmp_tree(blk_idx, first_unified_id, blk.miner_tx, txs, transparent_amount_commitments);
-  // TIME_MEASURE_FINISH(time1);
-  // time_grow_tree += time1;
+#ifdef ENABLE_FCMP_INTEGRATION
+  // call out to handle growing the FCMP tree
+  time1 = epee::misc_utils::get_tick_count();
+  handle_fcmp_tree(blk_idx, first_unified_id, blk.miner_tx, txs, transparent_amount_commitments);
+  TIME_MEASURE_FINISH(time1);
+  time_grow_tree += time1;
+#endif
 
   m_hardfork->add(blk, blk_idx);
 
@@ -474,6 +476,16 @@ void BlockchainDB::trim_block()
 
   // Remove block from tree meta
   this->del_tree_meta(tree_block_idx);
+
+  // If we're removing the genesis block, we need to reverse the initially added in advance_tree.
+  // Since we know they're all empty, we can just delete the tree meta.
+  if (removing_block_idx == 0)
+  {
+    for (uint64_t rm_blk_idx = 0; rm_blk_idx < default_last_locked_block; ++rm_blk_idx)
+    {
+      this->del_tree_meta(rm_blk_idx);
+    }
+  }
 }
 
 void BlockchainDB::trim_tree(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_idx)
