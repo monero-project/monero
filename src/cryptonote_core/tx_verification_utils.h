@@ -122,7 +122,7 @@ bool ver_input_proofs_rings(transaction& tx, const rct::ctkeyM &dereferenced_mix
  * @return true when verRctNonSemanticsSimple() w/ expanded tx.rct_signatures would return true
  * @return false when verRctNonSemanticsSimple() w/ expanded tx.rct_signatures would return false
  */
-bool ver_input_proofs_fcmps(transaction& tx, const crypto::ec_point &dereferenced_fcmp_root);
+bool ver_input_proofs_fcmps(transaction& tx, const std::pair<crypto::ec_point, uint8_t> &dereferenced_fcmp_root);
 
 /**
  * @brief Make an ID for the parameters to ver_input_proofs_rings() for a transaction and its dereferenced chain data
@@ -136,11 +136,10 @@ bool ver_input_proofs_fcmps(transaction& tx, const crypto::ec_point &dereference
  */
 crypto::hash make_input_verification_id(const crypto::hash &tx_hash, const rct::ctkeyM &dereferenced_mix_ring);
 crypto::hash make_input_verification_id(const crypto::hash &tx_hash,
-    const crypto::ec_point &dereferenced_fcmp_root,
-    const uint8_t n_tree_layers);
+    const std::pair<crypto::ec_point, uint8_t> &dereferenced_fcmp_root);
 crypto::hash make_input_verification_id(const transaction &tx,
     const rct::ctkeyM &dereferenced_mix_ring,
-    const crypto::ec_point &dereferenced_fcmp_root);
+    const std::pair<crypto::ec_point, uint8_t> &dereferenced_fcmp_root);
 
 /**
  * @brief Verify the semantics of a group of RingCT signatures as a batch (if applicable)
