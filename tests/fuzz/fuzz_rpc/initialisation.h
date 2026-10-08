@@ -1,6 +1,7 @@
 #pragma once
 #include "crypto/hash.h"
 #include "rpc/core_rpc_server.h"
+#include <boost/filesystem/path.hpp>
 #include <fuzzer/FuzzedDataProvider.h>
 
 // Define templates for dummy protocol object
@@ -20,6 +21,10 @@ struct RpcServerBundle {
 };
 
 struct CoreEnv {
+  CoreEnv();
+  ~CoreEnv();
+
+  boost::filesystem::path data_dir;
   std::unique_ptr<DummyProtocol> protocol;
   std::unique_ptr<cryptonote::core> core;
 };
