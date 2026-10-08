@@ -154,6 +154,7 @@ namespace cryptonote
       // not clear if we should set that, since verifivation (sic) did not fail before, since
       // the tx was accepted before timing out.
       tvc.m_verifivation_failed = true;
+      tvc.m_no_drop_offense = true;
       return false;
     }
 
