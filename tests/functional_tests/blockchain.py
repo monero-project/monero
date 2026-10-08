@@ -53,6 +53,7 @@ class BlockchainTest():
         self._test_generate_blocks_command()
         self.reset()
         self._test_generateblocks(5)
+        self._test_generateblocks_no_sync()
         self._test_alt_chains()
         self.test_get_blocks_fast()
 
@@ -88,6 +89,17 @@ class BlockchainTest():
             result = run_command(*args)
             assert 'Invalid syntax' in result.stdout, result.stdout + result.stderr
             assert daemon.get_height().height == height
+
+    def _test_generateblocks_no_sync(self):
+        daemon = Daemon(idx = 1)
+        assert not daemon.get_info().synchronized
+        height = daemon.get_height().height
+        assert daemon.get_miner_data().height == height
+        res = daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        assert res.status == 'OK'
+        assert res.height == height
+        assert daemon.get_height().height == height + 1
+        assert not daemon.get_info().synchronized
 
     def _check_blocktemplate_reserved_offset(self, daemon, address, reserve_size):
         res = daemon.getblocktemplate(address, reserve_size = reserve_size)
