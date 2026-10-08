@@ -93,9 +93,9 @@ public:
 class dummy_client
 {
 public:
-  bool connect(const std::string&, int, std::chrono::milliseconds, bool = false, const std::string& = "0.0.0.0") { return true; }
-  bool connect(const std::string&, const std::string&, std::chrono::milliseconds, bool = false, const std::string& = "0.0.0.0") { return true; }
-  bool disconnect() { return true; }
+  bool connect(const std::string&, int, std::chrono::milliseconds, bool = false, const std::string& = "0.0.0.0") { connected = true; return true; }
+  bool connect(const std::string&, const std::string&, std::chrono::milliseconds, bool = false, const std::string& = "0.0.0.0") { connected = true; return true; }
+  bool disconnect() { connected = false; return true; }
   bool shutdown() { return true; }
   bool send(const boost::string_ref, std::chrono::milliseconds) { return true; }
   bool send(const void*, size_t) { return true; }
@@ -106,13 +106,14 @@ public:
     return true;
   }
   void set_ssl(epee::net_utils::ssl_options_t) { }
-  bool is_connected(bool *ssl = NULL) { return true; }
+  bool is_connected(bool *ssl = NULL) { return connected; }
   uint64_t get_bytes_sent() const { return 1; }
   uint64_t get_bytes_received() const { return 1; }
 
   void set_test_data(const std::string& s) { data = s; }
 
 private:
+  bool connected = true;
   std::string data;
 };
 
@@ -1562,6 +1563,52 @@ TEST(HTTP, Client_Rejects_Malformed_Response_Header)
 
   EXPECT_FALSE(result);
   EXPECT_EQ(0u, client.headers_seen);
+}
+
+TEST(HTTP, Client_Rejects_Body_Exceeding_Content_Length)
+{
+  test_http_client valid_client;
+  EXPECT_TRUE(valid_client.test(
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Length: 3\r\n"
+    "\r\n"
+    "abc",
+    std::chrono::milliseconds(1000)
+  ));
+  EXPECT_TRUE(valid_client.is_connected());
+
+  test_http_client empty_valid_client;
+  EXPECT_TRUE(empty_valid_client.test(
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Length: 0\r\n"
+    "\r\n",
+    std::chrono::milliseconds(1000)
+  ));
+  EXPECT_TRUE(empty_valid_client.is_connected());
+
+  test_http_client client;
+  const bool result = client.test(
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Length: 3\r\n"
+    "\r\n"
+    "abcd",
+    std::chrono::milliseconds(1000)
+  );
+
+  EXPECT_FALSE(result);
+  EXPECT_FALSE(client.is_connected());
+
+  test_http_client empty_client;
+  const bool empty_result = empty_client.test(
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Length: 0\r\n"
+    "\r\n"
+    "x",
+    std::chrono::milliseconds(1000)
+  );
+
+  EXPECT_FALSE(empty_result);
+  EXPECT_FALSE(empty_client.is_connected());
 }
 
 TEST(HTTP, Add_Field)

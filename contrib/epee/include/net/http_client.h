@@ -377,6 +377,14 @@ namespace net_utils
             m_state = reciev_machine_state_done;
             return false;
           }
+					if (m_state == reciev_machine_state_done &&
+						!m_response_info.m_header_info.m_content_length.empty() && !recv_buff.empty())
+					{
+						MERROR("HTTP response body exceeds Content-Length");
+						m_state = reciev_machine_state_error;
+						disconnect();
+						return false;
+					}
 					m_header_cache.clear();
 					if(!recv_buff.size() && (m_state != reciev_machine_state_error && m_state != reciev_machine_state_done))
 						need_more_data = true;
@@ -397,7 +405,13 @@ namespace net_utils
 					m_state = reciev_machine_state_done;
 					return true;
 				}
-				CHECK_AND_ASSERT_MES(m_len_in_remain >= recv_buff.size(), false, "m_len_in_remain >= recv_buff.size()");
+				if (recv_buff.size() > m_len_in_remain)
+				{
+					MERROR("HTTP response body exceeds Content-Length");
+					m_state = reciev_machine_state_error;
+					disconnect();
+					return false;
+				}
 				m_len_in_remain -= recv_buff.size();
 				if (!m_pcontent_encoding_handler->update_in(recv_buff))
 				{
