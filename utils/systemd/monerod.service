@@ -7,14 +7,40 @@ Wants=network-online.target
 Type=simple
 ExecStart=/usr/local/bin/monerod --config-file /etc/monero/monerod.conf --non-interactive
 
-Restart=always
+Restart=on-failure
 RestartSec=30
+LimitNOFILE=65536
 
 User=monero
 Group=monero
+StateDirectory=monero
+LogsDirectory=monero
 
 StandardOutput=journal
 StandardError=journal
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+# monerod aborts at startup without AF_NETLINK
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+UMask=0077
+# MemoryDenyWriteExecute is omitted: it breaks the RandomX JIT
 
 [Install]
 WantedBy=multi-user.target
