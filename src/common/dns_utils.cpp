@@ -37,9 +37,12 @@
 #include <deque>
 #include <set>
 #include <stdlib.h>
+#include <stdio.h>
+#include <ctype.h>
 #include <cstring>
 #include <boost/thread/mutex.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/lexical_cast.hpp>
 #include <boost/optional.hpp>
 #include <boost/utility/string_ref.hpp>
 #include <boost/asio/ip/address.hpp>
@@ -48,13 +51,16 @@ using namespace epee;
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.dns"
 
-static const char *DEFAULT_DNS_PUBLIC_ADDR[] =
+// A NULL tls_auth_name marks a TCP-only resolver omitted from the TLS default set.
+// dot_only marks a resolver with no plaintext service on port 53 (TLS only).
+static const struct { const char *addr; const char *tls_auth_name; bool dot_only; } DEFAULT_DNS_PUBLIC_ADDR[] =
 {
-  "9.9.9.10",           // Quad9 unfiltered (Switzerland)
-  "149.112.112.10",     // Quad9 secondary (Switzerland)
-  "185.222.222.222",    // DNS.SB (Germany)
-  "45.11.45.11",        // DNS.SB secondary (Germany)
-  "194.150.168.168",    // CCC (Germany)
+  { "9.9.9.10",        "dns10.quad9.net",         false },  // Quad9 unfiltered (Switzerland)
+  { "149.112.112.10",  "dns10.quad9.net",         false },  // Quad9 secondary (Switzerland)
+  { "185.222.222.222", "dot.sb",                  false },  // DNS.SB (Germany)
+  { "45.11.45.11",     "dot.sb",                  false },  // DNS.SB secondary (Germany)
+  { "5.9.164.112",     "dns3.digitalcourage.de",  true  },  // DigitalCourage (Germany, DoT only: port 53 closed)
+  { "194.150.168.168", NULL,                      false },  // CCC (Germany, TCP only: no DoT service)
 };
 
 static boost::mutex instance_lock;
@@ -192,17 +198,53 @@ static void add_anchors(ub_ctx *ctx)
   }
 }
 
+// Sets up certificate verification for DoT.
+static bool setup_dot_certificate_verification(ub_ctx *ctx)
+{
+  bool have_ca = false;
+  if (ub_ctx_set_option(ctx, "tls-system-cert:", "yes") == 0)
+    have_ca = true;
+
+  // fall back to well known CA bundle locations
+  static const char *ca_bundles[] =
+  {
+    "/etc/ssl/certs/ca-certificates.crt",                // Debian/Ubuntu/etc
+    "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", // Fedora/RHEL/etc
+    "/etc/pki/tls/certs/ca-bundle.crt",                  // older Fedora/RHEL
+    "/etc/ssl/ca-bundle.pem",                            // openSUSE
+    "/usr/local/etc/ssl/cert.pem",                       // FreeBSD
+    "/etc/ssl/cert.pem",                                 // OpenBSD/macOS
+  };
+  for (const char *bundle: ca_bundles)
+  {
+    if (FILE *f = fopen(bundle, "r"))
+    {
+      fclose(f);
+      if (ub_ctx_set_option(ctx, "tls-cert-bundle:", bundle) == 0)
+      {
+        MGINFO("Using CA certificate bundle for DNS over TLS: " << bundle);
+        have_ca = true;
+        break;
+      }
+    }
+  }
+  if (!have_ca)
+    MWARNING("Could not find a CA certificate bundle for DNS over TLS certificate verification");
+  return have_ca;
+}
+
 DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 {
   int use_dns_public = 0;
+  bool use_dns_tls = false;
   std::vector<std::string> dns_public_addr;
   const char *DNS_PUBLIC = getenv("DNS_PUBLIC");
   if (DNS_PUBLIC)
   {
-    dns_public_addr = tools::dns_utils::parse_dns_public(DNS_PUBLIC);
+    dns_public_addr = tools::dns_utils::parse_dns_public(DNS_PUBLIC, &use_dns_tls);
     if (!dns_public_addr.empty())
     {
-      MGINFO("Using public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TCP)");
+      MGINFO("Using public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (" << (use_dns_tls ? "TLS" : "TCP") << ")");
       use_dns_public = 1;
     }
     else
@@ -216,10 +258,76 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
 
   if (use_dns_public)
   {
-    for (const auto &ip: dns_public_addr)
-      ub_ctx_set_fwd(m_data->m_ub_context, ip.c_str());
+    bool public_dns_ok = true;
+    if (use_dns_tls)
+    {
+      // Enable TLS for upstream queries. "ssl-upstream:" is the option name
+      // understood by unbound builds that support DoT ("tls-upstream:" is
+      // only an alias added later).
+      if (ub_ctx_set_option(m_data->m_ub_context, "ssl-upstream:", "yes") != 0)
+      {
+        MERROR("Failed to enable DNS over TLS: the libunbound this binary is using does not support TLS upstream connections, please use a newer libunbound with DNS over TLS support");
+        public_dns_ok = false;
+      }
+      else
+      {
+        const bool have_cert_verification = setup_dot_certificate_verification(m_data->m_ub_context);
+        bool have_auth_name = false;
+        for (const auto &addr: dns_public_addr)
+        {
+          if (addr.find('#') != std::string::npos)
+          {
+            have_auth_name = true;
+            break;
+          }
+        }
+        if (!have_auth_name)
+        {
+          MWARNING("DNS over TLS: no authentication name given (use tls://<ip>#<hostname>), server certificates cannot be authenticated");
+        }
+        else if (!have_cert_verification)
+        {
+          MERROR("DNS over TLS: an authentication name was given but no CA certificates could be loaded, refusing to use unauthenticated TLS");
+          public_dns_ok = false;
+        }
+      }
+    }
+    if (public_dns_ok)
+    {
+      for (const auto &ip: dns_public_addr)
+      {
+        if (ub_ctx_set_fwd(m_data->m_ub_context, ip.c_str()) != 0)
+        {
+          MERROR("Failed to configure public DNS server: " << ip);
+          public_dns_ok = false;
+          break;
+        }
+      }
+    }
+    if (public_dns_ok)
+    {
+      ub_ctx_set_option(m_data->m_ub_context, "do-udp:", "no");
+      ub_ctx_set_option(m_data->m_ub_context, "do-tcp:", "yes");
+    }
+    else if (use_dns_tls)
+    {
+      MERROR("DNS over TLS setup failed, DNS lookups will fail instead of falling back to plaintext DNS");
+      ub_ctx_set_option(m_data->m_ub_context, "do-udp:", "no");
+      ub_ctx_set_option(m_data->m_ub_context, "do-tcp:", "no");
+    }
+    else
+    {
+      ub_ctx_delete(m_data->m_ub_context);
+      m_data->m_ub_context = ub_ctx_create();
+      ub_ctx_resolvconf(m_data->m_ub_context, NULL);
+      ub_ctx_hosts(m_data->m_ub_context, NULL);
+    }
+  }
+  else if (use_dns_tls)
+  {
+    MERROR("DNS over TLS configuration failed to parse, DNS lookups will fail instead of falling back to plaintext DNS");
     ub_ctx_set_option(m_data->m_ub_context, "do-udp:", "no");
-    ub_ctx_set_option(m_data->m_ub_context, "do-tcp:", "yes");
+    ub_ctx_set_option(m_data->m_ub_context, "do-tcp:", "no");
   }
   else {
     // look for "/etc/resolv.conf" and "/etc/hosts" or platform equivalent
@@ -244,7 +352,11 @@ DNSResolver::DNSResolver() : m_data(new DNSResolverData())
       m_data->m_ub_context = ub_ctx_create();
       add_anchors(m_data->m_ub_context);
       for (const auto &ip: DEFAULT_DNS_PUBLIC_ADDR)
-        ub_ctx_set_fwd(m_data->m_ub_context, ip);
+      {
+        if (ip.dot_only)
+          continue;
+        ub_ctx_set_fwd(m_data->m_ub_context, ip.addr);
+      }
       ub_ctx_set_option(m_data->m_ub_context, "do-udp:", "no");
       ub_ctx_set_option(m_data->m_ub_context, "do-tcp:", "yes");
     }
@@ -285,7 +397,7 @@ std::vector<std::string> DNSResolver::get_record(const std::string& url, int rec
     if (dnssec_available && !dnssec_valid)
     {
       MWARNING("Invalid DNSSEC " << get_record_name(record_type) << " record signature for " << url << ": " << result->why_bogus);
-      MWARNING("Possibly your DNS service is problematic. You can have monerod use an alternate via env variable DNS_PUBLIC. Example: DNS_PUBLIC=tcp://9.9.9.9");
+      MWARNING("Possibly your DNS service is problematic. You can have monerod use an alternate via env variable DNS_PUBLIC. Example: DNS_PUBLIC=tcp://9.9.9.9 or DNS_PUBLIC=tls://9.9.9.9#dns.quad9.net");
     }
     if (result->havedata)
     {
@@ -532,32 +644,196 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
   return true;
 }
 
-std::vector<std::string> parse_dns_public(const char *s)
+namespace
 {
-  unsigned ip0, ip1, ip2, ip3;
-  char c;
+
+bool valid_auth_name(const std::string &name)
+{
+  if (name.empty())
+    return false;
+  for (const char c: name)
+    if (!isalnum(static_cast<unsigned char>(c)) && c != '.' && c != '-')
+      return false;
+  return true;
+}
+
+bool parse_ipv4_canonical(const std::string &spec, boost::asio::ip::address &address)
+{
+  boost::asio::ip::address_v4::bytes_type bytes;
+  size_t pos = 0;
+  for (int octet = 0; octet < 4; ++octet)
+  {
+    const size_t digit_start = pos;
+    unsigned value = 0;
+    while (pos < spec.size() && isdigit(static_cast<unsigned char>(spec[pos])))
+    {
+      value = value * 10 + static_cast<unsigned>(spec[pos] - '0');
+      if (value > 255)
+        return false;
+      ++pos;
+    }
+    if (pos == digit_start)
+      return false;
+    if (spec[digit_start] == '0' && pos - digit_start > 1)
+      return false;
+    bytes[octet] = static_cast<unsigned char>(value);
+    if (octet < 3)
+    {
+      if (pos >= spec.size() || spec[pos] != '.')
+        return false;
+      ++pos;
+    }
+  }
+  if (pos != spec.size())
+    return false;
+  address = boost::asio::ip::address_v4(bytes);
+  return true;
+}
+
+bool parse_port(const std::string &spec, unsigned &port)
+{
+  if (spec.empty() || !isdigit(static_cast<unsigned char>(spec[0])))
+    return false;
+  try
+  {
+    const unsigned value = boost::lexical_cast<unsigned>(spec);
+    if (value < 1 || value > 65535)
+      return false;
+    port = value;
+    return true;
+  }
+  catch (const boost::bad_lexical_cast &)
+  {
+    return false;
+  }
+}
+
+// Parses an IP address with an optional port in URL-style syntax:
+//   1.2.3.4            1.2.3.4:5353
+//   2001:db8::1        [2001:db8::1]        [2001:db8::1]:5353
+// Returns false on any malformed input; port is 0 when none is given.
+bool parse_address_port(const std::string &spec, boost::asio::ip::address &address, unsigned &port)
+{
+  port = 0;
+  boost::system::error_code ec;
+  if (!spec.empty() && spec[0] == '[')
+  {
+    const size_t close = spec.find(']');
+    if (close == std::string::npos)
+      return false;
+    address = boost::asio::ip::make_address(spec.substr(1, close - 1), ec);
+    if (ec || !address.is_v6())
+      return false;
+    const std::string rest = spec.substr(close + 1);
+    if (rest.empty())
+      return true;
+    if (rest[0] != ':')
+      return false;
+    return parse_port(rest.substr(1), port);
+  }
+  const size_t colon = spec.find(':');
+  if (colon == std::string::npos)
+  {
+    return parse_ipv4_canonical(spec, address);
+  }
+  if (colon != spec.rfind(':'))
+  {
+    address = boost::asio::ip::make_address(spec, ec);
+    return !ec && address.is_v6();
+  }
+  if (!parse_port(spec.substr(colon + 1), port))
+    return false;
+  return parse_ipv4_canonical(spec.substr(0, colon), address);
+}
+
+}
+
+std::vector<std::string> parse_dns_public(const char *s, bool *tls)
+{
   std::vector<std::string> dns_public_addr;
+  bool is_tls = false;
+  if (tls)
+    *tls = false;
   if (!strcmp(s, "tcp"))
   {
     for (size_t i = 0; i < sizeof(DEFAULT_DNS_PUBLIC_ADDR) / sizeof(DEFAULT_DNS_PUBLIC_ADDR[0]); ++i)
-      dns_public_addr.push_back(DEFAULT_DNS_PUBLIC_ADDR[i]);
+    {
+      if (DEFAULT_DNS_PUBLIC_ADDR[i].dot_only)
+        continue;
+      dns_public_addr.push_back(DEFAULT_DNS_PUBLIC_ADDR[i].addr);
+    }
     LOG_PRINT_L0("Using default public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TCP)");
   }
-  else if (sscanf(s, "tcp://%u.%u.%u.%u%c", &ip0, &ip1, &ip2, &ip3, &c) == 4)
+  else if (!strcmp(s, "tls"))
   {
-    if (ip0 > 255 || ip1 > 255 || ip2 > 255 || ip3 > 255)
+    is_tls = true;
+    for (size_t i = 0; i < sizeof(DEFAULT_DNS_PUBLIC_ADDR) / sizeof(DEFAULT_DNS_PUBLIC_ADDR[0]); ++i)
     {
-      MERROR("Invalid IP: " << s << ", using default");
+      if (DEFAULT_DNS_PUBLIC_ADDR[i].tls_auth_name == nullptr)
+        continue;
+      dns_public_addr.push_back(std::string(DEFAULT_DNS_PUBLIC_ADDR[i].addr) + "@853#" + DEFAULT_DNS_PUBLIC_ADDR[i].tls_auth_name);
+    }
+    LOG_PRINT_L0("Using default public DNS server(s): " << boost::join(dns_public_addr, ", ") << " (TLS)");
+  }
+  else if (!strncmp(s, "tcp://", strlen("tcp://")))
+  {
+    const std::string spec(s + strlen("tcp://"));
+    boost::asio::ip::address address;
+    unsigned port;
+    if (!parse_address_port(spec, address, port))
+    {
+      MERROR("Invalid IP or port: " << s << ", falling back to system resolver");
     }
     else
     {
-      dns_public_addr.push_back(std::string(s + strlen("tcp://")));
+      // libunbound expects a custom port as address@port
+      std::string fwd = address.to_string();
+      if (port != 0)
+        fwd += "@" + std::to_string(port);
+      dns_public_addr.push_back(std::move(fwd));
     }
+  }
+  else if (!strncmp(s, "tls://", strlen("tls://")))
+  {
+    is_tls = true;
+    if (tls)
+      *tls = true;
+    std::string spec(s + 6);
+
+    // optional TLS auth name
+    std::string auth_name;
+    const size_t hash = spec.find('#');
+    if (hash != std::string::npos)
+    {
+      auth_name = spec.substr(hash + 1);
+      spec.resize(hash);
+      if (!valid_auth_name(auth_name))
+      {
+        MERROR("Invalid TLS authentication name: " << s);
+        return {};
+      }
+    }
+
+    boost::asio::ip::address address;
+    unsigned port;
+    if (!parse_address_port(spec, address, port))
+    {
+      MERROR("Invalid IP or port: " << s);
+      return {};
+    }
+
+    // libunbound expects a custom port as address@port, default 853
+    std::string entry = address.to_string() + "@" + std::to_string(port != 0 ? port : 853);
+    if (!auth_name.empty())
+      entry += "#" + auth_name;
+    dns_public_addr.push_back(entry);
   }
   else
   {
     MERROR("Invalid DNS_PUBLIC contents, ignored");
   }
+  if (tls)
+    *tls = is_tls;
   return dns_public_addr;
 }
 
