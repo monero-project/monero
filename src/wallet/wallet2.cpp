@@ -4720,6 +4720,11 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const epee:
 //----------------------------------------------------------------------------------------------------
 boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypto::chacha_key& key, bool watch_only, bool background_keys_file)
 {
+  return get_keys_file_data(key, key, watch_only, background_keys_file, false);
+}
+//----------------------------------------------------------------------------------------------------
+boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypto::chacha_key& key, const crypto::chacha_key& original_key, bool watch_only, bool background_keys_file, bool sanitize_watch_only_export)
+{
   epee::byte_slice account_data;
   std::string multisig_signers;
   std::string multisig_derivations;
@@ -4727,12 +4732,14 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
 
   if (m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only)
   {
-    account.encrypt_viewkey(key);
-    account.decrypt_keys(key);
+    account.encrypt_viewkey(original_key);
+    account.decrypt_keys(original_key);
   }
 
   if (watch_only || background_keys_file)
     account.forget_spend_key();
+  if (sanitize_watch_only_export)
+    account.forget_monero_c_passphrase();
 
   account.encrypt_keys(key);
 
@@ -4866,7 +4873,7 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
   value2.SetInt(m_track_uses ? 1 : 0);
   json.AddMember("track_uses", value2, json.GetAllocator());
 
-  value2.SetInt(m_background_sync_type);
+  value2.SetInt(sanitize_watch_only_export ? BackgroundSyncOff : m_background_sync_type);
   json.AddMember("background_sync_type", value2, json.GetAllocator());
 
   value2.SetInt(m_show_wallet_name_when_locked ? 1 : 0);
@@ -4932,7 +4939,7 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
   value2.SetInt(m_polyseed ? 1 : 0);
   json.AddMember("polyseed", value2, json.GetAllocator());
 
-  if (m_background_sync_type == BackgroundSyncCustomPassword && !background_keys_file && m_custom_background_key)
+  if (!sanitize_watch_only_export && m_background_sync_type == BackgroundSyncCustomPassword && !background_keys_file && m_custom_background_key)
   {
     value.SetString(reinterpret_cast<const char*>(m_custom_background_key.get().data()), m_custom_background_key.get().size());
     json.AddMember("custom_background_key", value, json.GetAllocator());
@@ -6430,12 +6437,31 @@ void wallet2::rewrite(const std::string& wallet_name, const epee::wipeable_strin
  */
 void wallet2::write_watch_only_wallet(const std::string& wallet_name, const epee::wipeable_string& password, std::string &new_keys_filename)
 {
+  write_watch_only_wallet(wallet_name, password, password, new_keys_filename);
+}
+//----------------------------------------------------------------------------------------------------
+/*!
+ * \brief Writes a watch-only keys file encrypted with its own password
+ * \param wallet_name         Base name of wallet file
+ * \param original_password   Password for the current wallet
+ * \param watch_only_password Password for the new watch-only wallet
+ * \param new_keys_filename   [OUT] Name of new keys file
+ */
+void wallet2::write_watch_only_wallet(const std::string& wallet_name, const epee::wipeable_string& original_password, const epee::wipeable_string& watch_only_password, std::string &new_keys_filename)
+{
+  crypto::chacha_key original_key, watch_only_key;
+  crypto::generate_chacha_key(original_password.data(), original_password.size(), original_key, m_kdf_rounds);
+  verify_password_with_cached_key(original_key);
+  crypto::generate_chacha_key(watch_only_password.data(), watch_only_password.size(), watch_only_key, m_kdf_rounds);
+
   prepare_file_names(wallet_name);
   boost::system::error_code ignored_ec;
   new_keys_filename = m_wallet_file + "-watchonly.keys";
   bool watch_only_keys_file_exists = boost::filesystem::exists(new_keys_filename, ignored_ec);
   THROW_WALLET_EXCEPTION_IF(watch_only_keys_file_exists, error::file_save_error, new_keys_filename);
-  bool r = store_keys(new_keys_filename, password, true);
+  boost::optional<wallet2::keys_file_data> keys_file_data = get_keys_file_data(watch_only_key, original_key, true, false, true);
+  THROW_WALLET_EXCEPTION_IF(!keys_file_data, error::file_save_error, new_keys_filename);
+  bool r = store_keys_file_data(new_keys_filename, keys_file_data.get());
   THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, new_keys_filename);
 }
 //----------------------------------------------------------------------------------------------------
