@@ -644,11 +644,11 @@ namespace cryptonote
     MLOG_P2P_MESSAGE(context << "Received NOTIFY_NEW_FLUFFY_BLOCK " << new_block_hash << " (height "
       << new_block_height << ", " << arg.b.txs.size() << " txes, peer's height: " << peer_height << ")");
 
-    // Pause mining and resume after block verification to prevent wasted mining cycles while
-    // validating the next block. Needs more research into if this is a DoS vector or not. Invalid
-    // block validation will cause disconnects and bans, so it might not be that bad.
-    m_core.pause_mine();
-    const epee::scope_guard resume_mine_on_leave([this](){ m_core.resume_mine(); });
+    // Pause mining while verifying an unknown block to avoid wasted mining cycles.
+    const bool pause_mining = !m_core.have_block(new_block_hash);
+    if (pause_mining)
+      m_core.pause_mine();
+    const epee::scope_guard resume_mine_on_leave([this, pause_mining](){ if (pause_mining) m_core.resume_mine(); });
 
     // This set allows us to quickly sanity check that the block binds all txs contained in this
     // fluffy payload, which means that no extra stowaway txs can be harbored. In the case of a
