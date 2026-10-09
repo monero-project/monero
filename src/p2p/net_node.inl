@@ -1417,19 +1417,6 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  size_t node_server<t_payload_net_handler>::get_random_index_with_fixed_probability(size_t max_index)
-  {
-    //divide by zero workaround
-    if(!max_index)
-      return 0;
-
-    size_t x = crypto::rand<size_t>()%(16*max_index+1);
-    size_t res = (x*x*x)/(max_index*max_index*16*16*16); //parabola \/
-    MDEBUG("Random connection index=" << res << "(x="<< x << ", max_index=" << max_index << ")");
-    return res;
-  }
-  //-----------------------------------------------------------------------------------
-  template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::is_peer_used(const peerlist_entry& peer)
   {
     return is_peer_used(peer.adr, peer.id);
@@ -1829,7 +1816,7 @@ namespace nodetool
         // else, for step 1 / second pass of inner try loop, take all peers from all subnets
 
         // Take as many candidates as we need and care about stripes if pruning
-        const size_t limit = use_white_list ? 20 : std::numeric_limits<size_t>::max();
+        const size_t limit = std::numeric_limits<size_t>::max();
         for (const peerlist_entry &peer : candidate_peers) {
           if (filtered.size() >= limit)
             break;
@@ -1857,9 +1844,8 @@ namespace nodetool
       size_t random_index;
       if (use_white_list)
       {
-        // If using the white list, we first pick in the set of peers we've already been using earlier;
-        // that "fixed probability" heavily favors the peers most recently seen in the candidate list
-        random_index = get_random_index_with_fixed_probability(filtered.size() - 1);
+        random_index = crypto::rand_idx(filtered.size());
+        CHECK_AND_ASSERT_MES(random_index < filtered.size(), false, "random_index < filtered.size() failed!!");
 
         CRITICAL_REGION_LOCAL(m_used_stripe_peers_mutex);
         if (next_needed_pruning_stripe > 0 && next_needed_pruning_stripe <= (1ul << CRYPTONOTE_PRUNING_LOG_STRIPES) && !m_used_stripe_peers[next_needed_pruning_stripe-1].empty())
@@ -2046,12 +2032,12 @@ namespace nodetool
             && make_expected_connections_count(zone.second, gray, zone.second.m_config.m_net_config.max_out_connection_count));
         }else
         {
-          //start from grey list
-          while (get_outgoing_connections_count(zone.second) < zone.second.m_config.m_net_config.max_out_connection_count
-            && make_expected_connections_count(zone.second, gray, zone.second.m_config.m_net_config.max_out_connection_count));
-          //and then do white list
+          //start from white list
           while (get_outgoing_connections_count(zone.second) < zone.second.m_config.m_net_config.max_out_connection_count
             && make_expected_connections_count(zone.second, white, zone.second.m_config.m_net_config.max_out_connection_count));
+          //and then do grey list
+          while (get_outgoing_connections_count(zone.second) < zone.second.m_config.m_net_config.max_out_connection_count
+            && make_expected_connections_count(zone.second, gray, zone.second.m_config.m_net_config.max_out_connection_count));
         }
         if(zone.second.m_net_server.is_stop_signal_sent())
           return false;
