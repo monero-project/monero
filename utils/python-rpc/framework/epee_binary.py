@@ -51,6 +51,20 @@ class Serializer:
             and not cls.__is_maybe_dict_like(x)
 
     @classmethod
+    def __get_scalar_category(cls, x):
+        if isinstance(x, bool):
+            return 'bool'
+        if isinstance(x, int):
+            return 'int'
+        if isinstance(x, float):
+            return 'float'
+        if isinstance(x, (bytes, str)):
+            return 'string'
+        if cls.__is_maybe_dict_like(x):
+            return 'object'
+        raise ValueError("Cannot determine serialization category for Python type {}".format(type(x).__name__))
+
+    @classmethod
     def __get_int_serialize_type(cls, signed, byte_size):
         if byte_size == 8:
             int_type = 1
@@ -191,7 +205,17 @@ class Serializer:
         byte_size = 1
         base_type = None
 
-        # TODO: This doesn't assert that arrays are homogenous
+        first_category = self.__get_scalar_category(x[0])
+        for idx in range(1, len(x)):
+            elem = x[idx]
+            try:
+                elem_category = self.__get_scalar_category(elem)
+            except ValueError:
+                raise ValueError("Cannot determine array element type for Python type {}".format(type(elem).__name__))
+            if elem_category != first_category:
+                raise ValueError(
+                    "Arrays must be homogeneous: element 0 (type {}) differs from element {} (type {})".format(
+                        type(x[0]).__name__, idx, type(elem).__name__))
 
         if isinstance(x[0], bool):
             base_type = SERIALIZE_TYPE_BOOL
