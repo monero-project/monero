@@ -3051,9 +3051,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_rate_up_limit_per_peer(const boost::program_options::variables_map& vm, int64_t limit)
   {
-    if (limit < -1 || limit == 0)
+    if (limit != -1 && limit < P2P_MIN_LIMIT_RATE_PER_PEER)
     {
-      MERROR("Invalid per-peer upload limit: " << limit << " kB/s (-1 can be used for unlimited; 0 is not allowed.)");
+      MERROR("Invalid per-peer upload limit: " << limit << " kB/s (must be -1 for unlimited or at least " << P2P_MIN_LIMIT_RATE_PER_PEER << " kB/s)");
       return false;
     }
 
@@ -3065,9 +3065,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_rate_down_limit_per_peer(const boost::program_options::variables_map& vm, int64_t limit)
   {
-    if (limit < -1 || limit == 0)
+    if (limit != -1 && limit < P2P_MIN_LIMIT_RATE_PER_PEER)
     {
-      MERROR("Invalid per-peer download limit: " << limit << " kB/s (-1 can be used for unlimited; 0 is not allowed.)");
+      MERROR("Invalid per-peer download limit: " << limit << " kB/s (must be -1 for unlimited or at least " << P2P_MIN_LIMIT_RATE_PER_PEER << " kB/s)");
       return false;
     }
 
