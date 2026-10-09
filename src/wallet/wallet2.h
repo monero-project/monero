@@ -293,16 +293,20 @@ private:
           uint8_t m_key_image_known: 1;
           uint8_t m_key_image_request: 1; // view wallets: we want to request it; cold wallets: it was requested
           uint8_t m_key_image_partial: 1;
+          uint8_t m_coinbase: 1;
+          uint8_t m_long_ecdh: 1;
         };
         uint8_t flags;
       } m_flags;
       uint64_t m_amount;
+      rct::key m_long_ecdh_mask;
       std::vector<crypto::public_key> m_additional_tx_keys;
       uint32_t m_subaddr_index_major;
       uint32_t m_subaddr_index_minor;
 
       BEGIN_SERIALIZE_OBJECT()
-        VERSION_FIELD(1)
+        const std::uint32_t max_version = (typename Archive<W>::is_saving() && !m_flags.m_long_ecdh) ? 1 : 2;
+        VERSION_FIELD(max_version)
         if (version < 1)
           return false;
         FIELD(m_pubkey)
@@ -311,6 +315,8 @@ private:
         FIELD(m_tx_pubkey)
         FIELD(m_flags.flags)
         VARINT_FIELD(m_amount)
+        if (m_flags.m_long_ecdh)
+          FIELD(m_long_ecdh_mask)
         FIELD(m_additional_tx_keys)
         VARINT_FIELD(m_subaddr_index_major)
         VARINT_FIELD(m_subaddr_index_minor)

@@ -43,7 +43,7 @@ SUBADDRESS2 = '85M4M1RVRcoEeC8sdSxN1ef6GhQYChSfKPWkB4FLKYJiSWuMXXT4Ewv8BHCRzSJB4
 class ColdSigningTest():
     def run_test(self):
         self.reset()
-        self.create(0)
+        self.create()
         self.mine()
         for piecemeal_output_export in [False, True]:
             self.transfer(piecemeal_output_export)
@@ -61,7 +61,7 @@ class ColdSigningTest():
         daemon.pop_blocks(res.height - 1)
         daemon.flush_txpool()
 
-    def create(self, idx):
+    def create(self):
         print('Creating hot and cold wallet')
 
         self.hot_wallet = Wallet(idx = 0)
@@ -97,10 +97,9 @@ class ColdSigningTest():
     def mine(self, n_blocks = 80):
         print("Mining some blocks")
         daemon = Daemon()
-        wallet = Wallet()
 
         daemon.generateblocks(STANDARD_ADDRESS, n_blocks)
-        wallet.refresh()
+        self.hot_wallet.refresh()
 
     def export_import(self, piecemeal_output_export):
         self.hot_wallet.refresh()
