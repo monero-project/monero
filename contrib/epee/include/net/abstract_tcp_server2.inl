@@ -1210,8 +1210,7 @@ namespace net_utils
     new_connection_(),
     new_connection_ipv6()
   {
-    create_server_type_map();
-    m_thread_name_prefix = "NET";
+    m_thread_name_prefix = e_connection_type_NET;
   }
 
   template<class t_protocol_handler>
@@ -1228,8 +1227,7 @@ namespace net_utils
     new_connection_(),
     new_connection_ipv6()
   {
-    create_server_type_map();
-    m_thread_name_prefix = "NET";
+    m_thread_name_prefix = e_connection_type_NET;
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -1240,11 +1238,15 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  void boosted_tcp_server<t_protocol_handler>::create_server_type_map() 
+  const char* boosted_tcp_server<t_protocol_handler>::server_type_name(t_connection_type type) noexcept
   {
-		server_type_map["NET"] = e_connection_type_NET;
-		server_type_map["RPC"] = e_connection_type_RPC;
-		server_type_map["P2P"] = e_connection_type_P2P;
+    switch (type)
+    {
+      case e_connection_type_NET: return "NET";
+      case e_connection_type_RPC: return "RPC";
+      case e_connection_type_P2P: return "P2P";
+      default:                    return "UNKNOWN";
+    }
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -1381,10 +1383,10 @@ namespace net_utils
   {
     TRY_ENTRY();
     const uint32_t local_thr_index = m_thread_index++; // atomically increment, getting value before increment
-    std::string thread_name = std::string("[") + m_thread_name_prefix;
+    std::string thread_name = std::string("[") + server_type_name(m_thread_name_prefix);
     thread_name += boost::to_string(local_thr_index) + "]";
     MLOG_SET_THREAD_NAME(thread_name);
-    //   _fact("Thread name: " << m_thread_name_prefix);
+    //   _fact("Thread name: " << server_type_name(m_thread_name_prefix));
     while(!m_stop_signal_sent)
     {
       try
@@ -1407,13 +1409,10 @@ namespace net_utils
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
-  void boosted_tcp_server<t_protocol_handler>::set_threads_prefix(const std::string& prefix_name)
+  void boosted_tcp_server<t_protocol_handler>::set_thread_name_prefix(t_connection_type type)
   {
-    m_thread_name_prefix = prefix_name;
-		auto it = server_type_map.find(m_thread_name_prefix);
-		if (it==server_type_map.end()) throw std::runtime_error("Unknown prefix/server type:" + std::string(prefix_name));
-    auto connection_type = it->second; // the value of type
-    MINFO("Set server type to: " << connection_type << " from name: " << m_thread_name_prefix << ", prefix_name = " << prefix_name);
+    m_thread_name_prefix = type;
+    MINFO("Set thread name prefix to: " << type << " (\"" << server_type_name(type) << "\")");
   }
   //---------------------------------------------------------------------------------
   template<class t_protocol_handler>
@@ -1453,7 +1452,7 @@ namespace net_utils
       {
         boost::shared_ptr<boost::thread> thread(new boost::thread(
           attrs, boost::bind(&boosted_tcp_server<t_protocol_handler>::worker_thread, this)));
-          _note("Run server thread name: " << m_thread_name_prefix);
+          _note("Run server thread name: " << server_type_name(m_thread_name_prefix));
         m_threads.push_back(thread);
       }
       CRITICAL_REGION_END();
