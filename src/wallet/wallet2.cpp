@@ -1860,9 +1860,26 @@ void wallet2::sort_scan_tx_entries(std::vector<process_tx_entry_t> &unsorted_tx_
 
   {
     const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-    bool r = net_utils::invoke_http_bin("/getblocks_by_height.bin", req, res, *m_http_client, rpc_timeout);
-    THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to get blocks by height from daemon");
-    THROW_WALLET_EXCEPTION_IF(res.blocks.size() != req.heights.size(), error::wallet_internal_error, "Failed to get blocks by height from daemon");
+    size_t offset = 0;
+    size_t count = req.heights.size();
+    while (offset < req.heights.size())
+    {
+      COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::request batch_req;
+      COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::response batch_res;
+      batch_req.heights.assign(req.heights.begin() + offset, req.heights.begin() + offset + count);
+      const bool r = net_utils::invoke_http_bin("/getblocks_by_height.bin", batch_req, batch_res, *m_http_client, rpc_timeout);
+      if (r && batch_res.status == CORE_RPC_STATUS_RESPONSE_TOO_LARGE && count > 1)
+      {
+        count /= 2;
+        continue;
+      }
+      THROW_WALLET_EXCEPTION_IF(!r || batch_res.status != CORE_RPC_STATUS_OK || batch_res.blocks.size() != count,
+          error::wallet_internal_error, "Failed to get blocks by height from daemon");
+      for (auto &block : batch_res.blocks)
+        res.blocks.push_back(std::move(block));
+      offset += count;
+      count = std::min(count, req.heights.size() - offset);
+    }
   }
 
   std::unordered_map<uint64_t, cryptonote::block> parsed_blocks;
