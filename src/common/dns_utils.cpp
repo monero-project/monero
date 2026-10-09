@@ -394,16 +394,16 @@ std::string address_from_txt_record(const std::string& s)
  *
  * gets the monero address from the TXT record of the DNS entry associated
  * with <url>.  If this lookup fails, or the TXT record does not contain an
- * XMR address in the correct format, returns an empty string.  <dnssec_valid>
- * will be set true or false according to whether or not the DNS query passes
- * DNSSEC validation.
+ * XMR address in the correct format, returns an empty string.  <dnssec>
+ * will be set to a dnssec_status value reflecting whether DNSSEC was
+ * available and whether the query passed DNSSEC validation.
  *
  * @param url the url to look up
- * @param dnssec_valid return-by-reference for DNSSEC status of query
+ * @param dnssec return-by-reference for DNSSEC status of query
  *
  * @return a monero address (as a string) or an empty string
  */
-std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec_valid)
+std::vector<std::string> addresses_from_url(const std::string& url, dnssec_status& dnssec)
 {
   std::vector<std::string> addresses;
   // get txt records
@@ -411,12 +411,18 @@ std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec
   std::string oa_addr = DNSResolver::instance().get_dns_format_from_oa_address(url);
   auto records = DNSResolver::instance().get_txt_record(oa_addr, dnssec_available, dnssec_isvalid);
 
-  // TODO: update this to allow for conveying that dnssec was not available
-  if (dnssec_available && dnssec_isvalid)
+  if (!dnssec_available)
   {
-    dnssec_valid = true;
+    dnssec = dnssec_status::unavailable;
   }
-  else dnssec_valid = false;
+  else if (dnssec_isvalid)
+  {
+    dnssec = dnssec_status::valid;
+  }
+  else
+  {
+    dnssec = dnssec_status::invalid;
+  }
 
   // for each txt record, try to find a monero address in it.
   for (auto& rec : records)
@@ -430,16 +436,16 @@ std::vector<std::string> addresses_from_url(const std::string& url, bool& dnssec
   return addresses;
 }
 
-std::string get_account_address_as_str_from_url(const std::string& url, bool& dnssec_valid, std::function<std::string(const std::string&, const std::vector<std::string>&, bool)> dns_confirm)
+std::string get_account_address_as_str_from_url(const std::string& url, dnssec_status& dnssec, std::function<std::string(const std::string&, const std::vector<std::string>&, dnssec_status)> dns_confirm)
 {
   // attempt to get address from dns query
-  auto addresses = addresses_from_url(url, dnssec_valid);
+  auto addresses = addresses_from_url(url, dnssec);
   if (addresses.empty())
   {
     LOG_ERROR("wrong address: " << url);
     return {};
   }
-  return dns_confirm(url, addresses, dnssec_valid);
+  return dns_confirm(url, addresses, dnssec);
 }
 
 bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std::vector<std::string> &dns_urls)

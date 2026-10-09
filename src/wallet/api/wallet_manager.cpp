@@ -352,7 +352,11 @@ bool WalletManagerImpl::stopMining()
 
 std::string WalletManagerImpl::resolveOpenAlias(const std::string &address, bool &dnssec_valid) const
 {
-    std::vector<std::string> addresses = tools::dns_utils::addresses_from_url(address, dnssec_valid);
+    tools::dns_utils::dnssec_status dnssec;
+    std::vector<std::string> addresses = tools::dns_utils::addresses_from_url(address, dnssec);
+    // Preserve the public API's boolean contract: only report valid when DNSSEC
+    // was both available and successfully validated.
+    dnssec_valid = dnssec == tools::dns_utils::dnssec_status::valid;
     if (addresses.empty())
         return "";
     return addresses.front();
