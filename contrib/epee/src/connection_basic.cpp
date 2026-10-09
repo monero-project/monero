@@ -101,6 +101,8 @@ connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_thro
 
 // static variables:
 int connection_basic_pimpl::m_default_tos;
+std::atomic<int64_t> connection_basic::m_rate_up_limit_per_peer { -1 };
+std::atomic<int64_t> connection_basic::m_rate_down_limit_per_peer { -1 };
 
 // methods:
 connection_basic::connection_basic(boost::asio::io_context &io_context, boost::asio::ip::tcp::socket&& sock, std::shared_ptr<connection_basic_shared_state> state, ssl_support_t ssl_support)
@@ -178,6 +180,16 @@ void connection_basic::set_rate_down_limit(uint64_t limit) {
 	}
 }
 
+void connection_basic::set_rate_up_limit_per_peer(int64_t limit)
+{
+	m_rate_up_limit_per_peer = limit;
+}
+
+void connection_basic::set_rate_down_limit_per_peer(int64_t limit)
+{
+	m_rate_down_limit_per_peer = limit;
+}
+
 uint64_t connection_basic::get_rate_up_limit() {
     uint64_t limit;
     {
@@ -194,6 +206,16 @@ uint64_t connection_basic::get_rate_down_limit() {
          limit = network_throttle_manager::get_global_throttle_in().get_target_speed();
 	}
     return limit;
+}
+
+int64_t connection_basic::get_rate_up_limit_per_peer()
+{
+	return m_rate_up_limit_per_peer;
+}
+
+int64_t connection_basic::get_rate_down_limit_per_peer()
+{
+	return m_rate_down_limit_per_peer;
 }
  
 void connection_basic::set_tos_flag(int tos) {
