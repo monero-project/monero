@@ -158,12 +158,15 @@
 #define P2P_FAILED_SEED_ADDR_FORGET_SECONDS             (60*5)      //5 minutes
 #define P2P_IP_BLOCKTIME                                (60*60*24)  //24 hour
 #define P2P_IP_FAILS_BEFORE_BLOCK                       10
+#define P2P_CONN_FAILS_CACHE_MAX_SIZE                   1000
+#define P2P_HOST_FAILS_SCORE_MAX_SIZE                   1000
 #define P2P_IDLE_CONNECTION_KILL_INTERVAL               (5*60) //5 minutes
 
 #define P2P_SUPPORT_FLAG_FLUFFY_BLOCKS                  0x01
 #define P2P_SUPPORT_FLAGS                               P2P_SUPPORT_FLAG_FLUFFY_BLOCKS
 
 #define RPC_IP_FAILS_BEFORE_BLOCK                       3
+#define RPC_HOST_FAILS_SCORE_MAX_SIZE                   1000
 
 #define CRYPTONOTE_NAME                         "bitmonero"
 #define CRYPTONOTE_BLOCKCHAINDATA_FILENAME      "data.mdb"
