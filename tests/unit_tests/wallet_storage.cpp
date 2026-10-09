@@ -47,6 +47,39 @@ static constexpr const char WALLET2_ASCII_OUTPUT_MAGIC[] = "MoneroAsciiDataV1";
 class wallet_accessor_test
 {
 public:
+    static void set_monero_c_passphrase(tools::wallet2 &wallet, const std::string &passphrase)
+    {
+        auto &keys = const_cast<cryptonote::account_keys&>(wallet.get_account().get_keys());
+        keys.m_monero_c_passphrase.buffer.assign(passphrase.begin(), passphrase.end());
+    }
+
+    static bool has_custom_background_key(const tools::wallet2 &wallet)
+    {
+        return !!wallet.m_custom_background_key;
+    }
+
+    static void rewrite_wallet(tools::wallet2 &wallet, const std::string &filename, const epee::wipeable_string &password)
+    {
+        wallet.rewrite(filename, password);
+    }
+
+    static bool watch_only_keys_contain_custom_background_key(tools::wallet2 &wallet,
+        const epee::wipeable_string &original_password, const epee::wipeable_string &watch_only_password)
+    {
+        crypto::chacha_key original_key, watch_only_key;
+        wallet.generate_chacha_key_from_password(original_password, original_key);
+        wallet.generate_chacha_key_from_password(watch_only_password, watch_only_key);
+        const auto keys_file_data = wallet.get_keys_file_data(watch_only_key, original_key, true, false, true);
+        if (!keys_file_data)
+            return false;
+        std::string json(keys_file_data->account_data.size(), '\0');
+        crypto::chacha20(keys_file_data->account_data.data(), keys_file_data->account_data.size(),
+            watch_only_key, keys_file_data->iv, &json[0]);
+        const bool contains_key = json.find("\"custom_background_key\"") != std::string::npos;
+        memwipe(&json[0], json.size());
+        return contains_key;
+    }
+
     static void forget_cached_key_image(tools::wallet2 &wallet, const size_t index)
     {
         crypto::key_image stale_key_image = AUTO_VAL_INIT(stale_key_image);
@@ -221,6 +254,145 @@ TEST(wallet_storage, change_password_same_file)
         tools::wallet2 w;
         EXPECT_THROW(w.load(interm_wallet_file.string(), old_password), tools::error::invalid_password);
     }
+}
+
+TEST(wallet_storage, watch_only_wallet_with_distinct_password)
+{
+    const path source_wallet_file = unit_test::data_dir / "wallet_00fd416a";
+    const path wallet_file = unit_test::data_dir / "wallet_watch_only_distinct_password";
+    const std::string watch_only_file = wallet_file.string() + "-watchonly";
+    const epee::wipeable_string original_password("beepbeep");
+    const epee::wipeable_string watch_only_password("different password");
+    const epee::wipeable_string wrong_password("wrong password");
+    const std::string source_passphrase("source wallet passphrase");
+
+    ASSERT_TRUE(is_file_exist(source_wallet_file.string()));
+    ASSERT_TRUE(is_file_exist(source_wallet_file.string() + ".keys"));
+    remove(wallet_file);
+    remove(wallet_file.string() + ".keys");
+    remove(watch_only_file);
+    remove(watch_only_file + ".keys");
+    tools::copy_file(source_wallet_file.string(), wallet_file.string());
+    tools::copy_file(source_wallet_file.string() + ".keys", wallet_file.string() + ".keys");
+
+    std::string new_keys_filename;
+    {
+        tools::wallet2 w;
+        w.load(wallet_file.string(), original_password);
+        ASSERT_EQ(tools::wallet2::AskPasswordToDecrypt, w.ask_password());
+        ASSERT_EQ(WALLET_00fd416a_PRIMARY_ADDRESS, w.get_address_as_str());
+        EXPECT_THROW(w.write_watch_only_wallet(wallet_file.string(), wrong_password, watch_only_password, new_keys_filename), tools::error::invalid_password);
+        EXPECT_FALSE(is_file_exist(watch_only_file + ".keys"));
+        {
+            tools::wallet_keys_unlocker unlocker(w, &original_password);
+            wallet_accessor_test::set_monero_c_passphrase(w, source_passphrase);
+        }
+        w.write_watch_only_wallet(wallet_file.string(), original_password, watch_only_password, new_keys_filename);
+        EXPECT_EQ(watch_only_file + ".keys", new_keys_filename);
+        EXPECT_TRUE(is_file_exist(new_keys_filename));
+        {
+            tools::wallet_keys_unlocker unlocker(w, &original_password);
+            const auto &passphrase = w.get_account().get_keys().m_monero_c_passphrase.buffer;
+            EXPECT_EQ(source_passphrase, std::string(passphrase.begin(), passphrase.end()));
+        }
+    }
+
+    {
+        tools::wallet2 w;
+        w.load(watch_only_file, watch_only_password);
+        EXPECT_TRUE(w.watch_only());
+        EXPECT_EQ(crypto::null_skey, w.get_account().get_keys().m_spend_secret_key);
+        EXPECT_TRUE(w.get_account().get_keys().m_monero_c_passphrase.buffer.empty());
+        EXPECT_EQ(WALLET_00fd416a_PRIMARY_ADDRESS, w.get_address_as_str());
+    }
+    {
+        tools::wallet2 w;
+        EXPECT_ANY_THROW(w.load(watch_only_file, original_password));
+    }
+    {
+        tools::wallet2 w;
+        w.load(wallet_file.string(), original_password);
+        EXPECT_FALSE(w.watch_only());
+        EXPECT_EQ(WALLET_00fd416a_PRIMARY_ADDRESS, w.get_address_as_str());
+    }
+
+    remove(watch_only_file + ".keys");
+    {
+        tools::wallet2 w;
+        w.load(wallet_file.string(), original_password);
+        w.write_watch_only_wallet(wallet_file.string(), original_password, new_keys_filename);
+    }
+    {
+        tools::wallet2 w;
+        w.load(watch_only_file, original_password);
+        EXPECT_TRUE(w.watch_only());
+        EXPECT_EQ(crypto::null_skey, w.get_account().get_keys().m_spend_secret_key);
+        EXPECT_EQ(WALLET_00fd416a_PRIMARY_ADDRESS, w.get_address_as_str());
+    }
+    remove(watch_only_file + ".keys");
+    remove(wallet_file.string() + ".keys");
+    remove(wallet_file);
+}
+
+TEST(wallet_storage, watch_only_wallet_drops_custom_background_key)
+{
+    const path wallet_file = unit_test::data_dir / "wallet_watch_only_custom_background";
+    const std::string watch_only_file = wallet_file.string() + "-watchonly";
+    const epee::wipeable_string original_password("source password");
+    const epee::wipeable_string background_password("background password");
+    const epee::wipeable_string watch_only_password("watch-only password");
+    remove(watch_only_file + ".keys");
+
+    std::string new_keys_filename;
+    {
+        tools::wallet2 w;
+        w.generate("", original_password);
+        w.setup_background_sync(tools::wallet2::BackgroundSyncCustomPassword, original_password, background_password);
+        ASSERT_EQ(tools::wallet2::BackgroundSyncCustomPassword, w.background_sync_type());
+        ASSERT_TRUE(wallet_accessor_test::has_custom_background_key(w));
+        EXPECT_FALSE(wallet_accessor_test::watch_only_keys_contain_custom_background_key(w, original_password, watch_only_password));
+        w.write_watch_only_wallet(wallet_file.string(), original_password, watch_only_password, new_keys_filename);
+        EXPECT_EQ(watch_only_file + ".keys", new_keys_filename);
+        EXPECT_EQ(tools::wallet2::BackgroundSyncCustomPassword, w.background_sync_type());
+        EXPECT_TRUE(wallet_accessor_test::has_custom_background_key(w));
+    }
+    {
+        tools::wallet2 w;
+        w.load(watch_only_file, watch_only_password);
+        EXPECT_TRUE(w.watch_only());
+        EXPECT_EQ(tools::wallet2::BackgroundSyncOff, w.background_sync_type());
+        EXPECT_FALSE(wallet_accessor_test::has_custom_background_key(w));
+    }
+    remove(watch_only_file + ".keys");
+}
+
+TEST(wallet_storage, watch_only_rewrite_preserves_monero_c_passphrase)
+{
+    const path wallet_file = unit_test::data_dir / "wallet_watch_only_passphrase_rewrite";
+    const epee::wipeable_string password("wallet password");
+    const std::string passphrase("stored monero_c passphrase");
+    remove(wallet_file);
+    remove(wallet_file.string() + ".keys");
+
+    {
+        tools::wallet2 source;
+        source.generate("", password);
+        tools::wallet2 watch_only;
+        watch_only.generate(wallet_file.string(), password, source.get_address(),
+            source.get_account().get_keys().m_view_secret_key);
+        ASSERT_TRUE(watch_only.watch_only());
+        wallet_accessor_test::set_monero_c_passphrase(watch_only, passphrase);
+        wallet_accessor_test::rewrite_wallet(watch_only, wallet_file.string(), password);
+    }
+    {
+        tools::wallet2 watch_only;
+        watch_only.load(wallet_file.string(), password);
+        ASSERT_TRUE(watch_only.watch_only());
+        const auto &stored = watch_only.get_account().get_keys().m_monero_c_passphrase.buffer;
+        EXPECT_EQ(passphrase, std::string(stored.begin(), stored.end()));
+    }
+    remove(wallet_file.string() + ".keys");
+    remove(wallet_file);
 }
 
 TEST(wallet_storage, change_password_different_file)

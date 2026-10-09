@@ -758,6 +758,7 @@ private:
      */
     void rewrite(const std::string& wallet_name, const epee::wipeable_string& password);
     void write_watch_only_wallet(const std::string& wallet_name, const epee::wipeable_string& password, std::string &new_keys_filename);
+    void write_watch_only_wallet(const std::string& wallet_name, const epee::wipeable_string& original_password, const epee::wipeable_string& watch_only_password, std::string &new_keys_filename);
     void load(const std::string& wallet, const epee::wipeable_string& password, const std::string& keys_buf = "", const std::string& cache_buf = "");
     void store();
     /*!
@@ -1540,6 +1541,7 @@ private:
     bool store_keys(const std::string& keys_file_name, const epee::wipeable_string& password, bool watch_only = false);
     bool store_keys(const std::string& keys_file_name, const crypto::chacha_key& key, bool watch_only = false, bool background_keys_file = false);
     boost::optional<wallet2::keys_file_data> get_keys_file_data(const crypto::chacha_key& key, bool watch_only = false, bool background_keys_file = false);
+    boost::optional<wallet2::keys_file_data> get_keys_file_data(const crypto::chacha_key& key, const crypto::chacha_key& original_key, bool watch_only, bool background_keys_file, bool sanitize_watch_only_export);
     bool store_keys_file_data(const std::string& keys_file_name, wallet2::keys_file_data &keys_file_data, bool background_keys_file = false);
     /*!
      * \brief Load wallet keys information from wallet file.

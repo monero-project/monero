@@ -5228,6 +5228,10 @@ bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std
     return true;
   }
 
+  const auto orig_pwd_container = get_and_verify_password();
+  if (!orig_pwd_container)
+    return true;
+
   const auto pwd_container = password_prompter(tr("Password for new watch-only wallet"), true);
 
   if (!pwd_container)
@@ -5239,7 +5243,7 @@ bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std
   try
   {
     std::string new_keys_filename;
-    m_wallet->write_watch_only_wallet(m_wallet_file, pwd_container->password(), new_keys_filename);
+    m_wallet->write_watch_only_wallet(m_wallet_file, orig_pwd_container->password(), pwd_container->password(), new_keys_filename);
     success_msg_writer() << tr("Watch only wallet saved as: ") << new_keys_filename;
   }
   catch (const std::exception &e)

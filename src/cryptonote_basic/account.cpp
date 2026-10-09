@@ -160,6 +160,14 @@ DISABLE_VS_WARNINGS(4244 4345)
     m_keys.m_polyseed = crypto::secret_key();
   }
   //-----------------------------------------------------------------
+  void account_base::forget_monero_c_passphrase()
+  {
+    auto &passphrase = m_keys.m_monero_c_passphrase.buffer;
+    if (!passphrase.empty())
+      memwipe(passphrase.data(), passphrase.size());
+    passphrase.clear();
+  }
+  //-----------------------------------------------------------------
   void account_base::set_spend_key(const crypto::secret_key& spend_secret_key)
   {
     // make sure derived spend public key matches saved public spend key
