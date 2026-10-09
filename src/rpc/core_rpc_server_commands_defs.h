@@ -101,7 +101,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define CORE_RPC_VERSION_MAJOR 3
-#define CORE_RPC_VERSION_MINOR 19
+#define CORE_RPC_VERSION_MINOR 20
 #define MAKE_CORE_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define CORE_RPC_VERSION MAKE_CORE_RPC_VERSION(CORE_RPC_VERSION_MAJOR, CORE_RPC_VERSION_MINOR)
 
@@ -188,6 +188,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       bool        block_ids_exclusive;
       uint64_t    pool_info_since;
       uint64_t    max_block_count;
+      bool        verifiable;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
@@ -199,6 +200,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE_OPT(block_ids_exclusive, false)
         KV_SERIALIZE_OPT(pool_info_since, (uint64_t)0)
         KV_SERIALIZE_OPT(max_block_count, (uint64_t)0)
+        KV_SERIALIZE_OPT(verifiable, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -361,6 +363,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
       bool decode_as_json;
       bool prune;
       bool split;
+      bool verifiable;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_PARENT(rpc_access_request_base)
@@ -368,6 +371,7 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
         KV_SERIALIZE(decode_as_json)
         KV_SERIALIZE_OPT(prune, false)
         KV_SERIALIZE_OPT(split, false)
+        KV_SERIALIZE_OPT(verifiable, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
