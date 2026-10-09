@@ -2221,6 +2221,13 @@ size_t wallet2::get_transfer_details(const crypto::key_image &ki) const
   CHECK_AND_ASSERT_THROW_MES(false, "Key image not found");
 }
 //----------------------------------------------------------------------------------------------------
+size_t wallet2::get_output_index(const crypto::public_key &pk) const
+{
+  auto search = m_pub_keys.find(pk);
+  CHECK_AND_ASSERT_THROW_MES(search != m_pub_keys.end(), "Public key not found in owned outputs");
+  return search->second;
+}
+//----------------------------------------------------------------------------------------------------
 bool wallet2::frozen(const transfer_details &td) const
 {
   return td.m_frozen;
@@ -2723,7 +2730,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             }
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (!ignore_callbacks && 0 != m_callback)
-	      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, payment_id, spends_one_of_ours(tx), td.m_tx.unlock_time);
+	      m_callback->on_money_received(height, txid, tx, td.m_amount, 0, td.m_subaddr_index, payment_id, spends_one_of_ours(tx), td.m_tx.unlock_time, td.get_public_key());
           }
           total_received_1 += amount;
           notify = true;
@@ -2808,7 +2815,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
 	    if (!ignore_callbacks && 0 != m_callback)
-	      m_callback->on_money_received(height, txid, tx, td.m_amount, burnt, td.m_subaddr_index, payment_id, spends_one_of_ours(tx), td.m_tx.unlock_time);
+	      m_callback->on_money_received(height, txid, tx, td.m_amount, burnt, td.m_subaddr_index, payment_id, spends_one_of_ours(tx), td.m_tx.unlock_time, td.get_public_key());
           }
           total_received_1 += extra_amount;
           notify = true;
@@ -2865,7 +2872,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       if (!pool)
       {
         if (!ignore_callbacks && 0 != m_callback)
-          m_callback->on_money_spent(height, txid, tx, amount, tx, td.m_subaddr_index);
+          m_callback->on_money_spent(height, txid, tx, amount, tx, td.m_subaddr_index, td.get_public_key());
 
         if (m_background_syncing && m_background_sync_data.txs.find(txid) == m_background_sync_data.txs.end())
         {
@@ -6102,6 +6109,8 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
   const std::vector<std::string> &initial_kex_msgs,
   const std::uint32_t threshold)
 {
+  verify_password_with_cached_key(password);
+
   // decrypt account keys
   std::optional<wallet_keys_unlocker> unlocker(std::in_place, *this, &password);
 
@@ -6199,6 +6208,8 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
   const std::vector<std::string> &kex_messages,
   const bool force_update_use_with_caution /*= false*/)
 {
+  verify_password_with_cached_key(password);
+
   const multisig::multisig_account_status ms_status{this->get_multisig_status()};
   CHECK_AND_ASSERT_THROW_MES(ms_status.multisig_is_active, "The wallet is not multisig");
 
@@ -8286,7 +8297,7 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
   return this->parse_tx_from_str(s, ptx, accept_func);
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func)
+bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func, tools::wallet2::signed_tx_set *signed_txs_out /* = nullptr */, bool do_handle_key_images /* = true */)
 {
   std::string s = signed_tx_st;
   signed_tx_set signed_txs;
@@ -8364,35 +8375,62 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
   LOG_PRINT_L0("Loaded signed tx data from binary: " << signed_txs.ptx.size() << " transactions");
   for (auto &c_ptx: signed_txs.ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(c_ptx.tx));
 
+  // sanity checks
+  for (const auto &ptx : signed_txs.ptx)
+  {
+    CHECK_AND_ASSERT_MES(ptx.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched selected_transfers/vin sizes");
+    for (size_t idx: ptx.selected_transfers)
+      CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
+    CHECK_AND_ASSERT_MES(ptx.construction_data.selected_transfers.size() == ptx.tx.vin.size(), false, "Mismatched cd selected_transfers/vin sizes");
+    for (size_t idx: ptx.construction_data.selected_transfers)
+      CHECK_AND_ASSERT_MES(idx < m_transfers.size(), false, "Transfer index out of range");
+    CHECK_AND_ASSERT_MES(ptx.construction_data.sources.size() == ptx.tx.vin.size(), false, "Mismatched sources/vin sizes");
+    CHECK_AND_ASSERT_MES(!ptx.tx.vin.empty(), false, "Tx has no inputs");
+    CHECK_AND_ASSERT_MES(!ptx.construction_data.sources.empty(), false, "Tx has no sources");
+  }
+
   if (accept_func && !accept_func(signed_txs))
   {
     LOG_PRINT_L1("Transactions rejected by callback");
     return false;
   }
 
-  // import key images
-  bool r = this->import_key_images(signed_txs.key_images);
-  if (!r) return false;
-
-  // remember key images for this tx, for when we get those txes from the blockchain
-  for (const auto &e: signed_txs.tx_key_images)
-    m_cold_key_images.insert(e);
-
-  try
+  // `do_handle_key_images = true` was (and is) the default behavior, but for more flexibility in the Wallet API it can be turned off now
+  if (do_handle_key_images)
   {
-    // extra/redundant validation making sure key images line up
-    for (const auto &ptx : signed_txs.ptx)
-      this->sanity_check_pending_tx(ptx, true, true, std::nullopt, true);
-  }
-  catch (const std::exception &e)
-  {
-    LOG_PRINT_L0("Failed to validate signed transaction (post import): " << e.what());
-    return false;
+    // import key images
+    bool r = this->import_key_images(signed_txs.key_images);
+    if (!r) return false;
+
+    // remember key images for this tx, for when we get those txes from the blockchain
+    insert_cold_key_images(signed_txs.tx_key_images);
+
+    try
+    {
+      // extra/redundant validation making sure key images line up
+      for (const auto &ptx : signed_txs.ptx)
+        this->sanity_check_pending_tx(ptx, true, true, std::nullopt, true);
+    }
+    catch (const std::exception &e)
+    {
+      LOG_PRINT_L0("Failed to validate signed transaction (post import): " << e.what());
+      return false;
+    }
   }
 
   ptx = signed_txs.ptx;
 
+  // Make signed_tx_set available to caller
+  if (signed_txs_out)
+      *signed_txs_out = std::move(signed_txs);
+
   return true;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::insert_cold_key_images(std::unordered_map<crypto::public_key, crypto::key_image> &cold_key_images)
+{
+    for (const auto &ki: cold_key_images)
+      m_cold_key_images.insert(ki);
 }
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::save_multisig_tx(multisig_tx_set txs)
@@ -8522,7 +8560,7 @@ bool wallet2::parse_multisig_tx_from_str(std::string multisig_tx_st, multisig_tx
   return true;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func)
+bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func, bool skip_callback /* = false */)
 {
   if(!parse_multisig_tx_from_str(s, exported_txs))
   {
@@ -8533,12 +8571,42 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
   LOG_PRINT_L1("Loaded multisig tx unsigned data from binary: " << exported_txs.m_ptx.size() << " transactions");
   for (auto &ptx: exported_txs.m_ptx) LOG_PRINT_L0(cryptonote::obj_to_json_str(ptx.tx));
 
+  if (skip_callback) return true;
+
   if (accept_func && !accept_func(exported_txs))
   {
     LOG_PRINT_L1("Transactions rejected by callback");
     return false;
   }
+  return finish_loading_accepted_multisig_tx(exported_txs);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func, bool skip_callback /* = false */)
+{
+  std::string s;
+  boost::system::error_code errcode;
 
+  if (!boost::filesystem::exists(filename, errcode))
+  {
+    LOG_PRINT_L0("File " << filename << " does not exist: " << errcode);
+    return false;
+  }
+  if (!load_from_file(filename.c_str(), s))
+  {
+    LOG_PRINT_L0("Failed to load from " << filename);
+    return false;
+  }
+
+  if (!load_multisig_tx(s, exported_txs, accept_func, skip_callback))
+  {
+    LOG_PRINT_L0("Failed to parse multisig tx data from " << filename);
+    return false;
+  }
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::finish_loading_accepted_multisig_tx(multisig_tx_set &exported_txs)
+{
   const bool is_signed = exported_txs.m_signers.size() >= m_multisig_threshold;
   if (is_signed)
   {
@@ -8569,31 +8637,6 @@ bool wallet2::load_multisig_tx(cryptonote::blobdata s, multisig_tx_set &exported
         m_additional_tx_keys[txid] = ptx.additional_tx_keys;
       }
     }
-  }
-
-  return true;
-}
-//----------------------------------------------------------------------------------------------------
-bool wallet2::load_multisig_tx_from_file(const std::string &filename, multisig_tx_set &exported_txs, std::function<bool(const multisig_tx_set&)> accept_func)
-{
-  std::string s;
-  boost::system::error_code errcode;
-
-  if (!boost::filesystem::exists(filename, errcode))
-  {
-    LOG_PRINT_L0("File " << filename << " does not exist: " << errcode);
-    return false;
-  }
-  if (!load_from_file(filename.c_str(), s))
-  {
-    LOG_PRINT_L0("Failed to load from " << filename);
-    return false;
-  }
-
-  if (!load_multisig_tx(s, exported_txs, accept_func))
-  {
-    LOG_PRINT_L0("Failed to parse multisig tx data from " << filename);
-    return false;
   }
   return true;
 }
@@ -13509,6 +13552,11 @@ crypto::public_key wallet2::get_tx_pub_key_from_received_outs(const tools::walle
 bool wallet2::export_key_images(const std::string &filename, bool all) const
 {
   PERF_TIMER(export_key_images);
+  return save_to_file(filename, export_key_images_to_str(all));
+}
+
+std::string wallet2::export_key_images_to_str(bool all /* = false */) const
+{
   std::pair<uint64_t, std::vector<std::pair<crypto::key_image, crypto::signature>>> ski = export_key_images(all);
   std::string magic(KEY_IMAGE_EXPORT_FILE_MAGIC, strlen(KEY_IMAGE_EXPORT_FILE_MAGIC));
   const cryptonote::account_public_address &keys = get_account().get_keys().m_account_address;
@@ -13532,7 +13580,7 @@ bool wallet2::export_key_images(const std::string &filename, bool all) const
   // encrypt data, keep magic plaintext
   PERF_TIMER(export_key_images_encrypt);
   std::string ciphertext = encrypt_with_view_secret_key(data);
-  return save_to_file(filename, magic + ciphertext);
+  return magic + ciphertext;
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -13597,10 +13645,16 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
 
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, std::string(tr("failed to read file ")) + filename);
 
+  return import_key_images_from_str(data, spent, unspent);
+}
+
+std::uint64_t wallet2::import_key_images_from_str(const std::string &key_images_str, std::uint64_t &spent, std::uint64_t &unspent)
+{
+  std::string data = key_images_str;
   const size_t magiclen = strlen(KEY_IMAGE_EXPORT_FILE_MAGIC);
   if (data.size() < magiclen || memcmp(data.data(), KEY_IMAGE_EXPORT_FILE_MAGIC, magiclen))
   {
-    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Bad key image export file magic in ") + filename);
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Bad key image export file magic"));
   }
 
   try
@@ -13610,11 +13664,11 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
   }
   catch (const std::exception &e)
   {
-    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Failed to decrypt ") + filename + ": " + e.what());
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Failed to decrypt: ") + e.what());
   }
 
   const size_t headerlen = 4 + 2 * sizeof(crypto::public_key);
-  THROW_WALLET_EXCEPTION_IF(data.size() < headerlen, error::wallet_internal_error, std::string("Bad data size from file ") + filename);
+  THROW_WALLET_EXCEPTION_IF(data.size() < headerlen, error::wallet_internal_error, std::string("Bad data size from file "));
   const uint32_t offset = (uint8_t)data[0] | (((uint8_t)data[1]) << 8) | (((uint8_t)data[2]) << 16) | (((uint8_t)data[3]) << 24);
   crypto::public_key public_spend_key, public_view_key;
   memcpy(&public_spend_key, &data[4], sizeof(public_spend_key));
@@ -13622,13 +13676,13 @@ uint64_t wallet2::import_key_images(const std::string &filename, uint64_t &spent
   const cryptonote::account_public_address &keys = get_account().get_keys().m_account_address;
   if (public_spend_key != keys.m_spend_public_key || public_view_key != keys.m_view_public_key)
   {
-    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string( "Key images from ") + filename + " are for a different account");
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Key images are for a different account"));
   }
   THROW_WALLET_EXCEPTION_IF(offset > m_transfers.size(), error::wallet_internal_error, "Offset larger than known outputs");
 
   const size_t record_size = sizeof(crypto::key_image) + sizeof(crypto::signature);
   THROW_WALLET_EXCEPTION_IF((data.size() - headerlen) % record_size,
-      error::wallet_internal_error, std::string("Bad data size from file ") + filename);
+      error::wallet_internal_error, std::string("Bad data size "));
   size_t nki = (data.size() - headerlen) / record_size;
 
   std::vector<std::pair<crypto::key_image, crypto::signature>> ski;
@@ -13880,7 +13934,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
           LOG_PRINT_L0("Spent money: " << print_money(amount) << ", with tx: " << *spent_txid);
           set_spent(it->second, e.block_height);
           if (m_callback)
-            m_callback->on_money_spent(e.block_height, *spent_txid, spent_tx, amount, spent_tx, td.m_subaddr_index);
+            m_callback->on_money_spent(e.block_height, *spent_txid, spent_tx, amount, spent_tx, td.m_subaddr_index, td.get_public_key());
           if (subaddr_account != (uint32_t)-1 && subaddr_account != td.m_subaddr_index.major)
             LOG_PRINT_L0("WARNING: This tx spends outputs received by different subaddress accounts, which isn't supposed to happen");
           subaddr_account = td.m_subaddr_index.major;
