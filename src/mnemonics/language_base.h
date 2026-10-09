@@ -39,6 +39,7 @@
 #include <unordered_map>
 #include <string>
 #include <boost/algorithm/string.hpp>
+#include <utf8proc.h>
 #include "misc_log_ex.h"
 #include "fnv1.h"
 #include "common/utf8.h"
@@ -60,16 +61,17 @@ namespace Language
   inline T utf8prefix(const T &s, size_t count)
   {
     T prefix = "";
-    size_t avail = s.size();
-    const char *ptr = s.data();
-    while (count-- && avail--)
+    const utf8proc_uint8_t *ptr = reinterpret_cast<const utf8proc_uint8_t*>(s.data());
+    utf8proc_ssize_t avail = s.size();
+    while (count-- && avail > 0)
     {
-      prefix += *ptr++;
-      while (avail && ((*ptr) & 0xc0) == 0x80)
-      {
-        prefix += *ptr++;
-        --avail;
-      }
+      utf8proc_int32_t cp = 0;
+      utf8proc_ssize_t consumed = utf8proc_iterate(ptr, avail, &cp);
+      if (consumed <= 0)
+        break;
+      prefix.append(reinterpret_cast<const char*>(ptr), consumed);
+      ptr += consumed;
+      avail -= consumed;
     }
     return prefix;
   }
@@ -78,7 +80,7 @@ namespace Language
   {
     std::size_t operator()(const epee::wipeable_string &s) const
     {
-      const epee::wipeable_string sc = tools::utf8canonical(s, [](wint_t c) -> wint_t { return std::towlower(c); });
+      const epee::wipeable_string sc = tools::utf8canonical(s, [](wint_t c) -> wint_t { return utf8proc_tolower(c); });
       return epee::fnv::FNV1a(sc.data(), sc.size());
     }
   };
@@ -87,8 +89,8 @@ namespace Language
   {
     bool operator()(const epee::wipeable_string &s0, const epee::wipeable_string &s1) const
     {
-      const epee::wipeable_string s0c = tools::utf8canonical(s0, [](wint_t c) -> wint_t { return std::towlower(c); });
-      const epee::wipeable_string s1c = tools::utf8canonical(s1, [](wint_t c) -> wint_t { return std::towlower(c); });
+      const epee::wipeable_string s0c = tools::utf8canonical(s0, [](wint_t c) -> wint_t { return utf8proc_tolower(c); });
+      const epee::wipeable_string s1c = tools::utf8canonical(s1, [](wint_t c) -> wint_t { return utf8proc_tolower(c); });
       return s0c == s1c;
     }
   };

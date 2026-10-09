@@ -276,6 +276,13 @@ namespace tools
 
   void clear_screen();
 
+  // Returns a prefix of s, cut at a UTF-8 codepoint boundary, whose display width fits within columns,
+  // along with that prefix's display width (which may differ from its length in bytes or codepoints).
+  std::pair<std::string, size_t> get_string_prefix_by_width(const std::string &s, size_t columns);
+
+  // The display width of s (i.e. the number of terminal columns it occupies).
+  size_t get_string_width(const std::string &s);
+
   std::vector<std::pair<std::string, size_t>> split_string_by_width(const std::string &s, size_t columns);
 
   uint64_t cumulative_block_sync_weight(cryptonote::network_type nettype, uint64_t start_block, uint64_t num_blocks);

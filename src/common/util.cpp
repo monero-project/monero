@@ -51,6 +51,8 @@
 
 #include "unbound.h"
 
+#include <utf8proc.h>
+
 #include "include_base_utils.h"
 #include "file_io_utils.h"
 #include "wipeable_string.h"
@@ -910,80 +912,20 @@ namespace tools
   std::pair<std::string, size_t> get_string_prefix_by_width(const std::string &s, size_t columns)
   {
     std::string sc = "";
-    size_t avail = s.size();
-    const char *ptr = s.data();
-    wint_t cp = 0;
-    int bytes = 1;
+    const utf8proc_uint8_t *ptr = reinterpret_cast<const utf8proc_uint8_t*>(s.data());
+    utf8proc_ssize_t avail = s.size();
     size_t sw = 0;
-    char wbuf[8], *wptr;
-    while (avail--)
+    while (avail > 0)
     {
-      if ((*ptr & 0x80) == 0)
-      {
-        cp = *ptr++;
-        bytes = 1;
-      }
-      else if ((*ptr & 0xe0) == 0xc0)
-      {
-        if (avail < 1)
-        {
-          MERROR("Invalid UTF-8");
-          return std::make_pair(s, s.size());
-        }
-        cp = (*ptr++ & 0x1f) << 6;
-        cp |= *ptr++ & 0x3f;
-        --avail;
-        bytes = 2;
-      }
-      else if ((*ptr & 0xf0) == 0xe0)
-      {
-        if (avail < 2)
-        {
-          MERROR("Invalid UTF-8");
-          return std::make_pair(s, s.size());
-        }
-        cp = (*ptr++ & 0xf) << 12;
-        cp |= (*ptr++ & 0x3f) << 6;
-        cp |= *ptr++ & 0x3f;
-        avail -= 2;
-        bytes = 3;
-      }
-      else if ((*ptr & 0xf8) == 0xf0)
-      {
-        if (avail < 3)
-        {
-          MERROR("Invalid UTF-8");
-          return std::make_pair(s, s.size());
-        }
-        cp = (*ptr++ & 0x7) << 18;
-        cp |= (*ptr++ & 0x3f) << 12;
-        cp |= (*ptr++ & 0x3f) << 6;
-        cp |= *ptr++ & 0x3f;
-        avail -= 3;
-        bytes = 4;
-      }
-      else
+      utf8proc_int32_t cp = 0;
+      utf8proc_ssize_t consumed = utf8proc_iterate(ptr, avail, &cp);
+      if (consumed <= 0)
       {
         MERROR("Invalid UTF-8");
         return std::make_pair(s, s.size());
       }
 
-      wptr = wbuf;
-      switch (bytes)
-      {
-        case 1: *wptr++ = cp; break;
-        case 2: *wptr++ = 0xc0 | (cp >> 6); *wptr++ = 0x80 | (cp & 0x3f); break;
-        case 3: *wptr++ = 0xe0 | (cp >> 12); *wptr++ = 0x80 | ((cp >> 6) & 0x3f); *wptr++ = 0x80 | (cp & 0x3f); break;
-        case 4: *wptr++ = 0xf0 | (cp >> 18); *wptr++ = 0x80 | ((cp >> 12) & 0x3f); *wptr++ = 0x80 | ((cp >> 6) & 0x3f); *wptr++ = 0x80 | (cp & 0x3f); break;
-        default: MERROR("Invalid UTF-8"); return std::make_pair(s, s.size());
-      }
-      *wptr = 0;
-      sc += std::string(wbuf, bytes);
-#ifdef _WIN32
-      int cpw = 1; // Guess who does not implement wcwidth
-#else
-      int cpw = wcwidth(cp);
-#endif
+      int cpw = utf8proc_charwidth(cp);
       if (cpw > 0)
       {
         if (cpw > (int)columns)
@@ -991,8 +933,10 @@ namespace tools
         columns -= cpw;
         sw += cpw;
       }
-      cp = 0;
-      bytes = 1;
+
+      sc.append(reinterpret_cast<const char*>(ptr), consumed);
+      ptr += consumed;
+      avail -= consumed;
     }
     return std::make_pair(sc, sw);
   }
@@ -1013,6 +957,12 @@ namespace tools
       for (;;)
       {
         std::string prefix = get_string_prefix_by_width(words[i], columns).first;
+        if (prefix.empty() && !words[i].empty())
+        {
+          utf8proc_int32_t cp = 0;
+          utf8proc_ssize_t consumed = utf8proc_iterate(reinterpret_cast<const utf8proc_uint8_t*>(words[i].data()), words[i].size(), &cp);
+          prefix = words[i].substr(0, consumed > 0 ? consumed : 1);
+        }
         if (prefix == words[i])
           break;
         words[i] = words[i].substr(prefix.size());
