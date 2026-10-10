@@ -84,7 +84,13 @@ preserving network. Currently only Tor or I2P hidden services are supported.
 This option be specified multiple times, but only once per network (see below).
 
 The format for `--tx-proxy` is
-`network,[socks5://[user:pass@]]ip:port[,max_connections][,disable_noise]`.
+`network,[socks5://[user:pass@]]host:port[,max_connections][,disable_noise]`.
+The proxy host can be an IP address or a hostname, such as `tor:9050` when Tor
+runs in another container on the same Docker network. `monerod` resolves a
+hostname using the system resolver at startup and tries the returned addresses
+in order. Restart `monerod` if the proxy container's address changes while it
+is running. Use an IP address if local DNS resolution of the proxy hostname is
+undesirable. Hidden-service peer names still resolve through the proxy.
 Examples:
 
 ```
@@ -151,20 +157,20 @@ other words, command-line specified hidden services are forwarded to their
 corresponding `--tx-proxy` server. Hidden services do **NOT** have to be
 specified on the command-line, there are built-in seed nodes for each network.
 
-#### The `ip:port` portion of the option
+#### The `host:port` portion of the option
 The second portion of the option (after the first `,` and _optionally_ ending
 in the next `,`) indicates the location of the socks server. The location
-**must** include an IPv4/IPv6 AND port. The location can optionally include the
-socks version  - `socks4`, `socks4a`, and `socks5` are all valid here. If
-the socks version is not specified, `socks4a` is assumed.
+**must** include an IPv4/IPv6 address or hostname and a port. The location can
+optionally include the socks version: `socks4`, `socks4a`, and `socks5` are
+valid. If the socks version is not specified, `socks4a` is assumed.
 
 An optional username and password can also be included. These fields support
 percent-encoding, see [wallet](#wallet) section for more information.
 
 #### The last portion of the option
-After the ip:port section two options can be specified: the number of max
+After the `host:port` section two options can be specified: the number of max
 connections and `disable_noise`. They can be specified in either order, but
-must be after the ip:port section.
+must be after the `host:port` section.
 
 The max connections does exactly as advertised, it limits the number of
 outgoing connections to the proxy. The `disable_noise` feature lowers the

@@ -67,7 +67,7 @@ namespace
         return 0;
     }
 
-    bool start_socks(std::shared_ptr<net::socks::client> client, const net::socks::endpoint& proxy, const epee::net_utils::network_address& remote)
+    bool start_socks(std::shared_ptr<net::socks::client> client, const net::socks::endpoint& proxy, const boost::asio::ip::tcp::endpoint& proxy_address, const epee::net_utils::network_address& remote)
     {
         CHECK_AND_ASSERT_MES(client != nullptr, false, "Unexpected null client");
 
@@ -96,7 +96,7 @@ namespace
         }
 
         const bool sent =
-            set && net::socks::client::connect_and_send(std::move(client), proxy.address);
+            set && net::socks::client::connect_and_send(std::move(client), proxy_address);
         CHECK_AND_ASSERT_MES(sent, false, "Unexpected failure to init socks client");
         return true;
     }
@@ -140,7 +140,7 @@ namespace nodetool
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_add_exclusive_node   = {"add-exclusive-node", "Specify list of peers to connect to only."
                                                                                                   " If this option is given the options add-priority-node and seed-node are ignored"};
     const command_line::arg_descriptor<std::vector<std::string> > arg_p2p_seed_node   = {"seed-node", "Connect to a node to retrieve peer addresses, and disconnect"};
-    const command_line::arg_descriptor<std::vector<std::string> > arg_tx_proxy = {"tx-proxy", "Send local txes through proxy: <network-type>,[socks5://[user:pass@]]<socks-ip:port>[,max_connections][,disable_noise] i.e. \"tor,127.0.0.1:9050,100,disable_noise\""};
+    const command_line::arg_descriptor<std::vector<std::string> > arg_tx_proxy = {"tx-proxy", "Send local txes through proxy: <network-type>,[socks5://[user:pass@]]<socks-host:port>[,max_connections][,disable_noise] i.e. \"tor,127.0.0.1:9050,100,disable_noise\""};
     const command_line::arg_descriptor<std::vector<std::string> > arg_anonymous_inbound = {"anonymous-inbound", "<hidden-service-address>,<[bind-ip:]port>[,max_connections] i.e. \"x.onion,127.0.0.1:18083,100\""};
     const command_line::arg_descriptor<std::string> arg_ban_list = {"ban-list", "Specify ban list file, one IP address per line"};
     const command_line::arg_descriptor<bool> arg_p2p_hide_my_port   =    {"hide-my-port", "Do not announce yourself as peerlist candidate", false, true};
@@ -182,7 +182,7 @@ namespace nodetool
             const boost::string_ref zone{next->begin(), next->size()};
 
             ++next;
-            CHECK_AND_ASSERT_MES(!next.eof() && !next->empty(), boost::none, "No ip:port given for --" << arg_tx_proxy.name);
+            CHECK_AND_ASSERT_MES(!next.eof() && !next->empty(), boost::none, "No host:port given for --" << arg_tx_proxy.name);
             const boost::string_ref proxy{next->begin(), next->size()};
 
             ++next;
@@ -220,7 +220,7 @@ namespace nodetool
                 return boost::none;
             }
 
-            auto endpoint = net::socks::endpoint::get(proxy);
+            auto endpoint = net::socks::endpoint::get(proxy, true);
             if (!endpoint)
             {
                 MERROR("Invalid --" << arg_tx_proxy.name << " value: " << endpoint.error().message());
@@ -319,7 +319,7 @@ namespace nodetool
     }
 
     boost::optional<boost::asio::ip::tcp::socket>
-    socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const epee::net_utils::network_address& remote)
+    socks_connect_attempt(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const boost::asio::ip::tcp::endpoint& proxy_address, const epee::net_utils::network_address& remote)
     {
         using socket_type = net::socks::client::stream_type::socket;
         using client_result = std::pair<boost::system::error_code, socket_type>;
@@ -344,7 +344,7 @@ namespace nodetool
                 boost::asio::ip::tcp::socket{service}, proxy.ver, notify{std::move(socks_promise)}
              );
             close_client.self = client;
-            if (!start_socks(std::move(client), proxy, remote))
+            if (!start_socks(std::move(client), proxy, proxy_address, remote))
                 return boost::none;
         }
 
@@ -353,7 +353,7 @@ namespace nodetool
         {
             if (socks_connect_timeout < std::chrono::steady_clock::now() - start)
             {
-                MERROR("Timeout on socks connect (" << proxy.address << " to " << remote.str() << ")");
+                MERROR("Timeout on socks connect (" << proxy_address << " to " << remote.str() << ")");
                 return boost::none;
             }
 
@@ -370,11 +370,28 @@ namespace nodetool
                 return {std::move(result.second)};
             }
 
-            MERROR("Failed to make socks connection to " << remote.str() << " (via " << proxy.address << "): " << result.first.message());
+            MERROR("Failed to make socks connection to " << remote.str() << " (via " << proxy_address << "): " << result.first.message());
         }
         catch (boost::broken_promise const&)
         {}
 
+        return boost::none;
+    }
+
+    boost::optional<boost::asio::ip::tcp::socket>
+    socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const epee::net_utils::network_address& remote)
+    {
+        if (proxy.resolved_addresses.empty())
+            return socks_connect_attempt(stop_signal, service, proxy, proxy.address, remote);
+
+        for (const auto& address : proxy.resolved_addresses)
+        {
+            if (stop_signal)
+                break;
+            auto socket = socks_connect_attempt(stop_signal, service, proxy, address, remote);
+            if (socket)
+                return socket;
+        }
         return boost::none;
     }
 }
