@@ -399,7 +399,6 @@ private:
       std::unordered_set<crypto::public_key> ignore;
       std::unordered_set<rct::key> used_L;
       std::unordered_set<crypto::public_key> signing_keys;
-      rct::multisig_out msout;
 
       rct::keyM total_alpha_G;
       rct::keyM total_alpha_H;
@@ -414,7 +413,12 @@ private:
         FIELD(ignore)
         FIELD(used_L)
         FIELD(signing_keys)
-        FIELD(msout)
+        {
+          // read/write 2 empty key vectors for defunct `multisig_out`
+          rct::keyV ms_dummy;
+          FIELD_N("ms_dummy_1", ms_dummy)
+          FIELD_N("ms_dummy_2", ms_dummy)
+        }
         FIELD(total_alpha_G)
         FIELD(total_alpha_H)
         FIELD(c_0)
