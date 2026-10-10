@@ -71,6 +71,7 @@
 #include "wallet/message_store.h"
 #include "QrCode.hpp"
 #include "net/parse.h"
+#include "scope_guard.h"
 
 #ifdef WIN32
 #include <boost/locale.hpp>
