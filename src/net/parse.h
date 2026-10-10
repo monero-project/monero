@@ -32,6 +32,7 @@
 #include <boost/utility/string_ref.hpp>
 #include <cstdint>
 #include <optional>
+#include <vector>
 
 #include "common/expect.h"
 #include "net/fwd.h"
@@ -149,9 +150,11 @@ namespace net
             explicit endpoint(const boost::asio::ip::tcp::endpoint& address);
 
             //! \param uri with optional scheme, optional userinfo, and host+port.
-            static expect<endpoint> get(boost::string_ref uri);
+            //! \param resolve_host whether to resolve a proxy hostname with local DNS.
+            static expect<endpoint> get(boost::string_ref uri, bool resolve_host = false);
 
             boost::asio::ip::tcp::endpoint address;
+            std::vector<boost::asio::ip::tcp::endpoint> resolved_addresses;
             user_and_pass userinfo;
             version ver;
         };

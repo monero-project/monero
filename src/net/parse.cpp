@@ -28,6 +28,7 @@
 
 #include "parse.h"
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <type_traits>
 #include "hex.h"
 #include "net/socks.h"
@@ -271,14 +272,11 @@ namespace net
           : address(address), userinfo(), ver(version::v4a)
         {}
 
-        expect<endpoint> endpoint::get(const boost::string_ref uri)
+        expect<endpoint> endpoint::get(const boost::string_ref uri, const bool resolve_host)
         {
             auto components = uri_components::get(uri);
             if (!components)
                 return {net::error::invalid_encoding};
-            auto tcp_endpoint = get_tcp_endpoint(components->hostport);
-            if (!tcp_endpoint)
-                return tcp_endpoint.error();
 
             endpoint out{};
             if (components->scheme.empty() || components->scheme == "socks" || components->scheme == "socks4a")
@@ -297,7 +295,35 @@ namespace net
                     return {net::error::unexpected_userinfo};
             }
 
-            out.address = std::move(*tcp_endpoint);
+            auto tcp_endpoint = get_tcp_endpoint(components->hostport);
+            if (tcp_endpoint)
+                out.address = std::move(*tcp_endpoint);
+            else if (resolve_host && tcp_endpoint.error() == make_error_code(net::error::unsupported_address))
+            {
+                std::string host, port_string;
+                get_network_address_host_and_port(components->hostport, host, port_string);
+                std::uint16_t port = 0;
+                if (!epee::string_tools::get_xtype_from_string(port, port_string) || port == 0)
+                    return {net::error::invalid_port};
+                if (host.empty() || host.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-") != std::string::npos ||
+                    host.find("..") != std::string::npos ||
+                    boost::algorithm::iends_with(host, ".onion") || boost::algorithm::iends_with(host, ".onion.") ||
+                    boost::algorithm::iends_with(host, ".i2p") || boost::algorithm::iends_with(host, ".i2p."))
+                    return {net::error::invalid_host};
+
+                boost::asio::io_context io;
+                boost::asio::ip::tcp::resolver resolver{io};
+                boost::system::error_code ec;
+                const auto addresses = resolver.resolve(host, std::to_string(port), ec);
+                if (ec || addresses.empty())
+                    return {net::error::dns_query_failure};
+                for (const auto& address : addresses)
+                    out.resolved_addresses.push_back(address.endpoint());
+                out.address = out.resolved_addresses.front();
+            }
+            else
+                return tcp_endpoint.error();
+
             out.userinfo = std::move(components->userinfo);
             return out;
         }
