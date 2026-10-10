@@ -397,6 +397,7 @@ if(NOT MANUAL_SUBMODULES)
     endfunction ()
     
     message(STATUS "Checking submodules")
+    check_submodule(external/mx25519)
     check_submodule(external/rapidjson)
     check_submodule(external/randomx)
     check_submodule(external/supercop)
@@ -641,6 +642,17 @@ function (monero_add_library_with_deps)
   set_property(TARGET "${MONERO_ADD_LIBRARY_NAME}" PROPERTY FOLDER "libs")
   target_compile_definitions(${objlib}
     PRIVATE $<TARGET_PROPERTY:${MONERO_ADD_LIBRARY_NAME},INTERFACE_COMPILE_DEFINITIONS>)
+endfunction ()
+
+function (monero_target_link_libraries name)
+  # Normal call
+  target_link_libraries(${name} ${ARGN})
+
+  # Propagate inherited include diretories of target to its obj_* counterparts
+  set(objlib "obj_${name}")
+  #target_include_directories(${objlib}
+  #  PRIVATE $<TARGET_PROPERTY:${name},INTERFACE_INCLUDE_DIRECTORIES>)
+  target_link_libraries(${objlib} ${ARGN})
 endfunction ()
 
 add_subdirectory(external)

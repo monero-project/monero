@@ -51,7 +51,8 @@ set(crypto_sources
   slow-hash.c
   rx-slow-hash.c
   CryptonightR_JIT.c
-  tree-hash.c)
+  tree-hash.c
+  x25519.cpp)
 
 if(ARCH_ID STREQUAL "i386" OR ARCH_ID STREQUAL "x86_64" OR ARCH_ID STREQUAL "x86-64" OR ARCH_ID STREQUAL "amd64")
 list(APPEND crypto_sources CryptonightR_template.S)
@@ -69,9 +70,10 @@ monero_add_library(cncrypto
   ${crypto_sources}
   ${crypto_headers}
   ${crypto_private_headers})
-target_link_libraries(cncrypto
+monero_target_link_libraries(cncrypto
   PUBLIC
     epee
+    mx25519_static
     randomx
     ${Boost_SYSTEM_LIBRARY}
     ${sodium_LIBRARIES}
