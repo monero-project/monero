@@ -95,6 +95,21 @@ target_link_libraries(fuzz_zmq
 set_property(TARGET fuzz_zmq
   PROPERTY
     FOLDER "tests")
+
+monero_add_minimal_executable(wallet-scan_fuzz_tests wallet-scan.cpp fuzzer.cpp)
+target_link_libraries(wallet-scan_fuzz_tests
+  PRIVATE
+    wallet
+    cryptonote_core
+    p2p
+    epee
+    device
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET wallet-scan_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
 endif()
 
 monero_add_minimal_executable(block_fuzz_tests block.cpp fuzzer.cpp)
