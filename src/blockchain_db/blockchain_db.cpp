@@ -39,8 +39,6 @@
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "blockchain.db"
 
-using epee::string_tools::pod_to_hex;
-
 namespace cryptonote
 {
 
@@ -292,16 +290,11 @@ uint64_t BlockchainDB::add_block( const std::pair<block, blobdata>& blck
   TIME_MEASURE_FINISH(time1);
   time_add_block1 += time1;
 
-  m_hardfork->add(blk, prev_height);
+  set_hard_fork_version(prev_height, blk.major_version);
 
   ++num_calls;
 
   return prev_height;
-}
-
-void BlockchainDB::set_hard_fork(HardFork* hf)
-{
-  m_hardfork = hf;
 }
 
 void BlockchainDB::pop_block(block& blk, std::vector<transaction>* txs)
