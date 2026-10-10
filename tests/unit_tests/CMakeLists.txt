@@ -72,6 +72,7 @@ set(unit_tests_sources
   multiexp.cpp
   multisig.cpp
   net.cpp
+  net_http_message.cpp
   node_server.cpp
   notify.cpp
   output_distribution.cpp
@@ -104,6 +105,8 @@ set(unit_tests_sources
   wipeable_string.cpp
   is_hdd.cpp
   aligned.cpp
+  rpc_http_router.cpp
+  rpc_http_server.cpp
   rpc_version_str.cpp
   zmq_rpc.cpp)
 
