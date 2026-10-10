@@ -56,14 +56,13 @@ public:
   cryptonote::network_type nettype() const { return m_network_type; }
   void nettype(cryptonote::network_type nettype) { m_network_type = nettype; }
 
-  CHAIN_HTTP_TO_MAP2(cryptonote::core_rpc_server::connection_context); //forward http requests to uri map
-  BEGIN_URI_MAP2()
-    MAP_URI_AUTO_JON2("/send_raw_transaction", on_send_raw_tx_2, cryptonote::COMMAND_RPC_SEND_RAW_TX)
-    MAP_URI_AUTO_JON2("/sendrawtransaction", on_send_raw_tx_2, cryptonote::COMMAND_RPC_SEND_RAW_TX)
-    else {  // Default to parent for non-overridden callbacks
-      return cryptonote::core_rpc_server::handle_http_request_map(query_info, response_info, m_conn_context);
-    }
-  END_URI_MAP2()
+  ::rpc::router make_routes() override
+  {
+    ::rpc::router r = cryptonote::core_rpc_server::make_routes();
+    r.replace_json("/send_raw_transaction", this, &mock_rpc_daemon::on_send_raw_tx_2);
+    r.replace_json("/sendrawtransaction", this, &mock_rpc_daemon::on_send_raw_tx_2);
+    return r;
+  }
 
   bool on_send_raw_tx_2(const cryptonote::COMMAND_RPC_SEND_RAW_TX::request& req, cryptonote::COMMAND_RPC_SEND_RAW_TX::response& res, const cryptonote::core_rpc_server::connection_context *ctx);
 
