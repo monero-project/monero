@@ -25,6 +25,7 @@
 // 
 
 #pragma once
+#include <algorithm>
 #include <boost/lexical_cast.hpp>
 #include <boost/utility/string_ref.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -397,6 +398,10 @@ namespace epee
       template<class t_storage>
       inline bool load_from_json(const std::string& buff_json, t_storage& stg)
       {
+        // an empty document is an empty object, which is what a GET without a body sends
+        if (std::all_of(buff_json.begin(), buff_json.end(), epee::misc_utils::parse::isspace))
+          return true;
+
         std::string::const_iterator sec_buf_begin  = buff_json.begin();
         try
         {
