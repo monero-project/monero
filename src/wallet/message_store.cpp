@@ -42,6 +42,7 @@
 #include "common/util.h"
 #include "common/utf8.h"
 #include "string_tools.h"
+#include "int-util.h"
 
 
 #undef MONERO_DEFAULT_LOG_CATEGORY

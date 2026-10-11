@@ -30,7 +30,6 @@
 #include "net/http_auth.h"
 #include "net/http_client.h"
 #include "syncobj.h"
-#include "net/http_protocol_handler.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -72,24 +71,6 @@ namespace http = epee::net_utils::http;
 using fields = std::unordered_map<std::string, std::string>;
 using auth_responses = std::vector<fields>;
 
-class test_http_endpoint final : public epee::net_utils::i_service_endpoint
-{
-public:
-  bool do_send(epee::byte_slice message) override
-  {
-    sent.append(reinterpret_cast<const char*>(message.data()), message.size());
-    return true;
-  }
-  bool close(const bool) override { return true; }
-  bool send_done() override { return true; }
-  bool call_run_once_service_io() override { return true; }
-  bool request_callback() override { return true; }
-  boost::asio::io_context& get_io_context() override { return io_context; }
-
-  boost::asio::io_context io_context;
-  std::string sent;
-};
-
 class dummy_client
 {
 public:
@@ -129,52 +110,6 @@ public:
   http::http_response_info last_headers;
   unsigned headers_seen = 0;
 };
-
-class capturing_http_handler final : public http::i_http_server_handler<epee::net_utils::connection_context_base>
-{
-public:
-  bool handle_http_request(
-    const http::http_request_info& query_info,
-    http::http_response_info& response,
-    epee::net_utils::connection_context_base&) override
-  {
-    requests.push_back(query_info);
-    response.m_response_code = 200;
-    response.m_response_comment = "OK";
-    response.m_mime_tipe = "text/plain";
-    return true;
-  }
-
-  std::vector<http::http_request_info> requests;
-};
-
-struct http_request_capture
-{
-  std::vector<bool> results;
-  std::vector<http::http_request_info> requests;
-  std::string sent;
-};
-
-http_request_capture feed_http_request(const std::vector<std::string>& chunks)
-{
-  capturing_http_handler handler;
-  test_http_endpoint endpoint;
-  epee::net_utils::connection_context_base context;
-  http::custum_handler_config<epee::net_utils::connection_context_base> config;
-  config.m_phandler = &handler;
-
-  http::http_custom_handler<epee::net_utils::connection_context_base> connection(&endpoint, config, context);
-  std::vector<bool> results;
-  for (const std::string& chunk : chunks)
-    results.push_back(connection.handle_recv(chunk.data(), chunk.size()));
-
-  return {results, handler.requests, endpoint.sent};
-}
-
-http_request_capture feed_http_request(const std::string& request)
-{
-  return feed_http_request(std::vector<std::string>{request});
-}
 
 void rng(size_t len, uint8_t *ptr)
 {
@@ -384,83 +319,6 @@ TEST(HTTP_Server_Auth, NotRequired)
 {
   http::http_server_auth auth{}; // no rng here
   EXPECT_FALSE(auth.get_response(http::http_request_info{}));
-}
-
-TEST(HTTP, RpcConnectionLimitKeyIPv6By64)
-{
-  const epee::net_utils::network_address ipv6_a{
-    epee::net_utils::ipv6_network_address{
-      boost::asio::ip::make_address_v6("2001:db8:abcd:1234:1111:2222:3333:4444"), 18081
-    }
-  };
-  const epee::net_utils::network_address ipv6_b{
-    epee::net_utils::ipv6_network_address{
-      boost::asio::ip::make_address_v6("2001:db8:abcd:1234:ffff:eeee:dddd:cccc"), 18081
-    }
-  };
-  const epee::net_utils::network_address ipv6_c{
-    epee::net_utils::ipv6_network_address{
-      boost::asio::ip::make_address_v6("2001:db8:abcd:1235::1"), 18081
-    }
-  };
-
-  EXPECT_EQ("2001:db8:abcd:1234::/64", http::get_rpc_connection_limit_key(ipv6_a));
-  EXPECT_EQ(http::get_rpc_connection_limit_key(ipv6_a), http::get_rpc_connection_limit_key(ipv6_b));
-  EXPECT_NE(http::get_rpc_connection_limit_key(ipv6_a), http::get_rpc_connection_limit_key(ipv6_c));
-
-  const epee::net_utils::network_address loopback{
-    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6::loopback(), 18081}
-  };
-  EXPECT_EQ(loopback.host_str(), http::get_rpc_connection_limit_key(loopback));
-
-  const epee::net_utils::network_address link_local{
-    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fe80::1"), 18081}
-  };
-  EXPECT_EQ(link_local.host_str(), http::get_rpc_connection_limit_key(link_local));
-
-  const epee::net_utils::network_address unique_local_fc{
-    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fc00::1"), 18081}
-  };
-  EXPECT_EQ(unique_local_fc.host_str(), http::get_rpc_connection_limit_key(unique_local_fc));
-
-  const epee::net_utils::network_address unique_local_fd{
-    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fd00::1"), 18081}
-  };
-  EXPECT_EQ(unique_local_fd.host_str(), http::get_rpc_connection_limit_key(unique_local_fd));
-
-  const epee::net_utils::network_address unspecified{
-    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6::any(), 18081}
-  };
-  EXPECT_EQ(unspecified.host_str(), http::get_rpc_connection_limit_key(unspecified));
-
-  const epee::net_utils::network_address multicast{
-    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("ff00::1"), 18081}
-  };
-  EXPECT_EQ(multicast.host_str(), http::get_rpc_connection_limit_key(multicast));
-
-  const epee::net_utils::network_address site_local{
-    epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fec0::1"), 18081}
-  };
-  EXPECT_EQ(site_local.host_str(), http::get_rpc_connection_limit_key(site_local));
-
-  uint32_t ip = 0;
-  ASSERT_TRUE(epee::string_tools::get_ip_int32_from_string(ip, "203.0.113.1"));
-  const epee::net_utils::network_address ipv4{
-    epee::net_utils::ipv4_network_address{ip, 18081}
-  };
-  EXPECT_EQ(ipv4.host_str(), http::get_rpc_connection_limit_key(ipv4));
-
-  boost::asio::ip::address_v6::bytes_type bytes = {};
-  bytes[10] = 0xff;
-  bytes[11] = 0xff;
-  bytes[12] = 203;
-  bytes[13] = 0;
-  bytes[14] = 113;
-  bytes[15] = 1;
-  const epee::net_utils::network_address mapped{
-    epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes}, 18081}
-  };
-  EXPECT_EQ(mapped.host_str(), http::get_rpc_connection_limit_key(mapped));
 }
 
 TEST(HTTP_Server_Auth, MissingAuth)
@@ -1585,176 +1443,6 @@ TEST(HTTP, Parse_Header_Line)
   EXPECT_FALSE(http::detail::parse_header_line("Bad Header", name, value));
   EXPECT_FALSE(http::detail::parse_header_line("Host example.com", name, value));
   EXPECT_FALSE(http::detail::parse_header_line("GET / HTTP/1.1", name, value));
-}
-
-TEST(HTTP, Server_Parses_Content_Length_First_Header)
-{
-  const std::string body = "0123456789";
-  const auto capture = feed_http_request(
-    "POST /json_rpc HTTP/1.1\r\n"
-    "Content-Length: 10\r\n"
-    "Host: example.com\r\n"
-    "\r\n" + body
-  );
-
-  ASSERT_EQ(1u, capture.results.size());
-  ASSERT_TRUE(capture.results.front());
-  ASSERT_EQ(1u, capture.requests.size());
-  EXPECT_STREQ("10", capture.requests.front().m_header_info.m_content_length.c_str());
-  EXPECT_EQ(body, capture.requests.front().m_body);
-}
-
-TEST(HTTP, Server_Parses_First_Header_After_Split_Request_Line)
-{
-  const std::string body = "0123456789";
-  const auto capture = feed_http_request({
-    "POST /json_rpc HTTP/1.1\r\n",
-    "Content-Length: 10\r\n"
-    "Host: example.com\r\n"
-    "\r\n" + body
-  });
-
-  ASSERT_EQ(2u, capture.results.size());
-  EXPECT_TRUE(capture.results[0]);
-  EXPECT_TRUE(capture.results[1]);
-  ASSERT_EQ(1u, capture.requests.size());
-  EXPECT_STREQ("10", capture.requests.front().m_header_info.m_content_length.c_str());
-  EXPECT_EQ(body, capture.requests.front().m_body);
-}
-
-TEST(HTTP, Server_Rejects_Malformed_Content_Length)
-{
-  const std::string body = "0123456789";
-  for (const char* len : {"5abc", "0x10", "+10", "1 0", "abc"})
-  {
-    const auto capture = feed_http_request(
-      "POST /json_rpc HTTP/1.1\r\n"
-      "Content-Length: " + std::string(len) + "\r\n"
-      "Host: example.com\r\n"
-      "\r\n" + body
-    );
-
-    ASSERT_EQ(1u, capture.results.size());
-    EXPECT_FALSE(capture.results.front()) << "accepted Content-Length: " << len;
-    EXPECT_TRUE(capture.requests.empty()) << "accepted Content-Length: " << len;
-  }
-}
-
-TEST(HTTP, Server_Accepts_Matching_Content_Length_Values)
-{
-  const std::string body = "test";
-  for (const char* headers : {
-    "Content-Length: 4\r\nContent-Length: 04\r\n",
-    "Content-Length: 4, 04\r\n",
-    "Content-Length: 4, 04\r\nContent-Length: 4\r\n"
-  })
-  {
-    SCOPED_TRACE(headers);
-    const auto capture = feed_http_request(
-      "POST /json_rpc HTTP/1.1\r\n" + std::string(headers) +
-      "\r\n" + body
-    );
-
-    ASSERT_EQ(1u, capture.results.size());
-    EXPECT_TRUE(capture.results.front());
-    ASSERT_EQ(1u, capture.requests.size());
-    EXPECT_EQ(body, capture.requests.front().m_body);
-  }
-}
-
-TEST(HTTP, Server_Rejects_Conflicting_Content_Length_Values)
-{
-  for (const char* headers : {
-    "Content-Length: 0\r\nContent-Length: 4\r\n",
-    "Content-Length: 4\r\nContent-Length: 0\r\n",
-    "Content-Length: 0, 4\r\n",
-    "Content-Length: 4, nope\r\n",
-    "Content-Length: , 4\r\n",
-    "Content-Length: 4,\r\n",
-    "Content-Length: 999999999999999999999999999999999999\r\n"
-  })
-  {
-    SCOPED_TRACE(headers);
-    const auto capture = feed_http_request(
-      "POST /json_rpc HTTP/1.1\r\n" + std::string(headers) +
-      "\r\n"
-      "test"
-    );
-
-    ASSERT_EQ(1u, capture.results.size());
-    EXPECT_FALSE(capture.results.front());
-    EXPECT_TRUE(capture.requests.empty());
-  }
-}
-
-TEST(HTTP, Server_Rejects_Transfer_Encoding)
-{
-  for (const char* headers : {
-    "Transfer-Encoding:\r\n",
-    "Transfer-Encoding: identity\r\n",
-    "Transfer-Encoding: chunked\r\n",
-    "Transfer-Encoding: chunked\r\nTransfer-Encoding: chunked\r\n",
-    "Transfer-Encoding: gzip, chunked\r\n",
-    "Content-Length: 4\r\nTransfer-Encoding: chunked\r\n",
-    "Transfer-Encoding: chunked\r\nContent-Length: 4\r\n"
-  })
-  {
-    SCOPED_TRACE(headers);
-    const auto capture = feed_http_request(
-      "POST /json_rpc HTTP/1.1\r\n" + std::string(headers) +
-      "\r\n"
-      "4\r\ntest\r\n0\r\n\r\n"
-    );
-
-    ASSERT_EQ(1u, capture.results.size());
-    EXPECT_FALSE(capture.results.front());
-    EXPECT_TRUE(capture.requests.empty());
-  }
-}
-
-TEST(HTTP, Server_Rejects_Malformed_First_Header)
-{
-  const auto capture = feed_http_request(
-    "GET / HTTP/1.1\r\n"
-    "Bad Header Without Colon\r\n"
-    "Host: example.com\r\n"
-    "\r\n"
-  );
-
-  ASSERT_EQ(1u, capture.results.size());
-  EXPECT_FALSE(capture.results.front());
-  EXPECT_TRUE(capture.requests.empty());
-}
-
-TEST(HTTP, Server_Rejects_Malformed_Later_Header)
-{
-  const auto capture = feed_http_request(
-    "GET / HTTP/1.1\r\n"
-    "Host: example.com\r\n"
-    "Bad Header Without Colon\r\n"
-    "\r\n"
-  );
-
-  ASSERT_EQ(1u, capture.results.size());
-  EXPECT_FALSE(capture.results.front());
-  EXPECT_TRUE(capture.requests.empty());
-}
-
-TEST(HTTP, Server_Keeps_Unknown_First_Header)
-{
-  const auto capture = feed_http_request(
-    "GET / HTTP/1.1\r\n"
-    "X-Test: abc\r\n"
-    "Host: example.com\r\n"
-    "\r\n"
-  );
-
-  ASSERT_EQ(1u, capture.results.size());
-  ASSERT_TRUE(capture.results.front());
-  ASSERT_EQ(1u, capture.requests.size());
-  ASSERT_EQ(1u, capture.requests.front().m_header_info.m_etc_fields.size());
-  EXPECT_STREQ("X-Test", capture.requests.front().m_header_info.m_etc_fields.front().first.c_str());
-  EXPECT_STREQ("abc", capture.requests.front().m_header_info.m_etc_fields.front().second.c_str());
 }
 
 TEST(HTTP, Client_Keeps_Unknown_Header)

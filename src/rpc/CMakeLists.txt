@@ -27,6 +27,7 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 set(rpc_base_sources
+  http_server.cpp
   rpc_args.cpp
   rpc_handler.cpp)
 
@@ -49,6 +50,7 @@ set(daemon_rpc_server_sources
 
 
 set(rpc_base_headers
+  http_server.h
   rpc_args.h
   rpc_handler.h)
 
@@ -116,6 +118,7 @@ target_link_libraries(rpc_base
   PUBLIC
     common
     epee
+    net
     ${Boost_REGEX_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${Boost_PROGRAM_OPTIONS_LIBRARY}
