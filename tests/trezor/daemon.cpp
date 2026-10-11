@@ -144,15 +144,6 @@ void mock_daemon::deinit()
   if(m_http_client.is_connected())
     m_http_client.disconnect();
 
-  try
-  {
-    m_rpc_server.deinit();
-  }
-  catch (...)
-  {
-    MERROR("Failed to deinitialize RPC server...");
-  }
-
   if (m_start_p2p)
   {
     try
