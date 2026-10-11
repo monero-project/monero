@@ -90,12 +90,13 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(transfer)   
 
-    def get_transfer_by_txid(self, txid, account_index = 0):
+    def get_transfer_by_txid(self, txid, account_index = 0, all_accounts = False):
         get_transfer_by_txid = {
             'method': 'get_transfer_by_txid',
             'params': {
                 'txid': txid,
                 'account_index': account_index,
+                'all_accounts': all_accounts,
             },
             'jsonrpc': '2.0', 
             'id': '0'
