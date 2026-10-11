@@ -92,16 +92,6 @@ public:
   {
     return &m_server;
   }
-
-  ~t_rpc()
-  {
-    MGINFO("Deinitializing " << m_description << " RPC server...");
-    try {
-      m_server.deinit();
-    } catch (...) {
-      MERROR("Failed to deinitialize " << m_description << " RPC server...");
-    }
-  }
 };
 
 }

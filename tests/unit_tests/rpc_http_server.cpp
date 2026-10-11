@@ -1,14 +1,20 @@
 #include <cstddef>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
 #include <string_view>
 #include <vector>
+#include <boost/asio/connect.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address_v6.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/read.hpp>
+#include <boost/asio/write.hpp>
 
 #include "gtest/gtest.h"
+#include "net/http_auth.h"
 #include "net/net_utils_base.h"
 #include "rpc/http_server.h"
 #include "string_tools.h"
@@ -70,15 +76,16 @@ std::shared_ptr<const rpc::router> make_router(std::vector<captured_request>& re
     return routes;
 }
 
-capture feed_chunks(const std::vector<std::string>& chunks,
-                    const std::size_t max_content_length = std::numeric_limits<std::size_t>::max())
+using setup_config = std::function<void(rpc::server_config&)>;
+
+capture feed_chunks(const std::vector<std::string>& chunks, const setup_config& setup = {})
 {
     capture out{};
     test_endpoint endpoint;
     epee::net_utils::connection_context_base context;
     rpc::server_config config;
     config.routes = make_router(out.requests);
-    config.max_content_length = max_content_length;
+    if (setup) setup(config);
 
     rpc::http_connection connection{&endpoint, config, context};
     for (const std::string& chunk : chunks)
@@ -457,10 +464,17 @@ TEST(rpc_http_server, content_too_large)
 {
     const std::string request =
         "POST /echo HTTP/1.1\r\nHost: x\r\nContent-Length: 10\r\n\r\n0123456789";
-    expect_rejected(feed_chunks({request}, request.size() - 1),
+    const auto max_content_length = [](const std::size_t max) -> setup_config
+    {
+        return [max](rpc::server_config& config)
+        {
+            config.max_content_length = max;
+        };
+    };
+    expect_rejected(feed_chunks({request}, max_content_length(request.size() - 1)),
                     "HTTP/1.1 413 Content Too Large\r\n");
 
-    const auto accepted = feed_chunks({request}, request.size());
+    const auto accepted = feed_chunks({request}, max_content_length(request.size()));
     ASSERT_EQ(1u, accepted.results.size());
     EXPECT_TRUE(accepted.results[0]);
     EXPECT_EQ(1u, accepted.requests.size());
@@ -514,7 +528,7 @@ TEST(rpc_http_server, connection_limit_key)
     EXPECT_NE(rpc::connection_limit_key(a), rpc::connection_limit_key(c));
 
     for (const char* const ungrouped :
-         {"::1", "fe80::1", "fc00::1", "fd00::1", "::", "ff00::1", "fec0::1"})
+         {"::1", "fe80::1", "fc00::1", "fd00::1", "::", "ff00::1", "fec0::1", "::ffff:203.0.113.1"})
     {
         const auto address = make_ipv6(ungrouped);
         EXPECT_EQ(address.host_str(), rpc::connection_limit_key(address)) << ungrouped;
@@ -524,4 +538,262 @@ TEST(rpc_http_server, connection_limit_key)
     ASSERT_TRUE(epee::string_tools::get_ip_int32_from_string(ip, "203.0.113.1"));
     const epee::net_utils::network_address ipv4{epee::net_utils::ipv4_network_address{ip, 18081}};
     EXPECT_EQ(ipv4.host_str(), rpc::connection_limit_key(ipv4));
+}
+
+TEST(rpc_http_server, cors)
+{
+    const auto origins = [](std::vector<std::string> list) -> setup_config
+    {
+        return [list](rpc::server_config& config)
+        {
+            config.access_control_origins = list;
+        };
+    };
+    const std::string from_a = "GET /echo HTTP/1.1\r\nHost: x\r\nOrigin: https://a\r\n\r\n";
+
+    const auto allowed = feed_chunks({from_a}, origins({"https://a", "https://b"}));
+    EXPECT_TRUE(contains(allowed.sent, "\r\nAccess-Control-Allow-Origin: https://a\r\n"))
+        << allowed.sent;
+    EXPECT_TRUE(contains(allowed.sent, "\r\nAccess-Control-Expose-Headers: www-authenticate\r\n"));
+    EXPECT_TRUE(
+        contains(allowed.sent, "\r\nAccess-Control-Allow-Methods: GET, HEAD, POST, OPTIONS\r\n"));
+    EXPECT_FALSE(contains(allowed.sent, "Access-Control-Allow-Headers"));
+
+    const auto any = feed_chunks({from_a}, origins({"*"}));
+    EXPECT_TRUE(contains(any.sent, "\r\nAccess-Control-Allow-Origin: https://a\r\n")) << any.sent;
+
+    const auto preflight = feed_chunks(
+        {"OPTIONS /echo HTTP/1.1\r\nHost: x\r\nOrigin: https://a\r\n\r\n"}, origins({"https://a"}));
+    EXPECT_TRUE(starts_with(preflight.sent, "HTTP/1.1 200 OK\r\n")) << preflight.sent;
+    EXPECT_TRUE(contains(preflight.sent, "\r\nAccess-Control-Allow-Headers: Content-Type, "
+                                         "Authorization, X-Requested-With\r\n"));
+
+    for (const capture& c : {feed_chunks({from_a}, origins({"https://b"})), feed(from_a),
+                             feed_chunks({get_echo}, origins({"*"}))})
+        EXPECT_FALSE(contains(c.sent, "Access-Control")) << c.sent;
+}
+
+namespace
+{
+// Reads a response header written by `http_connection` back into the form `http_client_auth` takes
+epee::net_utils::http::http_response_info parse_response_header(const std::string_view response)
+{
+    epee::net_utils::http::http_response_info out{};
+    out.m_response_code = std::stoi(std::string{response.substr(9, 3)});
+
+    std::string_view fields = response.substr(0, response.find("\r\n\r\n") + 2);
+    fields.remove_prefix(fields.find("\r\n") + 2);
+    while (!fields.empty())
+    {
+        const std::string_view line = fields.substr(0, fields.find("\r\n"));
+        fields.remove_prefix(line.size() + 2);
+        const std::size_t colon = line.find(':');
+        out.m_header_info.m_etc_fields.emplace_back(
+            std::string{line.substr(0, colon)},
+            std::string{net::http::trim(line.substr(colon + 1))});
+    }
+    return out;
+}
+} // namespace
+
+TEST(rpc_http_server, digest_auth)
+{
+    test_endpoint endpoint;
+    epee::net_utils::connection_context_base context;
+    std::vector<captured_request> requests;
+    rpc::server_config config;
+    config.routes = make_router(requests);
+    config.login.emplace("user", epee::wipeable_string{"pass"});
+    config.rng = [](const std::size_t size, std::uint8_t* const out)
+    {
+        for (std::size_t i = 0; i < size; ++i)
+            out[i] = std::uint8_t(i);
+    };
+    rpc::http_connection connection{&endpoint, config, context};
+
+    const auto send = [&](const std::string& request)
+    {
+        endpoint.sent.clear();
+        return connection.handle_recv(request.data(), request.size());
+    };
+
+    // challenged on any target, including unknown ones, and the connection stays open
+    for (const std::string target : {"/echo", "/nope"})
+    {
+        ASSERT_TRUE(send("GET " + target + " HTTP/1.1\r\nHost: x\r\n\r\n"));
+        EXPECT_TRUE(starts_with(endpoint.sent, "HTTP/1.1 401 Unauthorized\r\n")) << endpoint.sent;
+        EXPECT_TRUE(contains(endpoint.sent, "\r\nWWW-authenticate: Digest ")) << endpoint.sent;
+        EXPECT_TRUE(contains(endpoint.sent, "\r\nContent-Type: text/html\r\n")) << endpoint.sent;
+        EXPECT_FALSE(contains(endpoint.sent, "Connection: close")) << endpoint.sent;
+    }
+    EXPECT_TRUE(requests.empty());
+
+    // preflights are answered without credentials
+    ASSERT_TRUE(send("OPTIONS /echo HTTP/1.1\r\nHost: x\r\n\r\n"));
+    EXPECT_TRUE(starts_with(endpoint.sent, "HTTP/1.1 200 OK\r\n")) << endpoint.sent;
+
+    ASSERT_TRUE(send(get_echo));
+    epee::net_utils::http::http_client_auth client{{"user", epee::wipeable_string{"pass"}}};
+    ASSERT_EQ(epee::net_utils::http::http_client_auth::kSuccess,
+              client.handle_401(parse_response_header(endpoint.sent)));
+
+    const auto authorization = client.get_auth_field("GET", "/echo?a=1");
+    ASSERT_TRUE(bool(authorization));
+    ASSERT_TRUE(send("GET /echo?a=1 HTTP/1.1\r\nHost: x\r\n" + authorization->first + ": " +
+                     authorization->second + "\r\n\r\n"));
+    EXPECT_TRUE(starts_with(endpoint.sent, "HTTP/1.1 200 OK\r\n")) << endpoint.sent;
+    ASSERT_EQ(1u, requests.size());
+    EXPECT_EQ("/echo?a=1", requests[0].target);
+
+    // the digest covers the target
+    const auto other = client.get_auth_field("GET", "/echo");
+    ASSERT_TRUE(bool(other));
+    ASSERT_TRUE(send("GET /fail HTTP/1.1\r\nHost: x\r\n" + other->first + ": " + other->second +
+                     "\r\n\r\n"));
+    EXPECT_TRUE(starts_with(endpoint.sent, "HTTP/1.1 401 Unauthorized\r\n")) << endpoint.sent;
+}
+
+TEST(rpc_http_server, host_limit)
+{
+    rpc::server_config config;
+    config.max_public_ip_connections = 1;
+    config.max_private_ip_connections = 2;
+    config.max_connections = 3;
+
+    const auto public_a = make_ipv6("2001:db8::1");
+    const auto public_b = make_ipv6("2001:db8::2"); // same /64 as `public_a`
+    const auto loopback = make_ipv6("::1");
+
+    EXPECT_FALSE(config.is_host_limit(public_a));
+    config.connections[rpc::connection_limit_key(public_a)] = 1;
+    config.connection_count = 1;
+    EXPECT_TRUE(config.is_host_limit(public_a));
+    EXPECT_TRUE(config.is_host_limit(public_b));
+
+    config.connections[rpc::connection_limit_key(loopback)] = 1;
+    config.connection_count = 2;
+    EXPECT_FALSE(config.is_host_limit(loopback));
+    config.connections[rpc::connection_limit_key(loopback)] = 2;
+    EXPECT_TRUE(config.is_host_limit(loopback));
+
+    config.connection_count = 3;
+    EXPECT_TRUE(config.is_host_limit(make_ipv6("2001:db8:1::1")));
+}
+
+TEST(rpc_http_server, server_options_checked)
+{
+    rpc::server_options too_many_public{};
+    too_many_public.max_connections = 1;
+    too_many_public.max_public_ip_connections = 2;
+    too_many_public.max_private_ip_connections = 1;
+    EXPECT_THROW(rpc::http_server{}.init(rpc::router{}, too_many_public), std::invalid_argument);
+
+    rpc::server_options too_many_private{};
+    too_many_private.max_connections = 1;
+    too_many_private.max_public_ip_connections = 1;
+    too_many_private.max_private_ip_connections = 2;
+    EXPECT_THROW(rpc::http_server{}.init(rpc::router{}, too_many_private), std::invalid_argument);
+
+    rpc::server_options no_rng{};
+    no_rng.login.emplace("user", epee::wipeable_string{"pass"});
+    EXPECT_THROW(rpc::http_server{}.init(rpc::router{}, no_rng), std::invalid_argument);
+}
+
+TEST(rpc_http_server, serves_over_tcp)
+{
+    std::vector<captured_request> requests;
+    rpc::router routes;
+    routes.add("/echo", [&requests](const rpc::http_request& q, const rpc::connection_context&)
+    {
+        requests.push_back({std::string{q.method}, std::string{q.target}, std::string{q.body}});
+        rpc::http_response r{};
+        r.body = epee::byte_slice{std::string{q.body}};
+        return r;
+    });
+
+    rpc::server_options options{};
+    options.bind_ip = "127.0.0.1";
+    options.ssl = epee::net_utils::ssl_support_t::e_ssl_support_disabled;
+
+    rpc::http_server server;
+    ASSERT_TRUE(server.init(std::move(routes), std::move(options)));
+    ASSERT_NE(0, server.get_binded_port());
+    ASSERT_TRUE(server.run(1, false));
+
+    boost::asio::io_context io;
+    boost::asio::ip::tcp::socket socket{io};
+    socket.connect({boost::asio::ip::make_address("127.0.0.1"),
+                    static_cast<unsigned short>(server.get_binded_port())});
+
+    const std::string request = "POST /echo HTTP/1.1\r\nHost: x\r\nContent-Length: 5\r\n"
+                                "Connection: close\r\n\r\nhello";
+    boost::asio::write(socket, boost::asio::buffer(request));
+
+    std::string response;
+    boost::system::error_code error;
+    boost::asio::read(socket, boost::asio::dynamic_buffer(response), error);
+    EXPECT_EQ(boost::asio::error::eof, error) << error.message();
+
+    EXPECT_TRUE(starts_with(response, "HTTP/1.1 200 OK\r\n")) << response;
+    EXPECT_TRUE(contains(response, "\r\nConnection: close\r\n")) << response;
+    EXPECT_TRUE(contains(response, "\r\n\r\nhello")) << response;
+    EXPECT_EQ(1u, requests.size());
+
+    server.send_stop_signal();
+    EXPECT_TRUE(server.timed_wait_server_stop(5000));
+}
+
+// Cases carried over from the old server's tests in `http.cpp`
+TEST(rpc_http_server, legacy_content_length_cases)
+{
+    const std::string start = "POST /echo HTTP/1.1\r\nHost: x\r\n";
+
+    for (const char* const fields :
+         {"Content-Length: 4\r\nContent-Length: 04\r\n", "Content-Length: 4, 04\r\n",
+          "Content-Length: 4, 04\r\nContent-Length: 4\r\n"})
+    {
+        SCOPED_TRACE(fields);
+        const auto c = feed(start + fields + "\r\ntest");
+        ASSERT_EQ(1u, c.requests.size());
+        EXPECT_EQ("test", c.requests[0].body);
+    }
+
+    for (const char* const fields :
+         {"Content-Length: 5abc\r\n", "Content-Length: 0x10\r\n", "Content-Length: +10\r\n",
+          "Content-Length: 1 0\r\n", "Content-Length: abc\r\n",
+          "Content-Length: 0\r\nContent-Length: 4\r\n",
+          "Content-Length: 4\r\nContent-Length: 0\r\n", "Content-Length: 0, 4\r\n",
+          "Content-Length: 4, nope\r\n", "Content-Length: , 4\r\n", "Content-Length: 4,\r\n",
+          "Content-Length: 999999999999999999999999999999999999\r\n"})
+    {
+        SCOPED_TRACE(fields);
+        expect_rejected(feed(start + fields + "\r\ntest"), "HTTP/1.1 400 Bad request\r\n");
+    }
+}
+
+TEST(rpc_http_server, legacy_transfer_encoding_cases)
+{
+    for (const char* const fields : {"Transfer-Encoding:\r\n", "Transfer-Encoding: identity\r\n",
+                                     "Transfer-Encoding: chunked\r\n",
+                                     "Transfer-Encoding: chunked\r\nTransfer-Encoding: chunked\r\n",
+                                     "Transfer-Encoding: gzip, chunked\r\n",
+                                     "Content-Length: 4\r\nTransfer-Encoding: chunked\r\n",
+                                     "Transfer-Encoding: chunked\r\nContent-Length: 4\r\n"})
+    {
+        SCOPED_TRACE(fields);
+        expect_rejected(feed("POST /echo HTTP/1.1\r\nHost: x\r\n" + std::string{fields} +
+                             "\r\n4\r\ntest\r\n0\r\n\r\n"),
+                        "HTTP/1.1 400 Bad request\r\n");
+    }
+}
+
+TEST(rpc_http_server, legacy_header_line_cases)
+{
+    expect_rejected(feed("GET /echo HTTP/1.1\r\nBad Header Without Colon\r\nHost: x\r\n\r\n"),
+                    "HTTP/1.1 400 Bad request\r\n");
+    expect_rejected(feed("GET /echo HTTP/1.1\r\nHost: x\r\nBad Header Without Colon\r\n\r\n"),
+                    "HTTP/1.1 400 Bad request\r\n");
+
+    const auto unknown = feed("GET /echo HTTP/1.1\r\nX-Test: abc\r\nHost: x\r\n\r\n");
+    EXPECT_EQ(1u, unknown.requests.size());
 }

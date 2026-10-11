@@ -117,6 +117,14 @@ bool parse_header_fields(std::string_view fields, header_fields& out)
         {
             out.expect = value;
         }
+        else if (iequals(name, "Authorization"))
+        {
+            out.authorization = value;
+        }
+        else if (iequals(name, "Origin"))
+        {
+            out.origin = value;
+        }
     }
     return true;
 }

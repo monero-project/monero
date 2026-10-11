@@ -239,7 +239,7 @@ namespace tools
 
     const auto auto_refresh_evaluation_ms = std::chrono::milliseconds(200);
 
-    m_net_server.add_idle_handler([=] { // Implicit capture of this-pointer deprecated in C++20.
+    m_http.add_idle_handler([=] { // Implicit capture of this-pointer deprecated in C++20.
       const auto auto_refresh_period = m_auto_refresh_period.load(std::memory_order_relaxed);
       if (auto_refresh_period == 0) // disabled
         return true;
@@ -304,7 +304,7 @@ namespace tools
       }
       return true;
     }, auto_refresh_evaluation_ms);
-    m_net_server.add_idle_handler([this](){
+    m_http.add_idle_handler([this](){
       if (m_stop.load(std::memory_order_relaxed))
       {
         send_stop_signal();
@@ -314,7 +314,7 @@ namespace tools
     }, std::chrono::milliseconds{500});
 
     //DO NOT START THIS SERVER IN MORE THEN 1 THREADS WITHOUT REFACTORING
-    return epee::http_server_impl_base<wallet_rpc_server, connection_context>::run(1, true);
+    return m_http.run(1, true);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::stop_refresh()
@@ -446,18 +446,129 @@ namespace tools
       return false;
     }
 
-    m_net_server.set_threads_prefix("RPC");
-    m_net_server.get_config_object().m_max_content_length = MAX_RPC_CONTENT_LENGTH * 100;
-    auto rng = [](size_t len, uint8_t *ptr) { return crypto::rand(len, ptr); };
-    return epee::http_server_impl_base<wallet_rpc_server, connection_context>::init(
-      rng, std::move(bind_port), std::move(rpc_config->bind_ip),
-      std::move(rpc_config->bind_ipv6_address), std::move(rpc_config->use_ipv6), std::move(rpc_config->require_ipv4),
-      std::move(rpc_config->access_control_origins), std::move(http_login),
-      std::move(rpc_config->ssl_options),
-      max_connections_public, max_connections_private, max_connections,
-      command_line::get_arg(vm, arg_rpc_response_soft_limit),
-      rpc_config->disable_md5
-    );
+    rpc::server_options options{};
+    options.port = std::move(bind_port);
+    options.bind_ip = std::move(rpc_config->bind_ip);
+    options.bind_ipv6 = std::move(rpc_config->bind_ipv6_address);
+    options.use_ipv6 = rpc_config->use_ipv6;
+    options.require_ipv4 = rpc_config->require_ipv4;
+    options.ssl = std::move(rpc_config->ssl_options);
+    options.access_control_origins = std::move(rpc_config->access_control_origins);
+    options.login = std::move(http_login);
+    options.rng = [](size_t len, uint8_t *ptr) { return crypto::rand(len, ptr); };
+    options.disable_md5 = rpc_config->disable_md5;
+    options.max_public_ip_connections = max_connections_public;
+    options.max_private_ip_connections = max_connections_private;
+    options.max_connections = max_connections;
+    options.max_content_length = MAX_RPC_CONTENT_LENGTH * 100;
+    options.response_soft_limit = command_line::get_arg(vm, arg_rpc_response_soft_limit);
+    return m_http.init(make_routes(), std::move(options));
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  rpc::router wallet_rpc_server::make_routes()
+  {
+    rpc::router r;
+    rpc::json_rpc_router& j = r.json_rpc("/json_rpc");
+    j.add("get_wallet_info", this, &wallet_rpc_server::on_get_wallet_info);
+    j.add("get_balance", this, &wallet_rpc_server::on_getbalance);
+    j.add("get_address", this, &wallet_rpc_server::on_getaddress);
+    j.add("get_address_index", this, &wallet_rpc_server::on_getaddress_index);
+    j.add("set_subaddress_lookahead", this, &wallet_rpc_server::on_set_subaddr_lookahead);
+    j.add("getbalance", this, &wallet_rpc_server::on_getbalance);
+    j.add("getaddress", this, &wallet_rpc_server::on_getaddress);
+    j.add("create_address", this, &wallet_rpc_server::on_create_address);
+    j.add("label_address", this, &wallet_rpc_server::on_label_address);
+    j.add("get_accounts", this, &wallet_rpc_server::on_get_accounts);
+    j.add("create_account", this, &wallet_rpc_server::on_create_account);
+    j.add("label_account", this, &wallet_rpc_server::on_label_account);
+    j.add("get_account_tags", this, &wallet_rpc_server::on_get_account_tags);
+    j.add("tag_accounts", this, &wallet_rpc_server::on_tag_accounts);
+    j.add("untag_accounts", this, &wallet_rpc_server::on_untag_accounts);
+    j.add("set_account_tag_description", this, &wallet_rpc_server::on_set_account_tag_description);
+    j.add("get_height", this, &wallet_rpc_server::on_getheight);
+    j.add("getheight", this, &wallet_rpc_server::on_getheight);
+    j.add("freeze", this, &wallet_rpc_server::on_freeze);
+    j.add("thaw", this, &wallet_rpc_server::on_thaw);
+    j.add("frozen", this, &wallet_rpc_server::on_frozen);
+    j.add("transfer", this, &wallet_rpc_server::on_transfer);
+    j.add("transfer_split", this, &wallet_rpc_server::on_transfer_split);
+    j.add("sign_transfer", this, &wallet_rpc_server::on_sign_transfer);
+    j.add("describe_transfer", this, &wallet_rpc_server::on_describe_transfer);
+    j.add("submit_transfer", this, &wallet_rpc_server::on_submit_transfer);
+    j.add("sweep_dust", this, &wallet_rpc_server::on_sweep_dust);
+    j.add("sweep_unmixable", this, &wallet_rpc_server::on_sweep_dust);
+    j.add("sweep_all", this, &wallet_rpc_server::on_sweep_all);
+    j.add("sweep_single", this, &wallet_rpc_server::on_sweep_single);
+    j.add("relay_tx", this, &wallet_rpc_server::on_relay_tx);
+    j.add("store", this, &wallet_rpc_server::on_store);
+    j.add("get_payments", this, &wallet_rpc_server::on_get_payments);
+    j.add("get_bulk_payments", this, &wallet_rpc_server::on_get_bulk_payments);
+    j.add("incoming_transfers", this, &wallet_rpc_server::on_incoming_transfers);
+    j.add("query_key", this, &wallet_rpc_server::on_query_key);
+    j.add("make_integrated_address", this, &wallet_rpc_server::on_make_integrated_address);
+    j.add("split_integrated_address", this, &wallet_rpc_server::on_split_integrated_address);
+    j.add("stop_wallet", this, &wallet_rpc_server::on_stop_wallet);
+    j.add("rescan_blockchain", this, &wallet_rpc_server::on_rescan_blockchain);
+    j.add("set_tx_notes", this, &wallet_rpc_server::on_set_tx_notes);
+    j.add("get_tx_notes", this, &wallet_rpc_server::on_get_tx_notes);
+    j.add("set_attribute", this, &wallet_rpc_server::on_set_attribute);
+    j.add("get_attribute", this, &wallet_rpc_server::on_get_attribute);
+    j.add("get_tx_key", this, &wallet_rpc_server::on_get_tx_key);
+    j.add("check_tx_key", this, &wallet_rpc_server::on_check_tx_key);
+    j.add("get_tx_proof", this, &wallet_rpc_server::on_get_tx_proof);
+    j.add("check_tx_proof", this, &wallet_rpc_server::on_check_tx_proof);
+    j.add("get_spend_proof", this, &wallet_rpc_server::on_get_spend_proof);
+    j.add("check_spend_proof", this, &wallet_rpc_server::on_check_spend_proof);
+    j.add("get_reserve_proof", this, &wallet_rpc_server::on_get_reserve_proof);
+    j.add("check_reserve_proof", this, &wallet_rpc_server::on_check_reserve_proof);
+    j.add("get_transfers", this, &wallet_rpc_server::on_get_transfers);
+    j.add("get_transfer_by_txid", this, &wallet_rpc_server::on_get_transfer_by_txid);
+    j.add("sign", this, &wallet_rpc_server::on_sign);
+    j.add("verify", this, &wallet_rpc_server::on_verify);
+    j.add("export_outputs", this, &wallet_rpc_server::on_export_outputs);
+    j.add("import_outputs", this, &wallet_rpc_server::on_import_outputs);
+    j.add("export_key_images", this, &wallet_rpc_server::on_export_key_images);
+    j.add("import_key_images", this, &wallet_rpc_server::on_import_key_images);
+    j.add("make_uri", this, &wallet_rpc_server::on_make_uri);
+    j.add("parse_uri", this, &wallet_rpc_server::on_parse_uri);
+    j.add("get_address_book", this, &wallet_rpc_server::on_get_address_book);
+    j.add("add_address_book", this, &wallet_rpc_server::on_add_address_book);
+    j.add("edit_address_book", this, &wallet_rpc_server::on_edit_address_book);
+    j.add("delete_address_book", this, &wallet_rpc_server::on_delete_address_book);
+    j.add("refresh", this, &wallet_rpc_server::on_refresh);
+    j.add("auto_refresh", this, &wallet_rpc_server::on_auto_refresh);
+    j.add("scan_tx", this, &wallet_rpc_server::on_scan_tx);
+    j.add("rescan_spent", this, &wallet_rpc_server::on_rescan_spent);
+    j.add("start_mining", this, &wallet_rpc_server::on_start_mining);
+    j.add("stop_mining", this, &wallet_rpc_server::on_stop_mining);
+    j.add("get_languages", this, &wallet_rpc_server::on_get_languages);
+    j.add("create_wallet", this, &wallet_rpc_server::on_create_wallet);
+    j.add("open_wallet", this, &wallet_rpc_server::on_open_wallet);
+    j.add("wallet_exists", this, &wallet_rpc_server::on_wallet_exists);
+    j.add("close_wallet", this, &wallet_rpc_server::on_close_wallet);
+    j.add("change_wallet_password", this, &wallet_rpc_server::on_change_wallet_password);
+    j.add("generate_from_keys", this, &wallet_rpc_server::on_generate_from_keys);
+    j.add("restore_deterministic_wallet", this, &wallet_rpc_server::on_restore_deterministic_wallet);
+    j.add("is_multisig", this, &wallet_rpc_server::on_is_multisig);
+    j.add("prepare_multisig", this, &wallet_rpc_server::on_prepare_multisig);
+    j.add("make_multisig", this, &wallet_rpc_server::on_make_multisig);
+    j.add("export_multisig_info", this, &wallet_rpc_server::on_export_multisig);
+    j.add("import_multisig_info", this, &wallet_rpc_server::on_import_multisig);
+    j.add("exchange_multisig_keys", this, &wallet_rpc_server::on_exchange_multisig_keys);
+    j.add("get_multisig_key_exchange_booster", this, &wallet_rpc_server::on_get_multisig_key_exchange_booster);
+    j.add("sign_multisig", this, &wallet_rpc_server::on_sign_multisig);
+    j.add("submit_multisig", this, &wallet_rpc_server::on_submit_multisig);
+    j.add("validate_address", this, &wallet_rpc_server::on_validate_address);
+    j.add("set_daemon", this, &wallet_rpc_server::on_set_daemon);
+    j.add("set_log_level", this, &wallet_rpc_server::on_set_log_level);
+    j.add("set_log_categories", this, &wallet_rpc_server::on_set_log_categories);
+    j.add("estimate_tx_size_and_weight", this, &wallet_rpc_server::on_estimate_tx_size_and_weight);
+    j.add("get_default_fee_priority", this, &wallet_rpc_server::on_get_default_fee_priority);
+    j.add("get_version", this, &wallet_rpc_server::on_get_version);
+    j.add("setup_background_sync", this, &wallet_rpc_server::on_setup_background_sync);
+    j.add("start_background_sync", this, &wallet_rpc_server::on_start_background_sync);
+    j.add("stop_background_sync", this, &wallet_rpc_server::on_stop_background_sync);
+    return r;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::check_background_mining()

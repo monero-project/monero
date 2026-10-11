@@ -50,7 +50,7 @@ struct request_line
 
 struct header_fields
 {
-    std::string_view expect;
+    std::string_view authorization, expect, origin;
     std::size_t host_count = 0;
     std::size_t content_length = 0;
     bool has_content_length = false;

@@ -28,6 +28,7 @@
 
 #include "http_server.h"
 
+#include <algorithm>
 #include <stdexcept>
 
 #include "net/abstract_tcp_server2.h"
@@ -46,10 +47,34 @@ constexpr const std::size_t max_idle_capacity = 64 * 1024;
 constexpr const std::string_view allow_field = "Allow: GET, HEAD, POST, OPTIONS\r\n";
 constexpr const std::string_view continue_response = "HTTP/1.1 100 Continue\r\n\r\n";
 
+// the same methods as `allow_field`
+constexpr const std::string_view cors_fields_end =
+    "Access-Control-Allow-Methods: GET, HEAD, POST, OPTIONS\r\n";
+
 // RFC 9110 9.1: methods are case-sensitive
 constexpr bool allowed_method(const std::string_view method) noexcept
 {
     return method == "GET" || method == "HEAD" || method == "POST" || method == "OPTIONS";
+}
+
+// Empty unless `origins` (sorted) allows the request's Origin
+std::string cors_fields(const std::vector<std::string>& origins,
+                        const net::http::request_line& line, const net::http::header_fields& fields)
+{
+    if (fields.origin.empty()) return {};
+    const bool allowed =
+        std::binary_search(origins.begin(), origins.end(), std::string_view{"*"}, std::less<>{}) ||
+        std::binary_search(origins.begin(), origins.end(), fields.origin, std::less<>{});
+    if (!allowed) return {};
+
+    std::string out;
+    out.append("Access-Control-Allow-Origin: ").append(fields.origin).append(net::http::crlf);
+    out.append("Access-Control-Expose-Headers: www-authenticate\r\n");
+    if (line.method == "OPTIONS")
+        out.append(
+            "Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With\r\n");
+    out.append(cors_fields_end);
+    return out;
 }
 } // namespace
 
@@ -123,6 +148,13 @@ void router::add(const std::string_view path, handler h)
         throw std::logic_error{"duplicate route: " + std::string{path}};
 }
 
+void router::replace(const std::string_view path, handler h)
+{
+    const auto it = routes_.find(path);
+    if (it == routes_.end()) throw std::logic_error{"no route to replace: " + std::string{path}};
+    it->second = std::move(h);
+}
+
 json_rpc_router& router::json_rpc(const std::string_view path)
 {
     // reserved first so the route never refers to a router that failed to be stored
@@ -137,11 +169,28 @@ json_rpc_router& router::json_rpc(const std::string_view path)
     return *ptr;
 }
 
+bool server_config::is_host_limit(const epee::net_utils::network_address& address)
+{
+    const std::string key = connection_limit_key(address);
+
+    const std::lock_guard<std::mutex> guard{lock};
+    if (max_connections <= connection_count) return true;
+
+    const auto it = connections.find(key);
+    if (it == connections.end()) return false;
+
+    const bool is_private = address.is_loopback() || address.is_local();
+    return (is_private ? max_private_ip_connections : max_public_ip_connections) <= it->second;
+}
+
 http_connection::http_connection(epee::net_utils::i_service_endpoint* const endpoint,
-                                 config_type& config, const connection_context& context) noexcept
+                                 config_type& config, const connection_context& context)
     : endpoint_(endpoint),
       config_(config),
-      context_(context)
+      context_(context),
+      auth_(config.login ? epee::net_utils::http::http_server_auth{*config.login, config.rng,
+                                                                   config.disable_md5}
+                         : epee::net_utils::http::http_server_auth{})
 {
 }
 
@@ -259,13 +308,19 @@ bool http_connection::process(std::size_t& consumed)
 
         bool keep_alive = net::http::persistent(line, fields);
         const bool head = line.method == "HEAD";
+        std::string extra_fields = cors_fields(config_.access_control_origins, line, fields);
         http_response response{404};
         const handler* const h =
             config_.routes ? config_.routes->find(net::http::target_path(request.target)) : nullptr;
         if (line.method == "OPTIONS")
         {
-            // answered here for every target, so CORS preflights never reach a handler
+            // answered here for every target and without auth, so CORS preflights never reach a
+            // handler
             response = http_response{200};
+        }
+        else if (std::optional<http_response> digest = challenge(line, fields, extra_fields))
+        {
+            response = std::move(*digest);
         }
         else if (h)
         {
@@ -287,7 +342,7 @@ bool http_connection::process(std::size_t& consumed)
 
         // every internal error closes the connection
         if (response.code == 500) keep_alive = false;
-        if (!send(std::move(response), keep_alive, head)) return false;
+        if (!send(std::move(response), keep_alive, head, extra_fields)) return false;
 
         consumed += request_size_;
         scanned_ = 0;
@@ -328,6 +383,32 @@ unsigned int http_connection::accept_header(const std::string_view header,
     return 0;
 }
 
+std::optional<http_response> http_connection::challenge(const net::http::request_line& line,
+                                                        const net::http::header_fields& fields,
+                                                        std::string& extra_fields)
+{
+    if (!config_.login) return std::nullopt;
+
+    // `http_server_auth` reads only these
+    epee::net_utils::http::http_request_info info{};
+    info.m_http_method_str = std::string{line.method};
+    info.m_URI = std::string{line.target};
+    if (!fields.authorization.empty())
+        info.m_header_info.m_etc_fields.emplace_back("Authorization",
+                                                     std::string{fields.authorization});
+
+    boost::optional<epee::net_utils::http::http_response_info> digest = auth_.get_response(info);
+    if (!digest) return std::nullopt;
+
+    for (const auto& field : digest->m_additional_fields)
+        extra_fields.append(field.first).append(": ").append(field.second).append(net::http::crlf);
+
+    http_response out{static_cast<unsigned int>(digest->m_response_code)};
+    out.body = epee::byte_slice{std::move(digest->m_body)};
+    out.content_type = std::move(digest->m_mime_tipe);
+    return out;
+}
+
 bool http_connection::reject(const unsigned int code) const
 {
     // RFC 9110 15.5.6: a 405 must list the allowed methods
@@ -347,7 +428,109 @@ bool http_connection::send(http_response response, const bool keep_alive, const 
     return head || response.body.empty() || endpoint_->do_send(std::move(response.body));
 }
 
-} // namespace rpc
+struct http_server::impl final : epee::net_utils::i_connection_limit
+{
+    impl()
+        : net(epee::net_utils::e_connection_type_RPC)
+    {
+    }
 
-// Checks `http_connection` against the interface `boosted_tcp_server` requires
-template class epee::net_utils::boosted_tcp_server<rpc::http_connection>;
+    bool is_host_limit(const epee::net_utils::network_address& address) override
+    {
+        return net.get_config_object().is_host_limit(address);
+    }
+
+    epee::net_utils::boosted_tcp_server<http_connection> net;
+};
+
+http_server::http_server()
+    : impl_(std::make_unique<impl>())
+{
+}
+
+http_server::~http_server() noexcept = default;
+
+bool http_server::init(router routes, server_options options)
+{
+    if (options.max_connections < options.max_public_ip_connections)
+        throw std::invalid_argument{
+            "Max public IP connections cannot be more than max connections"};
+    if (options.max_connections < options.max_private_ip_connections)
+        throw std::invalid_argument{
+            "Max private IP connections cannot be more than max connections"};
+    if (options.login && !options.rng) throw std::invalid_argument{"RPC login requires an RNG"};
+
+    // `std::less<>` is what `cors_fields` searches with
+    std::sort(options.access_control_origins.begin(), options.access_control_origins.end(),
+              std::less<>{});
+
+    server_config& config = impl_->net.get_config_object();
+    config.routes = std::make_shared<const router>(std::move(routes));
+    config.access_control_origins = std::move(options.access_control_origins);
+    config.login = std::move(options.login);
+    config.rng = std::move(options.rng);
+    config.disable_md5 = options.disable_md5;
+    config.max_content_length = options.max_content_length;
+    config.max_public_ip_connections = options.max_public_ip_connections;
+    config.max_private_ip_connections = options.max_private_ip_connections;
+    config.max_connections = options.max_connections;
+
+    impl_->net.set_threads_prefix("RPC");
+    if (options.filter) impl_->net.set_connection_filter(options.filter);
+    impl_->net.set_response_soft_limit(options.response_soft_limit);
+    impl_->net.set_connection_limit(impl_.get());
+
+    MGINFO("Binding on " << options.bind_ip << " (IPv4):" << options.port);
+    if (options.use_ipv6) MGINFO("Binding on " << options.bind_ipv6 << " (IPv6):" << options.port);
+    if (!impl_->net.init_server(options.port, options.bind_ip, options.port, options.bind_ipv6,
+                                options.use_ipv6, options.require_ipv4, std::move(options.ssl)))
+    {
+        MERROR("Failed to bind server");
+        return false;
+    }
+    return true;
+}
+
+bool http_server::run(const std::size_t threads, const bool wait)
+{
+    MINFO("Run net_service loop (" << threads << " threads)...");
+    if (!impl_->net.run_server(threads, wait))
+    {
+        MERROR("Failed to run net TCP server!");
+        return false;
+    }
+    if (wait) MINFO("net_service loop stopped.");
+    return true;
+}
+
+void http_server::send_stop_signal()
+{
+    impl_->net.send_stop_signal();
+}
+
+bool http_server::timed_wait_server_stop(const std::uint64_t ms)
+{
+    return impl_->net.timed_wait_server_stop(ms);
+}
+
+int http_server::get_binded_port() const
+{
+    return impl_->net.get_binded_port();
+}
+
+long http_server::get_connections_count() const
+{
+    return impl_->net.get_connections_count();
+}
+
+boost::asio::ssl::context& http_server::get_ssl_context() noexcept
+{
+    return impl_->net.get_ssl_context();
+}
+
+void http_server::add_idle_handler(std::function<bool()> f, const std::chrono::milliseconds period)
+{
+    impl_->net.add_idle_handler(std::move(f), period);
+}
+
+} // namespace rpc

@@ -5,9 +5,6 @@
 #include <vector>
 
 #include "gtest/gtest.h"
-#include "misc_language.h"
-#include "time_helper.h"
-#include "net/http_server_handlers_map2.h"
 #include "rpc/http_server.h"
 #include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage_template_helper.h"
@@ -32,12 +29,6 @@ struct echo_response
     KV_SERIALIZE(value)
     KV_SERIALIZE(length)
     END_KV_SERIALIZE_MAP()
-};
-
-struct COMMAND_ECHO
-{
-    using request = echo_request;
-    using response = echo_response;
 };
 
 // `value` of "fail" or "throw" makes a handler fail in that way
@@ -65,29 +56,54 @@ struct test_server
     }
 };
 
-// The same handlers routed through the old epee macros, for byte-for-byte comparison
-struct legacy_server : test_server
-{
-    BEGIN_URI_MAP2()
-    MAP_URI_AUTO_JON2("/echo", on_echo, COMMAND_ECHO)
-    MAP_URI_AUTO_BIN2("/echo.bin", on_echo, COMMAND_ECHO)
-    BEGIN_JSON_RPC_MAP("/json_rpc")
-    MAP_JON_RPC("echo", on_echo, COMMAND_ECHO)
-    MAP_JON_RPC_WE("echo_we", on_echo_we, COMMAND_ECHO)
-    END_JSON_RPC_MAP()
-    END_URI_MAP2()
-};
-
 struct result
 {
     unsigned int code;
     std::string body;
 };
 
-class router_parity : public ::testing::Test
+// Drops whitespace outside of strings, so expected JSON can be written on one line
+std::string compact(const std::string_view json)
+{
+    std::string out;
+    bool in_string = false;
+    for (std::size_t i = 0; i < json.size(); ++i)
+    {
+        const char c = json[i];
+        if (in_string && c == '\\' && i + 1 < json.size())
+        {
+            out.append(json.substr(i, 2));
+            ++i;
+            continue;
+        }
+        if (c == '"') in_string = !in_string;
+        if (in_string || (c != ' ' && c != '\r' && c != '\n')) out.push_back(c);
+    }
+    return out;
+}
+
+std::string to_binary(const std::string& value)
+{
+    echo_request req{};
+    req.value = value;
+    const epee::byte_slice bin = epee::serialization::store_t_to_binary(req);
+    return std::string{reinterpret_cast<const char*>(bin.data()), bin.size()};
+}
+
+std::string to_binary_response(const std::string& value)
+{
+    echo_response res{};
+    res.value = value;
+    res.length = value.size();
+    const epee::byte_slice bin = epee::serialization::store_t_to_binary(res);
+    return std::string{reinterpret_cast<const char*>(bin.data()), bin.size()};
+}
+
+// The expected outputs were recorded from the epee URI map macros this router replaced
+class router_output : public ::testing::Test
 {
 protected:
-    router_parity()
+    router_output()
     {
         routes_.add_json("/echo", &server_, &test_server::on_echo);
         routes_.add_bin("/echo.bin", &server_, &test_server::on_echo);
@@ -96,7 +112,7 @@ protected:
         methods.add("echo_we", &server_, &test_server::on_echo_we);
     }
 
-    result call_new(const std::string_view target, const std::string_view body)
+    result call(const std::string_view target, const std::string_view body)
     {
         const rpc::handler* const h = routes_.find(target);
         if (!h) return {404, {}};
@@ -114,93 +130,102 @@ protected:
         }
     }
 
-    result call_old(const std::string_view target, const std::string_view body)
-    {
-        epee::net_utils::http::http_request_info request{};
-        request.m_URI = std::string{target};
-        request.m_body = std::string{body};
-
-        epee::net_utils::http::http_response_info response{};
-        response.m_response_code = 200;
-        // as CHAIN_HTTP_TO_MAP2 does: an escaped exception becomes a 500 with whatever body was set
-        try
-        {
-            if (!legacy_.handle_http_request_map(request, response, context_)) return {404, {}};
-        }
-        catch (const std::exception&)
-        {
-            response.m_response_code = 500;
-        }
-        return {static_cast<unsigned int>(response.m_response_code), response.m_body};
-    }
-
-    void expect_same(const std::string_view target, const std::string_view body)
+    void expect_json(const std::string_view target, const std::string_view body,
+                     const unsigned int code, const std::string_view expected)
     {
         SCOPED_TRACE(std::string{target} + " " + std::string{body});
-        const result expected = call_old(target, body);
-        const result actual = call_new(target, body);
-        EXPECT_EQ(expected.code, actual.code);
-        EXPECT_EQ(expected.body, actual.body);
+        const result actual = call(target, body);
+        EXPECT_EQ(code, actual.code);
+        EXPECT_EQ(expected, compact(actual.body));
+    }
+
+    void expect_bin(const std::string& body, const unsigned int code, const std::string& expected)
+    {
+        const result actual = call("/echo.bin", body);
+        EXPECT_EQ(code, actual.code);
+        EXPECT_EQ(expected, actual.body);
     }
 
     test_server server_;
-    legacy_server legacy_;
     rpc::router routes_;
     rpc::connection_context context_;
 };
-
-std::string to_binary(const std::string& value)
-{
-    echo_request req{};
-    req.value = value;
-    const epee::byte_slice bin = epee::serialization::store_t_to_binary(req);
-    return std::string{reinterpret_cast<const char*>(bin.data()), bin.size()};
-}
 } // namespace
 
-TEST_F(router_parity, json)
+TEST_F(router_output, json)
 {
-    for (const std::string_view body :
-         {R"({"value":"hello"})", "{}", R"({"value":"fail"})", R"({"value":"throw"})", "not json",
-          "", R"({"value":5})", R"({"other":"field"})"})
-    {
-        expect_same("/echo", body);
-    }
+    expect_json("/echo", R"({"value":"hello"})", 200, R"({"length":5,"value":"hello"})");
+    expect_json("/echo", "{}", 200, R"({"length":0,"value":""})");
+    expect_json("/echo", R"({"other":"field"})", 200, R"({"length":0,"value":""})");
+    expect_json("/echo", R"({"value":"fail"})", 500, "");
+    expect_json("/echo", R"({"value":"throw"})", 500, "");
+    expect_json("/echo", R"({"value":5})", 400, "");
+    expect_json("/echo", "not json", 400, "");
+    expect_json("/echo", "", 400, "");
 }
 
-TEST_F(router_parity, binary)
+TEST_F(router_output, json_layout)
 {
-    for (const std::string& body : {to_binary("hello"), to_binary(""), to_binary("fail"),
-                                    to_binary("throw"), std::string{"garbage"}, std::string{}})
-    {
-        expect_same("/echo.bin", body);
-    }
+    EXPECT_EQ("{\r\n  \"length\": 5,\r\n  \"value\": \"hello\"\r\n}",
+              call("/echo", R"({"value":"hello"})").body);
 }
 
-TEST_F(router_parity, json_rpc)
+TEST_F(router_output, binary)
 {
-    for (const std::string_view body :
-         {R"({"jsonrpc":"2.0","id":7,"method":"echo","params":{"value":"hi"}})",
-          R"({"jsonrpc":"2.0","id":"abc","method":"echo","params":{"value":"hi"}})",
-          R"({"jsonrpc":"2.0","method":"echo","params":{"value":"hi"}})",
-          R"({"jsonrpc":"2.0","id":null,"method":"echo"})",
-          R"({"jsonrpc":"2.0","id":1,"method":"echo","params":{"value":"fail"}})",
-          R"({"jsonrpc":"2.0","id":1,"method":"echo","params":{"value":"throw"}})",
-          R"({"jsonrpc":"2.0","id":2,"method":"echo_we","params":{"value":"hi"}})",
-          R"({"jsonrpc":"2.0","id":2,"method":"echo_we","params":{"value":"fail"}})",
-          R"({"jsonrpc":"2.0","id":2,"method":"echo_we","params":{"value":"throw"}})",
-          R"({"jsonrpc":"2.0","id":3,"method":"echo","params":{"value":5}})",
-          R"({"jsonrpc":"2.0","id":3,"method":"echo","params":[1,2]})",
-          R"({"jsonrpc":"2.0","id":4,"method":"nope"})", R"({"jsonrpc":"2.0","id":5})",
-          R"({"jsonrpc":"2.0","id":5,"method":7})", "not json", ""})
-    {
-        expect_same("/json_rpc", body);
-    }
+    expect_bin(to_binary("hello"), 200, to_binary_response("hello"));
+    expect_bin(to_binary(""), 200, to_binary_response(""));
+    expect_bin(to_binary("fail"), 500, "");
+    expect_bin(to_binary("throw"), 500, "");
+    expect_bin("garbage", 400, "");
+    expect_bin("", 400, "");
 }
 
-TEST_F(router_parity, unknown_target)
+TEST_F(router_output, json_rpc)
 {
-    expect_same("/nope", "{}");
+    const auto expect = [this](const std::string_view body, const std::string_view expected)
+    {
+        expect_json("/json_rpc", body, 200, expected);
+    };
+
+    expect(R"({"jsonrpc":"2.0","id":7,"method":"echo","params":{"value":"hi"}})",
+           R"({"id":7,"jsonrpc":"2.0","result":{"length":2,"value":"hi"}})");
+    expect(R"({"jsonrpc":"2.0","id":"abc","method":"echo","params":{"value":"hi"}})",
+           R"({"id":"abc","jsonrpc":"2.0","result":{"length":2,"value":"hi"}})");
+    expect(R"({"jsonrpc":"2.0","method":"echo","params":{"value":"hi"}})",
+           R"({"id":0,"jsonrpc":"2.0","result":{"length":2,"value":"hi"}})");
+    expect(R"({"jsonrpc":"2.0","id":null,"method":"echo"})",
+           R"({"id":0,"jsonrpc":"2.0","result":{"length":0,"value":""}})");
+    expect(R"({"jsonrpc":"2.0","id":3,"method":"echo","params":[1,2]})",
+           R"({"id":3,"jsonrpc":"2.0","result":{"length":0,"value":""}})");
+    expect(R"({"jsonrpc":"2.0","id":2,"method":"echo_we","params":{"value":"hi"}})",
+           R"({"id":2,"jsonrpc":"2.0","result":{"length":2,"value":"hi"}})");
+
+    expect(R"({"jsonrpc":"2.0","id":1,"method":"echo","params":{"value":"fail"}})",
+           R"({"error":{"code":-32603,"message":"Internal error"},"id":1,"jsonrpc":"2.0"})");
+    expect(R"({"jsonrpc":"2.0","id":1,"method":"echo","params":{"value":"throw"}})",
+           R"({"error":{"code":-32603,"message":"Internal error"},"id":1,"jsonrpc":"2.0"})");
+    expect(R"({"jsonrpc":"2.0","id":2,"method":"echo_we","params":{"value":"fail"}})",
+           R"({"error":{"code":-1,"message":"custom failure"},"id":2,"jsonrpc":"2.0"})");
+    // a `_WE` handler that throws leaves its error unset
+    expect(R"({"jsonrpc":"2.0","id":2,"method":"echo_we","params":{"value":"throw"}})",
+           R"({"error":{"code":0,"message":""},"id":2,"jsonrpc":"2.0"})");
+    expect(R"({"jsonrpc":"2.0","id":3,"method":"echo","params":{"value":5}})",
+           R"({"error":{"code":-32602,"message":"Invalid params"},"id":3,"jsonrpc":"2.0"})");
+    expect(R"({"jsonrpc":"2.0","id":4,"method":"nope"})",
+           R"({"error":{"code":-32601,"message":"Method not found"},"id":4,"jsonrpc":"2.0"})");
+    expect(R"({"jsonrpc":"2.0","id":5})",
+           R"({"error":{"code":-32600,"message":"Invalid Request"},"id":0,"jsonrpc":"2.0"})");
+    expect("not json",
+           R"({"error":{"code":-32700,"message":"Parse error"},"id":0,"jsonrpc":"2.0"})");
+    expect("", R"({"error":{"code":-32700,"message":"Parse error"},"id":0,"jsonrpc":"2.0"})");
+
+    // `method` of the wrong type throws out of the router
+    expect_json("/json_rpc", R"({"jsonrpc":"2.0","id":5,"method":7})", 500, "");
+}
+
+TEST_F(router_output, unknown_target)
+{
+    expect_json("/nope", "{}", 404, "");
 }
 
 TEST(rpc_router, content_types)
@@ -279,4 +304,20 @@ TEST(rpc_router, non_std_exception_is_a_failed_call)
         (*routes.find("/json_rpc"))(rpc::http_request{"POST", "/json_rpc", body}, context);
     const std::string out{reinterpret_cast<const char*>(r.body.data()), r.body.size()};
     EXPECT_NE(std::string::npos, out.find("-32603")) << out;
+}
+
+TEST(rpc_router, replace)
+{
+    test_server server;
+    rpc::router routes;
+    EXPECT_THROW(routes.replace_json("/echo", &server, &test_server::on_echo), std::logic_error);
+
+    routes.add_bin("/echo", &server, &test_server::on_echo);
+    routes.replace_json("/echo", &server, &test_server::on_echo);
+
+    rpc::connection_context context;
+    const rpc::http_response r =
+        (*routes.find("/echo"))(rpc::http_request{"POST", "/echo", R"({"value":"x"})"}, context);
+    EXPECT_EQ(200u, r.code);
+    EXPECT_EQ("application/json", r.content_type);
 }

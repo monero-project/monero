@@ -140,8 +140,6 @@ namespace cryptonote
     )
   {
     m_restricted = restricted;
-    m_net_server.set_threads_prefix("RPC");
-    m_net_server.set_connection_filter(&m_p2p);
 
     auto rpc_config = cryptonote::rpc_args::process(vm, true);
     if (!rpc_config)
@@ -230,27 +228,129 @@ namespace cryptonote
       return false;
     }
 
-    auto rng = [](size_t len, uint8_t *ptr){ return crypto::rand(len, ptr); };
-    const bool inited = epee::http_server_impl_base<core_rpc_server, connection_context>::init(
-      rng, std::move(port), std::move(bind_ip_str),
-      std::move(bind_ipv6_str), std::move(rpc_config->use_ipv6), std::move(rpc_config->require_ipv4),
-      std::move(rpc_config->access_control_origins), std::move(http_login), std::move(rpc_config->ssl_options),
-      max_connections_public, max_connections_private, max_connections,
-      command_line::get_arg(vm, arg_rpc_response_soft_limit),
-      rpc_config->disable_md5
-    );
-
-    m_net_server.get_config_object().m_max_content_length = MAX_RPC_CONTENT_LENGTH;
+    ::rpc::server_options options{};
+    options.port = port;
+    options.bind_ip = std::move(bind_ip_str);
+    options.bind_ipv6 = std::move(bind_ipv6_str);
+    options.use_ipv6 = rpc_config->use_ipv6;
+    options.require_ipv4 = rpc_config->require_ipv4;
+    options.ssl = std::move(rpc_config->ssl_options);
+    options.access_control_origins = std::move(rpc_config->access_control_origins);
+    options.login = std::move(http_login);
+    options.rng = [](size_t len, uint8_t *ptr){ return crypto::rand(len, ptr); };
+    options.disable_md5 = rpc_config->disable_md5;
+    options.max_public_ip_connections = max_connections_public;
+    options.max_private_ip_connections = max_connections_private;
+    options.max_connections = max_connections;
+    options.max_content_length = MAX_RPC_CONTENT_LENGTH;
+    options.response_soft_limit = command_line::get_arg(vm, arg_rpc_response_soft_limit);
+    options.filter = &m_p2p;
+    const bool inited = m_http.init(make_routes(), std::move(options));
 
     if (store_ssl_key && inited)
     {
       // new keys were generated, store for next run
-      const auto error = epee::net_utils::store_ssl_keys(m_net_server.get_ssl_context(), ssl_base_path);
+      const auto error = epee::net_utils::store_ssl_keys(m_http.get_ssl_context(), ssl_base_path);
       if (error)
         MFATAL("Failed to store HTTP SSL cert/key for " << (restricted ? "restricted " : "") << "RPC server: " << error.message());
       return !bool(error);
     }
     return inited;
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
+  ::rpc::router core_rpc_server::make_routes()
+  {
+    ::rpc::router r;
+    r.add_json("/get_height", this, &core_rpc_server::on_get_height);
+    r.add_json("/getheight", this, &core_rpc_server::on_get_height);
+    r.add_bin("/get_blocks.bin", this, &core_rpc_server::on_get_blocks);
+    r.add_bin("/getblocks.bin", this, &core_rpc_server::on_get_blocks);
+    r.add_bin("/get_blocks_by_height.bin", this, &core_rpc_server::on_get_blocks_by_height);
+    r.add_bin("/getblocks_by_height.bin", this, &core_rpc_server::on_get_blocks_by_height);
+    r.add_bin("/get_hashes.bin", this, &core_rpc_server::on_get_hashes);
+    r.add_bin("/gethashes.bin", this, &core_rpc_server::on_get_hashes);
+    r.add_bin("/get_o_indexes.bin", this, &core_rpc_server::on_get_indexes);
+    r.add_bin("/get_outs.bin", this, &core_rpc_server::on_get_outs_bin);
+    r.add_json("/get_transactions", this, &core_rpc_server::on_get_transactions);
+    r.add_json("/gettransactions", this, &core_rpc_server::on_get_transactions);
+    r.add_json("/is_key_image_spent", this, &core_rpc_server::on_is_key_image_spent);
+    r.add_json("/send_raw_transaction", this, &core_rpc_server::on_send_raw_tx);
+    r.add_json("/sendrawtransaction", this, &core_rpc_server::on_send_raw_tx);
+    r.add_json("/get_public_nodes", this, &core_rpc_server::on_get_public_nodes);
+    // a JSON route, despite its name
+    r.add_json("/get_transaction_pool_hashes.bin", this, &core_rpc_server::on_get_transaction_pool_hashes_bin);
+    r.add_json("/get_transaction_pool_hashes", this, &core_rpc_server::on_get_transaction_pool_hashes);
+    r.add_json("/get_transaction_pool_stats", this, &core_rpc_server::on_get_transaction_pool_stats);
+    r.add_json("/get_info", this, &core_rpc_server::on_get_info);
+    r.add_json("/getinfo", this, &core_rpc_server::on_get_info);
+    r.add_json("/get_limit", this, &core_rpc_server::on_get_limit);
+    r.add_json("/get_outs", this, &core_rpc_server::on_get_outs);
+    r.add_bin("/get_output_distribution.bin", this, &core_rpc_server::on_get_output_distribution_bin);
+
+    ::rpc::json_rpc_router& j = r.json_rpc("/json_rpc");
+    j.add("get_block_count", this, &core_rpc_server::on_getblockcount);
+    j.add("getblockcount", this, &core_rpc_server::on_getblockcount);
+    j.add("on_get_block_hash", this, &core_rpc_server::on_getblockhash);
+    j.add("on_getblockhash", this, &core_rpc_server::on_getblockhash);
+    j.add("get_block_template", this, &core_rpc_server::on_getblocktemplate);
+    j.add("getblocktemplate", this, &core_rpc_server::on_getblocktemplate);
+    j.add("get_miner_data", this, &core_rpc_server::on_getminerdata);
+    j.add("add_aux_pow", this, &core_rpc_server::on_add_aux_pow);
+    j.add("submit_block", this, &core_rpc_server::on_submitblock);
+    j.add("submitblock", this, &core_rpc_server::on_submitblock);
+    j.add("get_last_block_header", this, &core_rpc_server::on_get_last_block_header);
+    j.add("getlastblockheader", this, &core_rpc_server::on_get_last_block_header);
+    j.add("get_block_header_by_hash", this, &core_rpc_server::on_get_block_header_by_hash);
+    j.add("getblockheaderbyhash", this, &core_rpc_server::on_get_block_header_by_hash);
+    j.add("get_block_header_by_height", this, &core_rpc_server::on_get_block_header_by_height);
+    j.add("getblockheaderbyheight", this, &core_rpc_server::on_get_block_header_by_height);
+    j.add("get_block_headers_range", this, &core_rpc_server::on_get_block_headers_range);
+    j.add("getblockheadersrange", this, &core_rpc_server::on_get_block_headers_range);
+    j.add("get_block", this, &core_rpc_server::on_get_block);
+    j.add("getblock", this, &core_rpc_server::on_get_block);
+    j.add("get_info", this, &core_rpc_server::on_get_info_json);
+    j.add("hard_fork_info", this, &core_rpc_server::on_hard_fork_info);
+    j.add("get_output_histogram", this, &core_rpc_server::on_get_output_histogram);
+    j.add("get_version", this, &core_rpc_server::on_get_version);
+    j.add("get_fee_estimate", this, &core_rpc_server::on_get_base_fee_estimate);
+    j.add("get_txpool_backlog", this, &core_rpc_server::on_get_txpool_backlog);
+    j.add("get_output_distribution", this, &core_rpc_server::on_get_output_distribution);
+    j.add("get_txids_loose", this, &core_rpc_server::on_get_txids_loose);
+
+    if (m_restricted) return r;
+
+    r.add_json("/get_alt_blocks_hashes", this, &core_rpc_server::on_get_alt_blocks_hashes);
+    r.add_json("/start_mining", this, &core_rpc_server::on_start_mining);
+    r.add_json("/stop_mining", this, &core_rpc_server::on_stop_mining);
+    r.add_json("/mining_status", this, &core_rpc_server::on_mining_status);
+    r.add_json("/save_bc", this, &core_rpc_server::on_save_bc);
+    r.add_json("/get_peer_list", this, &core_rpc_server::on_get_peer_list);
+    r.add_json("/set_log_hash_rate", this, &core_rpc_server::on_set_log_hash_rate);
+    r.add_json("/set_log_level", this, &core_rpc_server::on_set_log_level);
+    r.add_json("/set_log_categories", this, &core_rpc_server::on_set_log_categories);
+    r.add_json("/get_transaction_pool", this, &core_rpc_server::on_get_transaction_pool);
+    r.add_json("/stop_daemon", this, &core_rpc_server::on_stop_daemon);
+    r.add_json("/get_net_stats", this, &core_rpc_server::on_get_net_stats);
+    r.add_json("/set_limit", this, &core_rpc_server::on_set_limit);
+    r.add_json("/out_peers", this, &core_rpc_server::on_out_peers);
+    r.add_json("/in_peers", this, &core_rpc_server::on_in_peers);
+    r.add_json("/update", this, &core_rpc_server::on_update);
+    r.add_json("/pop_blocks", this, &core_rpc_server::on_pop_blocks);
+
+    j.add("calc_pow", this, &core_rpc_server::on_calcpow);
+    j.add("generateblocks", this, &core_rpc_server::on_generateblocks);
+    j.add("get_connections", this, &core_rpc_server::on_get_connections);
+    j.add("set_bans", this, &core_rpc_server::on_set_bans);
+    j.add("get_bans", this, &core_rpc_server::on_get_bans);
+    j.add("banned", this, &core_rpc_server::on_banned);
+    j.add("flush_txpool", this, &core_rpc_server::on_flush_txpool);
+    j.add("get_coinbase_tx_sum", this, &core_rpc_server::on_get_coinbase_tx_sum);
+    j.add("get_alternate_chains", this, &core_rpc_server::on_get_alternate_chains);
+    j.add("relay_tx", this, &core_rpc_server::on_relay_tx);
+    j.add("sync_info", this, &core_rpc_server::on_sync_info);
+    j.add("prune_blockchain", this, &core_rpc_server::on_prune_blockchain);
+    j.add("flush_cache", this, &core_rpc_server::on_flush_cache);
+    return r;
   }
   //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::check_core_ready()
@@ -313,7 +413,7 @@ namespace cryptonote
     uint64_t total_conn = restricted ? 0 : m_p2p.get_public_connections_count();
     res.outgoing_connections_count = restricted ? 0 : m_p2p.get_public_outgoing_connections_count();
     res.incoming_connections_count = restricted ? 0 : (total_conn - res.outgoing_connections_count);
-    res.rpc_connections_count = restricted ? 0 : get_connections_count();
+    res.rpc_connections_count = restricted ? 0 : m_http.get_connections_count();
     res.white_peerlist_size = restricted ? 0 : m_p2p.get_public_white_peers_count();
     res.grey_peerlist_size = restricted ? 0 : m_p2p.get_public_gray_peers_count();
 
