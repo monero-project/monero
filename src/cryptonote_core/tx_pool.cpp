@@ -196,7 +196,7 @@ namespace cryptonote
     // TODO: Investigate why not?
     if(!kept_by_block)
     {
-      if(have_tx_keyimges_as_spent(tx, id))
+      if(have_tx_keyimges_as_spent(tx, id) || m_blockchain.have_tx_keyimges_as_spent(tx))
       {
         mark_double_spend(tx);
         LOG_PRINT_L1("Transaction with id= "<< id << " used already spent key images");
