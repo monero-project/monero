@@ -605,7 +605,7 @@ TEST(node_server, peerlist_merge_rejects_forbidden_ipv6_addresses)
 
   nodetool::peerlist_manager peerlist;
   ASSERT_TRUE(peerlist.init(nodetool::peerlist_types{}, false));
-  ASSERT_TRUE(peerlist.merge_peerlist(remote_peerlist, [](const nodetool::peerlist_entry& pe) {
+  ASSERT_TRUE(peerlist.merge_peerlist(remote_peerlist, ipv4, [](const nodetool::peerlist_entry& pe) {
     return !nodetool::is_forbidden_ipv6_address(pe.adr);
   }));
 
