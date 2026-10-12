@@ -1923,75 +1923,60 @@ namespace nodetool
 
       const uint32_t next_needed_pruning_stripe = m_payload_handler.get_next_needed_pruning_stripe().second;
 
-      // Build a list of all distinct IPv4 /16 and IPv6 /32 netgroups we are connected to right now; to catch
-      // any connection changes, re-build the list for every outer try loop pass
-      std::set<netgroup> connected_netgroups;
-      const bool is_public_zone = &zone == &m_network_zones.at(epee::net_utils::zone::public_);
-      if (is_public_zone)
+      // Build a list of all distinct IPv4 /16 and IPv6 /32 netgroups we have outgoing connections to right now;
+      // to catch any connection changes, re-build the list for every outer try loop pass. Incoming connections
+      // are free to make and would let anyone block netgroups, and so are ping-backs.
+      const auto get_netgroups = [&](const bool skip_wrong_stripe)
       {
+        std::set<netgroup> netgroups;
         zone.m_net_server.get_config_object().foreach_connection([&](const p2p_connection_context& cntxt)
         {
+          if (cntxt.m_is_income || cntxt.is_ping)
+            return true;
+          if (skip_wrong_stripe && cntxt.m_pruning_seed != 0 && next_needed_pruning_stripe != tools::get_pruning_stripe(cntxt.m_pruning_seed))
+            return true;
           const boost::optional<netgroup> group = get_netgroup(cntxt.m_remote_address);
           if (group)
-            connected_netgroups.insert(*group);
+            netgroups.insert(*group);
           return true;
         });
-      }
+        return netgroups;
+      };
 
-      std::vector<peerlist_entry> subnet_peers;
-      std::vector<peerlist_entry> filtered;
+      // Take at most 1 candidate from each netgroup we are not connected to, the FIRST one seen in a random
+      // order, and care about stripes if pruning
+      std::vector<size_t> shuffled_indexes(peers.size());
+      std::iota(shuffled_indexes.begin(), shuffled_indexes.end(), 0);
+      std::shuffle(shuffled_indexes.begin(), shuffled_indexes.end(), crypto::random_device{});
 
-      // Inner try loop: Find candidates first with subnet deduplication, if none found again without.
-      // Finding none happens if all candidates are from subnets we are already connected to and/or
-      // they don't offer the needed stripe when pruning. Only actually loop and deduplicate if we are
-      // in the public zone because private zones don't have subnets.
-      for (int step = 0; step < 2; ++step)
+      const auto get_candidates = [&](std::set<netgroup> netgroups)
       {
-        if ((step == 1) && !is_public_zone)
-          break;
-
-        const bool try_subnet_dedup = step == 0 && is_public_zone;
-        const std::vector<peerlist_entry> &candidate_peers = try_subnet_dedup ? subnet_peers : peers;
-        if (try_subnet_dedup)
+        std::vector<peerlist_entry> filtered;
+        for (size_t index : shuffled_indexes)
         {
-          // Deduplicate subnets using 2 steps
-
-          // Step 1: Prepare to access the peers in a random order
-          std::vector<size_t> shuffled_indexes(peers.size());
-          std::iota(shuffled_indexes.begin(), shuffled_indexes.end(), 0);
-          std::shuffle(shuffled_indexes.begin(), shuffled_indexes.end(), crypto::random_device{});
-
-          // Step 2: Deduplicate by only taking 1 candidate from each netgroup that occurs, the FIRST
-          // candidate seen from each netgroup within the now random order
-          std::set<netgroup> netgroups = connected_netgroups;
-          for (size_t index : shuffled_indexes)
-          {
-            const peerlist_entry &peer = peers.at(index);
-            const boost::optional<netgroup> group = get_netgroup(peer.adr);
-            if (!group || netgroups.insert(*group).second)
-              subnet_peers.push_back(peer);
-          }
-
-          const size_t subnet_peers_size = subnet_peers.size();
-          MDEBUG("Looking at " << subnet_peers_size << " subnet-deduplicated peers out of " << peers_size
-            << ", i.e. dropping " << (peers_size - subnet_peers_size));
-        } // deduplicate
-        // else, for step 1 / second pass of inner try loop, take all peers from all subnets
-
-        // Take all candidates and care about stripes if pruning
-        for (const peerlist_entry &peer : candidate_peers) {
+          const peerlist_entry &peer = peers.at(index);
           if (tried_peers.count(peer.id))
             // Already tried, not a possible candidate
             continue;
 
-          if (next_needed_pruning_stripe == 0 || peer.pruning_seed == 0 || next_needed_pruning_stripe == tools::get_pruning_stripe(peer.pruning_seed))
-            filtered.push_back(peer);
-          // else wrong stripe, skip
-        }
+          if (next_needed_pruning_stripe != 0 && peer.pruning_seed != 0 && next_needed_pruning_stripe != tools::get_pruning_stripe(peer.pruning_seed))
+            // Wrong stripe, skip
+            continue;
 
-        if (!filtered.empty())
-          break;
-      } // inner try loop
+          const boost::optional<netgroup> group = get_netgroup(peer.adr);
+          if (!group || netgroups.insert(*group).second)
+            filtered.push_back(peer);
+        }
+        return filtered;
+      };
+
+      std::vector<peerlist_entry> filtered = get_candidates(get_netgroups(false));
+      // only when nothing else is left, a peer without the stripe we need does not hold its netgroup
+      // against one that has it: peers report their own seed and can change it
+      if (filtered.empty() && next_needed_pruning_stripe != 0)
+        filtered = get_candidates(get_netgroups(true));
+
+      MDEBUG("Looking at " << filtered.size() << " netgroup-deduplicated candidates out of " << peers_size);
 
       if (filtered.empty())
       {
