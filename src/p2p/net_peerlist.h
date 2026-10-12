@@ -147,6 +147,7 @@ namespace nodetool
   private: 
     void trim_white_peerlist();
     void trim_gray_peerlist();
+    void refresh_shared_white();
     static peerlist_entry get_nth_latest_peer(peers_indexed& peerlist, size_t n);
 
     friend class boost::serialization::access;
@@ -157,6 +158,8 @@ namespace nodetool
 
     peers_indexed m_peers_gray;
     peers_indexed m_peers_white;
+    std::vector<peerlist_entry> m_shared_white; // white peers we share: rebuilt on a long random interval, removed peers dropped
+    int64_t m_shared_white_expiry = 0;
     anchor_peers_indexed m_peers_anchor;
   };
   //--------------------------------------------------------------------------------------------------
@@ -215,6 +218,21 @@ namespace nodetool
     return true;
   }
   //--------------------------------------------------------------------------------------------------
+  inline void peerlist_manager::refresh_shared_white()
+  {
+    const int64_t now = time(nullptr);
+    if (now < m_shared_white_expiry && m_shared_white.size() >= P2P_DEFAULT_PEERS_IN_HANDSHAKE)
+      return;
+
+    // Leave out peers unseen for 30 days. If that leaves less than one reply, share the whole
+    // white list and do not keep the set, as before.
+    const peers_indexed::index<by_time>::type& by_time_index = m_peers_white.get<by_time>();
+    const auto fresh = by_time_index.lower_bound(now - P2P_WHITE_PEER_STALE_SECONDS);
+    const bool enough_fresh = std::distance(fresh, by_time_index.end()) >= P2P_DEFAULT_PEERS_IN_HANDSHAKE;
+    m_shared_white.assign(enough_fresh ? fresh : by_time_index.begin(), by_time_index.end());
+    m_shared_white_expiry = enough_fresh ? now + P2P_SHARED_PEERLIST_CACHE_SECONDS + crypto::rand_idx<uint64_t>(P2P_SHARED_PEERLIST_CACHE_JITTER_SECONDS) : 0;
+  }
+  //--------------------------------------------------------------------------------------------------
   inline 
   bool peerlist_manager::get_peerlist_head(std::vector<peerlist_entry>& bs_head, bool anonymize, uint32_t depth)
   {
@@ -234,23 +252,27 @@ namespace nodetool
     //
     // See Cao, Tong et al. "Exploring the Monero Peer-to-Peer Network". https://eprint.iacr.org/2019/411
     //
-    const uint32_t pick_depth = anonymize ? m_peers_white.size() : depth;
-    bs_head.reserve(pick_depth);
-    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index))
-    {
-      if(cnt++ >= pick_depth)
-        break;
-
-      bs_head.push_back(vl);
-    }
-
+    // The shared set is also cached and rebuilt on a long randomized interval, as Bitcoin caches
+    // its getaddr reply, so a reply does not show which peers we just connected to.
     if (anonymize)
     {
+      refresh_shared_white();
+      bs_head = m_shared_white;
       std::shuffle(bs_head.begin(), bs_head.end(), crypto::random_device{});
       if (bs_head.size() > depth)
         bs_head.resize(depth);
       for (auto &e: bs_head)
         e.last_seen = 0;
+      return true;
+    }
+
+    bs_head.reserve(depth);
+    for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index))
+    {
+      if(cnt++ >= depth)
+        break;
+
+      bs_head.push_back(vl);
     }
 
     return true;
@@ -406,6 +428,8 @@ namespace nodetool
     if (iterator != m_peers_white.get<by_addr>().end()) {
       m_peers_white.erase(iterator);
     }
+    m_shared_white.erase(std::remove_if(m_shared_white.begin(), m_shared_white.end(),
+      [&pe](const peerlist_entry& shared) { return shared.adr == pe.adr; }), m_shared_white.end());
 
     return true;
 
@@ -486,6 +510,8 @@ namespace nodetool
       else
         ++i;
     }
+    if (white)
+      m_shared_white.erase(std::remove_if(m_shared_white.begin(), m_shared_white.end(), f), m_shared_white.end());
     CATCH_ENTRY_L0("peerlist_manager::filter()", filtered);
     return filtered;
   }

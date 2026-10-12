@@ -28,6 +28,8 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <set>
+
 #include "gtest/gtest.h"
 
 #include "common/util.h"
@@ -274,4 +276,72 @@ TEST(peerlist_storage, store)
   EXPECT_EQ(0u, types.anchor[1].adr.template as<net::tor_address>().port());
   EXPECT_EQ(24u, types.anchor[1].id);
   EXPECT_EQ(22u, types.anchor[1].first_seen);
+}
+
+namespace
+{
+  // public address n, each in its own /16
+  epee::net_utils::network_address shared_test_address(const uint32_t n)
+  {
+    return MAKE_IPV4_ADDRESS(20 + n / 200, n % 200, 1, 1, 8080);
+  }
+
+  std::set<epee::net_utils::network_address> shared_addresses(nodetool::peerlist_manager& plm)
+  {
+    std::vector<nodetool::peerlist_entry> head;
+    EXPECT_TRUE(plm.get_peerlist_head(head, true, P2P_LOCAL_WHITE_PEERLIST_LIMIT));
+    std::set<epee::net_utils::network_address> addresses;
+    for (const nodetool::peerlist_entry& pe: head)
+      addresses.insert(pe.adr);
+    return addresses;
+  }
+}
+
+TEST(peer_list, shared_peers_are_cached)
+{
+  nodetool::peerlist_manager plm;
+  ASSERT_TRUE(plm.init(nodetool::peerlist_types{}, false));
+  const int64_t now = time(nullptr);
+  const uint32_t fresh = P2P_DEFAULT_PEERS_IN_HANDSHAKE + 5;
+
+  for (uint32_t i = 0; i < fresh; ++i)
+    ADD_WHITE_NODE(shared_test_address(i), i + 1, now - 60 * 60);
+  const epee::net_utils::network_address stale = shared_test_address(fresh);
+  ADD_WHITE_NODE(stale, fresh + 1, now - 31 * 24 * 60 * 60);
+
+  // peers unseen for 30 days are not shared
+  const std::set<epee::net_utils::network_address> shared = shared_addresses(plm);
+  EXPECT_EQ(fresh, shared.size());
+  EXPECT_EQ(0u, shared.count(stale));
+
+  // a refreshed peer and a new peer do not show up until the cache is rebuilt
+  ASSERT_TRUE(plm.set_peer_just_seen(fresh + 1, stale, 0, 0, 0));
+  ADD_WHITE_NODE(shared_test_address(fresh + 1), fresh + 2, now);
+  EXPECT_EQ(shared, shared_addresses(plm));
+
+  // a removed peer is no longer shared
+  nodetool::peerlist_entry removed{};
+  removed.adr = shared_test_address(0);
+  ASSERT_TRUE(plm.remove_from_peer_white(removed));
+  const std::set<epee::net_utils::network_address> after_removal = shared_addresses(plm);
+  EXPECT_EQ(fresh - 1, after_removal.size());
+  EXPECT_EQ(0u, after_removal.count(removed.adr));
+}
+
+TEST(peer_list, shared_peers_include_stale_when_too_few_are_fresh)
+{
+  nodetool::peerlist_manager plm;
+  ASSERT_TRUE(plm.init(nodetool::peerlist_types{}, false));
+  const int64_t now = time(nullptr);
+  const uint32_t stale = P2P_DEFAULT_PEERS_IN_HANDSHAKE;
+
+  ADD_WHITE_NODE(shared_test_address(0), 1, now - 60 * 60);
+  for (uint32_t i = 1; i <= stale; ++i)
+    ADD_WHITE_NODE(shared_test_address(i), i + 1, now - 31 * 24 * 60 * 60);
+
+  EXPECT_EQ(stale + 1, shared_addresses(plm).size());
+
+  // this set is not kept: a new peer shows up at once
+  ADD_WHITE_NODE(shared_test_address(stale + 1), stale + 2, now);
+  EXPECT_EQ(stale + 2, shared_addresses(plm).size());
 }
