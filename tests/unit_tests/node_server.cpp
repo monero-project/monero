@@ -326,25 +326,26 @@ TEST(node_server, anonymous_inbound_bind_port)
   EXPECT_FALSE(parse("65536"));
 }
 
-TEST(node_server, ipv6_peer_group)
+TEST(node_server, netgroup)
 {
   const auto make_ipv6 = [](const char* ip) {
     return epee::net_utils::network_address{
       epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6(ip), 18080}
     };
   };
+  const auto group = [](const epee::net_utils::network_address& address) {
+    const boost::optional<nodetool::netgroup> g = nodetool::get_netgroup(address);
+    EXPECT_TRUE(g);
+    return g ? *g : nodetool::netgroup{};
+  };
 
-  const boost::optional<nodetool::ipv6_peer_group> first = nodetool::get_ipv6_peer_group(make_ipv6("2001:db8:1::1"));
-  const boost::optional<nodetool::ipv6_peer_group> same = nodetool::get_ipv6_peer_group(make_ipv6("2001:db8:ffff::1"));
-  const boost::optional<nodetool::ipv6_peer_group> different = nodetool::get_ipv6_peer_group(make_ipv6("2001:db9::1"));
-
-  ASSERT_TRUE(first);
-  ASSERT_TRUE(same);
-  ASSERT_TRUE(different);
-  EXPECT_EQ(*first, *same);
-  EXPECT_NE(*first, *different);
-  EXPECT_FALSE(nodetool::get_ipv6_peer_group(make_ipv6("::ffff:192.0.2.1")));
-  EXPECT_FALSE(nodetool::get_ipv6_peer_group(MAKE_IPV4_ADDRESS(192, 0, 2, 1)));
+  EXPECT_EQ(group(MAKE_IPV4_ADDRESS(192, 0, 2, 1)), group(MAKE_IPV4_ADDRESS(192, 0, 200, 9)));
+  EXPECT_NE(group(MAKE_IPV4_ADDRESS(192, 0, 2, 1)), group(MAKE_IPV4_ADDRESS(192, 1, 2, 1)));
+  EXPECT_EQ(group(MAKE_IPV4_ADDRESS(192, 0, 2, 1)), group(make_ipv6("::ffff:192.0.7.1")));
+  EXPECT_EQ(group(make_ipv6("2001:db8:1::1")), group(make_ipv6("2001:db8:ffff::1")));
+  EXPECT_NE(group(make_ipv6("2001:db8:1::1")), group(make_ipv6("2001:db9::1")));
+  EXPECT_NE(group(MAKE_IPV4_ADDRESS(32, 1, 13, 184)), group(make_ipv6("2001:db8::1")));
+  EXPECT_FALSE(nodetool::get_netgroup(epee::net_utils::network_address{net::tor_address::unknown()}));
 }
 
 static bool is_blocked(Server &server, const epee::net_utils::network_address &address, time_t *t = NULL)

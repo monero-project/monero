@@ -31,6 +31,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <deque>
 #include <iosfwd>
 #include <iterator>
@@ -54,6 +55,29 @@
 
 namespace nodetool
 {
+  using netgroup = std::array<uint8_t, 5>;
+
+  inline boost::optional<netgroup> get_netgroup(const epee::net_utils::network_address& address)
+  {
+    boost::optional<epee::net_utils::ipv4_network_address> ipv4 = epee::net_utils::get_ipv4_mapped_address(address);
+    if (address.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
+      ipv4 = address.as<const epee::net_utils::ipv4_network_address>();
+    if (ipv4)
+    {
+      // ip() is in network byte order, so its bytes in memory are a.b.c.d on any host
+      const uint32_t ip = ipv4->ip();
+      uint8_t octets[4];
+      memcpy(octets, &ip, sizeof(octets));
+      return netgroup{{4, octets[0], octets[1], 0, 0}};
+    }
+
+    if (address.get_type_id() != epee::net_utils::ipv6_network_address::get_type_id())
+      return boost::none;
+
+    const boost::asio::ip::address_v6::bytes_type bytes = address.as<const epee::net_utils::ipv6_network_address>().ip().to_bytes();
+    return netgroup{{6, bytes[0], bytes[1], bytes[2], bytes[3]}};
+  }
+
   struct peerlist_types
   {
     std::vector<peerlist_entry> white;
