@@ -32,6 +32,13 @@
 
 #include "include_base_utils.h"                     // LOG_PRINT_x
 #include "common/util.h"
+#include "net/net_parse_helpers.h"
+#include "ssl_options.h"
+
+#include <boost/algorithm/string/predicate.hpp>
+
+#undef MONERO_DEFAULT_LOG_CATEGORY
+#define MONERO_DEFAULT_LOG_CATEGORY "WalletAPI"
 
 using namespace std;
 
@@ -46,6 +53,31 @@ bool isAddressLocal(const std::string &address)
         MERROR("error: " << e.what());
         return false;
     }
+}
+
+epee::net_utils::ssl_options_t sslOptionsForDaemon(const std::string &daemon_address, bool use_ssl)
+{
+    epee::net_utils::http::url_content parsed{};
+    if (!epee::net_utils::parse_url(daemon_address, parsed))
+        return epee::net_utils::ssl_support_t::e_ssl_support_autodetect;
+
+    // clearnet keeps autodetect: use_ssl defaults to false, honouring it would drop TLS to https daemons
+    if (!tools::is_privacy_preserving_network(parsed.host))
+        return epee::net_utils::ssl_support_t::e_ssl_support_autodetect;
+
+    const bool wants_ssl = use_ssl || boost::iequals(parsed.schema, "https", std::locale::classic());
+    if (!wants_ssl)
+    {
+        MINFO("TLS handshake skipped for Tor/I2P daemon " << parsed.host);
+        return epee::net_utils::ssl_support_t::e_ssl_support_disabled;
+    }
+
+    // no peer verification: this API cannot carry a CA or fingerprint yet, monerod's default
+    // certificate is self-signed, and a .onion/.i2p name is self-authenticating (has_strong_verification)
+    MINFO("TLS required for Tor/I2P daemon " << parsed.host << ", certificate verification off");
+    epee::net_utils::ssl_options_t options(epee::net_utils::ssl_support_t::e_ssl_support_enabled);
+    options.verification = epee::net_utils::ssl_verification_t::none;
+    return options;
 }
 
 void onStartup()
