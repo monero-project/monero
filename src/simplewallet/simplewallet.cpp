@@ -3281,15 +3281,15 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("check_tx_key",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::check_tx_key, _1),
                            tr(USAGE_CHECK_TX_KEY),
-                           tr("Check the amount going to <address> in <txid>."));
+                           tr("Check the amount going to <address> in <txid>. This does not prove that the funds are currently spendable; they may be locked, already spent, or otherwise unspendable."));
   m_cmd_binder.set_handler("get_tx_proof",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::get_tx_proof, _1),
                            tr(USAGE_GET_TX_PROOF),
-                           tr("Generate a signature proving funds sent to <address> in <txid>, optionally with a challenge string <message>, using either the transaction secret key (when <address> is not your wallet's address) or the view secret key (otherwise), which does not disclose the secret key."));
+                           tr("Generate a signature proving funds sent to <address> in <txid>, optionally with a challenge string <message>, using either the transaction secret key (when <address> is not your wallet's address) or the view secret key (otherwise), which does not disclose the secret key. This proof does not establish that the funds are currently spendable."));
   m_cmd_binder.set_handler("check_tx_proof",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::check_tx_proof, _1),
                            tr(USAGE_CHECK_TX_PROOF),
-                           tr("Check the proof for funds going to <address> in <txid> with the challenge string <message> if any."));
+                           tr("Check the proof for funds going to <address> in <txid> with the challenge string <message> if any. A valid proof does not establish that the funds are currently spendable."));
   m_cmd_binder.set_handler("get_spend_proof",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::get_spend_proof, _1),
                            tr(USAGE_GET_SPEND_PROOF),
