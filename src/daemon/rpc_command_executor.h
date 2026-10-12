@@ -110,6 +110,8 @@ public:
 
   bool stop_mining();
 
+  bool generate_blocks(const std::string& address, uint64_t amount, uint32_t starting_nonce);
+
   bool mining_status();
 
   bool stop_daemon();

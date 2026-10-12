@@ -29,6 +29,8 @@
 # STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import os
+import subprocess
 import time
 
 """Test daemon blockchain RPC calls
@@ -48,6 +50,8 @@ from framework.wallet import Wallet
 class BlockchainTest():
     def run_test(self):
         self.reset()
+        self._test_generate_blocks_command()
+        self.reset()
         self._test_generateblocks(5)
         self._test_alt_chains()
         self.test_get_blocks_fast()
@@ -58,6 +62,32 @@ class BlockchainTest():
         res = daemon.get_height()
         daemon.pop_blocks(res.height - 1)
         daemon.flush_txpool()
+
+    def _test_generate_blocks_command(self):
+        print('Test generating blocks with the daemon command')
+        daemon = Daemon()
+        address = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        build_dir = os.path.dirname(os.path.dirname(os.environ['FUNCTIONAL_TESTS_DIRECTORY']))
+        monerod = os.path.join(build_dir, 'bin', 'monerod')
+
+        def run_command(*args):
+            return subprocess.run([monerod, '--rpc-bind-port', '18180', '--rpc-ssl', 'disabled', 'generate_blocks', address, *args],
+                                  capture_output = True, text = True, timeout = 120)
+
+        height = daemon.get_height().height
+        for args in [('1',), ('1', '1000000000')]:
+            result = run_command(*args)
+            assert result.returncode == 0, result.stdout + result.stderr
+            assert 'Generated 1 block' in result.stdout, result.stdout + result.stderr
+            height += 1
+            assert daemon.get_height().height == height
+            if len(args) == 2:
+                assert daemon.getblockheaderbyheight(height - 1).block_header.nonce >= 1000000000
+
+        for args in [('1x',), ('1', '4294967296')]:
+            result = run_command(*args)
+            assert 'Invalid syntax' in result.stdout, result.stdout + result.stderr
+            assert daemon.get_height().height == height
 
     def _check_blocktemplate_reserved_offset(self, daemon, address, reserve_size):
         res = daemon.getblocktemplate(address, reserve_size = reserve_size)

@@ -28,6 +28,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <atomic>
+#include <stdexcept>
 #include "gtest/gtest.h"
 #include "misc_language.h"
 #include "common/threadpool.h"
@@ -62,6 +63,23 @@ TEST(threadpool, one_thread)
   }
   waiter.wait();
   ASSERT_EQ(counter, 4096);
+}
+
+TEST(threadpool, inline_exception_restores_depth)
+{
+  std::shared_ptr<tools::threadpool> tpool(tools::threadpool::getNewForUnitTests(1));
+  bool ran = false;
+  tools::threadpool::waiter waiter(*tpool);
+  tpool->submit(&waiter, [&] {
+    // A nested non-leaf task runs inline, including on the waiting thread.
+    EXPECT_THROW(tpool->submit(&waiter, [] { throw std::runtime_error("test"); }), std::runtime_error);
+    EXPECT_THROW(tpool->submit(&waiter, [] { throw 1; }), int);
+  });
+  ASSERT_TRUE(waiter.wait());
+  tpool->submit(&waiter, [&] { ran = true; });
+  EXPECT_FALSE(ran);
+  ASSERT_TRUE(waiter.wait());
+  EXPECT_TRUE(ran);
 }
 
 TEST(threadpool, many_threads)

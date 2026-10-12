@@ -42,6 +42,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <optional>
 #include <string_view>
 #include <boost/lexical_cast.hpp>
 #include <boost/program_options.hpp>
@@ -8832,6 +8833,8 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
     return true;
   }
 
+  LOCK_IDLE_SCOPE();
+
   std::vector<transfer_view> all_transfers;
 
   // might consumes arguments in local_args
@@ -8859,11 +8862,14 @@ bool simple_wallet::export_transfers(const std::vector<std::string>& args_)
       fail_msg_writer() << tr("command not supported by HW wallet");
       return true;
     }
-    SCOPED_WALLET_UNLOCK();
-  } else 
-  {
-    LOCK_IDLE_SCOPE();
   }
+
+  boost::optional<tools::password_container> pwd_container = boost::none;
+  if (export_keys && m_wallet->ask_password() && !(pwd_container = get_and_verify_password()))
+    return true;
+  std::optional<tools::wallet_keys_unlocker> unlocker;
+  if (export_keys)
+    unlocker.emplace(*m_wallet, pwd_container ? &pwd_container->password() : nullptr);
 
   std::ofstream file(filename);
   if(file.fail()) {

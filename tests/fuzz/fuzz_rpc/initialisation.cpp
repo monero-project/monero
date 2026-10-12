@@ -39,6 +39,19 @@ bool DummyProtocol::relay_block(cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::request&, c
   return true;
 }
 
+CoreEnv::CoreEnv() {
+  const auto temp_dir = boost::filesystem::temp_directory_path();
+  do {
+    data_dir = temp_dir / boost::filesystem::unique_path("monero-fuzz-rpc-%%%%-%%%%-%%%%-%%%%");
+  } while (!boost::filesystem::create_directory(data_dir));
+}
+
+CoreEnv::~CoreEnv() {
+  core.reset();
+  boost::system::error_code ec;
+  boost::filesystem::remove_all(data_dir, ec);
+}
+
 // Function to create and initialise a dummy rpc core object
 std::unique_ptr<CoreEnv> initialise_rpc_core() {
   auto env = std::make_unique<CoreEnv>();
@@ -55,8 +68,7 @@ std::unique_ptr<CoreEnv> initialise_rpc_core() {
   // Add command line arguments to configure the rpc core object to use regression testing mode (FAKECHAIN)
   // and a throwaway data directory. Enabling FAKECHAIN mode allows skipping validation logic of the authors
   // signature and transactions ID on valid blocks and transactions while keeping other logic.
-  const boost::filesystem::path data_dir = boost::filesystem::temp_directory_path() / "monero-fuzz-rpc";
-  std::vector<std::string> args = {"fuzz", "--regtest", "--offline", "--data-dir", data_dir.string()};
+  std::vector<std::string> args = {"fuzz", "--regtest", "--offline", "--data-dir", env->data_dir.string()};
   std::vector<const char*> argv;
   argv.reserve(args.size());
   for (const auto& arg : args) {

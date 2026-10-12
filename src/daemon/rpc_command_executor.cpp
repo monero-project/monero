@@ -1388,6 +1388,33 @@ bool t_rpc_command_executor::stop_mining() {
   return true;
 }
 
+bool t_rpc_command_executor::generate_blocks(const std::string& address, uint64_t amount, uint32_t starting_nonce)
+{
+  cryptonote::COMMAND_RPC_GENERATEBLOCKS::request req;
+  cryptonote::COMMAND_RPC_GENERATEBLOCKS::response res;
+  epee::json_rpc::error error_resp;
+  req.wallet_address = address;
+  req.amount_of_blocks = amount;
+  req.starting_nonce = starting_nonce;
+
+  const std::string fail_message = "Failed to generate blocks";
+  if (m_is_rpc)
+  {
+    if (!m_rpc_client->json_rpc_request(req, res, "generateblocks", fail_message))
+      return true;
+  }
+  else if (!m_rpc_server->on_generateblocks(req, res, error_resp) || res.status != CORE_RPC_STATUS_OK)
+  {
+    tools::fail_msg_writer() << (error_resp.message.empty() ? make_error(fail_message, res.status) : error_resp.message);
+    return true;
+  }
+
+  tools::success_msg_writer() << "Generated " << res.blocks.size()
+                              << (res.blocks.size() == 1 ? " block" : " blocks")
+                              << ", last block height " << res.height;
+  return true;
+}
+
 bool t_rpc_command_executor::stop_daemon()
 {
   cryptonote::COMMAND_RPC_STOP_DAEMON::request req;

@@ -45,6 +45,12 @@
 
 namespace Monero {
 
+WalletManager::~WalletManager()
+{}
+
+WalletManagerImpl::~WalletManagerImpl()
+{}
+
 WalletManagerImpl::WalletManagerImpl()
 {
     tools::set_strict_default_file_permissions(true);
