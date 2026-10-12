@@ -39,7 +39,7 @@ TEST(peer_list, peer_list_general)
   nodetool::peerlist_manager plm;
   plm.init(nodetool::peerlist_types{}, false);
 #define MAKE_IPV4_ADDRESS(a,b,c,d,e) epee::net_utils::ipv4_network_address{MAKE_IP(a,b,c,d),e}
-#define ADD_GRAY_NODE(addr_, id_, last_seen_) {  nodetool::peerlist_entry ple; ple.last_seen=last_seen_;ple.adr = addr_; ple.id = id_;plm.append_with_peer_gray(ple);}  
+#define ADD_GRAY_NODE(addr_, id_, last_seen_) {  nodetool::peerlist_entry ple; ple.last_seen=last_seen_;ple.adr = addr_; ple.id = id_;plm.append_with_peer_gray(ple, ple.adr);}  
 #define ADD_WHITE_NODE(addr_, id_, last_seen_) {  nodetool::peerlist_entry ple;ple.last_seen=last_seen_; ple.adr = addr_; ple.id = id_;plm.append_with_peer_white(ple);}  
 
 #define PRINT_HEAD(step) {std::vector<nodetool::peerlist_entry> bs_head; bool r = plm.get_peerlist_head(bs_head, 100);std::cout << "step " << step << ": " << bs_head.size() << std::endl;}
@@ -82,7 +82,9 @@ TEST(peer_list, rejects_ipv4_link_local_by_default)
     epee::net_utils::ipv4_network_address{MAKE_IP(169, 254, 169, 254), 18080}, 1, 0};
   const nodetool::peerlist_entry public_peer{
     epee::net_utils::ipv4_network_address{MAKE_IP(123, 45, 67, 89), 18080}, 2, 0};
-  ASSERT_TRUE(plm.merge_peerlist({link_local, public_peer}));
+  const epee::net_utils::network_address source{
+    epee::net_utils::ipv4_network_address{MAKE_IP(98, 76, 54, 32), 18080}};
+  ASSERT_TRUE(plm.merge_peerlist({link_local, public_peer}, source));
   ASSERT_TRUE(plm.append_with_peer_white(link_local));
 
   std::vector<nodetool::peerlist_entry> gray;
@@ -320,6 +322,26 @@ namespace
     return count;
   }
 
+  void add_gray(nodetool::peerlist_manager& plm, const epee::net_utils::network_address& adr, const uint64_t id, const epee::net_utils::network_address& source)
+  {
+    nodetool::peerlist_entry pe{};
+    pe.adr = adr;
+    pe.id = id;
+    plm.append_with_peer_gray(pe, source);
+  }
+
+  template<typename F>
+  size_t count_gray(nodetool::peerlist_manager& plm, const F& match)
+  {
+    size_t count = 0;
+    plm.foreach(false, [&](const nodetool::peerlist_entry& pe) {
+      if (match(pe.adr.as<epee::net_utils::ipv4_network_address>().ip()))
+        ++count;
+      return true;
+    });
+    return count;
+  }
+
   bool is_honest(const uint32_t ip) { return (ip & 0xff) < 100; }
   bool is_flood(const uint32_t ip) { return (ip & 0xff) >= 128; }
 
@@ -463,4 +485,72 @@ TEST(peer_list, peerlist_head_skips_stale_peers)
   ASSERT_TRUE(plm.get_peerlist_head(head, true));
   ASSERT_EQ(1u, head.size());
   EXPECT_EQ(fresh, head[0].adr);
+}
+
+TEST(peer_list, gray_source_fills_only_its_buckets)
+{
+  nodetool::peerlist_manager plm;
+  plm.init(nodetool::peerlist_types{}, false);
+  const epee::net_utils::network_address source = spread_address(flood_octets, 0);
+
+  for (uint32_t i = 0; i < P2P_LOCAL_GRAY_PEERLIST_LIMIT; ++i)
+    add_gray(plm, spread_address(flood_octets, i), i + 1, source);
+
+  EXPECT_GT(plm.get_gray_peers_count(), 0u);
+  EXPECT_LE(plm.get_gray_peers_count(), P2P_LOCAL_GRAY_BUCKETS_PER_SOURCE_GROUP * P2P_LOCAL_GRAY_BUCKET_SIZE);
+}
+
+TEST(peer_list, gray_flood_keeps_other_sources_entries)
+{
+  nodetool::peerlist_manager plm;
+  plm.init(nodetool::peerlist_types{}, false);
+
+  for (uint32_t i = 0; i < 1000; ++i)
+    add_gray(plm, spread_address(honest_octets, i), i + 1, spread_address(honest_octets, i));
+  const size_t honest = count_gray(plm, is_honest);
+  ASSERT_GT(honest, 0u);
+
+  for (uint32_t source = 0; source < 1000; ++source)
+    for (uint32_t i = 0; i < P2P_MAX_PEERS_IN_HANDSHAKE; ++i)
+      add_gray(plm, spread_address(flood_octets, source * P2P_MAX_PEERS_IN_HANDSHAKE + i), 1000 + source * P2P_MAX_PEERS_IN_HANDSHAKE + i, spread_address(flood_octets, source));
+
+  EXPECT_EQ(honest, count_gray(plm, is_honest));
+  EXPECT_LE(plm.get_gray_peers_count(), P2P_LOCAL_GRAY_PEERLIST_LIMIT);
+}
+
+TEST(peer_list, gray_removal_frees_bucket_room)
+{
+  nodetool::peerlist_manager plm;
+  plm.init(nodetool::peerlist_types{}, false);
+  const epee::net_utils::network_address source = spread_address(flood_octets, 0);
+
+  for (uint32_t i = 0; i < P2P_LOCAL_GRAY_PEERLIST_LIMIT; ++i)
+    add_gray(plm, spread_address(flood_octets, i), i + 1, source);
+  const size_t full = plm.get_gray_peers_count();
+
+  std::vector<nodetool::peerlist_entry> gray, white;
+  plm.get_peerlist(gray, white);
+  for (const nodetool::peerlist_entry& pe : gray)
+    plm.remove_from_peer_gray(pe);
+  ASSERT_EQ(0u, plm.get_gray_peers_count());
+
+  for (uint32_t i = 0; i < P2P_LOCAL_GRAY_PEERLIST_LIMIT; ++i)
+    add_gray(plm, spread_address(flood_octets, i), i + 1, source);
+  EXPECT_EQ(full, plm.get_gray_peers_count());
+}
+
+TEST(peer_list, gray_peers_reload_into_buckets)
+{
+  nodetool::peerlist_types types{};
+  for (uint32_t i = 0; i < 100; ++i)
+  {
+    nodetool::peerlist_entry pe{};
+    pe.adr = spread_address(honest_octets, i);
+    pe.id = i + 1;
+    types.gray.push_back(pe);
+  }
+
+  nodetool::peerlist_manager plm;
+  ASSERT_TRUE(plm.init(std::move(types), false));
+  EXPECT_EQ(100u, plm.get_gray_peers_count());
 }

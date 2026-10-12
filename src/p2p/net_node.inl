@@ -2292,7 +2292,7 @@ namespace nodetool
     LOG_DEBUG_CC(context, "REMOTE PEERLIST: remote peerlist size=" << peerlist_.size());
     LOG_TRACE_CC(context, "REMOTE PEERLIST: " << ENDL << print_peerlist_to_string(peerlist_));
     CRITICAL_REGION_LOCAL(m_blocked_hosts_lock);
-    return m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.merge_peerlist(peerlist_, [this](const peerlist_entry &pe) {
+    return m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.merge_peerlist(peerlist_, context.m_remote_address, [this](const peerlist_entry &pe) {
       return !is_forbidden_ipv6_address(pe.adr) &&
         !is_addr_recently_failed(pe.adr) && is_remote_host_allowed(pe.adr);
     });
@@ -2688,7 +2688,7 @@ namespace nodetool
         pe.pruning_seed = context.m_pruning_seed;
         pe.rpc_port = context.m_rpc_port;
         pe.rpc_credits_per_hash = context.m_rpc_credits_per_hash;
-        this->m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.append_with_peer_white(pe);
+        this->m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.append_with_peer_gray(pe, pe.adr);
         LOG_DEBUG_CC(context, "PING SUCCESS " << context.m_remote_address.host_str() << ":" << port_l);
       });
     }

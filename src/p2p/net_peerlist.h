@@ -32,10 +32,13 @@
 
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <deque>
+#include <initializer_list>
 #include <iosfwd>
 #include <iterator>
 #include <list>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -48,6 +51,7 @@
 
 
 #include "crypto/crypto.h"
+#include "crypto/hash.h"
 #include "cryptonote_config.h"
 #include "net/enums.h"
 #include "p2p_protocol_defs.h"
@@ -73,6 +77,12 @@ namespace nodetool
 
     const boost::asio::ip::address_v6::bytes_type bytes = address.as<const epee::net_utils::ipv6_network_address>().ip().to_bytes();
     return netgroup{{6, bytes[0], bytes[1], bytes[2], bytes[3]}};
+  }
+
+  inline std::string get_bucket_group(const epee::net_utils::network_address& address)
+  {
+    const boost::optional<netgroup> group = get_netgroup(address);
+    return group ? std::string(group->begin(), group->end()) : address.host_str();
   }
 
   struct peerlist_types
@@ -125,14 +135,14 @@ namespace nodetool
     bool init(peerlist_types&& peers, bool allow_local_ip);
     size_t get_white_peers_count(){CRITICAL_REGION_LOCAL(m_peerlist_lock); return m_peers_white.size();}
     size_t get_gray_peers_count(){CRITICAL_REGION_LOCAL(m_peerlist_lock); return m_peers_gray.size();}
-    bool merge_peerlist(const std::vector<peerlist_entry>& outer_bs, const std::function<bool(const peerlist_entry&)> &f = NULL);
+    bool merge_peerlist(const std::vector<peerlist_entry>& outer_bs, const epee::net_utils::network_address& source, const std::function<bool(const peerlist_entry&)> &f = NULL);
     bool get_peerlist_head(std::vector<peerlist_entry>& bs_head, bool anonymize, uint32_t depth = P2P_DEFAULT_PEERS_IN_HANDSHAKE);
     void get_peerlist(std::vector<peerlist_entry>& pl_gray, std::vector<peerlist_entry>& pl_white);
     void get_peerlist(peerlist_types& peers);
     template<typename F> bool foreach(bool white, const F &f);
     void evict_host_from_peerlist(bool white, const peerlist_entry& pr);
     bool append_with_peer_white(const peerlist_entry& pr, bool trust_last_seen = false);
-    bool append_with_peer_gray(const peerlist_entry& pr);
+    bool append_with_peer_gray(const peerlist_entry& pr, const epee::net_utils::network_address& source);
     bool append_with_peer_anchor(const anchor_peerlist_entry& ple);
     bool set_peer_just_seen(peerid_type peer, const epee::net_utils::network_address& addr, uint32_t pruning_seed, uint16_t rpc_port, uint32_t rpc_credits_per_hash);
     bool is_host_allowed(const epee::net_utils::network_address &address);
@@ -171,7 +181,9 @@ namespace nodetool
   private: 
     void trim_white_peerlist();
     bool white_has_room();
-    void trim_gray_peerlist();
+    uint32_t get_gray_bucket(const epee::net_utils::network_address& adr, const epee::net_utils::network_address& source) const;
+    uint64_t keyed_hash(std::initializer_list<std::string> parts) const;
+    peers_indexed::index<by_addr>::type::iterator erase_gray(peers_indexed::index<by_addr>::type::iterator it);
     static peerlist_entry get_nth_latest_peer(peers_indexed& peerlist, size_t n);
 
     friend class boost::serialization::access;
@@ -184,15 +196,36 @@ namespace nodetool
     peers_indexed m_peers_white;
     anchor_peers_indexed m_peers_anchor;
     std::deque<peerlist_entry> m_white_collisions;
+    crypto::hash m_bucket_key = crypto::rand<crypto::hash>();
+    std::map<epee::net_utils::network_address, uint32_t> m_gray_buckets;
+    std::vector<uint32_t> m_gray_bucket_sizes = std::vector<uint32_t>(P2P_LOCAL_GRAY_BUCKET_COUNT);
   };
   //--------------------------------------------------------------------------------------------------
-  inline void peerlist_manager::trim_gray_peerlist()
+  inline uint64_t peerlist_manager::keyed_hash(std::initializer_list<std::string> parts) const
   {
-    while(m_peers_gray.size() > P2P_LOCAL_GRAY_PEERLIST_LIMIT)
-    {
-      peers_indexed::index<by_time>::type& sorted_index=m_peers_gray.get<by_time>();
-      sorted_index.erase(sorted_index.begin());
-    }
+    std::string data(std::begin(m_bucket_key.data), std::end(m_bucket_key.data));
+    for (const std::string& part : parts)
+      data += std::to_string(part.size()) + ':' + part;
+    const crypto::hash hash = crypto::cn_fast_hash(data.data(), data.size());
+    uint64_t result;
+    memcpy(&result, hash.data, sizeof(result));
+    return result;
+  }
+  //--------------------------------------------------------------------------------------------------
+  inline uint32_t peerlist_manager::get_gray_bucket(const epee::net_utils::network_address& adr, const epee::net_utils::network_address& source) const
+  {
+    const std::string adr_group = get_bucket_group(adr);
+    const std::string source_group = get_bucket_group(source);
+    const uint64_t source_bucket = keyed_hash({adr_group, source_group}) % P2P_LOCAL_GRAY_BUCKETS_PER_SOURCE_GROUP;
+    return keyed_hash({source_group, std::to_string(source_bucket)}) % P2P_LOCAL_GRAY_BUCKET_COUNT;
+  }
+  //--------------------------------------------------------------------------------------------------
+  inline peerlist_manager::peers_indexed::index<peerlist_manager::by_addr>::type::iterator peerlist_manager::erase_gray(peers_indexed::index<by_addr>::type::iterator it)
+  {
+    const auto bucket = m_gray_buckets.find(it->adr);
+    --m_gray_bucket_sizes[bucket->second];
+    m_gray_buckets.erase(bucket);
+    return m_peers_gray.get<by_addr>().erase(it);
   }
   //--------------------------------------------------------------------------------------------------
   inline void peerlist_manager::trim_white_peerlist()
@@ -223,16 +256,14 @@ namespace nodetool
   }
   //--------------------------------------------------------------------------------------------------
   inline 
-  bool peerlist_manager::merge_peerlist(const std::vector<peerlist_entry>& outer_bs, const std::function<bool(const peerlist_entry&)> &f)
+  bool peerlist_manager::merge_peerlist(const std::vector<peerlist_entry>& outer_bs, const epee::net_utils::network_address& source, const std::function<bool(const peerlist_entry&)> &f)
   {
     CRITICAL_REGION_LOCAL(m_peerlist_lock);
     for(const peerlist_entry& be:  outer_bs)
     {
       if (!f || f(be))
-        append_with_peer_gray(be);
+        append_with_peer_gray(be, source);
     }
-    // delete extra elements
-    trim_gray_peerlist();    
     return true;
   }
   //--------------------------------------------------------------------------------------------------
@@ -359,14 +390,14 @@ namespace nodetool
     auto by_addr_it_gr = m_peers_gray.get<by_addr>().find(ple.adr);
     if(by_addr_it_gr != m_peers_gray.get<by_addr>().end())
     {
-      m_peers_gray.erase(by_addr_it_gr);
+      erase_gray(by_addr_it_gr);
     }
     return true;
     CATCH_ENTRY_L0("peerlist_manager::append_with_peer_white()", false);
   }
   //--------------------------------------------------------------------------------------------------
   inline
-  bool peerlist_manager::append_with_peer_gray(const peerlist_entry& ple)
+  bool peerlist_manager::append_with_peer_gray(const peerlist_entry& ple, const epee::net_utils::network_address& source)
   {
     TRY_ENTRY();
     if(!is_host_allowed(ple.adr))
@@ -382,9 +413,13 @@ namespace nodetool
     auto by_addr_it_gr = m_peers_gray.get<by_addr>().find(ple.adr);
     if(by_addr_it_gr == m_peers_gray.get<by_addr>().end())
     {
-      //put new record into white list
+      //put new record into gray list, if its bucket has room
+      const uint32_t bucket = get_gray_bucket(ple.adr, source);
+      if (m_gray_bucket_sizes[bucket] >= P2P_LOCAL_GRAY_BUCKET_SIZE)
+        return true;
+      ++m_gray_bucket_sizes[bucket];
+      m_gray_buckets.emplace(ple.adr, bucket);
       m_peers_gray.insert(ple);
-      trim_gray_peerlist();    
     }else
     {
       //update record in gray list
@@ -495,7 +530,7 @@ namespace nodetool
     peers_indexed::index_iterator<by_addr>::type iterator = m_peers_gray.get<by_addr>().find(pe.adr);
 
     if (iterator != m_peers_gray.get<by_addr>().end()) {
-      m_peers_gray.erase(iterator);
+      erase_gray(iterator);
     }
 
     return true;
@@ -553,7 +588,7 @@ namespace nodetool
     {
       if (f(*i))
       {
-        i = sorted_index.erase(i);
+        i = white ? sorted_index.erase(i) : erase_gray(i);
         ++filtered;
       }
       else
