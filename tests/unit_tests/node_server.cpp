@@ -786,6 +786,43 @@ TEST(node_server, bind_same_p2p_port)
   EXPECT_TRUE(init(new_node(), port_another));
 }
 
+TEST(node_server, bracketed_ipv6_bind_address)
+{
+  const path_t dir = create_temp_dir("ipv6-bind-%%%%%%%%%%%%%%%%");
+  ASSERT_FALSE(dir.empty());
+  const epee::scope_guard cleanup([&dir]{ remove_tree(dir); });
+
+  boost::asio::io_context io;
+  boost::asio::ip::tcp::acceptor reservation(io);
+  ec_t ec;
+  reservation.open(boost::asio::ip::tcp::v6(), ec);
+  if (ec)
+    GTEST_SKIP() << "IPv6 is unavailable: " << ec.message();
+  reservation.bind({boost::asio::ip::address_v6::loopback(), 0}, ec);
+  if (ec)
+    GTEST_SKIP() << "IPv6 loopback is unavailable: " << ec.message();
+  const auto port = reservation.local_endpoint().port();
+  reservation.close();
+
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  cprotocol.set_p2p_endpoint(&server);
+
+  auto vm = make_regtest_options(dir);
+  vm.find(cryptonote::arg_offline.name)->second = boost::program_options::variable_value(false, false);
+  vm.find(nodetool::arg_p2p_bind_port.name)->second = boost::program_options::variable_value(std::string("0"), false);
+  vm.find(nodetool::arg_p2p_use_ipv6.name)->second = boost::program_options::variable_value(true, false);
+  vm.find(nodetool::arg_p2p_bind_ipv6_address.name)->second = boost::program_options::variable_value(std::string("[::1]"), false);
+  vm.find(nodetool::arg_p2p_bind_port_ipv6.name)->second = boost::program_options::variable_value(std::to_string(port), false);
+  ASSERT_TRUE(server.init(vm));
+
+  boost::asio::ip::tcp::socket peer(io);
+  peer.connect({boost::asio::ip::address_v6::loopback(), port}, ec);
+  EXPECT_FALSE(ec) << ec.message();
+  EXPECT_TRUE(server.deinit());
+}
+
 TEST(cryptonote_protocol_handler, race_condition)
 {
   struct contexts {

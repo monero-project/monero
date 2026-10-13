@@ -569,6 +569,9 @@ namespace nodetool
     public_zone.m_connect = &public_connect;
     public_zone.m_bind_ip = command_line::get_arg(vm, arg_p2p_bind_ip);
     public_zone.m_bind_ipv6_address = command_line::get_arg(vm, arg_p2p_bind_ipv6_address);
+    std::string& ipv6_bind_address = public_zone.m_bind_ipv6_address;
+    if (ipv6_bind_address.size() > 2 && ipv6_bind_address.front() == '[' && ipv6_bind_address.back() == ']')
+      ipv6_bind_address = ipv6_bind_address.substr(1, ipv6_bind_address.size() - 2);
     public_zone.m_port = command_line::get_arg(vm, arg_p2p_bind_port);
     public_zone.m_port_ipv6 = command_line::get_arg(vm, arg_p2p_bind_port_ipv6);
     public_zone.m_can_pingback = true;
@@ -1108,7 +1111,7 @@ namespace nodetool
         {
           ipv6_addr = zone.second.m_bind_ipv6_address;
           ipv6_port = zone.second.m_port_ipv6;
-          MINFO("Binding (IPv6) on " << zone.second.m_bind_ipv6_address << ":" << zone.second.m_port_ipv6);
+          MINFO("Binding (IPv6) on [" << zone.second.m_bind_ipv6_address << "]:" << zone.second.m_port_ipv6);
         }
         res = zone.second.m_net_server.init_server(zone.second.m_port, zone.second.m_bind_ip, ipv6_port, ipv6_addr, m_use_ipv6, m_require_ipv4, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
         CHECK_AND_ASSERT_MES(res, false, "Failed to bind server");
@@ -1120,7 +1123,8 @@ namespace nodetool
     if (m_use_ipv6)
     {
       m_listening_port_ipv6 = public_zone.m_net_server.get_binded_port_ipv6();
-      MLOG_GREEN(el::Level::Info, "Net service bound (IPv6) to " << public_zone.m_bind_ipv6_address << ":" << m_listening_port_ipv6);
+      if (m_listening_port_ipv6)
+        MLOG_GREEN(el::Level::Info, "Net service bound (IPv6) to [" << public_zone.m_bind_ipv6_address << "]:" << m_listening_port_ipv6);
     }
     if(m_external_port)
       MDEBUG("External port defined as " << m_external_port);
