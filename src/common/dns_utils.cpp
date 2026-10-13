@@ -532,6 +532,39 @@ bool load_txt_records_from_dns(std::vector<std::string> &good_records, const std
   return true;
 }
 
+bool load_chunked_txt_records_from_dns(std::vector<std::string> &good_records, const std::vector<std::string> &dns_urls)
+{
+  if (dns_urls.empty()) return false;
+
+  good_records = {};
+  for (size_t chunk_idx = 0; ; ++chunk_idx)
+  {
+    std::vector<std::string> chunk_urls;
+    chunk_urls.reserve(dns_urls.size());
+    for (const auto &url : dns_urls)
+      chunk_urls.push_back(std::to_string(chunk_idx) + "." + url);
+
+    std::vector<std::string> chunk_records;
+    if (!load_txt_records_from_dns(chunk_records, chunk_urls))
+    {
+      MDEBUG("DNS blocklist: chunk " << chunk_idx << " unavailable or without consensus, stopping after " << chunk_idx << " chunk(s)");
+      break;
+    }
+
+    MDEBUG("Found chunk " << chunk_idx << " with " << chunk_records.size() << " record(s)");
+    for (const auto &s : chunk_records)
+      good_records.push_back(s);
+  }
+
+  if (good_records.empty())
+  {
+    LOG_PRINT_L0("WARNING: no DNS blocklist chunks were successfully fetched");
+    return false;
+  }
+
+  return true;
+}
+
 std::vector<std::string> parse_dns_public(const char *s)
 {
   unsigned ip0, ip1, ip2, ip3;
