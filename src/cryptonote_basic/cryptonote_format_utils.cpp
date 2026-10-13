@@ -204,6 +204,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, const bool max_size_check)
   {
+    TRY_ENTRY();
     CHECK_AND_ASSERT_MES(passes_max_size_check(max_size_check, tx_blob), false, "Tx blob too big");
     binary_archive<false> ba{epee::strspan<std::uint8_t>(tx_blob)};
     bool r = ::serialization::serialize(ba, tx);
@@ -211,11 +212,13 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(expand_transaction_1(tx, false), false, "Failed to expand transaction data");
     tx.invalidate_hashes();
     tx.set_blob_size(tx_blob.size());
+    CATCH_ENTRY("parse_and_validate_tx_from_blob", false);
     return true;
   }
   //---------------------------------------------------------------
   bool parse_and_validate_tx_base_from_blob(const blobdata_ref& tx_blob, transaction& tx, const bool max_size_check, const bool require_eof)
   {
+    TRY_ENTRY();
     CHECK_AND_ASSERT_MES(passes_max_size_check(max_size_check, tx_blob), false, "Tx blob too big");
     binary_archive<false> ba{epee::strspan<std::uint8_t>(tx_blob)};
     bool r = tx.serialize_base(ba);
@@ -223,20 +226,24 @@ namespace cryptonote
     CHECK_AND_ASSERT_MES(::serialization::check_stream_state(ba, !require_eof), false, "Unexpected trailing data after transaction base");
     CHECK_AND_ASSERT_MES(expand_transaction_1(tx, true), false, "Failed to expand transaction data");
     tx.invalidate_hashes();
+    CATCH_ENTRY("parse_and_validate_tx_base_from_blob", false);
     return true;
   }
   //---------------------------------------------------------------
   bool parse_and_validate_tx_prefix_from_blob(const blobdata_ref& tx_blob, transaction_prefix& tx, const bool max_size_check)
   {
+    TRY_ENTRY();
     CHECK_AND_ASSERT_MES(passes_max_size_check(max_size_check, tx_blob), false, "Tx blob too big");
     binary_archive<false> ba{epee::strspan<std::uint8_t>(tx_blob)};
     bool r = ::serialization::serialize_noeof(ba, tx);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse transaction prefix from blob");
+    CATCH_ENTRY("parse_and_validate_tx_prefix_from_blob", false);
     return true;
   }
   //---------------------------------------------------------------
   bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, crypto::hash& tx_hash, const bool max_size_check)
   {
+    TRY_ENTRY();
     CHECK_AND_ASSERT_MES(passes_max_size_check(max_size_check, tx_blob), false, "Tx blob too big");
     binary_archive<false> ba{epee::strspan<std::uint8_t>(tx_blob)};
     bool r = ::serialization::serialize(ba, tx);
@@ -246,14 +253,18 @@ namespace cryptonote
     tx.set_blob_size(tx_blob.size());
     //TODO: validate tx
 
-    return get_transaction_hash(tx, tx_hash);
+    CHECK_AND_ASSERT_MES(get_transaction_hash(tx, tx_hash), false, "Failed to get transaction hash");
+    CATCH_ENTRY("parse_and_validate_tx_from_blob", false);
+    return true;
   }
   //---------------------------------------------------------------
   bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash, const bool max_size_check)
   {
+    TRY_ENTRY();
     if (!parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash, max_size_check))
       return false;
     get_transaction_prefix_hash(tx, tx_prefix_hash);
+    CATCH_ENTRY("parse_and_validate_tx_from_blob", false);
     return true;
   }
   //------------------------------------------------------------------
@@ -1682,6 +1693,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool parse_and_validate_block_from_blob(const blobdata_ref& b_blob, block& b, crypto::hash *block_hash)
   {
+    TRY_ENTRY();
     binary_archive<false> ba{epee::strspan<std::uint8_t>(b_blob)};
     bool r = ::serialization::serialize(ba, b);
     CHECK_AND_ASSERT_MES(r, false, "Failed to parse block from blob");
@@ -1692,6 +1704,7 @@ namespace cryptonote
       calculate_block_hash(b, *block_hash, &b_blob);
       b.set_hash(*block_hash);
     }
+    CATCH_ENTRY("parse_and_validate_block_from_blob", false);
     return true;
   }
   //---------------------------------------------------------------
