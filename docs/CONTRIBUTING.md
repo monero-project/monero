@@ -120,6 +120,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 - The user or Contributor SHOULD seek consensus on the accuracy of their observation, and the value of solving the problem.
 - Users MUST NOT log feature requests, ideas, or suggestions unrelated to Monero code or Monero's dependency code or Monero's potential/future dependency code or research which successfully implements Monero.
 - Users MUST NOT log any solutions to problems (verifiable or hypothetical) of which are not explicitly documented and/or not provable and/or cannot be reasonably proven.
+- Users and Contributors SHOULD NOT submit pull requests, fix issues, or add unnecessary co-authors (including their own alternate accounts) solely for the purpose of "account farming" or accumulating general Platform statistics.
 - To submit a patch, a Contributor MUST create a Platform pull request back to the project.
 - Patches MUST NOT be committed directly to the project.
 - To discuss a patch, people MAY comment on the Platform pull request, on the commit, or elsewhere.
