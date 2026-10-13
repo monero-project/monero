@@ -278,8 +278,10 @@ namespace nodetool
       return false;
 
     m_allow_local_ip = allow_local_ip;
-    add_peers(m_peers_white.get<by_addr>(), std::move(peers.white));
     add_peers(m_peers_anchor.get<by_addr>(), std::move(peers.anchor));
+    std::sort(peers.white.begin(), peers.white.end(), [](const peerlist_entry& a, const peerlist_entry& b) { return a.last_seen > b.last_seen; });
+    for (const peerlist_entry& pe : peers.white)
+      append_with_peer_white(pe, true);
     std::map<epee::net_utils::network_address, epee::net_utils::network_address> sources;
     for (const gray_source_entry& s : peers.gray_sources)
       sources.emplace(s.adr, s.source);
