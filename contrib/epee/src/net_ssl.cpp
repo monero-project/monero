@@ -29,6 +29,7 @@
 
 #include <string.h>
 #include <thread>
+#include <boost/asio/ip/address_v6.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -412,13 +413,22 @@ void ssl_options_t::configure(
   {
     socket.set_verify_mode(boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert);
 
-    
-    socket.set_verify_callback([&](const bool preverified, boost::asio::ssl::verify_context &ctx)
+    std::string verification_host = host;
+    boost::system::error_code ec;
+    auto address = boost::asio::ip::make_address_v6(host, ec);
+    if (!ec)
+    {
+      // IPv6 scope identifiers select an interface, not a certificate identity.
+      address.scope_id(0);
+      verification_host = address.to_string();
+    }
+
+    socket.set_verify_callback([this, verification_host](const bool preverified, boost::asio::ssl::verify_context &ctx)
     {
       // preverified means it passed system or user CA check. System CA is never loaded
       // when fingerprints are whitelisted.
       const bool verified = preverified &&
-        (verification != ssl_verification_t::system_ca || host.empty() || MONERO_HOSTNAME_VERIFY(host)(preverified, ctx));
+        (verification_host.empty() || MONERO_HOSTNAME_VERIFY(verification_host)(preverified, ctx));
 
       if (!verified && !has_fingerprint(ctx))
       {
