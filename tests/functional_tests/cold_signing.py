@@ -37,6 +37,7 @@ import random
 
 SEED = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
 STANDARD_ADDRESS = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+OTHER_ADDRESS = '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW'
 SUBADDRESS = '84QRUYawRNrU3NN1VpFRndSukeyEb3Xpv8qZjjsoJZnTYpDYceuUTpog13D7qPxpviS7J29bSgSkR11hFFoXWk2yNdsR9WF'
 SUBADDRESS2 = '85M4M1RVRcoEeC8sdSxN1ef6GhQYChSfKPWkB4FLKYJiSWuMXXT4Ewv8BHCRzSJB4ZYvXUcFxN4DPcVu6uwoPNRvQ1QwaXB'
 
@@ -44,6 +45,7 @@ class ColdSigningTest():
     def run_test(self):
         self.reset()
         self.create(0)
+        self.empty_export_after_reorg()
         self.mine()
         for piecemeal_output_export in [False, True]:
             self.transfer(piecemeal_output_export)
@@ -101,6 +103,26 @@ class ColdSigningTest():
 
         daemon.generateblocks(STANDARD_ADDRESS, n_blocks)
         wallet.refresh()
+
+    def empty_export_after_reorg(self):
+        print("Importing an empty output export after a reorg")
+        daemon = Daemon()
+        daemon.generateblocks(STANDARD_ADDRESS, 1)
+        self.hot_wallet.refresh()
+        assert len(self.hot_wallet.incoming_transfers().get('transfers', [])) == 1
+
+        outputs = self.hot_wallet.export_outputs()
+        self.cold_wallet.import_outputs(outputs.outputs_data_hex)
+        assert len(self.cold_wallet.incoming_transfers().get('transfers', [])) == 1
+
+        daemon.pop_blocks(1)
+        daemon.generateblocks(OTHER_ADDRESS, 1)
+        self.hot_wallet.refresh()
+        assert not self.hot_wallet.incoming_transfers().get('transfers', [])
+
+        outputs = self.hot_wallet.export_outputs()
+        self.cold_wallet.import_outputs(outputs.outputs_data_hex)
+        assert not self.cold_wallet.incoming_transfers().get('transfers', [])
 
     def export_import(self, piecemeal_output_export):
         self.hot_wallet.refresh()
