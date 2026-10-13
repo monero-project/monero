@@ -361,7 +361,6 @@ namespace dns_utils
 {
 
 //-----------------------------------------------------------------------
-// TODO: parse the string in a less stupid way, probably with regex
 std::string address_from_txt_record(const std::string& s)
 {
   // make sure the txt record has "oa1:xmr" and find it

@@ -43,8 +43,8 @@
 #include <boost/utility/value_init.hpp>
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/date_time/posix_time/posix_time.hpp> // TODO
-#include <boost/thread/condition_variable.hpp> // TODO
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/thread/condition_variable.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/thread.hpp>
 #include "string_tools_lexical.h"
