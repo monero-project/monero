@@ -28,6 +28,9 @@
 
 #include "net/http_protocol_handler.h"
 
+#include <algorithm>
+#include <cstdint>
+
 namespace epee { namespace net_utils { namespace http
 {
 	std::string get_rpc_connection_limit_key(const net_utils::network_address& address)
@@ -40,5 +43,25 @@ namespace epee { namespace net_utils { namespace http
 		}
 
 		return address.host_str();
+	}
+
+	unsigned http_server_config::get_timeout_shift(const net_utils::network_address& address, unsigned shift)
+	{
+		if (!shift)
+			return 0;
+
+		CRITICAL_REGION_LOCAL(m_lock);
+		if (m_connection_count >= m_max_connections)
+			return shift;
+
+		const bool local = address.is_loopback() || address.is_local();
+		const std::size_t limit = local ? m_max_private_ip_connections : m_max_public_ip_connections;
+		const auto elem = m_connections.find(get_rpc_connection_limit_key(address));
+		const std::uint64_t host_shift =
+			(limit && elem != m_connections.end()) ? (std::uint64_t(elem->second) * 8) / limit : 0;
+
+		// Limit timeout relief as this server fills so idle connections release slots.
+		const std::uint64_t total_shift = (std::uint64_t(m_connection_count) * 8) / m_max_connections;
+		return static_cast<unsigned>(std::min<std::uint64_t>(shift, std::max(host_shift, total_shift)));
 	}
 }}}
