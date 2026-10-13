@@ -283,18 +283,35 @@ namespace rpc
     if (!missed_vec.empty())
     {
       std::unordered_set<crypto::hash> missed_set(missed_vec.begin(), missed_vec.end());
-      std::vector<cryptonote::transaction> pool_txs;
+      missed_vec.assign(missed_set.begin(), missed_set.end());
+      std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> pool_details;
 
-      m_core.get_pool_transactions(pool_txs);
+      m_core.get_pool_transactions_info(missed_vec, pool_details, false);
 
-      for (const auto& tx : pool_txs)
+      for (const auto& entry : pool_details)
       {
-        crypto::hash h = get_transaction_hash(tx);
+        const crypto::hash& h = entry.first;
+        const tx_memory_pool::tx_details& details = entry.second;
+        unprunable_summary_t tx_desc;
+        if (!get_transaction_unprunable_summary(details.tx_blob, tx_desc))
+        {
+          MERROR("Failed to parse tx from txpool");
+          continue;
+        }
+        // coinbase txes do not have signatures to prune, so they appear to be pruned if looking just at prunable data being empty
+        const bool pruned = tx_desc.unprunable_size == details.tx_blob.size() && !tx_desc.is_coinbase;
+        cryptonote::transaction tx;
+        if (!(pruned ? parse_and_validate_tx_base_from_blob(details.tx_blob, tx) : parse_and_validate_tx_from_blob(details.tx_blob, tx)))
+        {
+          MERROR("Failed to parse tx from txpool");
+          continue;
+        }
+        tx.set_hash(h);
 
         if (missed_set.erase(h))
         {
           found_hashes.push_back(h);
-          found_txs_vec.push_back(tx);
+          found_txs_vec.push_back(std::move(tx));
           heights.push_back(std::numeric_limits<uint64_t>::max());
           in_pool.push_back(true);
         }
