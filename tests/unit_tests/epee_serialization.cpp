@@ -139,6 +139,15 @@ TEST(epee_json, keyword_values)
   EXPECT_FALSE(epee::serialization::load_t_from_json(o, std::string("{\"b\": \xc3\x28}")));
 }
 
+TEST(epee_json, accepts_empty_document)
+{
+  // a GET without a body; the RPC routes relied on this before #11367
+  epee::serialization::portable_storage storage;
+  EXPECT_TRUE(storage.load_from_json(""));
+  EXPECT_TRUE(storage.load_from_json(" \t\r\n"));
+  EXPECT_FALSE(storage.load_from_json(" x"));
+}
+
 TEST(epee_json, rejects_incomplete_and_trailing_documents)
 {
   epee::serialization::portable_storage storage;
