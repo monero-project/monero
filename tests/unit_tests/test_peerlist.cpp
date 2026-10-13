@@ -72,6 +72,27 @@ TEST(peer_list, peer_list_general)
 }
 
 
+TEST(peer_list, rejects_ipv4_link_local_by_default)
+{
+  nodetool::peerlist_manager plm;
+  ASSERT_TRUE(plm.init(nodetool::peerlist_types{}, false));
+
+  const nodetool::peerlist_entry link_local{
+    epee::net_utils::ipv4_network_address{MAKE_IP(169, 254, 169, 254), 18080}, 1, 0};
+  const nodetool::peerlist_entry public_peer{
+    epee::net_utils::ipv4_network_address{MAKE_IP(123, 45, 67, 89), 18080}, 2, 0};
+  ASSERT_TRUE(plm.merge_peerlist({link_local, public_peer}));
+  ASSERT_TRUE(plm.append_with_peer_white(link_local));
+
+  std::vector<nodetool::peerlist_entry> gray;
+  std::vector<nodetool::peerlist_entry> white;
+  plm.get_peerlist(gray, white);
+
+  ASSERT_EQ(1u, gray.size());
+  EXPECT_EQ(public_peer.adr, gray[0].adr);
+  EXPECT_TRUE(white.empty());
+}
+
 TEST(peer_list, merge_peer_lists)
 {
   //([^ \t]*)\t([^ \t]*):([^ \t]*) \tlast_seen: d(\d+)\.h(\d+)\.m(\d+)\.s(\d+)\n
