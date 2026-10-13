@@ -1,4 +1,4 @@
-// Copyright (c) 2025, The Monero Project
+// Copyright (c) 2025-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -52,7 +52,7 @@ template <class Archive> void serialize(Archive&, wallet2_basic::hashchain&, uns
 namespace wallet2_basic
 {
 /**
- * @brief: caches a contiguous list of block hashes and a genesis block
+ * @brief Caches a contiguous list of block hashes and a genesis block
 */
 class hashchain
 {
@@ -60,51 +60,51 @@ public:
     hashchain(): m_genesis(crypto::null_hash), m_offset(0) {}
 
     /**
-     * @brief: get the "height" of the blockchain, not the number of hashes stored
+     * @brief Get the "height" of the blockchain, not the number of hashes stored
     */
     size_t size() const { return m_blockchain.size() + m_offset; }
     /**
-     * @brief: get the height that the hash list begins at
+     * @brief Get the height that the hash list begins at
     */
     size_t offset() const { return m_offset; }
     /**
-     * @brief: get the genesis block hash
+     * @brief Get the genesis block hash
     */
     const crypto::hash &genesis() const { return m_genesis; }
     /**
-     * @brief: add a block hash to the top of the chain
+     * @brief Add a block hash to the top of the chain
     */
     void push_back(const crypto::hash &hash) { if (m_offset == 0 && m_blockchain.empty()) m_genesis = hash; m_blockchain.push_back(hash); }
     /**
-     * @brief: query if there is a hash available for a given height
+     * @brief Query if there is a hash available for a given height
     */
     bool is_in_bounds(size_t idx) const { return idx >= m_offset && idx < size(); }
     /**
-     * @brief: get a const reference to the block hash at a given height
+     * @brief Get a const reference to the block hash at a given height
     */
     const crypto::hash &operator[](size_t idx) const { return m_blockchain[idx - m_offset]; }
     /**
-     * @brief: get a mutable reference to the block hash at a given height
+     * @brief Get a mutable reference to the block hash at a given height
     */
     crypto::hash &operator[](size_t idx) { return m_blockchain[idx - m_offset]; }
     /**
-     * @brief: crop stored hashes after a certain height, where the height of the top block == `height`-1
+     * @brief Crop stored hashes after a certain height, where the height of the top block == `height`-1
     */
     void crop(size_t height) { m_blockchain.resize(std::max(std::min(height, size()), m_offset) - m_offset); }
     /**
-     * @brief: delete all stored hashes and set the offset to 0
+     * @brief Delete all stored hashes and set the offset to 0
     */
     void clear() { m_offset = 0; m_blockchain.clear(); }
     /**
-     * @brief: query if the blockchain is "empty": there are no stored hashes and the offset is 0
+     * @brief Query if the blockchain is "empty": there are no stored hashes and the offset is 0
     */
     bool empty() const { return m_blockchain.empty() && m_offset == 0; }
     /**
-     * @brief: crop stored hashes before a certain height and shift the offset accordingly, but always leave at least 1 hash
+     * @brief Crop stored hashes before a certain height and shift the offset accordingly, but always leave at least 1 hash
     */
     void trim(size_t height) { while (height > m_offset && m_blockchain.size() > 1) { m_blockchain.pop_front(); ++m_offset; } m_blockchain.shrink_to_fit(); }
     /**
-     * @brief: push a block hash onto the chain and move all block hashes back by one block
+     * @brief Push a block hash onto the chain and move all block hashes back by one block
     */
     void refill(const crypto::hash &hash) { m_blockchain.push_back(hash); --m_offset; }
 
