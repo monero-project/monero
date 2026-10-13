@@ -6108,6 +6108,9 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
   const std::vector<std::string> &initial_kex_msgs,
   const std::uint32_t threshold)
 {
+  THROW_WALLET_EXCEPTION_IF(m_background_sync_type != BackgroundSyncOff, error::wallet_internal_error,
+      "Background sync must be disabled before converting a wallet to multisig");
+
   // decrypt account keys
   std::optional<wallet_keys_unlocker> unlocker(std::in_place, *this, &password);
 
