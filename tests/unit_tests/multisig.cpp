@@ -677,3 +677,124 @@ TEST(multisig, composite_key_image_rejects_wrong_content)
   EXPECT_FALSE(generate_multisig_composite_key_image(wallets[0].get_account().get_keys(), subaddresses, out_key,
     tx_pub_key, {}, 0, {local_component}, N, M, ki_bad));
 }
+
+// gives import_multisig() something real to validate: a funded, owned output whose composite key
+// image can actually be computed, instead of the empty-m_transfers shortcut 'import_multisig_validation'
+// relies on (there, n_outputs is always 0, so the per-output composite check never runs at all)
+class wallet_accessor_test
+{
+public:
+  static tools::wallet2::transfer_container &get_transfers(tools::wallet2 &wallet) { return wallet.m_transfers; }
+  static std::vector<std::vector<tools::wallet2::multisig_info>> &get_multisig_rescan_info(tools::wallet2 &wallet) { return wallet.m_multisig_rescan_info; }
+};
+
+TEST(multisig, import_multisig_rejects_wrong_content_before_mutating_state)
+{
+  using namespace multisig;
+
+  // same 2-of-2 shape as the tests above
+  const std::uint32_t M = 2, N = 2;
+  std::vector<tools::wallet2> wallets(N);
+
+  std::vector<std::string> initial_infos(wallets.size());
+  for (size_t i = 0; i < wallets.size(); ++i)
+  {
+    make_wallet(i, wallets[i]);
+    wallets[i].decrypt_keys("");
+    initial_infos[i] = wallets[i].get_multisig_first_kex_msg();
+    wallets[i].encrypt_keys("");
+  }
+
+  std::vector<std::string> intermediate_infos(wallets.size());
+  for (size_t i = 0; i < wallets.size(); ++i)
+    intermediate_infos[i] = wallets[i].make_multisig("", initial_infos, M);
+
+  multisig_account_status ms_status{wallets[0].get_multisig_status()};
+  while (!ms_status.is_ready)
+  {
+    intermediate_infos = exchange_round(wallets, intermediate_infos);
+    ms_status = wallets[0].get_multisig_status();
+  }
+
+  wallets[0].decrypt_keys("");
+  wallets[1].decrypt_keys("");
+
+  const crypto::public_key other_signer = wallets[1].get_multisig_signer_public_key();
+  const cryptonote::account_public_address &addr = wallets[0].get_account().get_keys().m_account_address;
+
+  // builds a real one-time output owned by wallets[0]'s main subaddress index, and the
+  // transfer_details wallet2 needs to compute a composite key image for it
+  const auto make_transfer = [&]() -> std::pair<tools::wallet2::transfer_details, crypto::public_key>
+  {
+    const crypto::secret_key tx_sk = rct::rct2sk(rct::skGen());
+    crypto::public_key tx_pub_key;
+    EXPECT_TRUE(crypto::secret_key_to_public_key(tx_sk, tx_pub_key));
+    crypto::key_derivation derivation;
+    EXPECT_TRUE(crypto::generate_key_derivation(addr.m_view_public_key, tx_sk, derivation));
+    crypto::public_key out_key;
+    EXPECT_TRUE(crypto::derive_public_key(derivation, 0, addr.m_spend_public_key, out_key));
+
+    tools::wallet2::transfer_details td{};
+    td.m_tx.vout.push_back(cryptonote::tx_out{1, cryptonote::txout_to_key{out_key}});
+    EXPECT_TRUE(cryptonote::add_tx_pub_key_to_extra(td.m_tx, tx_pub_key));
+    td.m_internal_output_index = 0;
+    td.m_subaddr_index = {0, 0};
+    td.m_key_image_partial = true;
+    return {td, out_key};
+  };
+
+  const auto out0 = make_transfer();
+  const auto out1 = make_transfer();
+  wallet_accessor_test::get_transfers(wallets[0]) = {out0.first, out1.first};
+
+  // output 0's entry is genuine: a fresh, distinct component from the other signer completes it
+  crypto::key_image other_component;
+  ASSERT_TRUE(generate_multisig_key_image(wallets[1].get_account().get_keys(), 0, out0.second, other_component));
+
+  // output 1's entry has the right *count* (one partial key image, as a 2-of-2 export should carry)
+  // but wrong *content*: a duplicate of wallet 0's own component for that output instead of a
+  // genuine component from the other signer (as a cosigner export misaligned by one output would
+  // produce). It must be rejected, and it must not let output 0's already-valid entry get installed
+  // first.
+  crypto::key_image duplicate_of_local_component;
+  ASSERT_TRUE(generate_multisig_key_image(wallets[0].get_account().get_keys(), 0, out1.second, duplicate_of_local_component));
+
+  tools::wallet2::multisig_info::LR lr;
+  {
+    const crypto::secret_key k = rct::rct2sk(rct::skGen());
+    crypto::public_key L, R;
+    generate_multisig_LR(out0.second, k, L, R);
+    lr.m_L = rct::pk2rct(L);
+    lr.m_R = rct::pk2rct(R);
+  }
+
+  tools::wallet2::multisig_info entry0;
+  entry0.m_signer = other_signer;
+  entry0.m_LR = {lr, lr};
+  entry0.m_partial_key_images = {other_component};
+
+  tools::wallet2::multisig_info entry1 = entry0;
+  entry1.m_partial_key_images = {duplicate_of_local_component};
+
+  // builds a raw multisig-info import blob (same wire format as wallet2::export_multisig()),
+  // one entry per output, in m_transfers order
+  const std::vector<tools::wallet2::multisig_info> info{entry0, entry1};
+  std::stringstream oss;
+  binary_archive<true> ar(oss);
+  ASSERT_TRUE(::serialization::serialize(ar, info));
+  std::string header;
+  header.append((const char *)&addr.m_spend_public_key, sizeof(crypto::public_key));
+  header.append((const char *)&addr.m_view_public_key, sizeof(crypto::public_key));
+  header.append((const char *)&other_signer, sizeof(crypto::public_key));
+  const cryptonote::blobdata blob = std::string("Monero multisig export\001")
+    + wallets[0].encrypt_with_view_secret_key(header + oss.str());
+
+  EXPECT_ANY_THROW(wallets[0].import_multisig({blob}, false));
+
+  // nothing was installed: output 0's entry, despite being individually valid, must not have been
+  // written before output 1 was found to be bad
+  const tools::wallet2::transfer_container &transfers = wallet_accessor_test::get_transfers(wallets[0]);
+  EXPECT_TRUE(transfers[0].m_multisig_info.empty());
+  EXPECT_TRUE(transfers[1].m_multisig_info.empty());
+  EXPECT_TRUE(wallet_accessor_test::get_multisig_rescan_info(wallets[0]).empty());
+}
