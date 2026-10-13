@@ -4646,9 +4646,15 @@ void wallet2::clear_soft(bool keep_key_images)
 void wallet2::clear_user_data()
 {
   for (auto i = m_confirmed_txs.begin(); i != m_confirmed_txs.end(); ++i)
+  {
     i->second.m_dests.clear();
+    i->second.m_payment_id = crypto::null_hash;
+  }
   for (auto i = m_unconfirmed_txs.begin(); i != m_unconfirmed_txs.end(); ++i)
+  {
     i->second.m_dests.clear();
+    i->second.m_payment_id = crypto::null_hash;
+  }
   for (auto i = m_transfers.begin(); i != m_transfers.end(); ++i)
     i->m_frozen = false;
   m_tx_keys.clear();
