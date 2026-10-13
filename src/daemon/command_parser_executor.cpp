@@ -382,16 +382,19 @@ bool t_command_parser_executor::start_mining(const std::vector<std::string>& arg
     {
       if(!cryptonote::get_account_address_from_str(info, cryptonote::STAGENET, args.front()))
       {
-        bool dnssec_valid;
-        std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(args.front(), dnssec_valid,
-            [](const std::string &url, const std::vector<std::string> &addresses, bool dnssec_valid) -> std::string {
-              if (!dnssec_valid) return {};
+        tools::dns_utils::dnssec_status dnssec;
+        std::string address_str = tools::dns_utils::get_account_address_as_str_from_url(args.front(), dnssec,
+            [](const std::string &url, const std::vector<std::string> &addresses, tools::dns_utils::dnssec_status dnssec) -> std::string {
+              if (dnssec != tools::dns_utils::dnssec_status::valid) return {};
               if (addresses.empty()) return {};
               return addresses[0];
             });
-        if(!dnssec_valid)
+        if(dnssec != tools::dns_utils::dnssec_status::valid)
         {
-          std::cout << "Invalid syntax: Invalid DNSSEC for " << args.front() << std::endl;
+          const char *dnssec_msg = dnssec == tools::dns_utils::dnssec_status::invalid
+              ? "Invalid DNSSEC"
+              : "DNSSEC not available";
+          std::cout << "Invalid syntax: " << dnssec_msg << " for " << args.front() << std::endl;
           return true;
         }
         if(!cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, address_str))

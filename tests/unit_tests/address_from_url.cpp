@@ -86,7 +86,7 @@ TEST(AddressFromURL, Success)
 {
   const std::string addr = MONERO_DONATION_ADDR;
   
-  bool dnssec_result = false;
+  tools::dns_utils::dnssec_status dnssec_result = tools::dns_utils::dnssec_status::unavailable;
 
   std::vector<std::string> addresses = tools::dns_utils::addresses_from_url("donate.getmonero.org", dnssec_result);
 
@@ -107,12 +107,12 @@ TEST(AddressFromURL, Success)
 
 TEST(AddressFromURL, Failure)
 {
-  bool dnssec_result = false;
+  tools::dns_utils::dnssec_status dnssec_result = tools::dns_utils::dnssec_status::unavailable;
 
   std::vector<std::string> addresses = tools::dns_utils::addresses_from_url("nonexistent.getmonero.org", dnssec_result);
 
   // The absence of a TXT record is authenticated with DNSSEC denial records.
-  ASSERT_TRUE(dnssec_result);
+  ASSERT_EQ(tools::dns_utils::dnssec_status::valid, dnssec_result);
 
   ASSERT_EQ(0, addresses.size());
 }
