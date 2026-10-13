@@ -99,6 +99,32 @@
 
 #define MAP_URI_AUTO_JON2(s_pattern, callback_f, command_type) MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, true)
 
+// For state changing endpoints: an empty body deserializes to a default
+// request, so a bodyless GET would otherwise invoke them. A browser sends
+// Origin on a POST, and a cross origin page cannot set a JSON content type
+// without a CORS preflight.
+#define REJECT_UNSAFE_REQUEST_IF(match) \
+    else if((match) && query_info.m_http_method != epee::net_utils::http::http_method_post) \
+    { \
+      response_info.m_response_code = 405; \
+      response_info.m_response_comment = "Method Not Allowed"; \
+      response_info.m_mime_tipe = "text/plain"; \
+      response_info.m_body = "POST required\n"; \
+      return true; \
+    } \
+    else if((match) && !epee::net_utils::http::is_json_content_type(query_info.m_header_info.m_content_type)) \
+    { \
+      response_info.m_response_code = 415; \
+      response_info.m_response_comment = "Unsupported Media Type"; \
+      response_info.m_mime_tipe = "text/plain"; \
+      response_info.m_body = "Content-Type: application/json required\n"; \
+      return true; \
+    }
+
+#define MAP_URI_AUTO_JON2_IF_UNSAFE(s_pattern, callback_f, command_type, cond) \
+    REJECT_UNSAFE_REQUEST_IF((query_info.m_URI == s_pattern) && (cond)) \
+    MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, cond)
+
 #define MAP_URI_AUTO_BIN2(s_pattern, callback_f, command_type) \
     else if(query_info.m_URI == s_pattern) \
     { \
@@ -225,6 +251,10 @@
 }
 
 #define MAP_JON_RPC_WE(method_name, callback_f, command_type) MAP_JON_RPC_WE_IF(method_name, callback_f, command_type, true)
+
+#define MAP_JON_RPC_WE_IF_UNSAFE(method_name, callback_f, command_type, cond) \
+    REJECT_UNSAFE_REQUEST_IF((callback_name == method_name) && (cond)) \
+    MAP_JON_RPC_WE_IF(method_name, callback_f, command_type, cond)
 
 #define MAP_JON_RPC(method_name, callback_f, command_type) \
     else if(callback_name == method_name) \
