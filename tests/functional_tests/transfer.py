@@ -982,6 +982,14 @@ class TransferTest():
             assert tx.fee == fee
             assert receiver_wallet.get_balance().balance == expected_receiver_balance
 
+        print('Checking cached pool transfers without daemon access')
+        receiver_wallet.set_daemon('127.0.0.1:0', trusted = True)
+        try:
+            res = receiver_wallet.get_transfers(pool = True, refresh_pool = False)
+            assert len(res.pool) == 1 and res.pool[0].txid == txid
+        finally:
+            receiver_wallet.set_daemon('127.0.0.1:18180', trusted = True)
+
         # mine the tx
         height = daemon.generateblocks(dst['address'], 1).height
         block_header = daemon.getblockheaderbyheight(height = height).block_header

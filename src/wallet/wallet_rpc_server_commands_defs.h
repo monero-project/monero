@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 35
+#define WALLET_RPC_VERSION_MINOR 36
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -1659,6 +1659,8 @@ namespace wallet_rpc
       bool pending;
       bool failed;
       bool pool;
+      // if pool is requested, false returns the wallet's potentially stale cache without querying the daemon
+      bool refresh_pool;
 
       bool filter_by_height;
       uint64_t min_height;
@@ -1673,6 +1675,7 @@ namespace wallet_rpc
         KV_SERIALIZE(pending)
         KV_SERIALIZE(failed)
         KV_SERIALIZE(pool)
+        KV_SERIALIZE_OPT(refresh_pool, true)
         KV_SERIALIZE(filter_by_height)
         KV_SERIALIZE(min_height)
         KV_SERIALIZE_OPT(max_height, (uint64_t)CRYPTONOTE_MAX_BLOCK_NUMBER)
