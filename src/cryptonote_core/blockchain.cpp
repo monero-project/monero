@@ -62,15 +62,6 @@
 #define FIND_BLOCKCHAIN_SUPPLEMENT_MAX_SIZE (100*1024*1024) // 100 MB
 
 using namespace crypto;
-
-//#include "serialization/json_archive.h"
-
-/* TODO:
- *  Clean up code:
- *    Possibly change how outputs are referred to/indexed in blockchain and wallets
- *
- */
-
 using namespace cryptonote;
 using epee::string_tools::pod_to_hex;
 extern "C" void slow_hash_allocate_state();
