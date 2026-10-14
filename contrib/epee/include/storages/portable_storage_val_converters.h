@@ -34,7 +34,9 @@
 #include "misc_log_ex.h"
 
 #include <boost/numeric/conversion/bounds.hpp>
+#include <cstdint>
 #include <limits>
+#include <string>
 #include <type_traits>
 #include <typeinfo>
 
@@ -134,6 +136,28 @@ POP_WARNINGS
       static void convert(const from_type& from, to_type& to)
       {
         ASSERT_AND_THROW_WRONG_CONVERSION();
+      }
+    };
+
+    template<>
+    struct convert_to_integral<std::string, uint64_t, false>
+    {
+      static void convert(const std::string& from, uint64_t& to)
+      {
+        if (from.empty())
+          ASSERT_AND_THROW_WRONG_CONVERSION();
+
+        uint64_t value = 0;
+        for (const char c : from)
+        {
+          if (c < '0' || c > '9')
+            ASSERT_AND_THROW_WRONG_CONVERSION();
+          const uint64_t digit = c - '0';
+          if (value > (std::numeric_limits<uint64_t>::max() - digit) / 10)
+            ASSERT_AND_THROW_WRONG_CONVERSION();
+          value = value * 10 + digit;
+        }
+        to = value;
       }
     };
 
