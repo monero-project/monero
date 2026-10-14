@@ -1189,11 +1189,11 @@ void BlockchainLMDB::remove_tx_outputs(const uint64_t tx_id, const transaction& 
   for (size_t i = tx.vout.size(); i-- > 0;)
   {
     uint64_t amount = is_pseudo_rct ? 0 : tx.vout[i].amount;
-    remove_output(amount, amount_output_indices[i]);
+    remove_output(tx.is_coinbase(), amount, amount_output_indices[i]);
   }
 }
 
-void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_index)
+void BlockchainLMDB::remove_output(const bool is_coinbase, const uint64_t amount, const uint64_t& out_index)
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1248,7 +1248,8 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
   // from the chain, then progress the chain again.
   CURSOR(locked_outputs);
 
-  const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(unlock_time, output_height);
+  bool is_custom_timelocked = false;
+  const uint64_t last_locked_block = cryptonote::get_last_locked_block_index_for_tree(is_coinbase, unlock_time, output_height, is_custom_timelocked);
 
   // Since the UnifiedOutput unified_id is stored little endian always, we have
   // to convert to LE here for the lookup to work as expected for BE systems.
@@ -1273,7 +1274,10 @@ void BlockchainLMDB::remove_output(const uint64_t amount, const uint64_t& out_in
       throw0(DB_ERROR(lmdb_error(std::string("Error deleting locked output index ").append(boost::lexical_cast<std::string>(out_index).append(": ")).c_str(), result).c_str()));
   }
 
-  // Remove output from custom timelocked outputs table if present
+  // Remove output from custom timelocked outputs table if expected present
+  if (!is_custom_timelocked)
+    return;
+
   CURSOR(timelocked_outputs);
 
   MDB_val_set(k_timelocked_block_id, last_locked_block);
@@ -6859,8 +6863,23 @@ void BlockchainLMDB::migrate_5_7()
           };
         const cryptonote::blobdata output_blob = cryptonote::t_serializable_object_to_blob(unified_output);
 
+        // Check if the output is a coinbase output
+        bool is_coinbase = false;
+        const bool has_coinbase_unlock_time = output_data.unlock_time == (output_data.height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
+        if (has_coinbase_unlock_time)
+        {
+          // Only coinbase outputs could potentially have the coinbase unlock_time (see prevalidate_miner_transaction)
+          auto toi = this->get_output_tx_and_index_from_unified(unified_id);
+          auto tx = this->get_pruned_tx(toi.first);
+          is_coinbase = tx.is_coinbase();
+        }
+
         // Get the output's last locked block
-        const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(output_data.unlock_time, output_data.height);
+        bool is_custom_timelocked = false;
+        const uint64_t last_locked_block = cryptonote::get_last_locked_block_index_for_tree(is_coinbase,
+          output_data.unlock_time,
+          output_data.height,
+          is_custom_timelocked);
 
         // Add the output to the locked outputs table
         MDB_val_set(k_block_id, last_locked_block);
@@ -6872,19 +6891,8 @@ void BlockchainLMDB::migrate_5_7()
         if (result != MDB_SUCCESS)
           throw0(DB_ERROR(lmdb_error("Failed to add locked output: ", result).c_str()));
 
-        // Check if the output is a coinbase output
-        bool is_coinbase = false;
-        const bool has_coinbase_last_locked_block = last_locked_block == (output_data.height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW - 1);
-        if (has_coinbase_last_locked_block)
-        {
-          // Only coinbase outputs could potentially have the coinbase last locked block (see prevalidate_miner_transaction)
-          auto toi = this->get_output_tx_and_index_from_unified(unified_id);
-          auto tx = this->get_pruned_tx(toi.first);
-          is_coinbase = tx.is_coinbase();
-        }
-
         // Add custom timelocked outputs to the timelocked outputs table
-        if (!cryptonote::is_custom_timelocked(is_coinbase, last_locked_block, output_data.height))
+        if (!is_custom_timelocked)
           continue;
 
         MDB_val_set(k_timelocked_block_id, last_locked_block);

@@ -1875,12 +1875,34 @@ namespace cryptonote
     return block_included_in_chain + (CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE - 1);
   }
   //---------------------------------------------------------------
-  // TODO: write tests for this func that match with current daemon logic
-  uint64_t get_last_locked_block_index(uint64_t unlock_time, uint64_t block_included_in_chain)
+  uint64_t get_last_locked_block_index_for_tree(const bool is_coinbase,
+    const uint64_t unlock_time,
+    const uint64_t block_included_in_chain,
+    bool &is_custom_timelocked_out)
   {
     uint64_t last_locked_block_index = 0;
+    is_custom_timelocked_out = false;
 
     const uint64_t default_block_index = get_default_last_locked_block_index(block_included_in_chain);
+
+    /* Custom unlock times were deprecated as of June 1, 2026. Any non-coinbase unlock_time created after is ignored.
+       See: https://www.getmonero.org/2026/05/10/deprecating-unlock-time.html
+
+       Mainnet block 05b31aa5b25ece01c3474d9a6be627c844519b2c237f252d748318bc85c1a89f is the first block with UTC
+       timestamp of June 1, 2026, and is block index 3686382. So we set that as the deprecation block.
+
+       We use a mainnet block index here for all networks even though this block does not correspond to June 1, 2026
+       on other networks because it's simpler to manage (this function doesn't need to be network-aware) and won't
+       have a material consequence on other networks.
+
+       Note: coinbase txs are always expected to have unlock time set to
+       `block_included_in_chain + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW` as of this writing.
+    */
+    const uint64_t UNLOCK_TIME_DEPRECATION_BLOCK = 3686382;
+    if (!is_coinbase && block_included_in_chain >= UNLOCK_TIME_DEPRECATION_BLOCK)
+    {
+      return default_block_index;
+    }
 
     if (unlock_time == 0)
     {
@@ -1888,33 +1910,47 @@ namespace cryptonote
     }
     else if (unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
     {
-      // The unlock_time in this case is supposed to be the chain height at which the output unlocks
-      // The chain height is 1 higher than the highest block index, so we subtract 1 for this delta
+      // The unlock_time in this case is supposed to be the chain height at which the output unlocks.
+      // The chain height is 1 higher than the highest block index, so we subtract 1 for this delta.
       last_locked_block_index = unlock_time > 0 ? (unlock_time - 1) : 0;
     }
     else
     {
-      // Interpret the unlock_time as time
-      // TODO: hardcode correct times for each network and take in nettype
-      const auto hf_v15_time = 1656629118;
-      const auto hf_v15_height = 2689608;
+      /* Here we interpret the unlock_time as time. There are a few things to consider in explaining how we
+          implement this here.
+
+        1) We use the hf16 block 84785e719b9bcbb763b103bb04b46565cea1c82a4995d984ae30817b8c6ac922 timestamp as an anchor
+           point to determine the expected block last locked block index. We use the timestamp that was actually
+           recorded in the mainnet chain for this so that it is more accurate.
+
+        2) As of this writing (chain height 3783990), there are no expected unlock times that are materially affected
+           by this function's logic. Either some outputs are going to unlock way in the future (because of some
+           apparent mistake by users or intended burns), or they have already unlocked before this function's logic
+           is expected to be used to unlock outputs. Thus, we don't need to take into account when the block interval
+           was 60s (instead of the current 120s).
+
+        3) We use the mainnet timestamp for all networks even though it won't be accurate for other networks
+           (testnet, stagenet, etc). We do this because it's simpler to manage (this function doesn't need to be
+            network-aware) and doesn't have a material consequence on the other networks.
+      */
+      const uint64_t HF_V16_HEIGHT = 2689608;
+      const uint64_t HF_V16_TIMESTAMP = 1660505834;
 
       // Use the last hard fork's time and block combo to convert the time-based timelock into an last locked block
-      // TODO: consider taking into account 60s block times when that was consensus
-      if (hf_v15_time > unlock_time)
+      if (HF_V16_TIMESTAMP > unlock_time)
       {
-        const auto seconds_since_unlock = hf_v15_time - unlock_time;
-        const auto blocks_since_unlock = seconds_since_unlock / DIFFICULTY_TARGET_V2;
+        const uint64_t seconds_since_unlock = HF_V16_TIMESTAMP - unlock_time;
+        const uint64_t blocks_since_unlock = seconds_since_unlock / DIFFICULTY_TARGET_V2;
 
-        last_locked_block_index = hf_v15_height > blocks_since_unlock
-          ? (hf_v15_height - blocks_since_unlock)
+        last_locked_block_index = HF_V16_HEIGHT > blocks_since_unlock
+          ? (HF_V16_HEIGHT - blocks_since_unlock)
           : default_block_index;
       }
       else
       {
-        const auto seconds_until_unlock = unlock_time - hf_v15_time;
-        const auto blocks_until_unlock = seconds_until_unlock / DIFFICULTY_TARGET_V2;
-        last_locked_block_index = hf_v15_height + blocks_until_unlock;
+        const uint64_t seconds_until_unlock = unlock_time - HF_V16_TIMESTAMP;
+        const uint64_t blocks_until_unlock = seconds_until_unlock / DIFFICULTY_TARGET_V2;
+        last_locked_block_index = HF_V16_HEIGHT + blocks_until_unlock;
       }
 
       /* Note: since this function was introduced for the hf that included fcmp's, it's possible for an output to be
@@ -1924,20 +1960,13 @@ namespace cryptonote
           starting at the fork for fcmp's.
       */
 
-      // TODO: double check the accuracy of this calculation
       MDEBUG("unlock time: " << unlock_time << " , last_locked_block_index: " << last_locked_block_index);
     }
 
+    is_custom_timelocked_out = !is_coinbase && last_locked_block_index > default_block_index;
+
     // Can't unlock earlier than the default last locked block
     return std::max(last_locked_block_index, default_block_index);
-  }
-  //---------------------------------------------------------------
-  bool is_custom_timelocked(bool is_coinbase, uint64_t last_locked_block_idx, uint64_t block_included_in_chain)
-  {
-    if (is_coinbase)
-      return false;
-
-    return last_locked_block_idx > cryptonote::get_default_last_locked_block_index(block_included_in_chain);
   }
   //---------------------------------------------------------------
   // Helper function to group outputs by last locked block idx
@@ -1948,10 +1977,11 @@ namespace cryptonote
     fcmp_pp::OutsByLastLockedBlock &outs_by_last_locked_block_inout,
     std::unordered_map<uint64_t/*unified_id*/, uint64_t/*last locked block_id*/> &timelocked_outputs_inout)
   {
-    const uint64_t last_locked_block = cryptonote::get_last_locked_block_index(tx.unlock_time, block_idx);
-    const bool has_custom_timelock = cryptonote::is_custom_timelocked(tx.is_coinbase(),
-      last_locked_block,
-      block_idx);
+    bool has_custom_timelock = false;
+    const uint64_t last_locked_block = cryptonote::get_last_locked_block_index_for_tree(tx.is_coinbase(),
+      tx.unlock_time,
+      block_idx,
+      has_custom_timelock);
 
     for (std::size_t i = 0; i < tx.vout.size(); ++i)
     {
