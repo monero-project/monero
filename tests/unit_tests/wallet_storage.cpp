@@ -34,6 +34,12 @@
 #include "file_io_utils.h"
 #include "wallet/wallet2.h"
 #include "common/util.h"
+#include "serialization/binary_utils.h"
+#include "wallet/wallet2_basic/wallet2_serialization.h"
+#include "wallet/wallet2_basic/wallet2_boost_serialization.h"
+#include <boost/archive/portable_binary_iarchive.hpp>
+#include <boost/archive/portable_binary_oarchive.hpp>
+#include <boost/optional/optional_io.hpp>
 
 using namespace boost::filesystem;
 using namespace epee::file_io_utils;
@@ -61,7 +67,62 @@ public:
     {
         return wallet.m_transfers.at(index).get_public_key();
     }
+
+    static void erase_subaddress(tools::wallet2 &wallet, const cryptonote::subaddress_index &index)
+    {
+        wallet.m_subaddresses.erase(wallet.get_subaddress_spend_public_key(index));
+    }
 };
+
+TEST(wallet_storage, subaddress_ranges_rebuilt_after_loading)
+{
+    for (const bool legacy : {false, true})
+    {
+        tools::wallet2 wallet(cryptonote::MAINNET, 1, true);
+        wallet.set_subaddress_lookahead(2, 3);
+        wallet.generate("", "");
+        wallet.expand_subaddresses({0, 2});
+        wallet.create_one_off_subaddress({1, 10});
+        wallet_accessor_test::erase_subaddress(wallet, {0, 1});
+        std::string cache;
+        if (legacy)
+        {
+            std::ostringstream stream;
+            boost::archive::portable_binary_oarchive archive(stream);
+            archive << wallet;
+            cache = stream.str();
+        }
+        else
+        {
+            ASSERT_TRUE(serialization::dump_binary(wallet, cache));
+        }
+        wallet.expand_subaddresses({0, 100});
+        if (legacy)
+        {
+            std::istringstream stream(cache);
+            boost::archive::portable_binary_iarchive archive(stream);
+            archive >> wallet;
+        }
+        else
+        {
+            ASSERT_TRUE(serialization::parse_binary(cache, wallet));
+        }
+        EXPECT_EQ(boost::none, wallet.get_subaddress_index(wallet.get_subaddress({0, 1})));
+        wallet.expand_subaddresses({0, 2});
+        for (uint32_t minor = 0; minor < 5; ++minor)
+            EXPECT_NE(boost::none, wallet.get_subaddress_index(wallet.get_subaddress({0, minor})));
+        EXPECT_EQ(boost::none, wallet.get_subaddress_index(wallet.get_subaddress({0, 5})));
+        EXPECT_NE(boost::none, wallet.get_subaddress_index(wallet.get_subaddress({1, 10})));
+        wallet.add_subaddress(0, "");
+        EXPECT_NE(boost::none, wallet.get_subaddress_index(wallet.get_subaddress({0, 5})));
+
+        wallet.generate("", "");
+        wallet.add_subaddress(0, "");
+        EXPECT_EQ(2, wallet.get_num_subaddresses(0));
+        EXPECT_NE(boost::none, wallet.get_subaddress_index(wallet.get_subaddress({0, 3})));
+        EXPECT_EQ(boost::none, wallet.get_subaddress_index(wallet.get_subaddress({0, 4})));
+    }
+}
 
 TEST(wallet_storage, store_to_file2file)
 {
