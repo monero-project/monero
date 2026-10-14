@@ -223,6 +223,19 @@ set_property(TARGET parse-url_fuzz_tests
   PROPERTY
     FOLDER "tests")
 
+monero_add_minimal_executable(asmap-direct_fuzz_tests asmap_direct.cpp fuzzer.cpp)
+target_link_libraries(asmap-direct_fuzz_tests
+  PRIVATE
+    net
+    epee
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET asmap-direct_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
+
 monero_add_minimal_executable(network-address_fuzz_tests network_address.cpp fuzzer.cpp)
 target_link_libraries(network-address_fuzz_tests
   PRIVATE
