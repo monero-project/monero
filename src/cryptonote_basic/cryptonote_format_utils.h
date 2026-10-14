@@ -299,9 +299,12 @@ namespace cryptonote
   crypto::secret_key decrypt_key(crypto::secret_key key, const epee::wipeable_string &passphrase);
 
   uint64_t get_default_last_locked_block_index(const uint64_t block_included_in_chain);
-  // Returns the last locked block index for the provided unlock_time
-  uint64_t get_last_locked_block_index(uint64_t unlock_time, uint64_t block_included_in_chain);
-  bool is_custom_timelocked(bool is_coinbase, uint64_t last_locked_block_idx, uint64_t block_included_in_chain);
+  // Returns the last locked block index for the provided unlock_time using rules applied at the FCMP++ fork.
+  // Warning: this function is ONLY expected to be used to determine when outputs should enter the FCMP tree.
+  uint64_t get_last_locked_block_index_for_tree(const bool is_coinbase,
+    const uint64_t unlock_time,
+    const uint64_t block_included_in_chain,
+    bool &is_custom_timelocked_out);
 
   struct OutsByLastLockedBlockMeta
   {
