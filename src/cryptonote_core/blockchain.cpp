@@ -2823,6 +2823,7 @@ bool Blockchain::add_block_as_invalid(const block_extended_info& bei, const cryp
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  CRITICAL_REGION_LOCAL1(m_invalid_blocks_lock);
   auto i_res = m_invalid_blocks.insert(std::map<crypto::hash, block_extended_info>::value_type(h, bei));
   CHECK_AND_ASSERT_MES(i_res.second, false, "at insertion invalid by tx returned status existed");
   MINFO("BLOCK ADDED AS INVALID: " << h << std::endl << ", prev_id=" << bei.bl.prev_id << ", m_invalid_blocks count=" << m_invalid_blocks.size());
@@ -2833,15 +2834,16 @@ void Blockchain::flush_invalid_blocks()
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+  CRITICAL_REGION_LOCAL1(m_invalid_blocks_lock);
   m_invalid_blocks.clear();
 }
 //------------------------------------------------------------------
 bool Blockchain::have_block_unlocked(const crypto::hash& id, int *where) const
 {
   // WARNING: this function does not take m_blockchain_lock, and thus should only call read only
-  // m_db functions which do not depend on one another (ie, no getheight + gethash(height-1), as
-  // well as not accessing class members, even read only (ie, m_invalid_blocks). The caller must
-  // lock if it is otherwise needed.
+  // m_db functions which do not depend on one another (ie, no getheight + gethash(height-1)), as
+  // well as not accessing class members, even read only (except m_invalid_blocks, which is
+  // protected by m_invalid_blocks_lock). The caller must lock if it is otherwise needed.
   LOG_PRINT_L3("Blockchain::" << __func__);
 
   if(m_db->block_exists(id))
@@ -2858,6 +2860,7 @@ bool Blockchain::have_block_unlocked(const crypto::hash& id, int *where) const
     return true;
   }
 
+  CRITICAL_REGION_LOCAL(m_invalid_blocks_lock);
   if(m_invalid_blocks.count(id))
   {
     LOG_PRINT_L2("block " << id << " found in m_invalid_blocks");
