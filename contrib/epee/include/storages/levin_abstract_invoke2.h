@@ -119,7 +119,6 @@ namespace epee
       return true;
     }
     //----------------------------------------------------------------------------------------------------
-    //----------------------------------------------------------------------------------------------------
     template<class t_owner, class t_in_type, class t_out_type, class t_context, class callback_t>
     int buff_to_t_adapter(int command, const epee::span<const uint8_t> in_buff, byte_stream& buff_out, callback_t cb, t_context& context )
     {
