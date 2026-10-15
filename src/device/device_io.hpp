@@ -46,7 +46,7 @@ namespace hw {
       virtual void init()  = 0;
       virtual void release() = 0;
 
-      virtual void connect(void *parms) = 0;
+      virtual void connect() = 0;
       virtual void disconnect() = 0;
       virtual bool connected() const = 0;
 

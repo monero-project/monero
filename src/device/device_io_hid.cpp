@@ -96,13 +96,6 @@ namespace hw {
       ASSERT_X(r>=0, "Unable to init hidapi library. Error "+std::to_string(r)+": "+safe_hid_error(this->usb_device));
     }
 
-    void device_io_hid::connect(void *params) {
-      hid_conn_params *p = (struct hid_conn_params*)params;
-      if (!this->connect(p->vid, p->pid, p->interface_number, p->usage_page)) {
-        ASSERT_X(false, "No device found");
-      }
-    }
-
     void device_io_hid::connect(const std::vector<hid_conn_params> &hcpV) {
       for (auto p: hcpV) {
         if (this->connect(p.vid, p.pid, p.interface_number, p.usage_page)) {
