@@ -233,7 +233,7 @@ TEST(http_server, initial_timeout_releases_capacity)
   ASSERT_EQ(0, getrlimit(RLIMIT_NOFILE, &file_limit));
   const epee::scope_guard restore_file_limit([file_limit]{
     if (file_limit.rlim_cur < 1024)
-      EXPECT_EQ(0, setrlimit(RLIMIT_NOFILE, &file_limit));
+    { EXPECT_EQ(0, setrlimit(RLIMIT_NOFILE, &file_limit)); }
   });
   if (file_limit.rlim_cur < 1024)
   {
