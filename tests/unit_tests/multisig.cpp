@@ -38,6 +38,7 @@
 
 #include "gtest/gtest.h"
 
+#include <boost/filesystem.hpp>
 #include <cstdint>
 #include <sstream>
 
@@ -405,6 +406,70 @@ TEST(multisig, make_2_3)
 {
   make_wallets(2, 3, false);
   make_wallets(2, 3, true);
+}
+
+TEST(multisig, reload_after_intermediate_exchange)
+{
+  const boost::filesystem::path test_dir = boost::filesystem::temp_directory_path() /
+    boost::filesystem::unique_path("monero-multisig-%%%%-%%%%");
+  ASSERT_TRUE(boost::filesystem::create_directory(test_dir));
+  struct test_dir_cleanup
+  {
+    const boost::filesystem::path path;
+    ~test_dir_cleanup()
+    {
+      boost::system::error_code ec;
+      boost::filesystem::remove_all(path, ec);
+    }
+  } cleanup{test_dir};
+  const boost::filesystem::path wallet_path = test_dir / "wallet";
+
+  const epee::wipeable_string password("test-password");
+  std::vector<tools::wallet2> wallets(3);
+  crypto::secret_key spendkey;
+  ASSERT_TRUE(epee::string_tools::hex_to_pod(test_addresses[0].spendkey, spendkey));
+
+  wallets[0].init("", boost::none, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+  wallets[0].set_subaddress_lookahead(1, 1);
+  wallets[0].generate(wallet_path.string(), password, spendkey, true, false);
+  for (size_t i = 1; i < wallets.size(); ++i)
+    make_wallet(i, wallets[i]);
+
+  std::vector<std::string> infos(wallets.size());
+  for (size_t i = 0; i < wallets.size(); ++i)
+  {
+    const epee::wipeable_string wallet_password = i == 0 ? password : epee::wipeable_string("");
+    wallets[i].decrypt_keys(wallet_password);
+    infos[i] = wallets[i].get_multisig_first_kex_msg();
+    wallets[i].encrypt_keys(wallet_password);
+  }
+
+  std::vector<std::string> intermediate_infos;
+  for (size_t i = 0; i < wallets.size(); ++i)
+    intermediate_infos.push_back(wallets[i].make_multisig(i == 0 ? password : "", infos, 2));
+
+  std::vector<std::string> next_infos;
+  for (size_t i = 0; i < wallets.size(); ++i)
+    next_infos.push_back(wallets[i].exchange_multisig_keys(i == 0 ? password : "", intermediate_infos));
+
+  ASSERT_FALSE(wallets[0].get_multisig_status().is_ready);
+  wallets[0].store();
+  wallets[0].deinit();
+
+  tools::wallet2 reopened;
+  reopened.init("", boost::none, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+  ASSERT_NO_THROW(reopened.load(wallet_path.string(), password));
+  EXPECT_TRUE(reopened.get_multisig_status().multisig_is_active);
+  EXPECT_FALSE(reopened.get_multisig_status().is_ready);
+  EXPECT_NO_THROW(reopened.exchange_multisig_keys(password, next_infos));
+  EXPECT_TRUE(reopened.get_multisig_status().is_ready);
+  for (size_t i = 1; i < wallets.size(); ++i)
+  {
+    EXPECT_NO_THROW(wallets[i].exchange_multisig_keys("", next_infos));
+    EXPECT_EQ(wallets[i].get_account().get_public_address_str(cryptonote::TESTNET),
+      reopened.get_account().get_public_address_str(cryptonote::TESTNET));
+  }
+  reopened.deinit();
 }
 
 TEST(multisig, make_2_4)
