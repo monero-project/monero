@@ -31,7 +31,12 @@
 
 #include <cctype>
 
+#include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
+
 #include "file_io_utils.h"
+#include "serialization/binary_utils.h"
 #include "wallet/wallet2.h"
 #include "common/util.h"
 
@@ -62,6 +67,92 @@ public:
         return wallet.m_transfers.at(index).get_public_key();
     }
 };
+
+TEST(wallet_storage, upgrade_legacy_unencrypted_keys)
+{
+    const path test_dir = temp_directory_path() / unique_path("monero-legacy-keys-%%%%-%%%%");
+    ASSERT_TRUE(create_directory(test_dir));
+    struct test_dir_cleanup
+    {
+        const path dir;
+        ~test_dir_cleanup()
+        {
+            boost::system::error_code ec;
+            remove_all(dir, ec);
+        }
+    } cleanup{test_dir};
+
+    const epee::wipeable_string password("test-password");
+    cryptonote::account_base account;
+    const crypto::secret_key spend_key = account.generate();
+    const crypto::secret_key view_key = account.get_keys().m_view_secret_key;
+
+    epee::byte_slice account_data;
+    ASSERT_TRUE(epee::serialization::store_t_to_binary(account, account_data));
+
+    crypto::chacha_key key;
+    crypto::generate_chacha_key(password.data(), password.size(), key, 1);
+    for (const bool json_format : {false, true})
+    {
+        const path wallet_file = test_dir / (json_format ? "json-wallet" : "v0-wallet");
+        std::string plaintext;
+        if (json_format)
+        {
+            rapidjson::Document json;
+            json.SetObject();
+            rapidjson::Value value;
+            value.SetString(reinterpret_cast<const char*>(account_data.data()), account_data.size(), json.GetAllocator());
+            json.AddMember("key_data", value, json.GetAllocator());
+            rapidjson::StringBuffer buffer;
+            rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+            json.Accept(writer);
+            plaintext.assign(buffer.GetString(), buffer.GetSize());
+        }
+        else
+            plaintext.assign(reinterpret_cast<const char*>(account_data.data()), account_data.size());
+
+        tools::wallet2::keys_file_data legacy_keys;
+        legacy_keys.iv = crypto::rand<crypto::chacha_iv>();
+        legacy_keys.account_data.resize(plaintext.size());
+        if (json_format)
+            crypto::chacha20(plaintext.data(), plaintext.size(), key, legacy_keys.iv, &legacy_keys.account_data[0]);
+        else
+            crypto::chacha8(plaintext.data(), plaintext.size(), key, legacy_keys.iv, &legacy_keys.account_data[0]);
+
+        std::string keys_buf;
+        ASSERT_TRUE(serialization::dump_binary(legacy_keys, keys_buf));
+        ASSERT_TRUE(save_string_to_file(wallet_file.string() + ".keys", keys_buf));
+
+        for (int load = 0; load < 2; ++load)
+        {
+            {
+                tools::wallet2 wallet;
+                wallet.load(wallet_file.string(), password);
+                tools::wallet_keys_unlocker unlocker(wallet, &password);
+                EXPECT_TRUE(wallet.get_account().get_keys().m_spend_secret_key == spend_key);
+                EXPECT_TRUE(wallet.get_account().get_keys().m_view_secret_key == view_key);
+            }
+
+            if (load == 0)
+            {
+                std::string saved_buf;
+                ASSERT_TRUE(load_file_to_string(wallet_file.string() + ".keys", saved_buf));
+                tools::wallet2::keys_file_data saved_keys;
+                ASSERT_TRUE(serialization::parse_binary(saved_buf, saved_keys));
+                ASSERT_FALSE(saved_keys.account_data.empty());
+                std::string saved_json(saved_keys.account_data.size(), '\0');
+                crypto::chacha20(saved_keys.account_data.data(), saved_keys.account_data.size(), key,
+                    saved_keys.iv, &saved_json[0]);
+                rapidjson::Document upgraded;
+                ASSERT_FALSE(upgraded.Parse(saved_json.c_str()).HasParseError());
+                ASSERT_TRUE(upgraded.IsObject());
+                ASSERT_TRUE(upgraded.HasMember("encrypted_secret_keys"));
+                ASSERT_TRUE(upgraded["encrypted_secret_keys"].IsInt());
+                EXPECT_EQ(1, upgraded["encrypted_secret_keys"].GetInt());
+            }
+        }
+    }
+}
 
 TEST(wallet_storage, store_to_file2file)
 {
