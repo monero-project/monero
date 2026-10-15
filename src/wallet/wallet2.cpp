@@ -5710,6 +5710,8 @@ bool wallet2::is_key_encryption_enabled() const
 
 void wallet2::encrypt_keys(const crypto::chacha_key &key)
 {
+  verify_password_with_cached_key(key);
+
   m_account.encrypt_keys(key);
   m_account.decrypt_viewkey(key);
 }
