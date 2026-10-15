@@ -81,8 +81,8 @@ from the last command that was invoked. This is `0` for request messages.
 ### Flags
  * `Q` - Bit is set if the message is a request.
  * `S` - Bit is set if the message is a response.
- * `B` - Bit is set if this is a the beginning of a [fragmented message](#fragmented-messages).
- * `E` - Bit is set if this is the end of a [fragmented message](#fragmented-messages).
+ * `B` - Bit is set if this is a the beginning of a [fragmented message](#fragmented).
+ * `E` - Bit is set if this is the end of a [fragmented message](#fragmented).
 
 ### Version
 A fixed value of `1` as an unsigned 32-bit little endian integer.
