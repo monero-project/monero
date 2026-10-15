@@ -5110,6 +5110,20 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
 
       if (!parse_and_validate_tx_base_from_blob(tx_blob.blob, tx, true))
         SCAN_TABLE_QUIT("Could not parse tx from incoming blocks.");
+
+      for (const auto &txin : tx.vin)
+      {
+        if (txin.type() != typeid(txin_to_key))
+          SCAN_TABLE_QUIT("Unsupported transaction input type from incoming blocks.");
+      }
+
+      for (const auto &txout : tx.vout)
+      {
+        crypto::public_key output_public_key;
+        if (!get_output_public_key(txout, output_public_key))
+          SCAN_TABLE_QUIT("Unsupported transaction output type from incoming blocks.");
+      }
+
       cryptonote::get_transaction_prefix_hash(tx, tx_prefix_hash);
 
       auto its = m_scan_table.find(tx_prefix_hash);
