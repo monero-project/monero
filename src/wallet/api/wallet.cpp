@@ -776,8 +776,8 @@ bool WalletImpl::recover(const std::string &path, const std::string &password, c
     clearStatus();
     m_errorString.clear();
     if (seed.empty()) {
-        LOG_ERROR("Electrum seed is empty");
-        setStatusError(tr("Electrum seed is empty"));
+        LOG_ERROR("Mnemonic seed is empty");
+        setStatusError(tr("Mnemonic seed is empty"));
         return false;
     }
 
@@ -788,7 +788,7 @@ bool WalletImpl::recover(const std::string &path, const std::string &password, c
     bool is_polyseed;
     polyseed::data polyseed(POLYSEED_MONERO);
     if (!crypto::ElectrumWords::words_to_bytes_ex(seed, recovery_key, old_language, is_polyseed, polyseed)) {
-        setStatusError(tr("Electrum-style word list failed verification"));
+        setStatusError(tr("Mnemonic seed failed verification"));
         return false;
     }
     if (is_polyseed) {

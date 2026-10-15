@@ -2551,7 +2551,7 @@ namespace tools
         if (!crypto::ElectrumWords::words_to_bytes_ex(req.seed, recovery_key, language, is_polyseed, polyseed))
         {
           er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-          er.message = "Electrum-style word list failed verification";
+          er.message = "Mnemonic seed failed verification";
           return false;
         }
 
@@ -4261,7 +4261,7 @@ namespace tools
       if (!crypto::ElectrumWords::words_to_bytes_ex(req.seed, recovery_key, old_language, is_polyseed, polyseed))
       {
         er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
-        er.message = "Electrum-style word list failed verification";
+        er.message = "Mnemonic seed failed verification";
         return false;
       }
     }
