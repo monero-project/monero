@@ -224,7 +224,6 @@ namespace epee
       case SERIALIZE_TYPE_BOOL:   return read_ae<bool>();
       case SERIALIZE_TYPE_STRING: return read_ae<std::string>();
       case SERIALIZE_TYPE_OBJECT: return read_ae<section>();
-      case SERIALIZE_TYPE_ARRAY:  return read_ae<array_entry>();
       default: 
         CHECK_AND_ASSERT_THROW_MES(false, "unknown entry_type code = " << static_cast<int>(type));
       }
@@ -316,7 +315,6 @@ namespace epee
       case SERIALIZE_TYPE_BOOL:   return read_se<bool>();
       case SERIALIZE_TYPE_STRING: return read_se<std::string>();
       case SERIALIZE_TYPE_OBJECT: return read_se<section>();
-      case SERIALIZE_TYPE_ARRAY:  return read_se<array_entry>();
       default: 
         CHECK_AND_ASSERT_THROW_MES(false, "unknown entry_type code = " << static_cast<int>(ent_type));
       }
