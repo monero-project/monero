@@ -6198,6 +6198,7 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
   const std::vector<std::string> &initial_kex_msgs,
   const std::uint32_t threshold)
 {
+  verify_password_with_cached_key(password);
   // decrypt account keys
   std::optional<wallet_keys_unlocker> unlocker(std::in_place, *this, &password);
 
@@ -6296,6 +6297,7 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
   const std::vector<std::string> &kex_messages,
   const bool force_update_use_with_caution /*= false*/)
 {
+  verify_password_with_cached_key(password);
   const multisig::multisig_account_status ms_status{this->get_multisig_status()};
   CHECK_AND_ASSERT_THROW_MES(ms_status.multisig_is_active, "The wallet is not multisig");
 
