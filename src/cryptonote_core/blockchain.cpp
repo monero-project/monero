@@ -839,7 +839,7 @@ crypto::hash Blockchain::get_pending_block_id_by_height(uint64_t height) const
   return get_block_id_by_height(height);
 }
 //------------------------------------------------------------------
-bool Blockchain::get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan) const
+bool Blockchain::get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan, cryptonote::blobdata *blk_blob) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
@@ -847,9 +847,13 @@ bool Blockchain::get_block_by_hash(const crypto::hash &h, block &blk, bool *orph
   // try to find block in main chain
   try
   {
-    blk = m_db->get_block(h);
+    cryptonote::blobdata blob = m_db->get_block_blob(h);
+    if (!cryptonote::parse_and_validate_block_from_blob(blob, blk))
+      throw DB_ERROR("Failed to parse block from blob retrieved from the db");
     if (orphan)
       *orphan = false;
+    if (blk_blob)
+      *blk_blob = std::move(blob);
     return true;
   }
   // try to find block in alternative chain
@@ -866,6 +870,8 @@ bool Blockchain::get_block_by_hash(const crypto::hash &h, block &blk, bool *orph
       }
       if (orphan)
         *orphan = true;
+      if (blk_blob)
+        *blk_blob = std::move(blob);
       return true;
     }
   }
