@@ -85,6 +85,7 @@ endfunction ()
 
 include(Version)
 monero_add_library(version SOURCES ${CMAKE_BINARY_DIR}/version.cpp DEPENDS genversion)
+target_include_directories(version PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_subdirectory(common)
 add_subdirectory(crypto)
