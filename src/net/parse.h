@@ -138,6 +138,9 @@ namespace net
     expect<epee::net_utils::ipv4_network_subnet>
         get_ipv4_subnet_address(boost::string_ref address, bool allow_implicit_32 = false);
 
+    expect<epee::net_utils::ipv6_network_subnet>
+        get_ipv6_subnet_address(boost::string_ref address, bool allow_implicit_128 = false);
+
     expect<boost::asio::ip::tcp::endpoint> get_tcp_endpoint(const boost::string_ref address);
 
     namespace socks
@@ -157,4 +160,3 @@ namespace net
         };
     }
 }
-
