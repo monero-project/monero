@@ -200,19 +200,19 @@ t_command_server::t_command_server(
       "limit"
     , std::bind(&t_command_parser_executor::set_limit, &m_parser, p::_1)
     , "limit [<kB/s>]"
-    , "Get or set the download and upload limit."
+    , "Get or set the P2P download and upload limit. This limit does not apply to RPC traffic."
     );
   m_command_lookup.set_handler(
       "limit_up"
     , std::bind(&t_command_parser_executor::set_limit_up, &m_parser, p::_1)
     , "limit_up [<kB/s>]"
-    , "Get or set the upload limit."
+    , "Get or set the P2P upload limit. This limit does not apply to RPC traffic."
     );
   m_command_lookup.set_handler(
       "limit_down"
     , std::bind(&t_command_parser_executor::set_limit_down, &m_parser, p::_1)
     , "limit_down [<kB/s>]"
-    , "Get or set the download limit."
+    , "Get or set the P2P download limit. This limit does not apply to RPC traffic."
     );
     m_command_lookup.set_handler(
       "out_peers"
