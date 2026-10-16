@@ -1855,6 +1855,7 @@ namespace cryptonote
       return false;
     }
 
+    const uint64_t old_miner_tx_weight = get_transaction_weight(b.miner_tx);
     if (!remove_field_from_tx_extra(b.miner_tx.extra, typeid(cryptonote::tx_extra_merge_mining_tag)))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
@@ -1869,6 +1870,41 @@ namespace cryptonote
     }
     b.invalidate_hashes();
     b.miner_tx.invalidate_hashes();
+
+    const uint64_t miner_tx_weight = get_transaction_weight(b.miner_tx);
+    if (miner_tx_weight != old_miner_tx_weight)
+    {
+      const auto fail = [&error_resp](const char *message) {
+        error_resp.code = CORE_RPC_ERROR_CODE_WRONG_PARAM;
+        error_resp.message = message;
+        return false;
+      };
+      auto &blockchain = m_core.get_blockchain_storage();
+      CRITICAL_REGION_LOCAL(blockchain);
+      if (b.prev_id != blockchain.get_tail_id())
+        return fail("Cannot determine the reward penalty for a stale block template");
+      const uint64_t median = blockchain.get_current_cumulative_block_weight_median();
+      uint64_t weight = std::max(old_miner_tx_weight, miner_tx_weight);
+      if (weight > median)
+        return fail("Merge-mining tag changes coinbase weight above the reward penalty threshold");
+      try
+      {
+        for (const auto &txid: b.tx_hashes)
+        {
+          txpool_tx_meta_t meta;
+          if (!blockchain.get_txpool_tx_meta(txid, meta) || (restricted && !meta.matches(relay_category::broadcasted)))
+            return fail("Cannot determine block weight: template transactions are missing from the pool");
+          if (meta.weight > median - weight)
+            return fail("Merge-mining tag changes coinbase weight above the reward penalty threshold");
+          weight += meta.weight;
+        }
+      }
+      catch (const std::exception &e)
+      {
+        MERROR("Failed to get txpool metadata: " << e.what());
+        return fail("Cannot determine block weight: failed to read transaction metadata");
+      }
+    }
 
     const blobdata block_blob = t_serializable_object_to_blob(b);
     const blobdata hashing_blob = get_block_hashing_blob(b);
