@@ -4943,13 +4943,46 @@ namespace tools
       return false;
     }
 
+    if (req.connection_settings_invalid)
+    {
+      er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+      er.message = "Invalid proxy or SSL setting type";
+      return false;
+    }
+
     epee::net_utils::http::url_content parsed{};
-    if (!req.address.empty() && !epee::net_utils::parse_url(req.address, parsed))
+    if (!req.address.empty() && (!epee::net_utils::parse_url(req.address, parsed) || parsed.host.find('\0') != std::string::npos))
     {
       er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
       er.message = "Failed to parse daemon address";
       return false;
     }
+
+    std::unique_ptr<wallet2> cli_wallet;
+    if ((!req.proxy_specified || !req.ssl_options_specified) && !m_wallet && !m_pending_daemon)
+    {
+      try
+      {
+        cli_wallet = wallet2::make_dummy(*m_vm, true, nullptr);
+      }
+      catch (const std::exception &e)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+        er.message = std::string("Failed to read daemon settings: ") + e.what();
+        return false;
+      }
+      if (!cli_wallet)
+      {
+        er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
+        er.message = "Failed to read daemon settings";
+        return false;
+      }
+    }
+
+    const std::string proxy = req.proxy_specified ? req.proxy
+      : m_wallet ? m_wallet->get_proxy()
+      : m_pending_daemon ? m_pending_daemon->proxy
+      : cli_wallet->get_proxy();
 
     std::vector<std::vector<uint8_t>> ssl_allowed_fingerprints;
     ssl_allowed_fingerprints.reserve(req.ssl_allowed_fingerprints.size());
@@ -4993,14 +5026,18 @@ namespace tools
       std::move(req.ssl_private_key_path), std::move(req.ssl_certificate_path)
     };
 
-    // If a proxy or SSL is explicitly enabled, then ssl_allow_any_cert, ssl_ca_file, ssl_allowed_fingerprints, or use of a .onion or .i2p address is required
-    const boost::string_ref real_daemon = boost::string_ref{req.address}.substr(0, req.address.rfind(':'));
-    const bool use_proxy = !req.proxy.empty();
+    if (!req.ssl_options_specified)
+      ssl_options = m_wallet ? m_wallet->get_daemon_ssl_options()
+        : m_pending_daemon ? m_pending_daemon->ssl_options
+        : cli_wallet->get_daemon_ssl_options();
+
+    // If a proxy or SSL is enabled, require strong verification or an onion/I2P address.
+    const bool use_proxy = !proxy.empty();
     const bool verification_required =
       ssl_options.verification != epee::net_utils::ssl_verification_t::none &&
       (ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled || use_proxy);
 
-    if (verification_required && !ssl_options.has_strong_verification(real_daemon))
+    if (verification_required && !ssl_options.has_strong_verification(parsed.host))
     {
       er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
       er.message = "SSL or proxy is enabled but no strong verification was configured; set ssl_allow_any_cert, ssl_ca_file, or ssl_allowed_fingerprints, or use a .onion or .i2p address";
@@ -5011,7 +5048,7 @@ namespace tools
     cfg.address = req.address;
     cfg.username = req.username;
     cfg.password = req.password;
-    cfg.proxy = req.proxy;
+    cfg.proxy = proxy;
     cfg.trusted = req.trusted;
     cfg.ssl_options = ssl_options;
 
@@ -5022,7 +5059,7 @@ namespace tools
       if (!req.username.empty() || !req.password.empty())
         daemon_login.emplace(req.username, req.password);
 
-      if (!m_wallet->set_daemon(req.address, daemon_login, req.trusted, std::move(ssl_options), req.proxy))
+      if (!m_wallet->set_daemon(req.address, daemon_login, req.trusted, std::move(ssl_options), proxy))
       {
         er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
         er.message = std::string("Unable to set daemon");

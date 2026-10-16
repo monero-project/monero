@@ -423,24 +423,6 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   if (daemon_address.empty())
     daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
-  {
-    const boost::string_ref real_daemon = boost::string_ref{daemon_address}.substr(0, daemon_address.rfind(':'));
-
-    /* If SSL or proxy is enabled, then a specific cert, CA or fingerprint must
-       be specified. This is specific to the wallet. */
-    const bool verification_required =
-      ssl_options.verification != epee::net_utils::ssl_verification_t::none &&
-      (ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled || use_proxy);
-
-    THROW_WALLET_EXCEPTION_IF(
-      verification_required && !ssl_options.has_strong_verification(real_daemon),
-      tools::error::wallet_internal_error,
-      tools::wallet2::tr("Enabling --") + std::string{use_proxy ? opts.proxy.name : opts.daemon_ssl.name} + tools::wallet2::tr(" requires --") +
-        opts.daemon_ssl_allow_any_cert.name + tools::wallet2::tr(" or --") +
-        opts.daemon_ssl_ca_certificates.name + tools::wallet2::tr(" or --") + opts.daemon_ssl_allowed_fingerprints.name + tools::wallet2::tr(" or use of a .onion/.i2p domain")
-    );
-  }
-
   std::string proxy;
   if (use_proxy)
   {
@@ -467,6 +449,31 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
     proxy = daemon_override->proxy;
     trusted_daemon = daemon_override->trusted;
     ssl_options = daemon_override->ssl_options;
+  }
+
+  {
+    epee::net_utils::http::url_content parsed{};
+    const bool parsed_address = epee::net_utils::parse_url(daemon_address, parsed);
+
+    THROW_WALLET_EXCEPTION_IF(
+      parsed_address && parsed.host.find('\0') != std::string::npos,
+      tools::error::wallet_internal_error,
+      tools::wallet2::tr("Invalid daemon address")
+    );
+
+    /* Check the effective settings, including a set_daemon override, before connecting. */
+    const bool proxy_enabled = !proxy.empty();
+    const bool verification_required =
+      ssl_options.verification != epee::net_utils::ssl_verification_t::none &&
+      (ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled || proxy_enabled);
+
+    THROW_WALLET_EXCEPTION_IF(
+      verification_required && (!parsed_address || !ssl_options.has_strong_verification(parsed.host)),
+      tools::error::wallet_internal_error,
+      tools::wallet2::tr("Enabling --") + std::string{proxy_enabled ? opts.proxy.name : opts.daemon_ssl.name} + tools::wallet2::tr(" requires --") +
+        opts.daemon_ssl_allow_any_cert.name + tools::wallet2::tr(" or --") +
+        opts.daemon_ssl_ca_certificates.name + tools::wallet2::tr(" or --") + opts.daemon_ssl_allowed_fingerprints.name + tools::wallet2::tr(" or use of a .onion/.i2p domain")
+    );
   }
 
   // set --trusted-daemon if local and not overridden by command line or set_daemon
@@ -1427,6 +1434,7 @@ std::unique_ptr<wallet2> wallet2::make_dummy(const boost::program_options::varia
 bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, bool trusted_daemon, epee::net_utils::ssl_options_t ssl_options, const std::string& proxy)
 {
   boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
+  const auto saved_ssl_options = ssl_options;
 
   if(daemon_address.empty()) {
     daemon_address.append("http://localhost:" + std::to_string(get_config(m_nettype).RPC_DEFAULT_PORT));
@@ -1455,6 +1463,7 @@ bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_u
   m_daemon_address = std::move(daemon_address);
   m_daemon_login = std::move(daemon_login);
   m_trusted_daemon = trusted_daemon;
+  m_daemon_ssl_options = saved_ssl_options;
   if (changed)
   {
     m_rpc_version = 0;
@@ -1478,7 +1487,14 @@ bool wallet2::set_proxy(const std::string &address)
 //----------------------------------------------------------------------------------------------------
 std::string wallet2::get_proxy() const
 {
+  boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
   return m_proxy;
+}
+//----------------------------------------------------------------------------------------------------
+epee::net_utils::ssl_options_t wallet2::get_daemon_ssl_options() const
+{
+  boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
+  return m_daemon_ssl_options;
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, const std::string &proxy_address, uint64_t upper_transaction_weight_limit, bool trusted_daemon, epee::net_utils::ssl_options_t ssl_options)

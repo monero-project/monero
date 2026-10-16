@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 36
+#define WALLET_RPC_VERSION_MINOR 37
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -2741,8 +2741,36 @@ namespace wallet_rpc
       std::vector<std::string> ssl_allowed_fingerprints;
       bool ssl_allow_any_cert;
       std::string proxy;
+      bool proxy_specified = false;
+      bool ssl_options_specified = false;
+      bool connection_settings_invalid = false;
 
       BEGIN_KV_SERIALIZE_MAP()
+        if (!is_store)
+        {
+          typename t_storage::meta_entry entry;
+          this_ref.proxy_specified = stg.get_value("proxy", entry, hparent_section);
+          if (this_ref.proxy_specified && !boost::get<std::string>(&entry))
+            this_ref.connection_settings_invalid = true;
+          for (const char *field: {"ssl_support", "ssl_private_key_path", "ssl_certificate_path", "ssl_ca_file"})
+          {
+            if (stg.get_value(field, entry, hparent_section))
+            {
+              this_ref.ssl_options_specified = true;
+              this_ref.connection_settings_invalid |= !boost::get<std::string>(&entry);
+            }
+          }
+          if (stg.get_value("ssl_allowed_fingerprints", entry, hparent_section))
+          {
+            this_ref.ssl_options_specified = true;
+            this_ref.connection_settings_invalid |= !boost::get<epee::serialization::array_entry>(&entry);
+          }
+          if (stg.get_value("ssl_allow_any_cert", entry, hparent_section))
+          {
+            this_ref.ssl_options_specified = true;
+            this_ref.connection_settings_invalid |= !boost::get<bool>(&entry);
+          }
+        }
         KV_SERIALIZE(address)
         KV_SERIALIZE(username)
         KV_SERIALIZE(password)
