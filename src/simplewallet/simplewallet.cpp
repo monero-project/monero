@@ -10369,8 +10369,8 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       {
         uint64_t bh = std::max(pd.m_unlock_time, pd.m_block_height + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE);
         const uint64_t confirmations = last_block_height > pd.m_block_height ? last_block_height - pd.m_block_height : 0;
-        uint64_t last_block_reward = m_wallet->get_last_block_reward();
-        uint64_t suggested_threshold = last_block_reward ? (pd.m_amount + last_block_reward - 1) / last_block_reward : 0;
+        constexpr uint64_t reference_reward = FINAL_SUBSIDY_PER_MINUTE * (DIFFICULTY_TARGET_V2 / 60);
+        const uint64_t suggested_threshold = pd.m_amount / reference_reward + (pd.m_amount % reference_reward != 0);
         if (bh >= last_block_height)
           success_msg_writer() << "Locked: " << (bh - last_block_height) << " blocks to unlock";
         else if (confirmations < suggested_threshold)
