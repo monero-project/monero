@@ -198,6 +198,7 @@ namespace net_utils
 		//--------------------------------------------------------------------------------------------
 		template<class t_connection_context>
 		simple_http_connection_handler<t_connection_context>::simple_http_connection_handler(i_service_endpoint* psnd_hndlr, config_type& config, t_connection_context& conn_context):
+		m_header_scan_pos(0),
 		m_state(http_state_retriving_comand_line),
 		m_body_transfer_type(http_body_transfer_undefined),
 		m_is_stop_handling(false),
@@ -256,6 +257,7 @@ namespace net_utils
 		m_body_transfer_type = http_body_transfer_undefined;
 		m_query_info.clear();
 		m_len_summary = 0;
+		m_header_scan_pos = 0;
 		m_newlines = 0;
 		// data already buffered for a pipelined request still counts toward m_max_content_length
 		m_bytes_read = m_cache.size();
@@ -442,16 +444,18 @@ namespace net_utils
 	{
 		// The request line has already been removed. Match the first empty line,
 		// using the same LF/CRLF rules as parse_cached_header.
-		size_t cur = 0;
+		size_t cur = m_header_scan_pos;
+		m_header_scan_pos = buf.size();
 		while(cur < buf.size())
 		{
-			const size_t line_end = buf.find('\n', cur);
+			size_t line_end = buf.find('\n', cur);
 			if(line_end == std::string::npos)
 				return std::string::npos;
 
-			boost::string_view line(buf.data() + cur, line_end - cur);
 			cur = line_end + 1;
-			if(line == "\r" || line.empty())
+			if(line_end > 0 && buf[line_end - 1] == '\r')
+				--line_end;
+			if(line_end == 0 || buf[line_end - 1] == '\n')
 				return cur;
 		}
 		return std::string::npos;
