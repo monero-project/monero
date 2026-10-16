@@ -2473,6 +2473,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
     }
 
     int num_vouts_received = 0;
+    bool received_with_main_tx_pub_key = false;
     tx_pub_key = pub_key_field.pub_key;
     const cryptonote::account_keys& keys = m_account.get_keys();
     crypto::key_derivation derivation;
@@ -2554,10 +2555,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           THROW_WALLET_EXCEPTION_IF(tx_scan_info[i].error, error::acc_outs_lookup_error, tx, tx_pub_key, m_account.get_keys());
           if (tx_scan_info[i].received)
           {
+            const bool received_with_main_derivation = tx_scan_info[i].received->derivation == derivation;
             hwdev.conceal_derivation(tx_scan_info[i].received->derivation, tx_pub_key, additional_tx_pub_keys.data, derivation, additional_derivations);
             scan_output(tx, miner_tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs, pool);
             if (!tx_scan_info[i].error)
             {
+              received_with_main_tx_pub_key |= received_with_main_derivation;
               tx_amounts_individual_outs[tx_scan_info[i].received->index].push_back(tx_scan_info[i].money_transfered);
             }
           }
@@ -2575,10 +2578,12 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
           hw::device &hwdev = m_account.get_device();
           boost::unique_lock<hw::device> hwdev_lock (hwdev);
           hwdev.set_mode(hw::device::NONE);
+          const bool received_with_main_derivation = tx_scan_info[i].received->derivation == derivation;
           hwdev.conceal_derivation(tx_scan_info[i].received->derivation, tx_pub_key, additional_tx_pub_keys.data, derivation, additional_derivations);
           scan_output(tx, miner_tx, tx_pub_key, i, tx_scan_info[i], num_vouts_received, tx_money_got_in_outs, outs, pool);
           if (!tx_scan_info[i].error)
           {
+            received_with_main_tx_pub_key |= received_with_main_derivation;
             tx_amounts_individual_outs[tx_scan_info[i].received->index].push_back(tx_scan_info[i].money_transfered);
           }
         }
@@ -2616,7 +2621,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
       if (find_tx_extra_field_by_type(tx_extra_fields, extra_nonce))
       {
         crypto::hash8 payment_id8 = null_hash8;
-        if(get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
+        if(received_with_main_tx_pub_key && get_encrypted_payment_id_from_tx_extra_nonce(extra_nonce.nonce, payment_id8))
         {
           // We got a payment ID to go with this tx
           LOG_PRINT_L2("Found encrypted payment ID: " << payment_id8);
