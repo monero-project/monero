@@ -203,6 +203,38 @@ TEST(logging, multiline)
   cleanup();
 }
 
+#ifndef _WIN32
+TEST(logging, reopen_after_external_rotation)
+{
+  init();
+  mlog_set_categories("global:INFO");
+  MGINFO("before rotation");
+
+  const std::string rotated = log_filename + ".1";
+  boost::filesystem::rename(log_filename, rotated);
+  ASSERT_TRUE(boost::filesystem::create_directory(log_filename));
+  ASSERT_FALSE(mlog_reopen());
+  MGINFO("after failed reopen");
+
+  ASSERT_TRUE(boost::filesystem::remove(log_filename));
+  ASSERT_TRUE(mlog_reopen());
+  MGINFO("after successful reopen");
+
+  std::string old_log, new_log;
+  ASSERT_TRUE(load_log_to_string(rotated, old_log));
+  ASSERT_TRUE(load_log_to_string(log_filename, new_log));
+  EXPECT_NE(std::string::npos, old_log.find("before rotation"));
+  EXPECT_NE(std::string::npos, old_log.find("after failed reopen"));
+  EXPECT_EQ(std::string::npos, old_log.find("after successful reopen"));
+  EXPECT_EQ(std::string::npos, new_log.find("before rotation"));
+  EXPECT_EQ(std::string::npos, new_log.find("after failed reopen"));
+  EXPECT_NE(std::string::npos, new_log.find("after successful reopen"));
+
+  boost::filesystem::remove(rotated);
+  cleanup();
+}
+#endif
+
 class LoggingTermSupportsColorSuite : public testing::TestWithParam<std::tuple<std::string, bool>> {};
 
 TEST_P(LoggingTermSupportsColorSuite, Detection)

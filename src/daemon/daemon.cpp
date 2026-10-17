@@ -28,6 +28,8 @@
 //
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <atomic>
+#include <csignal>
 #include <memory>
 #include <stdexcept>
 #include <boost/algorithm/string/split.hpp>
@@ -61,6 +63,16 @@ namespace daemonize {
 
 namespace
 {
+#ifndef _WIN32
+  std::atomic<bool> reopen_log_requested{false};
+  static_assert(ATOMIC_BOOL_LOCK_FREE == 2, "SIGUSR1 requires a lock-free atomic flag");
+
+  void request_log_reopen(int)
+  {
+    reopen_log_requested.store(true, std::memory_order_relaxed);
+  }
+#endif
+
   void verify_zmq_rpc_bind(const boost::program_options::variables_map& vm)
   {
     std::string bind_ip = command_line::get_arg(vm, daemon_args::arg_zmq_rpc_bind_ip);
@@ -235,10 +247,32 @@ bool t_daemon::run(bool interactive)
     throw std::runtime_error{"Can't run stopped daemon"};
   }
 
+#ifndef _WIN32
+  reopen_log_requested.store(false, std::memory_order_relaxed);
+  struct sigaction reopen_action = {};
+  reopen_action.sa_handler = request_log_reopen;
+  reopen_action.sa_flags = SA_RESTART;
+  sigemptyset(&reopen_action.sa_mask);
+  struct sigaction previous_action = {};
+  const bool reopen_signal_installed = sigaction(SIGUSR1, &reopen_action, &previous_action) == 0;
+  const epee::scope_guard restore_reopen_signal([&] {
+    if (reopen_signal_installed)
+      sigaction(SIGUSR1, &previous_action, nullptr);
+  });
+  if (!reopen_signal_installed)
+    MWARNING("Failed to install SIGUSR1 log reopen handler");
+#endif
+
   std::atomic<bool> stop(false), shutdown(false);
   boost::thread stop_thread = boost::thread([&stop, &shutdown, this] {
     while (!stop)
+    {
+#ifndef _WIN32
+      if (reopen_log_requested.exchange(false, std::memory_order_relaxed) && !mlog_reopen())
+        MERROR("Failed to reopen the log file after SIGUSR1");
+#endif
       epee::misc_utils::sleep_no_w(100);
+    }
     if (shutdown)
       this->stop_p2p();
   });
