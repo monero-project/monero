@@ -1711,10 +1711,12 @@ namespace wallet_rpc
     {
       std::string txid;
       uint32_t account_index;
+      bool all_accounts;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txid)
         KV_SERIALIZE_OPT(account_index, (uint32_t)0)
+        KV_SERIALIZE_OPT(all_accounts, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
