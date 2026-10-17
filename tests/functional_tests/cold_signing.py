@@ -53,6 +53,7 @@ class ColdSigningTest():
         self.transfer_to_multi_subaddresses()
         self.self_transfer_to_other_account()
         self.sweep()
+        self.failed_output_import_keeps_complete_transfers()
 
     def reset(self):
         print('Resetting blockchain')
@@ -388,6 +389,38 @@ class ColdSigningTest():
         res = self.hot_wallet.sweep_all(STANDARD_ADDRESS)
 
         self.sign_and_submit(res.unsigned_txset)
+
+    def failed_output_import_keeps_complete_transfers(self):
+        print("Checking failed output import leaves no incomplete transfer")
+        self.mine(10)
+        self.export_import(False)
+        for _ in range(4):
+            self.hot_wallet.create_address(count = 64)
+        address = self.hot_wallet.get_address(subaddresses = [220]).addresses[0].address
+        tx = self.hot_wallet.sweep_all(address)
+        self.sign_and_submit(tx.unsigned_txset)
+
+        outputs = self.hot_wallet.export_outputs(all = True)
+        hot_transfers = self.hot_wallet.incoming_transfers().transfers
+        high_subaddress_output = next(t for t in hot_transfers if t.subaddr_index.minor == 220)
+        before_count = len(self.cold_wallet.incoming_transfers().get('transfers', []))
+        try:
+            self.cold_wallet.import_outputs(outputs.outputs_data_hex)
+            assert False, "import unexpectedly succeeded without the subaddress"
+        except Exception as e:
+            assert 'Failed to generate key image' in str(e), str(e)
+        after_failure = self.cold_wallet.incoming_transfers().get('transfers', [])
+        assert all(t.key_image for t in after_failure[before_count:])
+        assert len(after_failure) < len(hot_transfers)
+
+        for _ in range(4):
+            self.cold_wallet.create_address(count = 64)
+        self.cold_wallet.import_outputs(outputs.outputs_data_hex)
+        cold_transfers = self.cold_wallet.incoming_transfers().transfers
+        assert len(cold_transfers) == len(hot_transfers)
+        imported_output = next(t for t in cold_transfers if t.pubkey == high_subaddress_output.pubkey)
+        assert imported_output.subaddr_index.minor == 220
+        assert imported_output.key_image
 
 class Guard:
     def __enter__(self):
