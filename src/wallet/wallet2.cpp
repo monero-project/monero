@@ -12733,33 +12733,56 @@ std::string wallet2::get_tx_proof(const cryptonote::transaction &tx, const crypt
     hwdev.scalarmultKey(aP, rct::pk2rct(tx_pub_key), rct::sk2rct(a));
     shared_secret[0] =  rct2pk(aP);
 
-    const auto has_received = [&](const crypto::public_key &candidate_shared_secret) {
+    const auto has_received = [&](const crypto::public_key &candidate_shared_secret, size_t begin, size_t end) {
       crypto::key_derivation derivation;
       THROW_WALLET_EXCEPTION_IF(!crypto::generate_key_derivation(candidate_shared_secret, rct::rct2sk(rct::I), derivation),
         error::wallet_internal_error, "Failed to generate key derivation");
-      uint64_t received{0};
-      check_tx_key_helper(tx, derivation, {}, address, received);
-      return received > 0;
+      for (size_t n = begin; n < end; ++n)
+      {
+        crypto::public_key output_public_key;
+        crypto::key_derivation found_derivation;
+        if (!get_output_public_key(tx.vout[n], output_public_key) ||
+            !is_out_to_acc(address, output_public_key, derivation, {}, n, get_output_view_tag(tx.vout[n]), found_derivation))
+          continue;
+        if (tx.version == 1 || tx.rct_signatures.type == rct::RCTTypeNull)
+        {
+          if (tx.vout[n].amount > 0)
+            return true;
+        }
+        else
+        {
+          rct::key mask;
+          if (decodeRct(tx.rct_signatures, found_derivation, n, mask, hw::get_device("default")) > 0)
+            return true;
+        }
+      }
+      return false;
     };
 
     size_t pk_index = 1;
-    if (find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index) && !has_received(shared_secret[0]))
+    bool main_received = has_received(shared_secret[0], 0, tx.vout.size());
+    if (!main_received && find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, pk_index))
     {
       do
       {
         const crypto::public_key candidate = crypto::pubkey_clear_torsion(pub_key_field.pub_key);
         hwdev.scalarmultKey(aP, rct::pk2rct(candidate), rct::sk2rct(a));
         const crypto::public_key candidate_shared_secret = rct::rct2pk(aP);
-        if (has_received(candidate_shared_secret))
+        if (has_received(candidate_shared_secret, 0, tx.vout.size()))
         {
           tx_pub_key = candidate;
           shared_secret[0] = candidate_shared_secret;
+          main_received = true;
           break;
         }
       } while (find_tx_extra_field_by_type(tx_extra_fields, pub_key_field, ++pk_index));
     }
 
-    if (is_subaddress)
+    if (!main_received)
+    {
+      shared_secret[0] = rct::rct2pk(rct::pkGen());
+    }
+    else if (is_subaddress)
     {
       hwdev.generate_tx_proof(prefix_hash, address.m_view_public_key, tx_pub_key, address.m_spend_public_key, shared_secret[0], a, sig[0]);
     }
@@ -12771,6 +12794,11 @@ std::string wallet2::get_tx_proof(const cryptonote::transaction &tx, const crypt
     {
       hwdev.scalarmultKey(aP,rct::pk2rct(additional_tx_pub_keys[i - 1]), rct::sk2rct(a));
       shared_secret[i] = rct2pk(aP);
+      if (i > tx.vout.size() || !has_received(shared_secret[i], i - 1, i))
+      {
+        shared_secret[i] = rct::rct2pk(rct::pkGen());
+        continue;
+      }
       if (is_subaddress)
       {
         hwdev.generate_tx_proof(prefix_hash, address.m_view_public_key, additional_tx_pub_keys[i - 1], address.m_spend_public_key, shared_secret[i], a, sig[i]);
