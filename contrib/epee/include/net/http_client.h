@@ -93,8 +93,10 @@ namespace net_utils
 			reciev_machine_state m_state;
 			chunked_state m_chunked_state;
 			std::string m_chunked_cache;
+			size_t m_chunk_separator_count;
 			size_t m_chunk_head_scan_pos;
 			size_t m_chunk_head_scan_digits;
+			static constexpr size_t max_chunk_metadata_len = 100000;
 			bool m_auto_connect;
 			critical_section m_lock;
 
@@ -113,6 +115,7 @@ namespace net_utils
 				, m_state()
 				, m_chunked_state()
 				, m_chunked_cache()
+				, m_chunk_separator_count(0)
 				, m_chunk_head_scan_pos(0)
 				, m_chunk_head_scan_digits(0)
 				, m_auto_connect(true)
@@ -351,6 +354,7 @@ namespace net_utils
 					return false;
 				}
 				m_header_cache.clear();
+				m_chunked_cache.clear();
 				if(m_state != reciev_machine_state_error)
 				{
 					if(m_response_info.m_header_info.m_connection.size() && !string_tools::compare_no_case("close", m_response_info.m_header_info.m_connection))
@@ -371,6 +375,7 @@ namespace net_utils
 			{
 				std::string().swap(m_header_cache);
 				std::string().swap(m_chunked_cache);
+				m_chunk_separator_count = 0;
 				m_response_info.clear();
 				m_len_in_summary = 0;
 				m_len_in_remain = 0;
@@ -518,6 +523,8 @@ namespace net_utils
 				std::string::iterator it = buff.begin() + m_chunk_head_scan_pos;
 				for(; it!= buff.end(); it++, offset++)
 				{
+					if(static_cast<size_t>(it - buff.begin()) >= max_chunk_metadata_len)
+						return false;
 					if(!is_hex_symbol(*it))
 					{
 						if(*it == '\r' || *it == ' ' )
@@ -541,6 +548,8 @@ namespace net_utils
 
 								for(it++;it != buff.end(); it++)
 								{
+									if(static_cast<size_t>(it - buff.begin()) >= max_chunk_metadata_len)
+										return false;
 									if('\r' == *it)
 										continue;
 									else if('\n' == *it)
@@ -598,17 +607,29 @@ namespace net_utils
 					case http_chunked_state_chunk_head:
 						if(m_chunked_cache[0] == '\n' || m_chunked_cache[0] == '\r')
 						{
-							//optimize a bit
-							if(m_chunked_cache[0] == '\r' && m_chunked_cache.size()>1 && m_chunked_cache[1] == '\n')
-								m_chunked_cache.erase(0, 2);
-							else
-								m_chunked_cache.erase(0, 1);
-							break;
+							const size_t prefix_len = m_chunked_cache.find_first_not_of("\r\n");
+							const size_t separator_len = prefix_len == std::string::npos ? m_chunked_cache.size() : prefix_len;
+							if(separator_len >= max_chunk_metadata_len - m_chunk_separator_count)
+							{
+								LOG_ERROR("http_stream_filter::handle_chunked(*) Chunk separator too long");
+								m_state = reciev_machine_state_error;
+								disconnect();
+								return false;
+							}
+							m_chunk_separator_count += separator_len;
+							m_chunked_cache.erase(0, separator_len);
+							if(m_chunked_cache.empty())
+							{
+								need_more_data = true;
+								return true;
+							}
 						}
+						m_chunk_separator_count = 0;
 						if(!get_chunk_head(m_chunked_cache, m_len_in_remain, is_matched))
 						{
 							LOG_ERROR("http_stream_filter::handle_chunked(*) Failed to get length from chunked head (" << m_chunked_cache.size() << " bytes)");
 							m_state = reciev_machine_state_error;
+							disconnect();
 							return false;
 						}
 
@@ -804,6 +825,7 @@ namespace net_utils
 					}
 					m_state = reciev_machine_state_body_chunked;
 					m_chunked_state = http_chunked_state_chunk_head;
+					m_chunk_separator_count = 0;
 					m_chunk_head_scan_pos = 0;
 					m_chunk_head_scan_digits = 0;
 					return true;
