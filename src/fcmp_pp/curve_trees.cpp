@@ -1085,5 +1085,18 @@ std::size_t CurveTrees<C1, C2>::n_layers(const uint64_t n_leaf_tuples) const
 // Explicit instantiation
 template std::size_t CurveTrees<Selene, Helios>::n_layers(const uint64_t n_leaf_tuples) const;
 //----------------------------------------------------------------------------------------------------------------------
+template<>
+TreeRootShared CurveTrees<Selene, Helios>::get_tree_root_from_bytes(const std::size_t n_layers,
+    const crypto::ec_point &tree_root) const
+{
+    if (n_layers == 0)
+        return nullptr;
+
+    if ((n_layers % 2) == 0)
+        return fcmp_pp::helios_tree_root(m_c2->from_bytes(tree_root));
+    else
+        return fcmp_pp::selene_tree_root(m_c1->from_bytes(tree_root));
+}
+//----------------------------------------------------------------------------------------------------------------------
 } //namespace curve_trees
 } //namespace fcmp_pp
