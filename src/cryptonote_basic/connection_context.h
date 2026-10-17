@@ -107,6 +107,7 @@ namespace cryptonote
     boost::posix_time::ptime m_last_request_time;
     copyable_atomic m_callback_request_count; //in debug purpose: problem with double callback rise
     crypto::hash m_last_known_hash;
+    bool m_refresh_for_next_span = false;
     uint32_t m_pruning_seed;
     uint16_t m_rpc_port;
     uint32_t m_rpc_credits_per_hash;
