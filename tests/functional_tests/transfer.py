@@ -352,6 +352,11 @@ class TransferTest():
         assert e.amount == amount
         assert e.fee == fee
 
+        res = self.wallet[1].get_transfers(in_ = True, out = False, pending = False, failed = False, pool = False, min_height = e.height, max_height = e.height)
+        assert [t.txid for t in res['in']] == [txid]
+        res = self.wallet[1].get_transfers(in_ = True, out = False, pending = False, failed = False, pool = False, min_height = e.height + 1, max_height = e.height + 1)
+        assert 'in' not in res or len(res['in']) == 0
+
         res = self.wallet[1].get_balance()
         assert res.balance == running_balances[1]
         assert res.unlocked_balance <= res.balance
@@ -413,6 +418,9 @@ class TransferTest():
 
         assert e.amount == amount
         assert e.fee == fee
+
+        res = self.wallet[0].get_transfers(in_ = False, out = True, pending = False, failed = False, pool = False, min_height = e.height, max_height = e.height)
+        assert txid in [t.txid for t in res.out]
 
         res = self.wallet[0].get_balance()
         assert res.balance == running_balances[0]
@@ -571,6 +579,11 @@ class TransferTest():
         assert 'payments' not in res or len(res.payments) == 0 # none with that payment id
         res = self.wallet[1].get_bulk_payments(payment_ids = ['1111111122222222' + '0'*48])
         assert len(res.payments) >= 1 # one tx to integrated address
+        payment = res.payments[0]
+        res = self.wallet[1].get_bulk_payments(payment_ids = ['1111111122222222' + '0'*48], min_block_height = payment.block_height)
+        assert payment.tx_hash in [p.tx_hash for p in res.payments]
+        res = self.wallet[1].get_bulk_payments(min_block_height = payment.block_height)
+        assert payment.tx_hash in [p.tx_hash for p in res.payments]
 
         self.wallet[2].refresh()
         res = self.wallet[2].get_bulk_payments()
