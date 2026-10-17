@@ -78,6 +78,7 @@ namespace
   uint32_t create_checksum_index(const std::vector<epee::wipeable_string> &word_list,
     const Language::Base *language);
   bool checksum_test(std::vector<epee::wipeable_string> seed, const Language::Base *language);
+  bool language_is_expected(const Language::Base *language, const std::string *expected_language);
 
   /*!
    * \brief Finds the word list that contains the seed words and puts the indices
@@ -88,8 +89,15 @@ namespace
    * \param  language        Language instance pointer to write to after it is found.
    * \return                 true if all the words were present in some language false if not.
    */
+  bool language_is_expected(const Language::Base *language, const std::string *expected_language)
+  {
+    return !expected_language || *expected_language == language->get_language_name() ||
+      *expected_language == language->get_english_language_name();
+  }
+
   bool find_seed_language(const std::vector<epee::wipeable_string> &seed,
-    bool has_checksum, std::vector<uint32_t> &matched_indices, Language::Base **language)
+    bool has_checksum, std::vector<uint32_t> &matched_indices, Language::Base **language,
+    const std::string *expected_language = NULL)
   {
     // If there's a new language added, add an instance of it here.
     std::vector<Language::Base*> language_instances({
@@ -116,6 +124,9 @@ namespace
     for (std::vector<Language::Base*>::iterator it1 = language_instances.begin();
       it1 != language_instances.end(); it1++)
     {
+      if (!language_is_expected(*it1, expected_language))
+        continue;
+
       const std::unordered_map<epee::wipeable_string, uint32_t, Language::WordHash, Language::WordEqual> &word_map = (*it1)->get_word_map();
       const std::unordered_map<epee::wipeable_string, uint32_t, Language::WordHash, Language::WordEqual> &trimmed_word_map = (*it1)->get_trimmed_word_map();
       // To iterate through seed words
@@ -264,6 +275,12 @@ namespace crypto
     bool words_to_bytes(const epee::wipeable_string &words, epee::wipeable_string& dst, size_t len, bool duplicate,
       std::string &language_name)
     {
+      return words_to_bytes(words, dst, len, duplicate, language_name, std::string());
+    }
+
+    bool words_to_bytes(const epee::wipeable_string &words, epee::wipeable_string& dst, size_t len, bool duplicate,
+      std::string &language_name, const std::string &expected_language)
+    {
       std::vector<epee::wipeable_string> seed;
 
       words.split(seed);
@@ -294,9 +311,11 @@ namespace crypto
       const epee::scope_guard wiper([&](){
         memwipe(matched_indices.data(), matched_indices.size() * sizeof(matched_indices[0]));});
       Language::Base *language;
-      if (!find_seed_language(seed, has_checksum, matched_indices, &language))
+      const std::string *language_hint = expected_language.empty() ? NULL : &expected_language;
+      if (!find_seed_language(seed, has_checksum, matched_indices, &language, language_hint))
       {
-        MERROR("Invalid seed: language not found");
+        if (expected_language.empty())
+          MERROR("Invalid seed: language not found");
         return false;
       }
       language_name = language->get_language_name();
@@ -357,10 +376,17 @@ namespace crypto
     bool words_to_bytes(const epee::wipeable_string &words, crypto::secret_key& dst,
       std::string &language_name)
     {
+      return words_to_bytes(words, dst, language_name, std::string());
+    }
+
+    bool words_to_bytes(const epee::wipeable_string &words, crypto::secret_key& dst,
+      std::string &language_name, const std::string &expected_language)
+    {
       epee::wipeable_string s;
-      if (!words_to_bytes(words, s, sizeof(dst), true, language_name))
+      if (!words_to_bytes(words, s, sizeof(dst), true, language_name, expected_language))
       {
-        MERROR("Invalid seed: failed to convert words to bytes");
+        if (expected_language.empty())
+          MERROR("Invalid seed: failed to convert words to bytes");
         return false;
       }
       if (s.size() != sizeof(dst))
@@ -399,6 +425,13 @@ namespace crypto
     bool words_to_bytes_ex(const epee::wipeable_string &words, crypto::secret_key& dst,
       std::string &language_name, bool &is_polyseed, polyseed::data &polyseed)
     {
+      return words_to_bytes_ex(words, dst, language_name, is_polyseed, polyseed, std::string());
+    }
+
+    bool words_to_bytes_ex(const epee::wipeable_string &words, crypto::secret_key& dst,
+      std::string &language_name, bool &is_polyseed, polyseed::data &polyseed,
+      const std::string &expected_legacy_language)
+    {
       is_polyseed = false;
       polyseed::language polyseed_language;
       const epee::wipeable_string normalized_words = normalize_mnemonic(words);
@@ -429,7 +462,26 @@ namespace crypto
         return true;
       }
 
-      return words_to_bytes(normalized_words, dst, language_name);
+      if (!words_to_bytes(normalized_words, dst, language_name))
+        return false;
+
+      if (expected_legacy_language.empty() || language_name == old_language_name ||
+          !is_valid_language(expected_legacy_language, false))
+        return true;
+
+      std::vector<epee::wipeable_string> seed_words;
+      normalized_words.split(seed_words);
+      if (seed_words.size() != seed_length + 1)
+        return true;
+
+      crypto::secret_key alternative_key;
+      std::string alternative_language;
+      if (words_to_bytes(normalized_words, alternative_key, alternative_language, expected_legacy_language))
+      {
+        dst = alternative_key;
+        language_name = alternative_language;
+      }
+      return true;
     }
 
     /*!
