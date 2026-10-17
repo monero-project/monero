@@ -10,12 +10,12 @@ fi
 type="$1"
 if test -z "$type"
 then
-  echo "usage: $0 block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json|base58|parse-url|http-client|levin|bulletproof|bulletproof-plus|utf8|clsag|clsag_cout|clsag_message|clsag_pubs|network-address"
+  echo "usage: $0 block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json|base58|parse-url|http-client|levin|bulletproof|bulletproof-plus|utf8|clsag|clsag_cout|clsag_message|clsag_pubs|network-address|multisig-kex|multisig-tx|multisig-info"
   exit 1
 fi
 case "$type" in
-  block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json|base58|parse-url|http-client|levin|bulletproof|bulletproof-plus|utf8|clsag|clsag_cout|clsag_message|clsag_pubs|network-address) ;;
-  *) echo "usage: $0 block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json|base58|parse-url|http-client|levin|bulletproof|bulletproof-plus|utf8|clsag|clsag_cout|clsag_message|clsag_pubs|network-address"; exit 1 ;;
+  block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json|base58|parse-url|http-client|levin|bulletproof|bulletproof-plus|utf8|clsag|clsag_cout|clsag_message|clsag_pubs|network-address|multisig-kex|multisig-tx|multisig-info) ;;
+  *) echo "usage: $0 block|transaction|signature|cold-outputs|cold-transaction|load-from-binary|load-from-json|base58|parse-url|http-client|levin|bulletproof|bulletproof-plus|utf8|clsag|clsag_cout|clsag_message|clsag_pubs|network-address|multisig-kex|multisig-tx|multisig-info"; exit 1 ;;
 esac
 
 if test -d "fuzz-out/$type"
@@ -26,4 +26,4 @@ else
 fi
 
 mkdir -p fuzz-out
-afl-fuzz -i "$dir" -m none -t 250 -o fuzz-out/$type build/fuzz/tests/fuzz/${type}_fuzz_tests @@
+afl-fuzz -i "$dir" -m none -t 5000 -o fuzz-out/$type build/fuzz/tests/fuzz/${type}_fuzz_tests @@
