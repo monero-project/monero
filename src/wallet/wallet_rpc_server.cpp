@@ -653,7 +653,11 @@ namespace tools
     else if (ms_status.multisig_is_active)
       res.wallet_type = (boost::format("%u/%u multisig%s") % ms_status.threshold % ms_status.total % (ms_status.is_ready ? "" : " (not yet finalized)")).str();
     else if (m_wallet->is_background_wallet())
-      res.wallet_type = "Background wallet";
+      res.wallet_type = "Background";
+    else if (m_wallet->key_on_device())
+      res.wallet_type = "Hardware";
+    else if (!m_wallet->is_deterministic())
+      res.wallet_type = "Non-deterministic";
     else
       res.wallet_type = "Normal";
     res.network_type = m_wallet->nettype() == cryptonote::TESTNET ? "Testnet"
@@ -675,11 +679,13 @@ namespace tools
     }
 
     if (ms_status.multisig_is_active)
-      res.seed_type = tr("Multisig");
+      res.seed_type = "Multisig";
     else if (m_wallet->is_polyseed())
-      res.seed_type = tr("Polyseed");
+      res.seed_type = "Polyseed";
+    else if (!m_wallet->is_deterministic())
+      res.seed_type = "None";
     else
-      res.seed_type = tr("Legacy");
+      res.seed_type = "Legacy";
 
     return true;
   }
