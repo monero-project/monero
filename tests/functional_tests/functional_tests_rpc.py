@@ -56,7 +56,7 @@ monerod_base = [builddir + "/bin/monerod", "--regtest", "--fixed-difficulty", st
 
 monerod_extra = [
   ["--offline"],
-  ["--offline"],
+  ["--offline", "--no-sync"],
   ["--add-exclusive-node", "127.0.0.1:18283"],
   ["--add-exclusive-node", "127.0.0.1:18282"],
   ["--rpc-login", "md5_lover:Z1ON0101", "--offline"],
