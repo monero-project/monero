@@ -43,6 +43,7 @@ class URITest():
     def run_test(self):
       self.create()
       self.test_monero_uri()
+      self.test_multi_uri()
 
     def create(self):
         print('Creating wallet')
@@ -223,6 +224,47 @@ class URITest():
         assert res.uri.amount == 239390140000000
         assert res.unknown_parameters == [u'unknown=' + quoted_utf8string[0]], res
 
+
+
+    def test_multi_uri(self):
+        wallet = Wallet()
+        address = '46BeWrHpwXmHDpDEUmZBWZfoQpdc6HaERCNmx1pEYL2rAcuwufPN9rXHHtyUA4QVy66qeFQkn6sfK8aHYjA3jk3o1Bv16em'
+        second = '888tNkZrPN6JsEgekjMnABU4TBzc2Dt29EPAvkRxbANsAnjyPbb3iQ1YBRk1UXcdRsiKc9dhwMVgN5S9cQUiyoogDavup3H'
+        recipients = [
+            {'address': address, 'amount': '0.011', 'currency': 'XMR', 'label': 'Buyer & seller'},
+            {'address': second},
+            {'address': address, 'amount': '0', 'currency': 'USD', 'label': 'explicit zero'},
+        ]
+        generated = wallet.make_uri_multi(recipients, tx_description='Order=42')
+        assert generated.uri.startswith('monero:' + address + '?version=2.0&')
+        parsed = wallet.parse_uri_multi(generated.uri)
+        assert len(parsed.uri.recipients) == 3
+        assert parsed.uri.recipients[0].amount == '0.011'
+        assert parsed.uri.recipients[0].currency == 'XMR'
+        assert parsed.uri.recipients[0].label == 'Buyer & seller'
+        assert parsed.uri.recipients[1].address == second
+        assert parsed.uri.recipients[1].amount == ''
+        assert parsed.uri.recipients[2].amount == '0'
+        assert parsed.uri.recipients[2].currency == 'USD'
+        assert parsed.uri.tx_description == 'Order=42'
+
+        # The original scalar API continues using atomic XMR amounts.
+        legacy = wallet.make_uri(address=address, amount=11000000000)
+        assert wallet.parse_uri(legacy.uri).uri.amount == 11000000000
+        assert wallet.parse_uri_multi(legacy.uri).uri.recipients[0].amount == '0.011000000000'
+
+        for uri in [
+            'monero:' + address + '?version=3.0',
+            'monero:' + address + '?version=2.0&amount=1&amount=2',
+            'monero:' + address + '?version=2.0&address=invalid',
+            'monero:' + address + '?version=2.0&amount=1DOGE',
+        ]:
+            try:
+                wallet.parse_uri_multi(uri)
+            except Exception:
+                pass
+            else:
+                raise AssertionError('Accepted invalid multi-recipient URI: ' + uri)
 
 
 if __name__ == '__main__':
