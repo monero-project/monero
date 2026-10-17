@@ -32,6 +32,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/preprocessor/stringize.hpp>
+#include <algorithm>
 #include <cstdint>
 #include <chrono>
 #include <cstring>
@@ -4944,7 +4945,9 @@ namespace tools
     }
 
     epee::net_utils::http::url_content parsed{};
-    if (!req.address.empty() && !epee::net_utils::parse_url(req.address, parsed))
+    if (!req.address.empty() &&
+        (!epee::net_utils::parse_url(req.address, parsed) ||
+         std::any_of(parsed.host.begin(), parsed.host.end(), [](unsigned char c) { return c <= ' ' || c == 0x7f; })))
     {
       er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
       er.message = "Failed to parse daemon address";
@@ -4994,13 +4997,12 @@ namespace tools
     };
 
     // If a proxy or SSL is explicitly enabled, then ssl_allow_any_cert, ssl_ca_file, ssl_allowed_fingerprints, or use of a .onion or .i2p address is required
-    const boost::string_ref real_daemon = boost::string_ref{req.address}.substr(0, req.address.rfind(':'));
     const bool use_proxy = !req.proxy.empty();
     const bool verification_required =
       ssl_options.verification != epee::net_utils::ssl_verification_t::none &&
       (ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled || use_proxy);
 
-    if (verification_required && !ssl_options.has_strong_verification(real_daemon))
+    if (verification_required && !ssl_options.has_strong_verification(parsed.host))
     {
       er.code = WALLET_RPC_ERROR_CODE_NO_DAEMON_CONNECTION;
       er.message = "SSL or proxy is enabled but no strong verification was configured; set ssl_allow_any_cert, ssl_ca_file, or ssl_allowed_fingerprints, or use a .onion or .i2p address";
