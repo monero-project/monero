@@ -424,7 +424,14 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
     daemon_address = std::string("http://") + daemon_host + ":" + std::to_string(daemon_port);
 
   {
-    const boost::string_ref real_daemon = boost::string_ref{daemon_address}.substr(0, daemon_address.rfind(':'));
+    epee::net_utils::http::url_content parsed{};
+    const bool parsed_address = epee::net_utils::parse_url(daemon_address, parsed);
+
+    THROW_WALLET_EXCEPTION_IF(
+      parsed_address && std::any_of(parsed.host.begin(), parsed.host.end(), [](unsigned char c) { return c <= ' ' || c == 0x7f; }),
+      tools::error::wallet_internal_error,
+      tools::wallet2::tr("Invalid daemon address")
+    );
 
     /* If SSL or proxy is enabled, then a specific cert, CA or fingerprint must
        be specified. This is specific to the wallet. */
@@ -433,7 +440,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
       (ssl_options.support == epee::net_utils::ssl_support_t::e_ssl_support_enabled || use_proxy);
 
     THROW_WALLET_EXCEPTION_IF(
-      verification_required && !ssl_options.has_strong_verification(real_daemon),
+      verification_required && (!parsed_address || !ssl_options.has_strong_verification(parsed.host)),
       tools::error::wallet_internal_error,
       tools::wallet2::tr("Enabling --") + std::string{use_proxy ? opts.proxy.name : opts.daemon_ssl.name} + tools::wallet2::tr(" requires --") +
         opts.daemon_ssl_allow_any_cert.name + tools::wallet2::tr(" or --") +
