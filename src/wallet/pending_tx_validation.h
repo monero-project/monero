@@ -63,7 +63,7 @@ void sanity_check_unsigned_tx_set(const std::vector<wallet2::tx_construction_dat
     const cryptonote::account_keys &account_keys,
     const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses);
 /**
- * brief: sanity_check_pending_tx - validate `pending_tx` consistency with itself and with with `transfer_details`
+ * brief: sanity_check_pending_tx - validate `pending_tx` consistency with itself and with `transfer_details`
  *        Assumes `ptx` version is >= v16.
  *        WARNING: Unable to verify destination addresses that are URLs and not explicit addresses.
  *        WARNING: Due to upstream chaos, we are unable to reliably validate that `tx_construction_data::extra` matches
