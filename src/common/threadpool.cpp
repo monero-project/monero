@@ -167,7 +167,15 @@ void threadpool::run(bool flush) {
     ++depth;
     is_leaf = e.leaf;
     try { e.f(); }
-    catch (const std::exception &ex) { e.wo->set_error(); try { MERROR("Exception in threadpool job: " << ex.what()); } catch (...) {} }
+    catch (const std::exception &ex) {
+      if (e.wo)
+        e.wo->set_error();
+      try { MERROR("Exception in threadpool job: " << ex.what()); } catch (...) {}
+    }
+    catch (...) {
+      if (e.wo)
+        e.wo->set_error();
+    }
     --depth;
     is_leaf = false;
 
