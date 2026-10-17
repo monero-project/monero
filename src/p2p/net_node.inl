@@ -223,6 +223,8 @@ namespace nodetool
     command_line::add_arg(desc, arg_limit_rate);
     command_line::add_arg(desc, arg_pad_transactions);
     command_line::add_arg(desc, arg_max_connections_per_ip);
+    command_line::add_arg(desc, arg_limit_rate_up_per_peer);
+    command_line::add_arg(desc, arg_limit_rate_down_per_peer);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -574,6 +576,10 @@ namespace nodetool
     public_zone.m_can_pingback = true;
     m_external_port = command_line::get_arg(vm, arg_p2p_external_port);
     m_allow_local_ip = command_line::get_arg(vm, arg_p2p_allow_local_ip);
+
+    const int64_t peer_up = command_line::get_arg(vm, arg_limit_rate_up_per_peer);
+    const int64_t peer_down = command_line::get_arg(vm, arg_limit_rate_down_per_peer);
+
     if (!command_line::is_arg_defaulted(vm, arg_igd))
     {
       MWARNING("UPnP port mapping support was removed. The --igd option is currently non-functional.");
@@ -712,6 +718,20 @@ namespace nodetool
     if ( !set_rate_limit(vm, command_line::get_arg(vm, arg_limit_rate) ) )
       return false;
 
+    if ( !set_rate_up_limit_per_peer(vm, command_line::get_arg(vm, arg_limit_rate_up_per_peer) ) )
+      return false;
+
+    if ( !set_rate_down_limit_per_peer(vm, command_line::get_arg(vm, arg_limit_rate_down_per_peer) ) )
+      return false;
+
+    const int64_t effective_up = static_cast<int64_t>(epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::get_rate_up_limit());
+    const int64_t effective_down = static_cast<int64_t>(epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::get_rate_down_limit());
+
+    if ( peer_up != -1 && peer_up > effective_up )
+      MWARNING("per-peer upload limit (" << peer_up << " kB/s) exceeds effective global upload limit (" << effective_up << " kB/s); per-peer upload limit will never trigger.");
+
+    if ( peer_down != -1 && peer_down > effective_down )
+      MWARNING("per-peer download limit (" << peer_down << " kB/s) exceeds effective global download limit (" << effective_down << " kB/s); per-peer download limit will never trigger.");
 
     epee::byte_slice noise = nullptr;
     auto proxies = get_proxies(vm);
@@ -3025,6 +3045,34 @@ namespace nodetool
       MINFO("Set limit-down to " << limit_down << " kB/s");
     }
 
+    return true;
+  }
+
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_rate_up_limit_per_peer(const boost::program_options::variables_map& vm, int64_t limit)
+  {
+    if (limit != -1 && limit < P2P_MIN_LIMIT_RATE_PER_PEER)
+    {
+      MERROR("Invalid per-peer upload limit: " << limit << " kB/s (must be -1 for unlimited or at least " << P2P_MIN_LIMIT_RATE_PER_PEER << " kB/s)");
+      return false;
+    }
+
+    epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit_per_peer(limit);
+    MINFO("Set per-peer limit-up to " << (limit == -1 ? std::string("unlimited") : std::to_string(limit) + " kB/s"));
+    return true;
+  }
+
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::set_rate_down_limit_per_peer(const boost::program_options::variables_map& vm, int64_t limit)
+  {
+    if (limit != -1 && limit < P2P_MIN_LIMIT_RATE_PER_PEER)
+    {
+      MERROR("Invalid per-peer download limit: " << limit << " kB/s (must be -1 for unlimited or at least " << P2P_MIN_LIMIT_RATE_PER_PEER << " kB/s)");
+      return false;
+    }
+
+    epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_down_limit_per_peer( limit );
+    MINFO("Set per-peer limit-down to " << (limit == -1 ? std::string("unlimited") : std::to_string(limit) + " kB/s"));
     return true;
   }
 

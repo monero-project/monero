@@ -104,6 +104,9 @@ class connection_basic_pimpl; // PIMPL for this class
 class connection_basic { // not-templated base class for rapid development of some code parts
 		// beware of removing const, net_utils::connection is sketchily doing a cast to prevent storing ptr twice
 		const std::shared_ptr<connection_basic_shared_state> m_state;
+		static std::atomic<int64_t> m_rate_up_limit_per_peer;
+		static std::atomic<int64_t> m_rate_down_limit_per_peer;
+
 	public:
 
 		std::unique_ptr< connection_basic_pimpl > mI; // my Implementation
@@ -176,8 +179,12 @@ class connection_basic { // not-templated base class for rapid development of so
 		
 		static void set_rate_up_limit(uint64_t limit);
 		static void set_rate_down_limit(uint64_t limit);
+		static void set_rate_up_limit_per_peer(int64_t limit);
+		static void set_rate_down_limit_per_peer(int64_t limit);
 		static uint64_t get_rate_up_limit();
 		static uint64_t get_rate_down_limit();
+		static int64_t get_rate_up_limit_per_peer();
+		static int64_t get_rate_down_limit_per_peer();
 
 		// config misc
 		static void set_tos_flag(int tos); // ToS / QoS flag
