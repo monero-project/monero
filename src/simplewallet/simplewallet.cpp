@@ -50,6 +50,7 @@
 #include <boost/format.hpp>
 #include <boost/regex.hpp>
 #include <boost/range/adaptor/transformed.hpp>
+#include <boost/range/iterator_range.hpp>
 #include <boost/filesystem.hpp>
 #include "include_base_utils.h"
 #include "console_handler.h"
@@ -8123,11 +8124,23 @@ bool simple_wallet::set_tx_key(const std::vector<std::string> &args_)
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+namespace
+{
+  std::string proof_message(const std::vector<std::string> &args, size_t first)
+  {
+    std::string message = boost::join(boost::make_iterator_range(args.begin() + first, args.end()), " ");
+    // The interactive parser keeps quotes; preserve existing single-token messages.
+    if (args.size() > first + 1 && message.size() > 1 && message.front() == '"' && message.back() == '"')
+      message = message.substr(1, message.size() - 2);
+    return message;
+  }
+}
+
 bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
 {
   CHECK_IF_BACKGROUND_SYNCING("cannot get tx proof");
 
-  if (args.size() != 2 && args.size() != 3)
+  if (args.size() < 2)
   {
     PRINT_USAGE(USAGE_GET_TX_PROOF);
     return true;
@@ -8151,7 +8164,7 @@ bool simple_wallet::get_tx_proof(const std::vector<std::string> &args)
 
   try
   {
-    std::string sig_str = m_wallet->get_tx_proof(txid, info.address, info.is_subaddress, args.size() == 3 ? args[2] : "");
+    std::string sig_str = m_wallet->get_tx_proof(txid, info.address, info.is_subaddress, proof_message(args, 2));
     const std::string filename = "monero_tx_proof";
     if (m_wallet->save_to_file(filename, sig_str, true))
       success_msg_writer() << tr("signature file saved to: ") << filename;
@@ -8255,7 +8268,7 @@ bool simple_wallet::check_tx_key(const std::vector<std::string> &args_)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::check_tx_proof(const std::vector<std::string> &args)
 {
-  if(args.size() != 3 && args.size() != 4) {
+  if (args.size() < 3) {
     PRINT_USAGE(USAGE_CHECK_TX_PROOF);
     return true;
   }
@@ -8292,7 +8305,7 @@ bool simple_wallet::check_tx_proof(const std::vector<std::string> &args)
     uint64_t received;
     bool in_pool;
     uint64_t confirmations;
-    if (m_wallet->check_tx_proof(txid, info.address, info.is_subaddress, args.size() == 4 ? args[3] : "", sig_str, received, in_pool, confirmations))
+    if (m_wallet->check_tx_proof(txid, info.address, info.is_subaddress, proof_message(args, 3), sig_str, received, in_pool, confirmations))
     {
       success_msg_writer() << tr("Good signature");
       if (received > 0)
@@ -8339,7 +8352,7 @@ bool simple_wallet::get_spend_proof(const std::vector<std::string> &args)
     fail_msg_writer() << tr("command not supported by HW wallet");
     return true;
   }
-  if(args.size() != 1 && args.size() != 2) {
+  if (args.empty()) {
     PRINT_USAGE(USAGE_GET_SPEND_PROOF);
     return true;
   }
@@ -8364,7 +8377,7 @@ bool simple_wallet::get_spend_proof(const std::vector<std::string> &args)
 
   try
   {
-    const std::string sig_str = m_wallet->get_spend_proof(txid, args.size() == 2 ? args[1] : "");
+    const std::string sig_str = m_wallet->get_spend_proof(txid, proof_message(args, 1));
     const std::string filename = "monero_spend_proof";
     if (m_wallet->save_to_file(filename, sig_str, true))
       success_msg_writer() << tr("signature file saved to: ") << filename;
@@ -8380,7 +8393,7 @@ bool simple_wallet::get_spend_proof(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::check_spend_proof(const std::vector<std::string> &args)
 {
-  if(args.size() != 2 && args.size() != 3) {
+  if (args.size() < 2) {
     PRINT_USAGE(USAGE_CHECK_SPEND_PROOF);
     return true;
   }
@@ -8404,7 +8417,7 @@ bool simple_wallet::check_spend_proof(const std::vector<std::string> &args)
 
   try
   {
-    if (m_wallet->check_spend_proof(txid, args.size() == 3 ? args[2] : "", sig_str))
+    if (m_wallet->check_spend_proof(txid, proof_message(args, 2), sig_str))
       success_msg_writer() << tr("Good signature");
     else
       fail_msg_writer() << tr("Bad signature");
@@ -8424,7 +8437,7 @@ bool simple_wallet::get_reserve_proof(const std::vector<std::string> &args)
     fail_msg_writer() << tr("command not supported by HW wallet");
     return true;
   }
-  if(args.size() != 1 && args.size() != 2) {
+  if (args.empty()) {
     PRINT_USAGE(USAGE_GET_RESERVE_PROOF);
     return true;
   }
@@ -8454,7 +8467,7 @@ bool simple_wallet::get_reserve_proof(const std::vector<std::string> &args)
 
   try
   {
-    const std::string sig_str = m_wallet->get_reserve_proof(account_minreserve, args.size() == 2 ? args[1] : "");
+    const std::string sig_str = m_wallet->get_reserve_proof(account_minreserve, proof_message(args, 1));
     const std::string filename = "monero_reserve_proof";
     if (m_wallet->save_to_file(filename, sig_str, true))
       success_msg_writer() << tr("signature file saved to: ") << filename;
@@ -8470,7 +8483,7 @@ bool simple_wallet::get_reserve_proof(const std::vector<std::string> &args)
 //----------------------------------------------------------------------------------------------------
 bool simple_wallet::check_reserve_proof(const std::vector<std::string> &args)
 {
-  if(args.size() != 2 && args.size() != 3) {
+  if (args.size() < 2) {
     PRINT_USAGE(USAGE_CHECK_RESERVE_PROOF);
     return true;
   }
@@ -8502,7 +8515,7 @@ bool simple_wallet::check_reserve_proof(const std::vector<std::string> &args)
   try
   {
     uint64_t total, spent;
-    if (m_wallet->check_reserve_proof(info.address, args.size() == 3 ? args[2] : "", sig_str, total, spent))
+    if (m_wallet->check_reserve_proof(info.address, proof_message(args, 2), sig_str, total, spent))
     {
       success_msg_writer() << boost::format(tr("Good signature -- total: %s, spent: %s, unspent: %s")) % print_money(total) % print_money(spent) % print_money(total - spent);
     }
