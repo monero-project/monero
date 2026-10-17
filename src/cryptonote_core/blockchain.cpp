@@ -4264,6 +4264,13 @@ leave:
     cumulative_block_weight = m_blocks_hash_check[blockchain_height].second;
   }
 
+  TIME_MEASURE_START(tac);
+
+  std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
+  collect_transparent_amount_commitments(bl.miner_tx, txs, transparent_amount_commitments);
+
+  TIME_MEASURE_FINISH(tac);
+
   TIME_MEASURE_START(vmt);
   uint64_t base_reward = 0;
   uint64_t already_generated_coins = blockchain_height ? m_db->get_block_already_generated_coins(blockchain_height - 1) : 0;
@@ -4303,7 +4310,7 @@ leave:
     {
       uint64_t long_term_block_weight = get_next_long_term_block_weight(block_weight);
       cryptonote::blobdata bd = cryptonote::block_to_blob(bl);
-      new_height = m_db->add_block(std::make_pair(bl, std::move(bd)), block_weight, long_term_block_weight, cumulative_difficulty, already_generated_coins, txs);
+      new_height = m_db->add_block(std::make_pair(bl, std::move(bd)), block_weight, long_term_block_weight, cumulative_difficulty, already_generated_coins, txs, transparent_amount_commitments);
     }
     catch (const KEY_IMAGE_EXISTS& e)
     {
@@ -4345,7 +4352,7 @@ leave:
         << cumulative_block_weight << " p/t: " << block_processing_time << " ("
         << target_calculating_time << "/" << longhash_calculating_time << "/"
         << t1 << "/" << t2 << "/" << t3 << "/" << t_exists << "/" << t_pool
-        << "/" << t_checktx << "/" << t_dblspnd << "/" << vmt << "/" << addblock << ")ms");
+        << "/" << t_checktx << "/" << t_dblspnd << "/" << vmt << "/" << tac << "/" << addblock << ")ms");
   }
 
   bvc.m_added_to_main_chain = true;
