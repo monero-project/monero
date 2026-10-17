@@ -69,6 +69,7 @@ using namespace epee;
 #define RESTRICTED_TRANSACTIONS_COUNT 100
 #define RESTRICTED_SPENT_KEY_IMAGES_COUNT 5000
 #define RESTRICTED_BLOCK_COUNT 1000
+static constexpr size_t RESTRICTED_BLOCKS_BY_HEIGHT_MAX_BYTES = 100 * 1024 * 1024;
 
 static constexpr size_t GET_BLOCKS_BIN_MAX_ADDED_POOL_TX_BODIES = 20000;
 
@@ -559,6 +560,17 @@ namespace cryptonote
     res.status = "Failed";
     res.blocks.clear();
     res.blocks.reserve(req.heights.size());
+    size_t response_bytes = 0;
+    const auto add_response_bytes = [&](size_t bytes) {
+      if (restricted && bytes > RESTRICTED_BLOCKS_BY_HEIGHT_MAX_BYTES - response_bytes)
+      {
+        res.blocks.clear();
+        res.status = CORE_RPC_STATUS_RESPONSE_TOO_LARGE;
+        return false;
+      }
+      response_bytes += bytes;
+      return true;
+    };
     for (uint64_t height : req.heights)
     {
       block blk;
@@ -571,13 +583,22 @@ namespace cryptonote
         res.status = "Error retrieving block at height " + std::to_string(height);
         return true;
       }
+      blobdata block_blob = block_to_blob(blk);
+      if (!add_response_bytes(block_blob.size()))
+        return true;
       std::vector<transaction> txs;
       std::vector<crypto::hash> missed_txs;
       m_core.get_transactions(blk.tx_hashes, txs, missed_txs);
       res.blocks.resize(res.blocks.size() + 1);
-      res.blocks.back().block = block_to_blob(blk);
+      res.blocks.back().block = std::move(block_blob);
       for (auto& tx : txs)
-        res.blocks.back().txs.push_back({tx_to_blob(tx), crypto::null_hash});
+      {
+        blobdata tx_blob = tx_to_blob(tx);
+        if (!add_response_bytes(tx_blob.size()))
+          return true;
+        res.blocks.back().txs.emplace_back();
+        res.blocks.back().txs.back().blob = std::move(tx_blob);
+      }
     }
     res.status = CORE_RPC_STATUS_OK;
     return true;

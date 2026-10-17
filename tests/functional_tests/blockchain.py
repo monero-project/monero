@@ -32,6 +32,11 @@
 import os
 import subprocess
 import time
+import io
+
+import requests
+
+from framework import epee_binary
 
 """Test daemon blockchain RPC calls
 
@@ -55,6 +60,39 @@ class BlockchainTest():
         self._test_generateblocks(5)
         self._test_alt_chains()
         self.test_get_blocks_fast()
+        self.test_restricted_blocks_by_height_budget()
+
+    def test_restricted_blocks_by_height_budget(self):
+        print('Test restricted getblocks_by_height response budget')
+        daemon = Daemon()
+        restricted = Daemon(port=18580)
+        wallet = Wallet()
+        address = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        destination = '8BQKgTSSqJjP14AKnZUBwnXWj46MuNmLvHfPTpmry52DbfNjjHVvHUk4mczU8nj8yZ57zBhksTJ8kM5xKeJXw55kCMVqyG7'
+        seed = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
+        wallet.close_wallet()
+        wallet.auto_refresh(enable=False)
+        wallet.restore_deterministic_wallet(seed)
+        height = daemon.get_height().height
+        if height < 250:
+            daemon.generateblocks(address, 250 - height)
+        wallet.refresh()
+        for _ in range(70):
+            wallet.transfer([{'address': destination, 'amount': 100000000000}] * 4)
+        daemon.generateblocks(address, 1)
+        target = daemon.get_height().height - 1
+
+        small = restricted.rpc.send_binary_request('/getblocks_by_height.bin', {'heights': [target] * 3})
+        assert len(small.blocks) == 3
+        assert len(small.blocks[0].txs) >= 50
+
+        raw = epee_binary.Serializer().serialize({'heights': [target] * 1000})
+        response = requests.post(restricted.rpc.url + '/getblocks_by_height.bin', data=raw,
+                                 headers={'content-type': 'application/octet-stream'}, timeout=120)
+        assert response.status_code == 200
+        result = epee_binary.Deserializer(io.BytesIO(response.content)).deserialize()
+        assert result['status'] == b'Too much block data requested in restricted mode'
+        assert not result.get('blocks')
 
     def reset(self):
         print('Resetting blockchain')
