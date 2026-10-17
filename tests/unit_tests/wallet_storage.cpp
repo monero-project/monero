@@ -120,39 +120,54 @@ TEST(wallet_storage, store_to_file2file)
 
 TEST(wallet_storage, store_to_mem2file)
 {
-    const path target_wallet_file = unit_test::data_dir / "wallet_mem2file";
-
-    if (is_file_exist(target_wallet_file.string()))
-        remove(target_wallet_file);
-    if (is_file_exist(target_wallet_file.string() + ".keys"))
-        remove(target_wallet_file.string() + ".keys");
-    ASSERT_FALSE(is_file_exist(target_wallet_file.string()));
-    ASSERT_FALSE(is_file_exist(target_wallet_file.string() + ".keys"));
-
-    epee::wipeable_string password("beepbeep2");
-
+    for (const auto nettype : {cryptonote::MAINNET, cryptonote::TESTNET, cryptonote::STAGENET})
     {
-        tools::wallet2 w;
-        w.generate("", password);
-        w.store_to(target_wallet_file.string(), password);
+        SCOPED_TRACE(static_cast<int>(nettype));
+        const path target_wallet_file = unit_test::data_dir / ("wallet_mem2file_" + std::to_string(nettype));
+        const std::string address_file = target_wallet_file.string() + ".address.txt";
+        if (is_file_exist(address_file))
+            remove(address_file);
+
+        if (is_file_exist(target_wallet_file.string()))
+            remove(target_wallet_file);
+        if (is_file_exist(target_wallet_file.string() + ".keys"))
+            remove(target_wallet_file.string() + ".keys");
+        ASSERT_FALSE(is_file_exist(target_wallet_file.string()));
+        ASSERT_FALSE(is_file_exist(target_wallet_file.string() + ".keys"));
+
+        epee::wipeable_string password("beepbeep2");
+
+        {
+            tools::wallet2 w(nettype);
+            w.generate("", password);
+            w.store_to(target_wallet_file.string(), password);
+
+            EXPECT_EQ(nettype != cryptonote::MAINNET, is_file_exist(address_file));
+            if (nettype != cryptonote::MAINNET)
+            {
+                std::string address;
+                ASSERT_TRUE(load_file_to_string(address_file, address));
+                EXPECT_EQ(w.get_address_as_str(), address);
+            }
+
+            EXPECT_TRUE(is_file_exist(target_wallet_file.string()));
+            EXPECT_TRUE(is_file_exist(target_wallet_file.string() + ".keys"));
+        }
+
+        EXPECT_TRUE(is_file_exist(target_wallet_file.string()));
+        EXPECT_TRUE(is_file_exist(target_wallet_file.string() + ".keys"));
+
+        {
+            tools::wallet2 w(nettype);
+            w.load(target_wallet_file.string(), password);
+
+            EXPECT_TRUE(is_file_exist(target_wallet_file.string()));
+            EXPECT_TRUE(is_file_exist(target_wallet_file.string() + ".keys"));
+        }
 
         EXPECT_TRUE(is_file_exist(target_wallet_file.string()));
         EXPECT_TRUE(is_file_exist(target_wallet_file.string() + ".keys"));
     }
-
-    EXPECT_TRUE(is_file_exist(target_wallet_file.string()));
-    EXPECT_TRUE(is_file_exist(target_wallet_file.string() + ".keys"));
-
-    {
-        tools::wallet2 w;
-        w.load(target_wallet_file.string(), password);
-
-        EXPECT_TRUE(is_file_exist(target_wallet_file.string()));
-        EXPECT_TRUE(is_file_exist(target_wallet_file.string() + ".keys"));
-    }
-
-    EXPECT_TRUE(is_file_exist(target_wallet_file.string()));
-    EXPECT_TRUE(is_file_exist(target_wallet_file.string() + ".keys"));
 }
 
 TEST(wallet_storage, export_key_images_uses_generated_key_image)
