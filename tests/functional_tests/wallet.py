@@ -42,6 +42,7 @@ class WalletTest():
     def run_test(self):
       self.reset()
       self.create()
+      self.set_daemon_with_proxy()
       self.check_main_address()
       self.check_keys()
       self.create_subaddresses()
@@ -55,6 +56,41 @@ class WalletTest():
       self.generate_from_json()
       self.change_password()
       self.store()
+
+    def set_daemon_with_proxy(self):
+        print('Testing daemon URLs with a proxy')
+        wallet = Wallet()
+        wallet.auto_refresh(False)
+        try:
+            wallet.set_daemon('https://example.onion', proxy = '127.0.0.1:9050')
+            wallet.set_daemon('http://example.i2p', proxy = '127.0.0.1:9050')
+            wallet.set_daemon('https://example.onion:443', proxy = '127.0.0.1:9050')
+
+            for address, proxy in (('https://example.org', '127.0.0.1:9050'),
+                                   ('https://example.org/foo.onion:443', '127.0.0.1:9050'),
+                                   ('http://[::1%1.onion]', 'socks5://127.0.0.1:9050'),
+                                   ('http://[::1%1.i2p]', 'socks5://127.0.0.1:9050')):
+                ok = False
+                try:
+                    wallet.set_daemon(address, proxy = proxy)
+                except AssertionError as e:
+                    assert 'no strong verification was configured' in str(e)
+                    ok = True
+                assert ok
+
+            for address in ('https://example.org\0.onion', 'https://example.org\0.onion:443',
+                            'http://1.2.3.4 x.onion', 'http://1.2.3.4 x.onion:18081',
+                            'http://1.2.3.4\tx.onion', 'http://1.2.3.4\x7fx.onion'):
+                ok = False
+                try:
+                    wallet.set_daemon(address, proxy = '127.0.0.1:9050')
+                except AssertionError as e:
+                    assert 'Failed to parse daemon address' in str(e)
+                    ok = True
+                assert ok
+        finally:
+            wallet.set_daemon('http://127.0.0.1:18180', trusted = True, ssl_support = 'disabled')
+            wallet.auto_refresh(True)
 
     def reset(self):
         print('Resetting blockchain')

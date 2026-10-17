@@ -329,7 +329,9 @@ bool ssl_options_t::has_strong_verification(boost::string_ref host) const noexce
 {
   // onion and i2p addresses contain information about the server cert
   // which both authenticates and encrypts
-  if (host.ends_with(".onion") || host.ends_with(".i2p"))
+  // an IPv6 scope ID is removed before the address is sent to the proxy
+  if (host.find('%') == boost::string_ref::npos &&
+      (host.ends_with(".onion") || host.ends_with(".i2p")))
     return true;
   switch (verification)
   {
