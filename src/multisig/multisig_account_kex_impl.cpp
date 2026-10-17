@@ -28,6 +28,7 @@
 
 #include "multisig_account.h"
 
+#include "common/combinator.h"
 #include "crypto/crypto.h"
 #include "cryptonote_config.h"
 #include "include_base_utils.h"
@@ -35,12 +36,8 @@
 #include "multisig_kex_msg.h"
 #include "ringct/rctOps.h"
 
-#include <boost/math/special_functions/binomial.hpp>
-
 #include <algorithm>
-#include <cmath>
 #include <cstdint>
-#include <limits>
 #include <memory>
 #include <unordered_map>
 #include <unordered_set>
@@ -474,27 +471,6 @@ namespace multisig
 
     // 3. each origin should recommend a precise number of pubkeys
 
-    // TODO: move to a 'math' library, with unit tests
-    auto n_choose_k_f =
-      [](const std::uint32_t n, const std::uint32_t k) -> std::uint32_t
-      {
-        static_assert(std::numeric_limits<std::int32_t>::digits <= std::numeric_limits<double>::digits,
-          "n_choose_k requires no rounding issues when converting between int32 <-> double.");
-
-        if (n < k)
-          return 0;
-
-        double fp_result = boost::math::binomial_coefficient<double>(n, k);
-
-        if (fp_result < 0)
-          return 0;
-
-        if (fp_result > std::numeric_limits<std::int32_t>::max())  // note: std::round() returns std::int32_t
-          return 0;
-
-        return static_cast<std::uint32_t>(std::round(fp_result));
-      };
-
     // other signers: (N - 2) choose (msg_round_num - 1)
       // - Each signer recommends keys they share with other signers.
       // - In each round, every group of size 'round num' will have a key. From a single signer's perspective,
@@ -504,12 +480,12 @@ namespace multisig
       // - Other signers will recommend (N - 2) choose (msg_round_num - 1) pubkeys (after removing keys shared with local).
       // Note: Keys shared with local are filtered out to facilitate kex round boosting, where one or more signers may
       //       have boosted the local signer (implying they didn't have access to the local signer's previous round msg).
-    const std::uint32_t expected_recommendations_others = n_choose_k_f(signers.size() - 2, round - 1);
+    const std::uint64_t expected_recommendations_others = tools::combinations_count(round - 1, signers.size() - 2);
 
     // local: (N - 1) choose (msg_round_num - 1)
-    const std::uint32_t expected_recommendations_self = n_choose_k_f(signers.size() - 1, round - 1);
+    const std::uint64_t expected_recommendations_self = tools::combinations_count(round - 1, signers.size() - 1);
 
-    // note: expected_recommendations_others would be 0 in the last round of 1-of-N, but we don't call this function for
+    // note: the last round of 1-of-N would require choosing (N - 1) from (N - 2), but we don't call this function for
     //       that case
     CHECK_AND_ASSERT_THROW_MES(expected_recommendations_self > 0 && expected_recommendations_others > 0,
       "Bad num signers or round num (possibly numerical limits exceeded).");
