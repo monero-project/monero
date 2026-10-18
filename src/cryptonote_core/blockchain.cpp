@@ -1615,11 +1615,13 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
     b.minor_version = m_hardfork->get_ideal_version();
     b.prev_id = *from_block;
 
-    // cheat and use the weight of the block we start from, virtually certain to be acceptable
-    // and use 1.9 times rather than 2 times so we're even more sure
+    // Use the current median for the main chain tip; otherwise retain the
+    // existing parent-weight approximation.
     if (parent_in_main)
     {
-      median_weight = m_db->get_block_weight(height - 1);
+      median_weight = *from_block == get_tail_id()
+        ? m_current_block_cumul_weight_limit / 2
+        : m_db->get_block_weight(height - 1);
       already_generated_coins = m_db->get_block_already_generated_coins(height - 1);
     }
     else
