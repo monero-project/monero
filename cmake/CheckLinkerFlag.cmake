@@ -21,7 +21,7 @@ macro(CHECK_LINKER_FLAG flag VARIABLE)
     set(CMAKE_C_FLAGS ${saved_CMAKE_C_FLAGS})
     unset(saved_CMAKE_C_FLAGS)
 
-    if ("${OUTPUT}" MATCHES "warning.*ignored")
+    if ("${OUTPUT}" MATCHES "warning.*(ignored|unknown -z value)")
       set(${VARIABLE} 0)
     endif()
 
