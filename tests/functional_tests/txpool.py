@@ -40,6 +40,7 @@ class TransferTest():
         self.reset()
         self.create()
         self.mine()
+        self.check_tip_template()
         self.check_txpool()
 
     def reset(self):
@@ -80,6 +81,30 @@ class TransferTest():
           txes[res.tx_hash] = res
 
         return txes
+
+    def check_tip_template(self):
+        print('Checking templates for an explicit main chain tip')
+        daemon = Daemon()
+        wallet = Wallet()
+        address = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        destination = '46r4nYSevkfBUMhuykdK3gQ98XDqDTYW1hNLaXNvjpsJaSbNtdXh1sKMsdVgqkaihChAzEy29zEDPMR3NHQvGoZCLGwTerK'
+
+        wallet.transfer([{'address': destination, 'amount': 1000000000000}])
+        daemon.generateblocks(address, 1)
+        wallet.refresh()
+
+        empty_template = daemon.getblocktemplate(address)
+        txes = self.create_txes(destination, 5)
+        tip = daemon.get_info().top_block_hash
+        normal = daemon.getblocktemplate(address)
+        explicit = daemon.getblocktemplate(address, prev_block=tip)
+
+        assert normal.prev_hash == explicit.prev_hash == tip
+        assert normal.height == explicit.height
+        assert normal.expected_reward == empty_template.expected_reward + sum(tx.fee for tx in txes.values())
+        assert explicit.expected_reward == normal.expected_reward
+        assert explicit.cumulative_weight == normal.cumulative_weight
+        daemon.flush_txpool()
 
     def check_empty_pool(self):
         daemon = Daemon()
