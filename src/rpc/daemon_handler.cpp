@@ -848,8 +848,9 @@ namespace rpc
     }
 
     using clock = std::chrono::system_clock;
-    const clock::time_point cutoff{std::chrono::seconds{req.recent_cutoff}};
-    if (m_restricted && clock::now() - cutoff > restricted_histogram_cutoff)
+    const auto now = std::chrono::duration_cast<std::chrono::seconds>(clock::now().time_since_epoch());
+    const std::uint64_t oldest_cutoff = std::chrono::seconds{now - restricted_histogram_cutoff}.count();
+    if (m_restricted && req.recent_cutoff > 0 && req.recent_cutoff < oldest_cutoff)
     {
       res.status = Message::STATUS_FAILED;
       res.error_details = "Recent cutoff is too old";
