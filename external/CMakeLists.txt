@@ -28,8 +28,16 @@
 # 
 # Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+# mx25519 contains copyleft code licensed under MPL-2.0. Monero licensing is generally
+# permissive, so we default to exclude copyleft code if this project is being used as
+# a dependency, to not accidentally cause honest non-FOSS dependents to infringe.
+# The fast mx25519 code can be enabled by setting the variable below.
+string(COMPARE EQUAL "${CMAKE_SOURCE_DIR}" "${PROJECT_SOURCE_DIR}" MONERO_IS_TOP_LEVEL)
+option(MX25519_COPYLEFT "Include the MPL-2.0 licensed assembly backends (ARM64, AMD64, AMD64X)" ${MONERO_IS_TOP_LEVEL})
+
 add_subdirectory(db_drivers)
 add_subdirectory(easylogging++)
+add_subdirectory(mx25519 EXCLUDE_FROM_ALL)
 add_subdirectory(qrcodegen)
 add_subdirectory(randomx EXCLUDE_FROM_ALL)
 add_subdirectory(polyseed EXCLUDE_FROM_ALL)
