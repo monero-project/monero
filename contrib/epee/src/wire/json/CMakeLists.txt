@@ -29,4 +29,8 @@
 set(wire-json_sources write.cpp)
 
 add_library(wire-json ${wire-json_sources})
-target_link_libraries(wire-json wire)
+target_link_libraries(wire-json
+  PUBLIC
+    RapidJSON
+    wire
+  )

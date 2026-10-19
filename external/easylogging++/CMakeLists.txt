@@ -48,13 +48,15 @@ add_library(easylogging
   easylogging++.cc
   ${EASYLOGGING_HEADERS}
   )
-
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
-include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 target_link_libraries(easylogging
   PRIVATE
     ${CMAKE_THREAD_LIBS_INIT}
     ${Backtrace_LIBRARIES})
+target_include_directories(easylogging
+  PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+  PRIVATE
+    "${CMAKE_CURRENT_BINARY_DIR}")
 
 # GUI/libwallet install target
 if (BUILD_GUI_DEPS)
