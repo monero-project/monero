@@ -33,6 +33,8 @@
 #include <atomic>
 #include <boost/filesystem.hpp>
 
+#include "fcmp_pp/fcmp_pp_types.h"
+
 namespace unit_test
 {
   extern boost::filesystem::path data_dir;
@@ -64,6 +66,24 @@ namespace unit_test
   private:
     std::atomic<size_t> m_counter;
   };
+
+  bool write_fcmp_pp_verify_input_to_file(
+    const std::size_t n_inputs,
+    const crypto::hash &signable_tx_hash,
+    const fcmp_pp::FcmpPpProof &fcmp_pp_proof,
+    const uint8_t n_layers,
+    const crypto::ec_point &tree_root_bytes,
+    const std::vector<crypto::ec_point> &pseudo_outs,
+    const std::vector<crypto::key_image> &key_images);
+
+  bool read_fcmp_pp_verify_input_from_file(
+    const std::size_t n_inputs,
+    crypto::hash &signable_tx_hash,
+    fcmp_pp::FcmpPpProof &fcmp_pp_proof,
+    uint8_t &n_layers,
+    fcmp_pp::TreeRootShared &tree_root,
+    std::vector<crypto::ec_point> &pseudo_outs,
+    std::vector<crypto::key_image> &key_images);
 }
 
 # define ASSERT_EQ_MAP(val, map, key) \

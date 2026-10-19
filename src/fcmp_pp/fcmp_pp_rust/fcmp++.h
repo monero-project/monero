@@ -37,8 +37,12 @@
 #endif
 
 #include <stdalign.h>
+#include <stdbool.h>
 #include <stdint.h>
 
+// https://github.com/monero-oxide/monero-oxide/blob/77788c368145127f2dde2ac3e2ddce919f3ddd01/monero-oxide/ringct/fcmp%2B%2B/src/lib.rs#L188-L189
+#define FCMP_PP_SAL_PROOF_SIZE_V1 (12*32)
+#define FCMP_PP_INPUT_TUPLE_SIZE_V1 (3*32)
 
 // ----- deps C bindings -----
 
@@ -107,6 +111,23 @@ FFI_STATIC_ASSERT(sizeof(struct SeleneScalarSlice) == sizeof(struct SeleneScalar
 FFI_STATIC_ASSERT(alignof(struct SeleneScalarSlice) == sizeof(uintptr_t),
     "SeleneScalarSlice FFI type unexpected alignment");
 
+struct ObjectSlice
+{
+  const uint8_t * const *buf;
+  uintptr_t len;
+};
+
+// Tiny types that are expected to be a Rust Box of the underlying object, allocated on the Rust side.
+// These must be destroyed manually on the Rust side of the boundary.
+struct TreeRootUnsafe;
+
+struct FcmpPpVerifyInputUnsafe;
+struct FcmpPpVerifyInputSliceUnsafe
+{
+  const struct FcmpPpVerifyInputUnsafe * const *buf;
+  uintptr_t len;
+};
+
 // ----- End deps C bindings -----
 
 #ifdef __cplusplus
@@ -127,6 +148,11 @@ struct HeliosScalar helios_zero_scalar(void);
 
 struct SeleneScalar selene_zero_scalar(void);
 
+int selene_tree_root(struct SelenePoint selene_point, struct TreeRootUnsafe **tree_root_out);
+int helios_tree_root(struct HeliosPoint helios_point, struct TreeRootUnsafe **tree_root_out);
+
+void destroy_tree_root(struct TreeRootUnsafe *tree_root);
+
 void helios_scalar_to_bytes(const struct HeliosScalar *helios_scalar, uint8_t bytes_out[32]);
 
 void selene_scalar_to_bytes(const struct SeleneScalar *selene_scalar, uint8_t bytes_out[32]);
@@ -134,6 +160,10 @@ void selene_scalar_to_bytes(const struct SeleneScalar *selene_scalar, uint8_t by
 void helios_point_to_bytes(const struct HeliosPoint *helios_point, uint8_t bytes_out[32]);
 
 void selene_point_to_bytes(const struct SelenePoint *selene_point, uint8_t bytes_out[32]);
+
+int helios_point_from_bytes(const uint8_t *helios_point_bytes, struct HeliosPoint *helios_point_out);
+
+int selene_point_from_bytes(const uint8_t *selene_point_bytes, struct SelenePoint *selene_point_out);
 
 int hash_grow_helios(struct HeliosPoint existing_hash,
                                              uintptr_t offset,
@@ -146,6 +176,25 @@ int hash_grow_selene(struct SelenePoint existing_hash,
                                              struct SeleneScalar existing_child_at_offset,
                                              struct SeleneScalarSlice new_children,
                                              struct SelenePoint *hash_out);
+
+uintptr_t membership_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
+
+uintptr_t fcmp_pp_proof_size(uintptr_t n_inputs, uintptr_t n_tree_layers);
+
+int fcmp_pp_verify_input_new(const uint8_t *signable_tx_hash,
+                                             const uint8_t *fcmp_pp_proof,
+                                             uintptr_t fcmp_pp_proof_len,
+                                             uintptr_t n_tree_layers,
+                                             const struct TreeRootUnsafe *tree_root,
+                                             struct ObjectSlice pseudo_outs,
+                                             struct ObjectSlice key_images,
+                                             struct FcmpPpVerifyInputUnsafe **fcmp_pp_verify_input_out);
+
+void destroy_fcmp_pp_verify_input(struct FcmpPpVerifyInputUnsafe *fcmp_pp_verify_input);
+
+uintptr_t fcmp_pp_n_inputs(const struct FcmpPpVerifyInputUnsafe *fcmp_pp_verify_input);
+
+bool fcmp_pp_verify(const struct FcmpPpVerifyInputSliceUnsafe fcmp_pp_verify_inputs);
 
 #ifdef __cplusplus
 } //extern "C"
