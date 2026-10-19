@@ -2886,10 +2886,14 @@ skip:
   template<class t_core>
   void t_cryptonote_protocol_handler<t_core>::on_connection_close(cryptonote_connection_context &context)
   {
-    uint64_t target = 0;
+    uint64_t target = 0, public_target = 0;
     m_p2p->for_each_connection([&](const connection_context& cntxt, nodetool::peerid_type peer_id, uint32_t support_flags) {
       if (cntxt.m_state >= cryptonote_connection_context::state_synchronizing && cntxt.m_connection_id != context.m_connection_id)
+      {
         target = std::max(target, cntxt.m_remote_blockchain_height);
+        if (cntxt.m_remote_address.get_zone() == epee::net_utils::zone::public_)
+          public_target = std::max(public_target, cntxt.m_remote_blockchain_height);
+      }
       return true;
     });
     const uint64_t previous_target = m_core.get_target_blockchain_height();
@@ -2897,14 +2901,16 @@ skip:
     {
       MINFO("Target height decreasing from " << previous_target << " to " << target);
       m_core.set_target_blockchain_height(target);
-      if (target < m_core.get_current_blockchain_height() + 5)
-        m_core.safesyncmode(true);
       if (target == 0 && context.m_state > cryptonote_connection_context::state_before_handshake && !m_stopping)
       {
         MCWARNING("global", "monerod is now disconnected from the network");
         m_ask_for_txpool_complement = true;
       }
     }
+    if ((target < previous_target || (context.m_remote_address.get_zone() == epee::net_utils::zone::public_ &&
+        context.m_state >= cryptonote_connection_context::state_synchronizing)) &&
+        public_target < m_core.get_current_blockchain_height() + 5)
+      m_core.safesyncmode(true);
 
     m_block_queue.flush_spans(context.m_connection_id, false);
     MLOG_PEER_STATE("closed");
