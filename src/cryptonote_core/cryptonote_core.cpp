@@ -220,7 +220,7 @@ namespace cryptonote
               m_mempool(m_bap.tx_pool),
               m_blockchain_storage(m_bap.blockchain),
               m_miner(this, [this](const cryptonote::block &b, uint64_t height, const crypto::hash *seed_hash, unsigned int threads, crypto::hash &hash) {
-                return cryptonote::get_block_longhash(&m_blockchain_storage, b, hash, height, seed_hash, threads);
+                return cryptonote::get_block_longhash(&m_blockchain_storage, b, hash, height, seed_hash);
               }),
               m_starter_message_showed(false),
               m_target_blockchain_height(0),
