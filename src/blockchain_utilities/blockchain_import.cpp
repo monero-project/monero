@@ -517,6 +517,8 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
               core.get_blockchain_storage().get_db().batch_stop();
               pos = import_file.tellg();
               bytes = bootstrap.count_bytes(import_file, db_batch_size, h2, q2);
+              if (import_file.eof())
+                import_file.clear();
               import_file.seekg(pos);
               core.get_blockchain_storage().get_db().batch_start(db_batch_size, bytes);
               std::cout << ENDL;
