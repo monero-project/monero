@@ -50,6 +50,7 @@ from framework.wallet import Wallet
 class BlockchainTest():
     def run_test(self):
         self.reset()
+        self._test_merge_mining()
         self._test_generate_blocks_command()
         self.reset()
         self._test_generateblocks(5)
@@ -95,6 +96,31 @@ class BlockchainTest():
         block_blob = bytes.fromhex(res.blocktemplate_blob)
         reserved_bytes = block_blob[res.reserved_offset:res.reserved_offset + reserve_size]
         assert reserved_bytes == bytes(reserve_size)
+
+    def _test_merge_mining(self):
+        print('Test merge-mining template reservations')
+        daemon = Daemon()
+        address = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        aux_pow = [{'id': '01' * 32, 'hash': '02' * 32}]
+        extra_nonce = '0123456789abcdef'
+        cases = [
+            (dict(reserve_size = 8), bytes(8)),
+            (dict(reserve_size = 0, extra_nonce = extra_nonce, prev_block = daemon.get_info().top_block_hash),
+             bytes.fromhex(extra_nonce)),
+        ]
+        for params, nonce in cases:
+            ordinary = daemon.getblocktemplate(address, **params)
+            template = daemon.getblocktemplate(address, merge_mining = True, **params)
+            assert template.cumulative_weight > ordinary.cumulative_weight
+            assert daemon.getblocktemplate(address, **params).cumulative_weight == ordinary.cumulative_weight
+
+            augmented = daemon.add_aux_pow(template.blocktemplate_blob, aux_pow)
+            assert augmented.merkle_root == aux_pow[0]['hash']
+            assert len(augmented.blocktemplate_blob) == len(template.blocktemplate_blob)
+            offset = template.reserved_offset
+            assert offset > 0
+            block_blob = bytes.fromhex(augmented.blocktemplate_blob)
+            assert block_blob[offset:offset + len(nonce)] == nonce
 
     def _test_generateblocks(self, blocks):
         assert blocks >= 2

@@ -55,6 +55,9 @@
 
 namespace cryptonote
 {
+  // Tag, length, maximum uint64_t depth varint, and Merkle root.
+  constexpr size_t TX_EXTRA_MERGE_MINING_TAG_MAX_SIZE = 2 + (sizeof(uint64_t) * 8 + 6) / 7 + sizeof(crypto::hash);
+
   struct tx_extra_padding
   {
     size_t size;
