@@ -7343,6 +7343,9 @@ void wallet2::get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirm
     uint64_t min_height, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
 {
   for (auto i = m_confirmed_txs.begin(); i != m_confirmed_txs.end(); ++i) {
+    // an imported key image can mark an output spent without a known spending transaction.
+    if (i->first == crypto::null_hash && i->second.m_block_height == 0)
+      continue;
     if (i->second.m_block_height < min_height || i->second.m_block_height > max_height)
       continue;
     if (subaddr_account && *subaddr_account != i->second.m_subaddr_account)
