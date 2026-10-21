@@ -148,15 +148,24 @@ static void check_resize(MDB_env *env, size_t bytes)
     add_size(env, size_used + bytes + 2 * slack - mei.me_mapsize);
 }
 
-static bool resize_point(size_t &nrecords, MDB_env *env, MDB_txn **txn, size_t &bytes)
+static void commit_txn(MDB_txn *&txn, bool &active)
+{
+  const int dbr = mdb_txn_commit(txn);
+  txn = nullptr;
+  active = false;
+  if (dbr)
+    throw std::runtime_error("Failed to commit txn: " + std::string(mdb_strerror(dbr)));
+}
+
+static bool resize_point(size_t &nrecords, MDB_env *env, MDB_txn **txn, bool &tx_active, size_t &bytes)
 {
   if (nrecords % records_per_sync && bytes <= slack / 2)
     return false;
-  int dbr = mdb_txn_commit(*txn);
-  if (dbr) throw std::runtime_error("Failed to commit txn: " + std::string(mdb_strerror(dbr)));
+  commit_txn(*txn, tx_active);
   check_resize(env, bytes);
-  dbr = mdb_txn_begin(env, NULL, 0, txn);
+  const int dbr = mdb_txn_begin(env, NULL, 0, txn);
   if (dbr) throw std::runtime_error("Failed to create LMDB transaction: " + std::string(mdb_strerror(dbr)));
+  tx_active = true;
   bytes = 0;
   nrecords = 0;
   return true;
@@ -234,9 +243,7 @@ static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned
   if (cmp)
     ((flags & MDB_DUPSORT) ? mdb_set_dupsort : mdb_set_compare)(txn1, dbi1, cmp);
 
-  dbr = mdb_txn_commit(txn1);
-  if (dbr) throw std::runtime_error("Failed to commit txn: " + std::string(mdb_strerror(dbr)));
-  tx_active1 = false;
+  commit_txn(txn1, tx_active1);
   MDB_stat stats;
   dbr = mdb_stat(txn0, dbi0, &stats);
   if (dbr) throw std::runtime_error("Failed to stat " + std::string(table) + " LMDB table: " + std::string(mdb_strerror(dbr)));
@@ -273,7 +280,7 @@ static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned
 
     bytes += k.mv_size + v.mv_size;
     ++nrecords;
-    if (resize_point(nrecords, env1, &txn1, bytes))
+    if (resize_point(nrecords, env1, &txn1, tx_active1, bytes))
     {
       dbr = mdb_cursor_open(txn1, dbi1, &cur1);
       if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
@@ -289,10 +296,8 @@ static void copy_table(MDB_env *env0, MDB_env *env1, const char *table, unsigned
 
   mdb_cursor_close(cur1);
   mdb_cursor_close(cur0);
-  mdb_txn_commit(txn1);
-  tx_active1 = false;
-  mdb_txn_commit(txn0);
-  tx_active0 = false;
+  commit_txn(txn1, tx_active1);
+  commit_txn(txn0, tx_active0);
   mdb_dbi_close(env1, dbi1);
   mdb_dbi_close(env0, dbi0);
 }
@@ -401,7 +406,7 @@ static void prune(MDB_env *env0, MDB_env *env1)
       bytes += kk.mv_size + vv.mv_size;
 
       ++nrecords;
-      if (resize_point(nrecords, env1, &txn1, bytes))
+      if (resize_point(nrecords, env1, &txn1, tx_active1, bytes))
       {
         dbr = mdb_cursor_open(txn1, dbi1_txs_prunable, &cur1_txs_prunable);
         if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
@@ -444,7 +449,7 @@ static void prune(MDB_env *env0, MDB_env *env1)
 
       bytes += k.mv_size + v.mv_size;
       ++nrecords;
-      if (resize_point(nrecords, env1, &txn1, bytes))
+      if (resize_point(nrecords, env1, &txn1, tx_active1, bytes))
       {
         dbr = mdb_cursor_open(txn1, dbi1_txs_prunable, &cur1_txs_prunable);
         if (dbr) throw std::runtime_error("Failed to create LMDB cursor: " + std::string(mdb_strerror(dbr)));
@@ -459,10 +464,8 @@ static void prune(MDB_env *env0, MDB_env *env1)
   mdb_cursor_close(cur0_txs_prunable);
   mdb_cursor_close(cur0_txs_pruned);
   mdb_cursor_close(cur0_tx_indices);
-  mdb_txn_commit(txn1);
-  tx_active1 = false;
-  mdb_txn_commit(txn0);
-  tx_active0 = false;
+  commit_txn(txn1, tx_active1);
+  commit_txn(txn0, tx_active0);
   mdb_dbi_close(env1, dbi1_properties);
   mdb_dbi_close(env1, dbi1_txs_prunable_tip);
   mdb_dbi_close(env1, dbi1_txs_prunable);
