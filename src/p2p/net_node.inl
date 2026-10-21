@@ -2008,34 +2008,19 @@ namespace nodetool
 
       if (zone.first == zone_type::public_ && !connect_to_peerlist(m_priority_peers)) continue;
 
-      size_t base_expected_white_connections = (zone.second.m_config.m_net_config.max_out_connection_count*P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT)/100;
-
       // carefully avoid `continue` in nested loop
       
       size_t conn_count = get_outgoing_connections_count(zone.second);
       while(conn_count < zone.second.m_config.m_net_config.max_out_connection_count)
       {
-        const size_t expected_white_connections = m_payload_handler.get_next_needed_pruning_stripe().second ? zone.second.m_config.m_net_config.max_out_connection_count : base_expected_white_connections;
-        if(conn_count < expected_white_connections)
-        {
-          //start from anchor list
-          while (get_outgoing_connections_count(zone.second) < P2P_DEFAULT_ANCHOR_CONNECTIONS_COUNT
-            && make_expected_connections_count(zone.second, anchor, P2P_DEFAULT_ANCHOR_CONNECTIONS_COUNT));
-          //then do white list
-          while (get_outgoing_connections_count(zone.second) < expected_white_connections
-            && make_expected_connections_count(zone.second, white, expected_white_connections));
-          //then do grey list
-          while (get_outgoing_connections_count(zone.second) < zone.second.m_config.m_net_config.max_out_connection_count
-            && make_expected_connections_count(zone.second, gray, zone.second.m_config.m_net_config.max_out_connection_count));
-        }else
-        {
-          //start from white list
-          while (get_outgoing_connections_count(zone.second) < zone.second.m_config.m_net_config.max_out_connection_count
-            && make_expected_connections_count(zone.second, white, zone.second.m_config.m_net_config.max_out_connection_count));
-          //and then do grey list
-          while (get_outgoing_connections_count(zone.second) < zone.second.m_config.m_net_config.max_out_connection_count
-            && make_expected_connections_count(zone.second, gray, zone.second.m_config.m_net_config.max_out_connection_count));
-        }
+        //start from anchor list
+        while (get_outgoing_connections_count(zone.second) < P2P_DEFAULT_ANCHOR_CONNECTIONS_COUNT
+          && make_expected_connections_count(zone.second, anchor, P2P_DEFAULT_ANCHOR_CONNECTIONS_COUNT));
+        //then do white list
+        while (get_outgoing_connections_count(zone.second) < zone.second.m_config.m_net_config.max_out_connection_count
+          && make_expected_connections_count(zone.second, white, zone.second.m_config.m_net_config.max_out_connection_count));
+        //then one from grey list, and back to white
+        make_expected_connections_count(zone.second, gray, zone.second.m_config.m_net_config.max_out_connection_count);
         if(zone.second.m_net_server.is_stop_signal_sent())
           return false;
         size_t new_conn_count = get_outgoing_connections_count(zone.second);
