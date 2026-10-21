@@ -1718,24 +1718,29 @@ namespace nodetool
     // and make it impossible to game peer selection by advertising on a large number of ports.
     // Making this list also insulates us from any changes that may happen to the original list
     // while we are working here, and allows an easy retry in the inner try loop.
-    std::vector<peerlist_entry> peers;
-    std::unordered_set<std::string> hosts;
-    size_t total_peers_size = 0;
-    zone.m_peerlist.foreach(use_white_list, [this, &peers, &hosts, &total_peers_size, &get_host_string](const peerlist_entry &peer)
+    std::vector<peerlist_entry> all_peers;
+    zone.m_peerlist.foreach(use_white_list, [&all_peers](const peerlist_entry &peer)
     {
-      ++total_peers_size;
-      if (should_skip_connect_address(peer.adr, m_use_ipv6))
-        return true;
-
-      const std::string host_string = get_host_string(peer.adr);
-      if (hosts.insert(host_string).second)
-      {
-        peers.push_back(peer);
-      }
-      // else ignore this additional peer on the same IP number
-
+      all_peers.push_back(peer);
       return true;
     });
+    const size_t total_peers_size = all_peers.size();
+
+    std::vector<peerlist_entry> peers;
+    std::vector<boost::optional<netgroup>> peer_netgroups;
+    std::unordered_set<std::string> hosts;
+    for (peerlist_entry &peer : all_peers)
+    {
+      if (should_skip_connect_address(peer.adr, m_use_ipv6))
+        continue;
+
+      if (!hosts.insert(get_host_string(peer.adr)).second)
+        // ignore this additional peer on the same IP number
+        continue;
+
+      peer_netgroups.push_back(get_netgroup(peer.adr));
+      peers.push_back(std::move(peer));
+    }
 
     const size_t peers_size = peers.size();
     MDEBUG("Looking at " << peers_size << " port-deduplicated peers out of " << total_peers_size
@@ -1771,7 +1776,7 @@ namespace nodetool
       std::iota(shuffled_indexes.begin(), shuffled_indexes.end(), 0);
       std::shuffle(shuffled_indexes.begin(), shuffled_indexes.end(), crypto::random_device{});
 
-      std::vector<peerlist_entry> filtered;
+      std::vector<size_t> filtered;
       for (size_t index : shuffled_indexes)
       {
         const peerlist_entry &peer = peers.at(index);
@@ -1783,9 +1788,9 @@ namespace nodetool
           // Wrong stripe, skip
           continue;
 
-        const boost::optional<netgroup> group = get_netgroup(peer.adr);
+        const boost::optional<netgroup> &group = peer_netgroups.at(index);
         if (!group || netgroups.insert(*group).second)
-          filtered.push_back(peer);
+          filtered.push_back(index);
       }
 
       MDEBUG("Looking at " << filtered.size() << " netgroup-deduplicated candidates out of " << peers_size);
@@ -1806,7 +1811,7 @@ namespace nodetool
           m_used_stripe_peers[next_needed_pruning_stripe-1].pop_front();
           for (size_t i = 0; i < filtered.size(); ++i)
           {
-            const peerlist_entry &peer = filtered.at(i);
+            const peerlist_entry &peer = peers.at(filtered.at(i));
             if (peer.adr == na)
             {
               MDEBUG("Reusing stripe " << next_needed_pruning_stripe << " peer " << peer.adr.str());
@@ -1819,7 +1824,7 @@ namespace nodetool
       CHECK_AND_ASSERT_MES(random_index < filtered.size(), false, "random_index < filtered.size() failed!!");
 
       // We have our final candidate for this pass of the outer try loop
-      const peerlist_entry &candidate = filtered.at(random_index);
+      const peerlist_entry &candidate = peers.at(filtered.at(random_index));
 
       tried_peers.insert(candidate.id);
 
