@@ -1937,16 +1937,17 @@ skip:
       return false;
     if (!m_core.is_within_compiled_block_hash_area(first_block_height + nblocks - 1))
       return false;
-    const uint32_t local_stripe = tools::get_pruning_stripe(m_core.get_blockchain_pruning_seed());
-    if (local_stripe == 0)
+    const uint32_t local_pruning_seed = m_core.get_blockchain_pruning_seed();
+    if (local_pruning_seed == 0)
       return false;
     // don't request pre-bulletproof pruned blocks, we can't reconstruct their weight (yet)
     static const uint64_t bp_fork_height = m_core.get_earliest_ideal_height_for_version(HF_VERSION_SMALLER_BP + 1);
     if (first_block_height < bp_fork_height)
       return false;
-    // assumes the span size is less or equal to the stripe size
-    bool full_data_needed = tools::get_pruning_stripe(first_block_height, context.m_remote_blockchain_height, CRYPTONOTE_PRUNING_LOG_STRIPES) == local_stripe
-        || tools::get_pruning_stripe(first_block_height + nblocks - 1, context.m_remote_blockchain_height, CRYPTONOTE_PRUNING_LOG_STRIPES) == local_stripe;
+    // Keep full data for our stripe and the peer's tip, which has stripe 0.
+    // Assumes the span size is less or equal to the stripe size.
+    const bool full_data_needed = tools::has_unpruned_block(first_block_height, context.m_remote_blockchain_height, local_pruning_seed)
+        || tools::has_unpruned_block(first_block_height + nblocks - 1, context.m_remote_blockchain_height, local_pruning_seed);
     if (full_data_needed)
       return false;
     if (check_block_weights && !m_core.has_block_weights(first_block_height, nblocks))
