@@ -76,6 +76,18 @@ namespace crypto
       std::string &language_name);
     /*!
      * \brief Converts seed words to bytes (secret key).
+     * \param  words             String containing the words separated by spaces.
+     * \param  dst               To put the secret data restored from the words.
+     * \param  len               The number of bytes to expect, 0 if unknown
+     * \param  duplicate         If true and len is not zero, we accept half the data, and duplicate it
+     * \param  language_name     Language of the seed as found gets written here.
+     * \param  expected_language Language to use for decoding instead of inferring from the seed.
+     * \return                   false if not a multiple of 3 words, or if word is not in the words list
+     */
+    bool words_to_bytes(const epee::wipeable_string &words, epee::wipeable_string& dst, size_t len, bool duplicate,
+      std::string &language_name, const std::string &expected_language);
+    /*!
+     * \brief Converts seed words to bytes (secret key).
      * \param  words           String containing the words separated by spaces.
      * \param  dst             To put the secret key restored from the words.
      * \param  language_name   Language of the seed as found gets written here.
@@ -83,6 +95,16 @@ namespace crypto
      */
     bool words_to_bytes(const epee::wipeable_string &words, crypto::secret_key& dst,
       std::string &language_name);
+    /*!
+     * \brief Converts seed words to bytes (secret key).
+     * \param  words             String containing the words separated by spaces.
+     * \param  dst               To put the secret key restored from the words.
+     * \param  language_name     Language of the seed as found gets written here.
+     * \param  expected_language Language to use for decoding instead of inferring from the seed.
+     * \return                   false if not a multiple of 3 words, or if word is not in the words list
+     */
+    bool words_to_bytes(const epee::wipeable_string &words, crypto::secret_key& dst,
+      std::string &language_name, const std::string &expected_language);
 
     /*!
      * \brief Converts seed words to bytes (secret key), with Polyseed support.
@@ -95,6 +117,13 @@ namespace crypto
      */
     bool words_to_bytes_ex(const epee::wipeable_string &words, crypto::secret_key& dst,
       std::string &language_name, bool &is_polyseed, polyseed::data &polyseed);
+    /*!
+     * \brief Converts seed words to bytes, selecting another valid decoding of a 25-word legacy seed when requested.
+     * \param  expected_legacy_language Preferred language for ambiguous 25-word legacy seeds; ignored for Polyseed and deprecated seeds.
+     */
+    bool words_to_bytes_ex(const epee::wipeable_string &words, crypto::secret_key& dst,
+      std::string &language_name, bool &is_polyseed, polyseed::data &polyseed,
+      const std::string &expected_legacy_language);
 
     /*!
      * \brief Converts bytes to seed words.

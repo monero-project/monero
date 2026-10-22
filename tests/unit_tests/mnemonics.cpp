@@ -50,6 +50,7 @@
 #include "mnemonics/lojban.h"
 #include "mnemonics/english_old.h"
 #include "mnemonics/singleton.h"
+#include "string_tools.h"
 
 namespace
 {
@@ -205,6 +206,140 @@ TEST(mnemonics, language_detection_with_bad_checksum)
     res = crypto::ElectrumWords::words_to_bytes(base_seed + " " + real_checksum, key, language_name);
     ASSERT_EQ(true, res);
     ASSERT_STREQ(language_name.c_str(), "Português");
+}
+
+TEST(mnemonics, explicit_language_decoding)
+{
+    crypto::secret_key key;
+    std::string language_name;
+    bool res;
+
+    const std::string seed = "pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma pluma";
+
+    res = crypto::ElectrumWords::words_to_bytes(seed, key, language_name);
+    ASSERT_EQ(true, res);
+    ASSERT_STREQ(language_name.c_str(), "English");
+    ASSERT_EQ("3b0400003b0400003b0400003b0400003b0400003b0400003b0400003b040000",
+      epee::string_tools::pod_to_hex(unwrap(unwrap(key))));
+
+    res = crypto::ElectrumWords::words_to_bytes(seed, key, language_name, "Spanish");
+    ASSERT_EQ(true, res);
+    ASSERT_STREQ(language_name.c_str(), "Español");
+    ASSERT_EQ("b4050000b4050000b4050000b4050000b4050000b4050000b4050000b4050000",
+      epee::string_tools::pod_to_hex(unwrap(unwrap(key))));
+
+    bool is_polyseed = false;
+    polyseed::data polyseed(POLYSEED_MONERO);
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes_ex(seed, key, language_name, is_polyseed, polyseed, "Spanish"));
+    ASSERT_FALSE(is_polyseed);
+    ASSERT_EQ("Español", language_name);
+    ASSERT_EQ("b4050000b4050000b4050000b4050000b4050000b4050000b4050000b4050000",
+      epee::string_tools::pod_to_hex(unwrap(unwrap(key))));
+
+    polyseed::data invalid_hint_polyseed(POLYSEED_MONERO);
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes_ex(seed, key, language_name, is_polyseed,
+      invalid_hint_polyseed, "not a language"));
+    ASSERT_EQ("English", language_name);
+    ASSERT_EQ("3b0400003b0400003b0400003b0400003b0400003b0400003b0400003b040000",
+      epee::string_tools::pod_to_hex(unwrap(unwrap(key))));
+}
+
+TEST(mnemonics, explicit_language_after_failed_inference)
+{
+    const std::string seed = "jungle rapport rang koala pire demain soupe queue sondage essai rustre palace truite ficher neveu vent sorte puma membre affirmer borner notice papier pincer ficher";
+    crypto::secret_key key;
+    crypto::secret_key expected_key;
+    std::string language_name;
+    ASSERT_FALSE(crypto::ElectrumWords::words_to_bytes(seed, key, language_name));
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes(seed, expected_key, language_name, "French"));
+    ASSERT_EQ("Français", language_name);
+
+    for (const std::string &hint: {"French", "french", "français"})
+    {
+        bool is_polyseed = false;
+        polyseed::data decoded(POLYSEED_MONERO);
+        ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes_ex(seed, key, language_name,
+          is_polyseed, decoded, hint));
+        ASSERT_FALSE(is_polyseed);
+        ASSERT_EQ("Français", language_name);
+        ASSERT_EQ(expected_key, key);
+    }
+}
+
+TEST(mnemonics, explicit_language_falls_back_to_automatic)
+{
+    crypto::secret_key key;
+    crypto::secret_key expected_key;
+    std::string language_name;
+    bool is_polyseed = false;
+
+    const std::string short_seed = "plus plus plus plus plus plus plus plus plus plus plus plus plus plus plus plus plus plus plus plus plus plus plus plus";
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes(short_seed, expected_key, language_name));
+    polyseed::data short_decoded(POLYSEED_MONERO);
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes_ex(short_seed, key, language_name,
+      is_polyseed, short_decoded, "French"));
+    ASSERT_FALSE(is_polyseed);
+    ASSERT_EQ("English", language_name);
+    ASSERT_EQ(expected_key, key);
+
+    const std::string english_seed = "velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted";
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes(english_seed, expected_key, language_name));
+    polyseed::data english_decoded(POLYSEED_MONERO);
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes_ex(english_seed, key, language_name,
+      is_polyseed, english_decoded, "German"));
+    ASSERT_FALSE(is_polyseed);
+    ASSERT_EQ("English", language_name);
+    ASSERT_EQ(expected_key, key);
+}
+
+TEST(mnemonics, native_language_hint_casefold)
+{
+    crypto::secret_key original{};
+    original.data[0] = 1;
+    epee::wipeable_string seed;
+    ASSERT_TRUE(crypto::ElectrumWords::bytes_to_words(original, seed, "Русский"));
+
+    crypto::secret_key restored;
+    std::string language_name;
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes(seed, restored, language_name, "русский"));
+    ASSERT_EQ("Русский", language_name);
+    ASSERT_EQ(original, restored);
+}
+
+TEST(mnemonics, language_hint_preserves_deprecated_and_polyseed)
+{
+    std::string old_words;
+    for (size_t i = 0; i < 25; ++i)
+      old_words += i == 0 ? "eye" : " eye";
+
+    crypto::secret_key restored;
+    std::string language_name;
+    bool is_polyseed = false;
+    polyseed::data old_seed(POLYSEED_MONERO);
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes_ex(old_words, restored, language_name,
+      is_polyseed, old_seed, "Spanish"));
+    ASSERT_FALSE(is_polyseed);
+    ASSERT_EQ("EnglishOld", language_name);
+    const std::string expected_key = epee::string_tools::pod_to_hex(unwrap(unwrap(restored)));
+
+    std::string no_checksum(old_words);
+    no_checksum.erase(no_checksum.find_last_of(' '));
+    polyseed::data old_seed_no_checksum(POLYSEED_MONERO);
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes_ex(no_checksum, restored, language_name,
+      is_polyseed, old_seed_no_checksum, "Spanish"));
+    ASSERT_FALSE(is_polyseed);
+    ASSERT_EQ("EnglishOld", language_name);
+    ASSERT_EQ(expected_key, epee::string_tools::pod_to_hex(unwrap(unwrap(restored))));
+
+    polyseed::data created(POLYSEED_MONERO);
+    created.create(0, polyseed::get_lang_by_name("English"));
+    epee::wipeable_string polyseed_words;
+    created.encode(polyseed::get_lang_by_name("English"), polyseed_words);
+    polyseed::data decoded(POLYSEED_MONERO);
+    ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes_ex(polyseed_words, restored, language_name,
+      is_polyseed, decoded, "Spanish"));
+    ASSERT_TRUE(is_polyseed);
+    ASSERT_EQ("English", language_name);
 }
 
 TEST(mnemonics, utf8prefix)
