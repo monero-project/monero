@@ -2532,30 +2532,70 @@ namespace tools
         bool is_polyseed = false;
         polyseed::data polyseed(POLYSEED_MONERO);
 
-        if (!crypto::ElectrumWords::words_to_bytes_ex(req.seed, recovery_key, language, is_polyseed, polyseed))
+        bool decoded = crypto::ElectrumWords::words_to_bytes_ex(req.seed, recovery_key, language, is_polyseed, polyseed);
+        bool matching_key = false;
+        if (decoded)
+        {
+          if (!req.seed_offset.empty() && !is_polyseed)
+            recovery_key = cryptonote::decrypt_key(recovery_key, req.seed_offset);
+
+          cryptonote::account_base account;
+          if (is_polyseed)
+          {
+            crypto::secret_key polyseed_spend_key = polyseed.generate_secret_key(req.seed_offset);
+            crypto::secret_key polyseed_storage;
+            polyseed.save(&polyseed_storage);
+            account.create_from_polyseed(polyseed_spend_key, polyseed_storage, polyseed.birthday());
+          }
+          else
+          {
+            account.generate(recovery_key, true, false);
+          }
+          spend_secret_key = account.get_keys().m_spend_secret_key;
+          matching_key = account.get_keys().m_account_address.m_spend_public_key ==
+            m_wallet->get_account().get_keys().m_account_address.m_spend_public_key;
+        }
+
+        // An existing wallet's spend public key can resolve a 25-word legacy seed
+        // even when automatic decoding failed or the wallet has no seed language.
+        if (!matching_key && !is_polyseed &&
+            !crypto::ElectrumWords::get_is_old_style_seed(crypto::ElectrumWords::normalize_mnemonic(req.seed)))
+        {
+          std::vector<std::string> languages;
+          if (!m_wallet->get_seed_language().empty())
+            languages.push_back(m_wallet->get_seed_language());
+          crypto::ElectrumWords::get_language_list(languages, true, false);
+
+          for (const std::string &hint: languages)
+          {
+            crypto::secret_key hinted_recovery_key;
+            std::string hinted_language;
+            bool hinted_is_polyseed = false;
+            polyseed::data hinted_polyseed(POLYSEED_MONERO);
+            if (!crypto::ElectrumWords::words_to_bytes_ex(req.seed, hinted_recovery_key, hinted_language,
+                  hinted_is_polyseed, hinted_polyseed, hint) || hinted_is_polyseed)
+              continue;
+
+            if (!req.seed_offset.empty())
+              hinted_recovery_key = cryptonote::decrypt_key(hinted_recovery_key, req.seed_offset);
+            cryptonote::account_base hinted_account;
+            hinted_account.generate(hinted_recovery_key, true, false);
+            if (hinted_account.get_keys().m_account_address.m_spend_public_key ==
+                m_wallet->get_account().get_keys().m_account_address.m_spend_public_key)
+            {
+              spend_secret_key = hinted_account.get_keys().m_spend_secret_key;
+              matching_key = true;
+              break;
+            }
+          }
+        }
+
+        if (!decoded && !matching_key)
         {
           er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
           er.message = "Electrum-style word list failed verification";
           return false;
         }
-
-        if (!req.seed_offset.empty() && !is_polyseed)
-          recovery_key = cryptonote::decrypt_key(recovery_key, req.seed_offset);
-
-        // generate spend key
-        cryptonote::account_base account;
-        if (is_polyseed)
-        {
-          crypto::secret_key spend_secret_key = polyseed.generate_secret_key(req.seed_offset);
-          crypto::secret_key polyseed_storage;
-          polyseed.save(&polyseed_storage);
-          account.create_from_polyseed(spend_secret_key, polyseed_storage, polyseed.birthday());
-        }
-        else
-        {
-          account.generate(recovery_key, true, false);
-        }
-        spend_secret_key = account.get_keys().m_spend_secret_key;
       }
 
       m_wallet->stop_background_sync(req.wallet_password, spend_secret_key);
@@ -4243,7 +4283,8 @@ namespace tools
 
     // check the given seed
     if (!req.enable_multisig_experimental) {
-      if (!crypto::ElectrumWords::words_to_bytes_ex(req.seed, recovery_key, old_language, is_polyseed, polyseed))
+      if (!crypto::ElectrumWords::words_to_bytes_ex(req.seed, recovery_key, old_language,
+            is_polyseed, polyseed, req.language))
       {
         er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
         er.message = "Electrum-style word list failed verification";
