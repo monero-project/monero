@@ -84,6 +84,29 @@ void request_manager::remove_peer(const boost::uuids::uuid &peer_id) {
   m_connection_stats.erase(peer_id);
 }
 
+void request_manager::cancel_peer_requests(const boost::uuids::uuid &peer_id) {
+  std::lock_guard<std::recursive_mutex> lock(m_mutex);
+  auto& by_peer = get_requests_by_peer_id(m_requested_txs);
+  auto range = by_peer.equal_range(peer_id);
+  for (auto it = range.first; it != range.second; ++it) {
+    if (!it->in_flight)
+      continue;
+    const bool r = by_peer.modify(it, [](tx_request &request) {
+      request.nonce = 0;
+      request.in_flight = false;
+      request.processing = false;
+    });
+    CHECK_AND_ASSERT_MES_NO_RET(r, "Failed to cancel tx request");
+  }
+
+  const auto stats = m_connection_stats.find(peer_id);
+  if (stats != m_connection_stats.end()) {
+    // Exclude canceled requests from the failure-rate denominator.
+    stats->second.n_total_requests -= stats->second.in_flight_requests.load();
+    stats->second.in_flight_requests = 0;
+  }
+}
+
 std::unordered_set<boost::uuids::uuid> request_manager::remove_stale_requests() {
   std::lock_guard<std::recursive_mutex> lock(m_mutex);
   std::unordered_set<boost::uuids::uuid> drop_peers_out;
@@ -120,7 +143,7 @@ std::unordered_set<boost::uuids::uuid> request_manager::remove_stale_requests() 
   return drop_peers_out;
 }
 
-request_manager::tx_request_t request_manager::enqueue_requests(const std::vector<crypto::hash> &tx_hashes, const boost::uuids::uuid &peer_id) {
+request_manager::tx_request_t request_manager::enqueue_requests(const std::vector<crypto::hash> &tx_hashes, const boost::uuids::uuid &peer_id, const bool allow_flight) {
   std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
   tx_request_t tx_req(*this, peer_id);
@@ -133,7 +156,7 @@ request_manager::tx_request_t request_manager::enqueue_requests(const std::vecto
     auto it = by_peer_and_tx.find(boost::make_tuple(peer_id, tx_hash));
 
     const bool in_queue = it != by_peer_and_tx.end();
-    const bool let_it_fly = m_connection_stats[peer_id].in_flight_requests < m_max_in_flight
+    const bool let_it_fly = allow_flight && m_connection_stats[peer_id].in_flight_requests < m_max_in_flight
         && !this->request_is_in_flight(tx_hash);
 
     if (!let_it_fly) {
@@ -225,42 +248,43 @@ bool request_manager::remove_request(const crypto::hash &tx_hash) {
   return true;
 }
 
-bool request_manager::processing_txs(const boost::uuids::uuid &peer_id, const uint64_t nonce, const std::vector<crypto::hash> &tx_hashes) {
+bool request_manager::start_processing_txs(const boost::uuids::uuid &peer_id, const uint64_t nonce, const std::size_t n_txs) {
   // Any txs we requested are expected to have nonce >0
   if (nonce == 0)
     return false;
   std::lock_guard<std::recursive_mutex> lock(m_mutex);
-  // If no reqs found for that peer id and nonce, then we didn't request these hashes
   auto& by_peer_and_nonce = get_requests_by_peer_and_nonce(m_requested_txs);
   auto range = by_peer_and_nonce.equal_range(boost::make_tuple(peer_id, nonce));
   if (range.first == range.second)
     return false;
 
-  // Peer shouldn't have included *more* txs in the response than can be requested at once.
-  CHECK_AND_ASSERT_MES(tx_hashes.size() <= m_max_in_flight, false, "Too many tx_hashes in response");
-  const std::unordered_set<crypto::hash> peer_hashes(tx_hashes.begin(), tx_hashes.end());
-
-  MINFO("Processing " << tx_hashes.size() << " txs received from peer " << peer_id
+  CHECK_AND_ASSERT_MES(n_txs <= m_max_in_flight, false, "Too many txs in response");
+  MINFO("Processing " << n_txs << " txs received from peer " << peer_id
       << " (nonce=" << nonce << ")");
 
+  for (auto it = range.first; it != range.second; ++it) {
+    const bool r = start_processing_tx_req(it, by_peer_and_nonce);
+    CHECK_AND_ASSERT_MES(r, false, "Failed to mark tx request as processing");
+  }
+  return true;
+}
+
+bool request_manager::finish_processing_txs(const boost::uuids::uuid &peer_id, const uint64_t nonce) {
+  if (nonce == 0)
+    return false;
+  std::lock_guard<std::recursive_mutex> lock(m_mutex);
+  auto& by_peer_and_nonce = get_requests_by_peer_and_nonce(m_requested_txs);
+  auto range = by_peer_and_nonce.equal_range(boost::make_tuple(peer_id, nonce));
   bool req_removed = false;
   for (auto it = range.first; it != range.second;) {
-    const auto peer_hash_it = peer_hashes.find(it->tx_hash);
-    if (peer_hash_it == peer_hashes.end()) {
-      // If we requested a tx at this nonce, but it wasn't included in the peer's resp, then the peer is saying they
-      // didn't have the tx in their pool. We can remove it from our request queue for that specific peer.
-      MDEBUG("Removing tx request " << it->tx_hash << " only for peer " << it->peer_id);
-      it = erase_tx_request(it, by_peer_and_nonce);
-      req_removed = true;
+    if (!it->processing) {
+      ++it;
       continue;
     }
-
-    // We requested the tx from the peer, the peer responded with it, and now we're going to process it.
-    const bool r = start_processing_tx_req(it, by_peer_and_nonce);
-    CHECK_AND_ASSERT_MES(r, req_removed, "Failed to mark tx " << *peer_hash_it << " as processing");
-    ++it;
+    MDEBUG("Removing unanswered tx request " << it->tx_hash << " only for peer " << peer_id);
+    it = erase_tx_request(it, by_peer_and_nonce);
+    req_removed = true;
   }
-
   return req_removed;
 }
 

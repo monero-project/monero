@@ -1527,9 +1527,9 @@ namespace cryptonote
     return m_mempool.get_transaction(id, tx, tx_category);
   }  
   //-----------------------------------------------------------------------------------------------
-  bool core::pool_has_tx(const crypto::hash &id) const
+  bool core::pool_has_tx(const crypto::hash &id, relay_category tx_category) const
   {
-    return m_mempool.have_tx(id, relay_category::legacy);
+    return m_mempool.have_tx(id, tx_category);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const

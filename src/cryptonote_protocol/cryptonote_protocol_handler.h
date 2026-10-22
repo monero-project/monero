@@ -159,6 +159,7 @@ namespace cryptonote
     virtual bool relay_transactions(NOTIFY_NEW_TRANSACTIONS::request& arg, std::vector<crypto::hash> &&tx_hashes, const boost::uuids::uuid& source, epee::net_utils::zone zone, relay_method tx_relay);
     //----------------------------------------------------------------------------------
     //bool get_payload_sync_data(HANDSHAKE_DATA::request& hshd, cryptonote_connection_context& context);
+    void set_sync_state(cryptonote_connection_context& context, cryptonote_connection_context::state state);
     bool should_drop_connection(cryptonote_connection_context& context, uint32_t next_stripe);
     bool request_missing_objects(cryptonote_connection_context& context, bool check_having_blocks, bool force_next_span = false);
     bool on_connection_synchronized();

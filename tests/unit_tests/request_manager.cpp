@@ -79,6 +79,89 @@ TEST(request_manager, basic_usage)
     req_manager.remove_peer(peer);
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(request_manager, cancel_syncing_peer_requests)
+{
+    request_manager req_manager(2, 0);
+    const auto peer = uuid_from_char(1);
+    const auto other_peer = uuid_from_char(2);
+    const std::vector<crypto::hash> hashes{crypto::hash{1}, crypto::hash{2}, crypto::hash{3}};
+    ASSERT_EQ(req_manager.enqueue_requests(hashes, peer).tx_hashes.size(), 2);
+    ASSERT_TRUE(req_manager.enqueue_requests({hashes.begin(), hashes.begin() + 2}, other_peer).tx_hashes.empty());
+
+    req_manager.cancel_peer_requests(peer);
+    EXPECT_TRUE(req_manager.remove_stale_requests().empty());
+    EXPECT_EQ(req_manager.fly_available_requests(other_peer).tx_hashes.size(), 2);
+    EXPECT_EQ(req_manager.fly_available_requests(peer).tx_hashes, std::vector<crypto::hash>{hashes.back()});
+    EXPECT_EQ(req_manager.enqueue_requests({crypto::hash{4}}, peer).tx_hashes.size(), 1);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(request_manager, canceled_requests_preserve_completed_history)
+{
+    const size_t sample_size = P2P_MIN_SAMPLE_SIZE_FOR_DROPPING;
+    request_manager req_manager(sample_size, 0);
+    const auto peer = uuid_from_char(1);
+    std::vector<crypto::hash> hashes;
+    for (size_t i = 0; i < sample_size; ++i)
+      hashes.push_back(crypto::hash{static_cast<char>(i)});
+
+    // Record misses just below the sample threshold.
+    ASSERT_EQ(req_manager.enqueue_requests({hashes.begin(), hashes.end() - 1}, peer).tx_hashes.size(), sample_size - 1);
+    EXPECT_TRUE(req_manager.remove_stale_requests().empty());
+
+    ASSERT_EQ(req_manager.enqueue_requests(hashes, peer).tx_hashes.size(), sample_size);
+    req_manager.cancel_peer_requests(peer);
+    EXPECT_TRUE(req_manager.remove_stale_requests().empty());
+    ASSERT_EQ(req_manager.enqueue_requests({hashes.back()}, peer).tx_hashes.size(), 1);
+    EXPECT_EQ(req_manager.remove_stale_requests().count(peer), 1);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(request_manager, deferred_requests_wait_for_resume)
+{
+    const size_t sample_size = P2P_MIN_SAMPLE_SIZE_FOR_DROPPING;
+    request_manager req_manager(sample_size, 0);
+    const auto peer = uuid_from_char(1);
+    std::vector<crypto::hash> hashes;
+    for (size_t i = 0; i < sample_size; ++i)
+        hashes.push_back(crypto::hash{static_cast<char>(i)});
+
+    const auto deferred = req_manager.enqueue_requests(hashes, peer, false);
+    EXPECT_TRUE(deferred.tx_hashes.empty());
+    EXPECT_TRUE(req_manager.remove_stale_requests().empty());
+
+    const auto resumed = req_manager.fly_available_requests(peer);
+    EXPECT_GT(resumed.nonce, deferred.nonce);
+    EXPECT_EQ(std::unordered_set<crypto::hash>(resumed.tx_hashes.begin(), resumed.tx_hashes.end()),
+        std::unordered_set<crypto::hash>(hashes.begin(), hashes.end()));
+    // Only the resumed requests count toward the failure rate.
+    EXPECT_EQ(req_manager.remove_stale_requests().count(peer), 1);
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(request_manager, deferred_requests_do_not_block_other_peers)
+{
+    request_manager req_manager(2, 0);
+    const auto peer = uuid_from_char(1);
+    const auto other_peer = uuid_from_char(2);
+    const crypto::hash shared{1}, deferred{2};
+    EXPECT_TRUE(req_manager.enqueue_requests({shared, deferred}, peer, false).tx_hashes.empty());
+    EXPECT_EQ(req_manager.enqueue_requests({shared}, other_peer).tx_hashes, std::vector<crypto::hash>{shared});
+    EXPECT_TRUE(req_manager.remove_request(shared));
+    EXPECT_EQ(req_manager.fly_available_requests(peer).tx_hashes, std::vector<crypto::hash>{deferred});
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(request_manager, deferred_requests_respect_queue_limit)
+{
+    request_manager req_manager(2, 0, 2);
+    const auto peer = uuid_from_char(1);
+    const crypto::hash first{1}, second{2}, overflow{3};
+    EXPECT_TRUE(req_manager.enqueue_requests({first, first, second, overflow}, peer, false).tx_hashes.empty());
+    EXPECT_FALSE(req_manager.remove_request(overflow));
+    EXPECT_TRUE(req_manager.remove_request(first));
+    EXPECT_FALSE(req_manager.remove_request(first));
+    EXPECT_TRUE(req_manager.enqueue_requests({second, overflow}, peer, false).tx_hashes.empty());
+    EXPECT_TRUE(req_manager.remove_request(second));
+    EXPECT_EQ(req_manager.fly_available_requests(peer).tx_hashes, std::vector<crypto::hash>{overflow});
+}
+//----------------------------------------------------------------------------------------------------------------------
 TEST(request_manager, multiple_peers)
 {
     const uint8_t MAX_IN_FLIGHT = 4;
@@ -188,12 +271,8 @@ TEST(request_manager, dont_rm_processing_txs)
     ASSERT_EQ(tx_req.tx_hashes, init_hashes);
     ASSERT_EQ(tx_req.nonce, 1);
 
-    // 2. Indicate that we're processing all of the tx requests
-    // Note: the last one is explicitly not included in the processing_hashes, which technically is supposed to mean
-    // the peer didn't have the tx and it can be removed from the request queue.
-    const std::vector<crypto::hash> processing_hashes(init_hashes.begin(), init_hashes.end() - 1);
-    ASSERT_TRUE(req_manager.processing_txs(peer, tx_req.nonce, processing_hashes));
-    ASSERT_FALSE(req_manager.remove_request(init_hashes.back()));
+    // 2. Protect requests until the response is processed.
+    ASSERT_TRUE(req_manager.start_processing_txs(peer, tx_req.nonce, init_hashes.size() - 1));
 
     // 3. Sleep to let requests timeout
     MINFO("Sleeping for 20ms to let requests timeout");
@@ -203,7 +282,12 @@ TEST(request_manager, dont_rm_processing_txs)
     const auto drop_peers = req_manager.remove_stale_requests();
     ASSERT_EQ(drop_peers.size(), 0);
 
-    // 5. Remove peers
+    // 5. Complete received transactions and release the omitted request.
+    for (auto it = init_hashes.begin(); it != init_hashes.end() - 1; ++it)
+        ASSERT_TRUE(req_manager.remove_request(*it));
+    ASSERT_TRUE(req_manager.finish_processing_txs(peer, tx_req.nonce));
+    ASSERT_FALSE(req_manager.remove_request(init_hashes.back()));
+    ASSERT_FALSE(req_manager.finish_processing_txs(peer, tx_req.nonce));
     req_manager.remove_peer(peer);
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -234,7 +318,7 @@ TEST(request_manager, dont_rm_processing_txs_enqueue_overage)
     ASSERT_EQ(tx_req2.nonce, 2);
 
     // 4. Indicate that we're processing Step 3's tx
-    ASSERT_FALSE(req_manager.processing_txs(peer, tx_req2.nonce, tx_req2.tx_hashes));
+    ASSERT_TRUE(req_manager.start_processing_txs(peer, tx_req2.nonce, tx_req2.tx_hashes.size()));
 
     // 5. Sleep to let requests timeout
     MINFO("Sleeping for 20ms to let requests timeout");
@@ -267,7 +351,8 @@ TEST(request_manager, cap_queued_requests)
         ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{3}}, peer).tx_hashes.size(), 0); // dropped
         ASSERT_TRUE(req_manager.remove_request(crypto::hash{2}));
         ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{3}}, peer).tx_hashes.size(), 0); // queued
-        req_manager.processing_txs(peer, req.nonce, {}); // empty reply frees hash 1
+        ASSERT_TRUE(req_manager.start_processing_txs(peer, req.nonce, 0));
+        ASSERT_TRUE(req_manager.finish_processing_txs(peer, req.nonce)); // empty reply frees hash 1
         const auto tx_hashes = req_manager.fly_available_requests(peer).tx_hashes;
         ASSERT_EQ(tx_hashes.size(), 1);
         ASSERT_EQ(tx_hashes.front(), crypto::hash{3});
@@ -286,4 +371,45 @@ TEST(request_manager, cap_queued_requests)
         ASSERT_EQ(tx_hashes.size(), 1);
         ASSERT_EQ(tx_hashes.front(), crypto::hash{3});
     }
+}
+
+TEST(request_manager, finish_response_preserves_other_peers_and_nonces)
+{
+    request_manager req_manager(2);
+    const auto peer = uuid_from_char(1);
+    const auto other_peer = uuid_from_char(2);
+    const crypto::hash received{1}, omitted{2}, later{3};
+    const auto first = req_manager.enqueue_requests({received, omitted}, peer);
+    ASSERT_EQ(first.tx_hashes.size(), 2);
+    ASSERT_TRUE(req_manager.enqueue_requests({received, omitted}, other_peer).tx_hashes.empty());
+    ASSERT_TRUE(req_manager.start_processing_txs(peer, first.nonce, 1));
+    ASSERT_TRUE(req_manager.remove_request(received));
+
+    const auto second = req_manager.enqueue_requests({later}, peer);
+    ASSERT_EQ(second.tx_hashes, std::vector<crypto::hash>{later});
+    ASSERT_NE(first.nonce, second.nonce);
+    ASSERT_TRUE(req_manager.finish_processing_txs(peer, first.nonce));
+    ASSERT_TRUE(req_manager.remove_request(later));
+
+    ASSERT_EQ(req_manager.fly_available_requests(other_peer).tx_hashes, std::vector<crypto::hash>{omitted});
+    ASSERT_TRUE(req_manager.remove_request(omitted));
+    ASSERT_FALSE(req_manager.finish_processing_txs(peer, first.nonce));
+    ASSERT_EQ(req_manager.enqueue_requests({received, omitted}, peer).tx_hashes.size(), 2);
+}
+
+TEST(request_manager, unsolicited_or_oversized_response_does_not_suspend_timeouts)
+{
+    request_manager req_manager(1, 0);
+    const auto peer = uuid_from_char(1);
+    const crypto::hash in_flight{1}, queued{2};
+    const auto request = req_manager.enqueue_requests({in_flight, queued}, peer);
+    ASSERT_EQ(request.tx_hashes, std::vector<crypto::hash>{in_flight});
+    EXPECT_FALSE(req_manager.start_processing_txs(peer, 0, 0));
+    EXPECT_FALSE(req_manager.start_processing_txs(peer, request.nonce + 1, 0));
+    EXPECT_FALSE(req_manager.start_processing_txs(peer, request.nonce, 2));
+    EXPECT_FALSE(req_manager.finish_processing_txs(peer, 0));
+    EXPECT_FALSE(req_manager.finish_processing_txs(peer, request.nonce));
+    EXPECT_TRUE(req_manager.remove_stale_requests().empty());
+    EXPECT_FALSE(req_manager.remove_request(in_flight));
+    EXPECT_EQ(req_manager.fly_available_requests(peer).tx_hashes, std::vector<crypto::hash>{queued});
 }
