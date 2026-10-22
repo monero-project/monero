@@ -1039,6 +1039,41 @@ TEST(Serialization, tuple_3_4_backwards_compatibility)
   EXPECT_EQ(t4, t4_recovered);
 }
 
+TEST(Serialization, unsigned_tx_set_transfer_count_versions)
+{
+  for (uint32_t version = 0; version <= 2; ++version)
+  {
+    std::ostringstream oss;
+    binary_archive<true> ar(oss);
+    ar.serialize_varint(version);
+    std::vector<tools::wallet2::tx_construction_data> txes;
+    ASSERT_TRUE(::serialization::serialize(ar, txes));
+    if (version == 0)
+    {
+      std::pair<size_t, tools::wallet2::transfer_container> transfers{3, {}};
+      ASSERT_TRUE(::serialization::serialize(ar, transfers));
+    }
+    else if (version == 1)
+    {
+      std::pair<size_t, std::vector<tools::wallet2::exported_transfer_details>> transfers{3, {}};
+      ASSERT_TRUE(::serialization::serialize(ar, transfers));
+    }
+    else
+    {
+      std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_details>> transfers{3, 3, {}};
+      ASSERT_TRUE(::serialization::serialize(ar, transfers));
+    }
+
+    tools::wallet2::unsigned_tx_set recovered;
+    ASSERT_TRUE(::serialization::parse_binary(oss.str(), recovered));
+    EXPECT_EQ(version == 2, recovered.has_new_transfers_total);
+    if (version == 0)
+      EXPECT_EQ(3, std::get<1>(recovered.transfers));
+    else
+      EXPECT_EQ(3, std::get<1>(recovered.new_transfers));
+  }
+}
+
 struct Tupler
 {
   std::tuple<> t0;
