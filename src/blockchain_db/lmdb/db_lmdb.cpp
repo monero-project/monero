@@ -2368,6 +2368,7 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
       // See commit e5d2680094ee15889934fe28901e4e133cda56f2 2015/07/10
       // We don't handle the old format previous to that commit.
       txn.commit();
+      txn.uncheck();
       m_open = true;
       migrate(db_version);
       return;
@@ -6959,7 +6960,7 @@ void BlockchainLMDB::migrate_5_7()
             const uint64_t last_added_block_idx = tree_block_idx - std::min<uint64_t>((CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE - 1), tree_block_idx);
             CHECK_AND_ASSERT_THROW_MES(n_tree_blocks == 0 || cryptonote::get_default_last_locked_block_index(last_added_block_idx) == tree_block_idx,
               "Unexpected tree block idx mismatch to last added block idx");
-            if (last_added_block_idx)
+            if (n_tree_blocks != 0)
             {
               MINFO("Continuing from last added block " << last_added_block_idx);
               i = last_added_block_idx + 1;
