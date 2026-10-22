@@ -35,6 +35,7 @@
 #include "cryptonote_core/i_core_events.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.inl"
+#include "net/tor_address.h"
 #include "unit_tests_utils.h"
 #include <algorithm>
 #include <condition_variable>
@@ -121,6 +122,178 @@ public:
 };
 
 typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<test_core>> Server;
+
+namespace
+{
+  class known_top_test_core : public test_core
+  {
+  public:
+    crypto::hash main_top{};
+    crypto::hash alt_top{};
+    crypto::hash invalid_top{};
+    bool alt_disappears = false;
+    uint64_t target_height = 0;
+    mutable unsigned int block_lookups = 0;
+    mutable unsigned int hash_lookups = 0;
+
+    known_top_test_core()
+    {
+      main_top.data[0] = 1;
+      alt_top.data[0] = 2;
+      invalid_top.data[0] = 3;
+    }
+
+    bool have_block(const crypto::hash& id, int *where = NULL) const
+    {
+      if (id == main_top || id == alt_top || id == invalid_top)
+      {
+        if (where)
+          *where = id == main_top ? HAVE_BLOCK_MAIN_CHAIN : id == alt_top ? HAVE_BLOCK_ALT_CHAIN : HAVE_BLOCK_INVALID;
+        return true;
+      }
+      return false;
+    }
+
+    bool get_block_by_hash(const crypto::hash& id, cryptonote::block& block, bool *orphan = NULL) const
+    {
+      ++block_lookups;
+      if (id != main_top && (id != alt_top || alt_disappears))
+        return false;
+      block.miner_tx.vin.push_back(cryptonote::txin_gen{id == main_top ? 0u : 8u});
+      if (orphan)
+        *orphan = id == alt_top;
+      return true;
+    }
+
+    uint64_t get_target_blockchain_height() const { return target_height; }
+    void set_target_blockchain_height(uint64_t height) { target_height = height; }
+    void get_blockchain_top(uint64_t& height, crypto::hash& top_id) const { height = 0; top_id = main_top; }
+    crypto::hash get_block_id_by_height(uint64_t height) const
+    {
+      ++hash_lookups;
+      return height == 0 ? main_top : crypto::null_hash;
+    }
+  };
+
+  struct known_top_test_p2p : nodetool::p2p_endpoint_stub<cryptonote::cryptonote_connection_context>
+  {
+    unsigned fail_score = 0;
+
+    bool add_host_fail(const epee::net_utils::network_address&, unsigned score) override
+    {
+      fail_score += score;
+      return true;
+    }
+  };
+
+  struct known_top_result
+  {
+    bool accepted;
+    cryptonote::cryptonote_connection_context::state state;
+    unsigned fail_score;
+  };
+
+  known_top_result process_known_top(known_top_test_core& core, const crypto::hash& top, uint64_t height, bool initial, bool hidden = false)
+  {
+    known_top_test_p2p p2p;
+    cryptonote::t_cryptonote_protocol_handler<known_top_test_core> handler{core, &p2p};
+    cryptonote::cryptonote_connection_context context;
+    const epee::net_utils::network_address address = hidden
+      ? epee::net_utils::network_address{net::tor_address::unknown()}
+      : epee::net_utils::network_address{MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 1, 18080)};
+    static_cast<epee::net_utils::connection_context_base&>(context) =
+      epee::net_utils::connection_context_base{boost::uuids::uuid{}, address, false, false};
+    if (!initial)
+      context.set_state_normal();
+    cryptonote::CORE_SYNC_DATA data{};
+    data.top_id = top;
+    data.current_height = height;
+    const bool accepted = handler.process_payload_sync_data(data, context, initial);
+    return {accepted, context.m_state, p2p.fail_score};
+  }
+}
+
+TEST(cryptonote_protocol_handler, known_top_height_matches_main_chain)
+{
+  known_top_test_core core;
+  const auto result = process_known_top(core, core.main_top, 1, true);
+  EXPECT_TRUE(result.accepted);
+  EXPECT_EQ(result.state, cryptonote::cryptonote_connection_context::state_normal);
+  EXPECT_EQ(result.fail_score, 0u);
+  EXPECT_EQ(core.block_lookups, 0u);
+  EXPECT_EQ(core.hash_lookups, 1u);
+}
+
+TEST(cryptonote_protocol_handler, known_top_height_matches_alt_chain)
+{
+  known_top_test_core core;
+  const auto result = process_known_top(core, core.alt_top, 9, true);
+  EXPECT_TRUE(result.accepted);
+  EXPECT_EQ(result.state, cryptonote::cryptonote_connection_context::state_normal);
+  EXPECT_EQ(result.fail_score, 0u);
+  EXPECT_EQ(core.block_lookups, 1u);
+}
+
+TEST(cryptonote_protocol_handler, known_top_height_mismatch_is_rejected)
+{
+  known_top_test_core core;
+  const auto main = process_known_top(core, core.main_top, 1000, true);
+  EXPECT_FALSE(main.accepted);
+  EXPECT_EQ(main.fail_score, 5u);
+  EXPECT_EQ(core.hash_lookups, 0u);
+  const auto alt_high = process_known_top(core, core.alt_top, 1000, false);
+  EXPECT_FALSE(alt_high.accepted);
+  EXPECT_EQ(alt_high.fail_score, 5u);
+  const auto alt_low = process_known_top(core, core.alt_top, 1, false);
+  EXPECT_FALSE(alt_low.accepted);
+  EXPECT_EQ(alt_low.fail_score, 5u);
+}
+
+TEST(cryptonote_protocol_handler, hidden_peer_known_top_is_not_rejected)
+{
+  known_top_test_core core;
+  const auto invalid = process_known_top(core, core.invalid_top, 1000, true, true);
+  EXPECT_TRUE(invalid.accepted);
+  EXPECT_EQ(invalid.state, cryptonote::cryptonote_connection_context::state_normal);
+  EXPECT_EQ(invalid.fail_score, 0u);
+
+  const auto alt = process_known_top(core, core.alt_top, 1000, true, true);
+  EXPECT_TRUE(alt.accepted);
+  EXPECT_EQ(alt.state, cryptonote::cryptonote_connection_context::state_normal);
+  EXPECT_EQ(alt.fail_score, 0u);
+  EXPECT_EQ(core.block_lookups, 0u);
+}
+
+TEST(cryptonote_protocol_handler, invalid_known_top_is_rejected)
+{
+  known_top_test_core core;
+  const auto high = process_known_top(core, core.invalid_top, 1000, true);
+  EXPECT_FALSE(high.accepted);
+  EXPECT_EQ(high.fail_score, 1u);
+  const auto low = process_known_top(core, core.invalid_top, 1, true);
+  EXPECT_FALSE(low.accepted);
+  EXPECT_EQ(low.fail_score, 1u);
+}
+
+TEST(cryptonote_protocol_handler, disappeared_alt_top_is_not_rejected)
+{
+  known_top_test_core core;
+  core.alt_disappears = true;
+  const auto result = process_known_top(core, core.alt_top, 9, false);
+  EXPECT_TRUE(result.accepted);
+  EXPECT_EQ(result.state, cryptonote::cryptonote_connection_context::state_synchronizing);
+  EXPECT_EQ(result.fail_score, 0u);
+  EXPECT_EQ(core.target_height, 9u);
+}
+
+TEST(cryptonote_protocol_handler, unknown_top_starts_synchronizing)
+{
+  known_top_test_core core;
+  const auto result = process_known_top(core, crypto::null_hash, 9, true);
+  EXPECT_TRUE(result.accepted);
+  EXPECT_EQ(result.state, cryptonote::cryptonote_connection_context::state_synchronizing);
+  EXPECT_EQ(result.fail_score, 0u);
+}
 
 TEST(node_server, ipv6_peer_group)
 {
