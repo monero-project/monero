@@ -8181,6 +8181,9 @@ bool wallet2::sign_tx(const std::string &unsigned_filename, const std::string &s
 //----------------------------------------------------------------------------------------------------
 bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pending_tx> &txs, signed_tx_set &signed_txes)
 {
+  THROW_WALLET_EXCEPTION_IF(m_multisig, error::wallet_internal_error,
+      "Multisig wallets must use multisig signing");
+
   wallet::sanity_check_unsigned_tx_set(exported_txs.txes, m_account.get_keys(), m_subaddresses);
 
   if (!std::get<2>(exported_txs.new_transfers).empty())
@@ -8406,6 +8409,12 @@ bool wallet2::load_tx(const std::string &signed_filename, std::vector<tools::wal
 //----------------------------------------------------------------------------------------------------
 bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<tools::wallet2::pending_tx> &ptx, std::function<bool(const signed_tx_set &)> accept_func)
 {
+  if (m_multisig)
+  {
+    LOG_PRINT_L0("Multisig wallets must use multisig transaction submission");
+    return false;
+  }
+
   std::string s = signed_tx_st;
   signed_tx_set signed_txs;
 
@@ -14637,6 +14646,9 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
 {
   PERF_TIMER(import_outputs);
 
+  THROW_WALLET_EXCEPTION_IF(m_multisig, error::wallet_internal_error,
+      "Multisig wallets cannot import outputs");
+
   THROW_WALLET_EXCEPTION_IF(m_has_ever_refreshed_from_node, error::wallet_internal_error,
       "Hot wallets cannot import outputs");
 
@@ -14719,6 +14731,9 @@ process:
 size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_details>> &outputs)
 {
   PERF_TIMER(import_outputs);
+
+  THROW_WALLET_EXCEPTION_IF(m_multisig, error::wallet_internal_error,
+      "Multisig wallets cannot import outputs");
 
   THROW_WALLET_EXCEPTION_IF(m_has_ever_refreshed_from_node, error::wallet_internal_error,
       "Hot wallets cannot import outputs");
