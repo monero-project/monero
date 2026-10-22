@@ -1847,8 +1847,6 @@ void wallet2::sort_scan_tx_entries(std::vector<process_tx_entry_t> &unsorted_tx_
   // for multisig wallets when they synchronize.
   std::set<uint64_t> entry_heights;
   std::set<uint64_t> entry_heights_requested;
-  COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::request req;
-  COMMAND_RPC_GET_BLOCKS_BY_HEIGHT::response res;
   for (const auto & tx_info : unsorted_tx_entries)
   {
     if (!tx_info.tx_entry.in_pool && !tx_info.tx.is_coinbase())
@@ -1860,27 +1858,30 @@ void wallet2::sort_scan_tx_entries(std::vector<process_tx_entry_t> &unsorted_tx_
       }
       else if (entry_heights_requested.find(height) == entry_heights_requested.end())
       {
-        req.heights.push_back(height);
         entry_heights_requested.insert(height);
       }
     }
   }
 
-  {
-    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-    bool r = net_utils::invoke_http_bin("/getblocks_by_height.bin", req, res, *m_http_client, rpc_timeout);
-    THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to get blocks by height from daemon");
-    THROW_WALLET_EXCEPTION_IF(res.blocks.size() != req.heights.size(), error::wallet_internal_error, "Failed to get blocks by height from daemon");
-  }
-
   std::unordered_map<uint64_t, cryptonote::block> parsed_blocks;
-  for (size_t i = 0; i < res.blocks.size(); ++i)
+  for (const uint64_t height : entry_heights_requested)
   {
-    const auto &blk = res.blocks[i];
+    COMMAND_RPC_GET_BLOCK::request req = AUTO_VAL_INIT(req);
+    COMMAND_RPC_GET_BLOCK::response res = AUTO_VAL_INIT(res);
+    req.height = height;
+
+    {
+      const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
+      bool r = net_utils::invoke_http_json_rpc("/json_rpc", "getblock", req, res, *m_http_client, rpc_timeout);
+      THROW_WALLET_EXCEPTION_IF(!r || res.status != CORE_RPC_STATUS_OK, error::wallet_internal_error, "Failed to get block by height from daemon");
+    }
+    THROW_WALLET_EXCEPTION_IF(res.block_header.height != height, error::wallet_internal_error, "Daemon returned block at wrong height");
+
+    cryptonote::blobdata blob;
     cryptonote::block parsed_block;
-    THROW_WALLET_EXCEPTION_IF(!cryptonote::parse_and_validate_block_from_blob(blk.block, parsed_block),
+    THROW_WALLET_EXCEPTION_IF(!string_tools::parse_hexstr_to_binbuff(res.blob, blob) || !cryptonote::parse_and_validate_block_from_blob(blob, parsed_block),
         error::wallet_internal_error, "Failed to parse block");
-    parsed_blocks[req.heights[i]] = std::move(parsed_block);
+    parsed_blocks[height] = std::move(parsed_block);
   }
 
   // sort tx_entries in chronologically ascending order; pool txs to the back
