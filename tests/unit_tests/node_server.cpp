@@ -122,6 +122,36 @@ public:
 
 typedef nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<test_core>> Server;
 
+TEST(node_server, anonymous_inbound_bind_port)
+{
+  const auto parse = [](const char* bind) {
+    boost::program_options::options_description options("Command line options");
+    Server::init_options(options);
+
+    const std::string inbound = std::string{"vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:18083,"} + bind;
+    const char* argv[] = {"unit_tests", "--anonymous-inbound", inbound.c_str()};
+    boost::program_options::variables_map vm;
+    boost::program_options::store(boost::program_options::parse_command_line(3, argv, options), vm);
+    boost::program_options::notify(vm);
+    return nodetool::get_anonymous_inbounds(vm);
+  };
+
+  const auto port_only = parse("18083");
+  ASSERT_TRUE(port_only);
+  ASSERT_EQ(1, port_only->size());
+  EXPECT_EQ("127.0.0.1", port_only->front().local_ip);
+  EXPECT_EQ("18083", port_only->front().local_port);
+
+  const auto explicit_address = parse("127.0.0.2:18084");
+  ASSERT_TRUE(explicit_address);
+  ASSERT_EQ(1, explicit_address->size());
+  EXPECT_EQ("127.0.0.2", explicit_address->front().local_ip);
+  EXPECT_EQ("18084", explicit_address->front().local_port);
+
+  EXPECT_FALSE(parse("invalid"));
+  EXPECT_FALSE(parse("65536"));
+}
+
 TEST(node_server, ipv6_peer_group)
 {
   const auto make_ipv6 = [](const char* ip) {
