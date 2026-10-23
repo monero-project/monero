@@ -8669,12 +8669,47 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
   if (out || include_history) {
     std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> payments;
     m_wallet->get_payments_out(payments, query_min_height, query_max_height, m_current_subaddress_account, query_indices);
+    std::unordered_map<crypto::hash, uint64_t> received_by_tx;
+    bool can_recompute_change = true;
+    if (include_history)
+    {
+      std::unordered_set<crypto::hash> outgoing_txids;
+      for (const auto &payment: payments)
+        outgoing_txids.insert(payment.first);
+      for (size_t n = 0; n < m_wallet->get_num_transfer_details(); ++n)
+      {
+        const auto &td = m_wallet->get_transfer_details(n);
+        if (td.m_subaddr_index.major != m_current_subaddress_account)
+          continue;
+        if (td.m_txid == crypto::null_hash)
+        {
+          // Compact imported outputs have no txid, so retain the cached change.
+          can_recompute_change = false;
+          break;
+        }
+        if (!outgoing_txids.count(td.m_txid))
+          continue;
+        uint64_t &received = received_by_tx[td.m_txid];
+        if (td.amount() > std::numeric_limits<uint64_t>::max() - received)
+        {
+          can_recompute_change = false;
+          break;
+        }
+        received += td.amount();
+      }
+    }
     for (std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>>::const_iterator i = payments.begin(); i != payments.end(); ++i) {
       const tools::wallet2::confirmed_transfer_details &pd = i->second;
       const bool selected = out && min_height < pd.m_block_height && pd.m_block_height <= max_height &&
         (subaddr_indices.empty() || std::any_of(pd.m_subaddr_indices.begin(), pd.m_subaddr_indices.end(),
           [&subaddr_indices](uint32_t index) { return subaddr_indices.count(index) != 0; }));
       uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
+      if (include_history && can_recompute_change)
+      {
+        const auto received = received_by_tx.find(i->first);
+        if (received != received_by_tx.end() && received->second <= pd.m_amount_out)
+          change = std::max(change, received->second);
+      }
       uint64_t fee = pd.m_amount_in - pd.m_amount_out;
       if (!selected)
       {
