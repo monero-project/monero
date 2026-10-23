@@ -249,11 +249,10 @@ namespace nodetool
             const boost::string_ref address{next->begin(), next->size()};
 
             ++next;
-            CHECK_AND_ASSERT_MES(!next.eof() && !next->empty(), boost::none, "No local ipv4:port given for --" << arg_anonymous_inbound.name);
+            CHECK_AND_ASSERT_MES(!next.eof() && !next->empty(), boost::none, "No local port given for --" << arg_anonymous_inbound.name);
             const boost::string_ref bind{next->begin(), next->size()};
-
-            const std::size_t colon = bind.find_first_of(':');
-            CHECK_AND_ASSERT_MES(colon < bind.size(), boost::none, "No local port given for --" << arg_anonymous_inbound.name);
+            const std::string local_bind = bind.find(':') == boost::string_ref::npos ? "127.0.0.1:" + std::string{bind} : std::string{bind};
+            const std::size_t colon = local_bind.find(':');
 
             ++next;
             if (!next.eof())
@@ -287,13 +286,13 @@ namespace nodetool
 
             std::uint32_t ip = 0;
             std::uint16_t port = 0;
-            if (!epee::string_tools::parse_peer_from_string(ip, port, std::string{bind}))
+            if (!epee::string_tools::parse_peer_from_string(ip, port, local_bind))
             {
                 MERROR("Invalid ipv4:port given for --" << arg_anonymous_inbound.name);
                 return boost::none;
             }
-            inbounds.back().local_ip = std::string{bind.substr(0, colon)};
-            inbounds.back().local_port = std::string{bind.substr(colon + 1)};
+            inbounds.back().local_ip = local_bind.substr(0, colon);
+            inbounds.back().local_port = local_bind.substr(colon + 1);
         }
 
         return inbounds;
