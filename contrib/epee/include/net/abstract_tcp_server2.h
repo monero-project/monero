@@ -46,6 +46,7 @@
 #include <memory>
 #include <condition_variable>
 
+#include <boost/asio/bind_executor.hpp>
 #include <boost/asio/post.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/strand.hpp>
@@ -154,7 +155,8 @@ namespace net_utils
     bool start_internal(
       bool is_income,
       bool is_multithreaded,
-      boost::optional<network_address> real_remote
+      boost::optional<network_address> real_remote,
+      ssl_support_t ssl
     );
 
     struct state_t {
@@ -291,14 +293,12 @@ namespace net_utils
     explicit connection( io_context_t& io_context,
                         std::shared_ptr<shared_state> state,
 			t_connection_type connection_type,
-			epee::net_utils::ssl_support_t ssl_support,
       t_connection_context&& initial = t_connection_context{});
 
     explicit connection( io_context_t& io_context,
       boost::asio::ip::tcp::socket&& sock,
 			 std::shared_ptr<shared_state> state,
 			t_connection_type connection_type,
-			epee::net_utils::ssl_support_t ssl_support,
       t_connection_context&& initial = t_connection_context{});
 
 
@@ -306,10 +306,10 @@ namespace net_utils
     virtual ~connection() noexcept(false);
 
     /// Start the first asynchronous operation for the connection.
-    bool start(bool is_income, bool is_multithreaded);
+    bool start(bool is_income, bool is_multithreaded, ssl_support_t ssl);
 
     // `real_remote` is the actual endpoint (if connection is to proxy, etc.)
-    bool start(bool is_income, bool is_multithreaded, network_address real_remote);
+    bool start(bool is_income, bool is_multithreaded, network_address real_remote, ssl_support_t ssl);
 
     void get_context(t_connection_context& context_){context_ = get_context();}
 
@@ -320,9 +320,28 @@ namespace net_utils
 
 		bool speed_limit_is_enabled() const; ///< tells us should we be sleeping here (e.g. do not sleep on RPC connections)
 
+    void set_ssl_enabled()
+    {
+      m_state.ssl.enabled = true;
+      m_state.ssl.handshaked = true;
+    }
+    void set_ssl_disabled()
+    {
+      get_context().m_ssl = ssl_support_t::e_ssl_support_disabled;
+      m_state.ssl.enabled = false;
+      m_state.ssl.forced = false;
+    }
+
     bool cancel(bool wait_for_shutdown = false);
 
     status_t get_status() const noexcept { return m_state.status; }
+
+    //! Used by boosted_tcp_server class in async_connect_internal
+    template<typename F>
+    auto wrap(F&& f)
+    {
+      return boost::asio::bind_executor(m_strand, std::forward<F>(f));
+    }
     
   private:
     //----------------- i_service_endpoint ---------------------
@@ -418,11 +437,12 @@ namespace net_utils
       default_remote = std::move(remote);
     }
 
-    bool add_connection(t_connection_context& out, boost::asio::ip::tcp::socket&& sock, network_address real_remote, epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
-    try_connect_result_t try_connect(connection_ptr new_connection_l, const std::string& adr, const std::string& port, boost::asio::ip::tcp::socket &sock_, const boost::asio::ip::tcp::endpoint &remote_endpoint, const std::string &bind_ip, uint32_t conn_timeout, epee::net_utils::ssl_support_t ssl_support);
-    bool connect(const std::string& adr, const std::string& port, uint32_t conn_timeot, t_connection_context& cn, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
+    // blocks on autodetect to synchronize with caller the status of the ssl handshake
+    bool add_connection(t_connection_context& out, boost::asio::ip::tcp::socket&& sock, network_address real_remote, epee::net_utils::ssl_options_t ssl, std::chrono::milliseconds timeout);
+    try_connect_result_t try_connect(connection_ptr new_connection_l, const std::string& adr, const std::string& port, boost::asio::ssl::stream<boost::asio::ip::tcp::socket> &sock, const boost::asio::ip::tcp::endpoint &remote_endpoint, const std::string &bind_ip, std::chrono::milliseconds timeout, epee::net_utils::ssl_options_t& ssl_support);
+    bool connect(const std::string& adr, const std::string& port, std::chrono::milliseconds timeout, t_connection_context& cn, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect);
     template<class t_callback>
-    bool connect_async(const std::string& adr, const std::string& port, std::chrono::milliseconds conn_timeout, t_callback &&cb, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_support_t ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, t_connection_context&& initial = t_connection_context{});
+    bool connect_async(const std::string& adr, const std::string& port, std::chrono::milliseconds conn_timeout, t_callback &&cb, const std::string& bind_ip = "0.0.0.0", epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_autodetect, t_connection_context&& initial = t_connection_context{});
 
     boost::asio::ssl::context& get_ssl_context() noexcept
     {
@@ -531,6 +551,9 @@ namespace net_utils
     void handle_accept(const boost::system::error_code& e, bool ipv6 = false);
 
     bool is_thread_worker();
+
+    template<typename t_callback>
+    bool connect_async_internal(const connection_ptr& new_connection_l, const boost::asio::ip::tcp::endpoint& remote_endpoint, std::chrono::milliseconds conn_timeout, t_callback &&cb, const ssl_options_t& ssl);
 
     const std::shared_ptr<typename connection<t_protocol_handler>::shared_state> m_state;
 

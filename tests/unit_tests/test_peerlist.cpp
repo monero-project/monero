@@ -78,11 +78,11 @@ TEST(peer_list, rejects_ipv4_link_local_by_default)
   ASSERT_TRUE(plm.init(nodetool::peerlist_types{}, false));
 
   const nodetool::peerlist_entry link_local{
-    epee::net_utils::ipv4_network_address{MAKE_IP(169, 254, 169, 254), 18080}, 1, 0};
+    epee::net_utils::ipv4_network_address{MAKE_IP(169, 254, 169, 254), 18080}, "", 1, 0};
   const nodetool::peerlist_entry public_peer{
-    epee::net_utils::ipv4_network_address{MAKE_IP(123, 45, 67, 89), 18080}, 2, 0};
+    epee::net_utils::ipv4_network_address{MAKE_IP(123, 45, 67, 89), 18080}, "", 2, 0};
   ASSERT_TRUE(plm.merge_peerlist({link_local, public_peer}));
-  ASSERT_TRUE(plm.append_with_peer_white(link_local));
+  ASSERT_TRUE(plm.append_with_peer_white(link_local) == nodetool::peer_status::success);
 
   std::vector<nodetool::peerlist_entry> gray;
   std::vector<nodetool::peerlist_entry> white;
@@ -132,13 +132,13 @@ TEST(peerlist_storage, store)
   std::string buffer{};
   {
     nodetool::peerlist_types types{};
-    types.white.push_back({epee::net_utils::ipv4_network_address{1000, 10}, 44, 55});
-    types.white.push_back({net::tor_address::unknown(), 64, 75});
-    types.gray.push_back({net::tor_address::unknown(), 99, 88});
-    types.gray.push_back({epee::net_utils::ipv4_network_address{2000, 20}, 84, 45});
-    types.anchor.push_back({epee::net_utils::ipv4_network_address{999, 654}, 444, 555});
-    types.anchor.push_back({net::tor_address::unknown(), 14, 33});
-    types.anchor.push_back({net::tor_address::unknown(), 24, 22});
+    types.white.push_back({epee::net_utils::ipv4_network_address{1000, 10}, {}, 44, 55});
+    types.white.push_back({net::tor_address::unknown(), {}, 64, 75});
+    types.gray.push_back({net::tor_address::unknown(), {}, 99, 88});
+    types.gray.push_back({epee::net_utils::ipv4_network_address{2000, 20}, {}, 84, 45});
+    types.anchor.push_back({epee::net_utils::ipv4_network_address{999, 654}, {}, 444, 555});
+    types.anchor.push_back({net::tor_address::unknown(), {}, 14, 33});
+    types.anchor.push_back({net::tor_address::unknown(), {}, 24, 22});
 
     std::ostringstream stream{};
     EXPECT_TRUE(peers.store(stream, types));

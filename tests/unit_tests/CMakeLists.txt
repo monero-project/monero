@@ -75,6 +75,7 @@ set(unit_tests_sources
   node_server.cpp
   notify.cpp
   output_distribution.cpp
+  p2p_ssl.cpp
   parse_amount.cpp
   pruning.cpp
   random.cpp

@@ -70,6 +70,7 @@ target_link_libraries(epee
     ${Boost_REGEX_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${OPENSSL_LIBRARIES}
+    ${sodium_LIBRARIES}
   PRIVATE
     ${EXTRA_LIBRARIES})
 

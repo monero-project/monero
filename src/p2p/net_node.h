@@ -110,17 +110,72 @@ namespace nodetool
   struct p2p_connection_context_t: base_type //t_payload_net_handler::connection_context //public net_utils::connection_context_base
   {
     explicit p2p_connection_context_t(bool is_ping = false)
-      : peer_id(0),
+      : cert_finger(),
+        peer_id(0),
         support_flags(0),
+        encryption_mode(emode_ssl_autodetect),
         is_ping(is_ping),
         m_in_timedsync(false)
     {}
 
+    std::string cert_finger;
     peerid_type peer_id;
     uint32_t support_flags;
+    uint8_t encryption_mode;
     bool m_in_timedsync;
     bool is_ping;
     std::set<epee::net_utils::network_address> sent_addresses;
+  };
+
+  struct p2p_address
+  {
+    using ssl_options_t = epee::net_utils::ssl_options_t;
+    using ssl_support_t = epee::net_utils::ssl_support_t;
+
+    epee::net_utils::network_address na;
+    ssl_options_t ssl;
+
+    p2p_address(epee::net_utils::network_address na, ssl_options_t in = ssl_support_t::e_ssl_support_autodetect)
+      : na(std::move(na)), ssl(std::move(in))
+    {
+      if (ssl.support == ssl_support_t::e_ssl_support_autodetect)
+        ssl.verification = epee::net_utils::ssl_verification_t::none;
+    }
+
+    template<typename T>
+    void update_peer(T& peer) const
+    {
+      peer.adr = na;
+      peer.encryption_mode = emode_ssl_autodetect;
+      if (!ssl)
+      {
+        peer.ssl_override = true;
+        peer.encryption_mode = emode_disabled;
+      }
+      else if (!ssl.fingerprints().empty())
+      {
+        peer.ssl_override = true;
+        peer.encryption_mode = emode_ssl_enabled;
+        auto& fingerprint = ssl.fingerprints().front();
+        peer.cert_finger.resize(fingerprint.size());
+        std::copy(fingerprint.begin(), fingerprint.end(), peer.cert_finger.begin());
+      }
+    }
+
+    bool operator==(const p2p_address& rhs) const
+    { return na == rhs.na; }
+  };
+
+  struct string_address
+  {
+    std::string address;
+    epee::net_utils::ssl_options_t ssl;
+
+    bool operator<(const string_address& rhs) const noexcept
+    { return address < rhs.address; }
+
+    bool operator==(const string_address& rhs) const noexcept
+    { return address == rhs.address; }
   };
 
   template<class t_payload_net_handler>
@@ -131,7 +186,8 @@ namespace nodetool
   {
     struct by_addr{};
 
-    typedef p2p_connection_context_t<typename t_payload_net_handler::connection_context> p2p_connection_context;
+    typedef typename t_payload_net_handler::connection_context base_context;
+    typedef p2p_connection_context_t<base_context> p2p_connection_context;
 
     typedef COMMAND_HANDSHAKE_T<typename t_payload_net_handler::payload_type> COMMAND_HANDSHAKE;
     typedef COMMAND_TIMED_SYNC_T<typename t_payload_net_handler::payload_type> COMMAND_TIMED_SYNC;
@@ -140,7 +196,7 @@ namespace nodetool
     typedef epee::net_utils::boosted_tcp_server<epee::levin::async_protocol_handler<p2p_connection_context>> net_server;
 
     struct network_zone;
-    using connect_func = boost::optional<p2p_connection_context>(network_zone&, epee::net_utils::network_address const&, epee::net_utils::ssl_support_t);
+    using connect_func = boost::optional<p2p_connection_context>(network_zone&, p2p_address const&);
 
     struct config_t
     {
@@ -166,6 +222,7 @@ namespace nodetool
           m_bind_ipv6_address(),
           m_port(),
           m_port_ipv6(),
+          m_ssl_finger(),
           m_notifier(),
           m_our_address(),
           m_peerlist(),
@@ -173,6 +230,7 @@ namespace nodetool
           m_proxy_address(),
           m_current_number_of_out_peers(0),
           m_current_number_of_in_peers(0),
+          m_ssl_support(epee::net_utils::ssl_support_t::e_ssl_support_disabled),
           m_seed_nodes_lock(),
           m_can_pingback(false),
           m_seed_nodes_initialized(false)
@@ -188,6 +246,7 @@ namespace nodetool
           m_bind_ipv6_address(),
           m_port(),
           m_port_ipv6(),
+          m_ssl_finger(),
           m_notifier(),
           m_our_address(),
           m_peerlist(),
@@ -195,6 +254,7 @@ namespace nodetool
           m_proxy_address(),
           m_current_number_of_out_peers(0),
           m_current_number_of_in_peers(0),
+          m_ssl_support(epee::net_utils::ssl_support_t::e_ssl_support_disabled),
           m_seed_nodes_lock(),
           m_can_pingback(false),
           m_seed_nodes_initialized(false)
@@ -202,13 +262,21 @@ namespace nodetool
         set_config_defaults();
       }
 
+      epee::net_utils::ssl_options_t peer_ssl_support(epee::net_utils::ssl_options_t peer_support) const
+      {
+        if (m_ssl_support == epee::net_utils::ssl_support_t::e_ssl_support_disabled)
+          return m_ssl_support;
+        return peer_support;
+      }
+
       connect_func* m_connect;
       net_server m_net_server;
-      std::vector<epee::net_utils::network_address> m_seed_nodes;
+      std::vector<p2p_address> m_seed_nodes;
       std::string m_bind_ip;
       std::string m_bind_ipv6_address;
       std::string m_port;
       std::string m_port_ipv6;
+      std::string m_ssl_finger;
       cryptonote::levin::notify m_notifier;
       epee::net_utils::network_address m_our_address; // in anonymity networks
       peerlist_manager m_peerlist;
@@ -216,6 +284,7 @@ namespace nodetool
       net::socks::endpoint m_proxy_address;
       std::atomic<unsigned int> m_current_number_of_out_peers;
       std::atomic<unsigned int> m_current_number_of_in_peers;
+      epee::net_utils::ssl_support_t m_ssl_support;
       boost::shared_mutex m_seed_nodes_lock;
       bool m_can_pingback;
       bool m_seed_nodes_initialized;
@@ -227,7 +296,7 @@ namespace nodetool
         m_config.m_net_config.handshake_interval = P2P_DEFAULT_HANDSHAKE_INTERVAL;
         m_config.m_net_config.packet_max_size = P2P_DEFAULT_PACKET_MAX_SIZE;
         m_config.m_net_config.config_id = 0;
-        m_config.m_net_config.connection_timeout = P2P_DEFAULT_CONNECTION_TIMEOUT;
+        m_config.m_net_config.connection_timeout = std::chrono::milliseconds{P2P_DEFAULT_CONNECTION_TIMEOUT};
         m_config.m_net_config.ping_connection_timeout = std::chrono::milliseconds{P2P_DEFAULT_PING_CONNECTION_TIMEOUT};
         m_config.m_net_config.send_peerlist_sz = P2P_DEFAULT_PEERS_IN_HANDSHAKE;
         m_config.m_support_flags = 0; // only set in public zone
@@ -332,7 +401,7 @@ namespace nodetool
     //----------------- i_p2p_endpoint -------------------------------------------------------------
     virtual bool relay_notify_to_list(int command, epee::levin::message_writer message, std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections) final;
     virtual epee::net_utils::zone send_txs(std::vector<cryptonote::blobdata> txs, const epee::net_utils::zone origin, const boost::uuids::uuid& source, cryptonote::relay_method tx_relay);
-    virtual bool invoke_notify_to_peer(int command, epee::levin::message_writer message, const epee::net_utils::connection_context_base& context) final;
+    virtual bool invoke_notify_to_peer(int command, epee::levin::message_writer message, const base_context& context) final;
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context);
     virtual void request_callback(const epee::net_utils::connection_context_base& context);
     virtual void for_each_connection(std::function<bool(typename t_payload_net_handler::connection_context&, peerid_type, uint32_t)> f);
@@ -361,8 +430,8 @@ namespace nodetool
 
     bool make_new_connection_from_anchor_peerlist(const std::vector<anchor_peerlist_entry>& anchor_peerlist);
     bool make_new_connection_from_peerlist(network_zone& zone, bool use_white_list);
-    bool connect_and_handshake_with_peer(network_zone& zone, const epee::net_utils::network_address& na, uint64_t last_seen_stamp, PeerType peer_type, bool just_take_peerlist, peerid_type& pi, boost::optional<p2p_connection_context>& con);
-    bool try_to_connect_and_handshake_with_new_peer(const epee::net_utils::network_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, PeerType peer_type = white, uint64_t first_seen_stamp = 0);
+    bool connect_and_handshake_with_peer(network_zone& zone, const p2p_address& peer, uint64_t last_seen_stamp, PeerType peer_type, bool just_take_peerlist, peerid_type& pi, boost::optional<p2p_connection_context>& con);
+    bool try_to_connect_and_handshake_with_new_peer(const p2p_address& peer, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, PeerType peer_type = white, uint64_t first_seen_stamp = 0);
     size_t get_random_index_with_fixed_probability(size_t max_index);
     bool is_peer_used(const peerlist_entry& peer);
     bool is_peer_used(const anchor_peerlist_entry& peer);
@@ -375,9 +444,9 @@ namespace nodetool
     void record_addr_failed(const epee::net_utils::network_address& addr);
     bool is_addr_recently_failed(const epee::net_utils::network_address& addr, time_t forget_seconds = P2P_FAILED_ADDR_FORGET_SECONDS);
     bool is_priority_node(const epee::net_utils::network_address& na);
-    std::set<std::string> get_ip_seed_nodes() const;
-    std::set<std::string> get_dns_seed_nodes();
-    std::set<std::string> get_seed_nodes(epee::net_utils::zone);
+    std::set<string_address> get_ip_seed_nodes() const;
+    std::set<string_address> get_dns_seed_nodes();
+    std::set<string_address> get_seed_nodes(epee::net_utils::zone);
     bool connect_to_seed(epee::net_utils::zone);
 
     template <class Container>
@@ -398,7 +467,7 @@ namespace nodetool
     size_t get_incoming_connections_count(network_zone&);
     size_t get_outgoing_connections_count(network_zone&);
 
-    bool check_connection_and_handshake_with_peer(const epee::net_utils::network_address& na, uint64_t last_seen_stamp);
+    bool check_connection_and_handshake_with_peer(const p2p_address& peer, uint64_t last_seen_stamp);
     bool gray_peerlist_housekeeping();
     bool check_incoming_connections();
 
@@ -447,15 +516,15 @@ namespace nodetool
     epee::math_helper::once_a_time_seconds<3600, false> m_incoming_connections_interval;
     epee::math_helper::once_a_time_seconds<7000> m_dns_blocklist_interval;
 
-    std::list<epee::net_utils::network_address>   m_priority_peers;
-    std::vector<epee::net_utils::network_address> m_exclusive_peers;
+    std::list<p2p_address>   m_priority_peers;
+    std::vector<p2p_address> m_exclusive_peers;
     std::atomic_flag m_fallback_seed_nodes_added = ATOMIC_FLAG_INIT;
     std::vector<nodetool::peerlist_entry> m_command_line_peers;
     //keep connections to initiate some interactions
 
 
-    static boost::optional<p2p_connection_context> public_connect(network_zone&, epee::net_utils::network_address const&, epee::net_utils::ssl_support_t);
-    static boost::optional<p2p_connection_context> socks_connect(network_zone&, epee::net_utils::network_address const&, epee::net_utils::ssl_support_t);
+    static boost::optional<p2p_connection_context> public_connect(network_zone&, p2p_address const&);
+    static boost::optional<p2p_connection_context> socks_connect(network_zone&, p2p_address const&);
 
 
     /* A `std::map` provides constant iterators and key/value pointers even with
@@ -481,8 +550,6 @@ namespace nodetool
 
     boost::uuids::uuid m_network_id;
     cryptonote::network_type m_nettype;
-
-    epee::net_utils::ssl_support_t m_ssl_support;
 
     bool m_enable_dns_seed_nodes;
     bool m_enable_dns_blocklist;
@@ -510,6 +577,8 @@ namespace nodetool
     extern const command_line::arg_descriptor<bool> arg_p2p_hide_my_port;
     extern const command_line::arg_descriptor<bool> arg_no_sync;
     extern const command_line::arg_descriptor<bool> arg_enable_dns_blocklist;
+    extern const command_line::arg_descriptor<std::string> arg_p2p_ssl;
+    extern const command_line::arg_descriptor<bool> arg_p2p_persistent_cert;
 
     extern const command_line::arg_descriptor<bool>        arg_no_igd;
     extern const command_line::arg_descriptor<std::string> arg_igd;

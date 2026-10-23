@@ -92,6 +92,13 @@ namespace cryptonote
     //! \return Maximum number of bytes permissible for `command`.
     static size_t get_max_bytes(int command) noexcept;
 
+    size_t pad_max(const int command) const
+    {
+      if (should_pad())
+        return get_max_bytes(command);
+      return 0;
+    }
+
     //! Use this instead of `m_state = state_normal`.
     void set_state_normal();
 

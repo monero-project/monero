@@ -110,7 +110,7 @@ namespace epee
       levin::message_writer to_send;
       stg.store_to_binary(to_send.buffer);
 
-      bool res = transport.send(to_send.finalize_notify(command), conn_id);
+      bool res = transport.send(to_send.finalize_notify(command, context.pad_max(command)), conn_id);
       if(!res)
       {
         MERROR("Failed to notify command " << command);
