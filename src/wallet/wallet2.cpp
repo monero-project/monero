@@ -6367,12 +6367,12 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
   m_multisig_rounds_passed = multisig_account.get_kex_rounds_complete();
   m_deterministic = false;
 
+  // release the local key unlocker before writing the wallet keys file
+  unlocker.reset();
+
   // why is this necessary? who knows...
   if (multisig_account.multisig_is_ready())
   {
-    // keys are encrypted again
-    unlocker.reset();
-
     if (!m_wallet_file.empty())
     {
       bool r = this->store_keys(m_keys_file, password, false);
