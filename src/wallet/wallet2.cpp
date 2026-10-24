@@ -5167,16 +5167,12 @@ bool wallet2::load_keys(const std::string& keys_file_name, const epee::wipeable_
   // Rewrite with encrypted keys if unencrypted, ignore errors
   if (r && keys_to_encrypt != boost::none)
   {
-    if (m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only)
-      encrypt_keys(keys_to_encrypt.get());
     bool saved_ret = store_keys(keys_file_name, password, m_watch_only);
     if (!saved_ret)
     {
       // just moan a bit, but not fatal
       MERROR("Error saving keys file with encrypted keys, not fatal");
     }
-    if (m_ask_password == AskPasswordToDecrypt && !m_unattended && !m_watch_only)
-      decrypt_keys(keys_to_encrypt.get());
     m_keys_file_locker.reset();
   }
   return r;
