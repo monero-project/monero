@@ -33,6 +33,7 @@
 #include <boost/circular_buffer.hpp>
 #include <memory>  // std::unique_ptr
 #include <cstring>  // memcpy
+#include <limits>
 
 #ifdef WIN32
 #include <winioctl.h>
@@ -2018,6 +2019,7 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
   TIME_MEASURE_START(t);
 
   size_t n_total_records = 0, n_prunable_records = 0, n_pruned_records = 0, commit_counter = 0;
+  size_t n_missing_prunable_records = 0;
   uint64_t n_bytes = 0;
 
   mdb_txn_safe txn;
@@ -2112,6 +2114,7 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
   if (result)
     throw0(DB_ERROR(lmdb_error("Failed to open a cursor for txs_prunable_tip: ", result).c_str()));
   const uint64_t blockchain_height = height();
+  uint64_t first_missing_prunable_height = blockchain_height;
 
   if (prune_tip_table || resume_pruning)
   {
@@ -2267,6 +2270,33 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
           if (result == MDB_NOTFOUND)
             MERROR("Prunable data not found for unpruned height " << block_height << "/" << blockchain_height <<
                 ", seed " << epee::string_tools::to_string_hex(pruning_seed));
+
+          // Detect missing data left by the --sync-pruned-blocks bug, which could request pruned
+          // transactions in our own stripe when they were in the serving peer's pruning tip.
+          // During sync, the local tip can legitimately contain pruned data from other stripes.
+          // Check completeness only in our permanent stripe, independently of the local tip.
+          if (tools::has_unpruned_block(block_height, std::numeric_limits<uint64_t>::max(), pruning_seed))
+          {
+            bool missing_prunable_data = result == MDB_NOTFOUND;
+            if (!missing_prunable_data && v.mv_size == 0)
+            {
+              result = mdb_cursor_get(c_txs_pruned, &kp, &v, MDB_SET);
+              if (result)
+                throw0(DB_ERROR(lmdb_error("Failed to find transaction pruned data: ", result).c_str()));
+              // Coinbase transactions can have an empty suffix. Parse into a fresh transaction
+              // so the pruned flag cannot hide missing signatures or RingCT proofs.
+              transaction tx;
+              missing_prunable_data = !parse_and_validate_tx_from_blob(
+                  blobdata_ref{static_cast<const char*>(v.mv_data), v.mv_size}, tx);
+            }
+            if (missing_prunable_data)
+            {
+              ++n_missing_prunable_records;
+              first_missing_prunable_height = std::min(first_missing_prunable_height, block_height);
+              MERROR("Missing prunable data for transaction " << ti.key << " at height " << block_height <<
+                  ", seed " << epee::string_tools::to_string_hex(pruning_seed));
+            }
+          }
         }
       }
 
@@ -2330,7 +2360,13 @@ bool BlockchainLMDB::prune_worker(int mode, uint32_t pruning_seed)
       t << " ms: " << (n_bytes/1024.0f/1024.0f) << " MB (" << db_bytes/1024.0f/1024.0f << " MB) pruned in " <<
       n_pruned_records << " records (" << pages0 - pages1 << "/" << pages0 << " " << db_stats.ms_psize << " byte pages), " <<
       n_prunable_records << "/" << n_total_records << " pruned records");
-  return true;
+  if (n_missing_prunable_records)
+    MERROR("Missing prunable data for " << n_missing_prunable_records <<
+        " transactions in the local stripe, first affected height " << first_missing_prunable_height <<
+        ". Consider rolling back the affected blocks with 'pop_blocks N' in the daemon console, " <<
+        "where N is the current local blockchain height minus " << first_missing_prunable_height <<
+        ", then letting the daemon resync.");
+  return n_missing_prunable_records == 0;
 }
 
 bool BlockchainLMDB::prune_blockchain(uint32_t pruning_seed)
