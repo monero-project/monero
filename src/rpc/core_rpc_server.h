@@ -259,7 +259,7 @@ private:
     nodetool::node_server<cryptonote::t_cryptonote_protocol_handler<cryptonote::core> >& m_p2p;
     bool m_restricted;
     epee::critical_section m_host_fails_score_lock;
-    std::map<std::string, uint64_t> m_host_fails_score;
+    std::map<std::string, std::pair<uint64_t, time_t>> m_host_fails_score; // score, time of last fail
     bool disable_rpc_ban;
   };
 }
