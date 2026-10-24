@@ -936,6 +936,21 @@ namespace cryptonote
     return true;
   }
   //---------------------------------------------------------------
+  bool update_mm_merkle_root_in_tx_extra(std::vector<uint8_t>& tx_extra, const crypto::hash& mm_merkle_root, uint64_t mm_merkle_tree_depth)
+  {
+    std::vector<uint8_t> extra = tx_extra;
+    // Padding must be last: its decoder consumes all remaining bytes.
+    if (!remove_field_from_tx_extra(extra, typeid(tx_extra_merge_mining_tag)) ||
+        !remove_field_from_tx_extra(extra, typeid(tx_extra_padding)) ||
+        !add_mm_merkle_root_to_tx_extra(extra, mm_merkle_root, mm_merkle_tree_depth))
+      return false;
+    if (extra.size() > tx_extra.size() || tx_extra.size() - extra.size() > TX_EXTRA_PADDING_MAX_COUNT)
+      return false;
+    extra.resize(tx_extra.size(), 0);
+    tx_extra.swap(extra);
+    return true;
+  }
+  //---------------------------------------------------------------
   void set_payment_id_to_tx_extra_nonce(blobdata& extra_nonce, const crypto::hash& payment_id)
   {
     extra_nonce.clear();

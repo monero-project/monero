@@ -37,6 +37,7 @@
 #include "chain_switch_1.h"
 #include "double_spend.h"
 #include "integer_overflow.h"
+#include "merge_mining.h"
 #include "ring_signature_1.h"
 #include "tx_validation.h"
 #include "v2_tests.h"
