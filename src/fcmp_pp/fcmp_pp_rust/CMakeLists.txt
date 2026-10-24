@@ -112,7 +112,7 @@ set(FCMP_PP_RUST_HEADER_DIR "${MONERO_GENERATED_HEADERS_DIR}/fcmp_pp_rust")
 set(FCMP_PP_RUST_HEADER "${FCMP_PP_RUST_HEADER_DIR}/fcmp++.h")
 set(FCMP_PP_RUST_LIB "${CMAKE_CURRENT_BINARY_DIR}/libfcmp_pp_rust.a")
 
-# Removing OUTPUT files makes sure custom command runs every time
+# Reconfiguration removes the copied outputs so changes to build options rerun Cargo.
 file(REMOVE_RECURSE "${FCMP_PP_RUST_HEADER_DIR}")
 file(MAKE_DIRECTORY "${FCMP_PP_RUST_HEADER_DIR}")
 
@@ -133,6 +133,11 @@ add_custom_command(
   COMMENT "Building fcmp++ rust lib"
   OUTPUT ${FCMP_PP_RUST_HEADER}
   OUTPUT ${FCMP_PP_RUST_LIB}
+  DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/lib.rs"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Cargo.toml"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Cargo.lock"
+    "${CMAKE_CURRENT_SOURCE_DIR}/fcmp++.h"
   COMMAND ${CARGO_ENV} CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR} ${CARGO_CMD}
   COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/fcmp++.h ${FCMP_PP_RUST_HEADER}
   COMMAND cp ${CMAKE_CURRENT_BINARY_DIR}/${RUST_TARGET}/${TARGET_DIR}/libfcmp_pp_rust.a ${FCMP_PP_RUST_LIB}
