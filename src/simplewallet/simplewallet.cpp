@@ -39,6 +39,7 @@
 #include <boost/bind.hpp>
 
 #include <locale.h>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -64,6 +65,7 @@
 #include "multisig/multisig.h"
 #include "wallet/wallet_args.h"
 #include "wallet/fee_priority.h"
+#include "memwipe.h"
 #include "version.h"
 #include <stdexcept>
 #include "wallet/message_store.h"
@@ -166,7 +168,7 @@ namespace
   const command_line::arg_descriptor<std::string> arg_generate_from_multisig_keys = {"generate-from-multisig-keys", sw::tr("Generate a master wallet from multisig wallet keys"), ""};
   const auto arg_generate_from_json = wallet_args::arg_generate_from_json();
   const command_line::arg_descriptor<std::string> arg_mnemonic_language = {"mnemonic-language", sw::tr("Language for mnemonic"), ""};
-  const command_line::arg_descriptor<std::string> arg_seed = {"seed", sw::tr("Specify seed for wallet recovery"), ""};
+  const command_line::arg_descriptor<std::string> arg_seed = {"seed", sw::tr("Specify seed for wallet recovery (may appear in process listings or shell history)"), ""};
   const command_line::arg_descriptor<std::string> arg_electrum_seed = {"electrum-seed", sw::tr("Deprecated alias for --seed"), ""};
   const command_line::arg_descriptor<bool> arg_restore_deterministic_wallet = {"restore-deterministic-wallet", sw::tr("Recover wallet using a mnemonic seed"), false};
   const command_line::arg_descriptor<bool> arg_restore_from_seed = {"restore-from-seed", sw::tr("alias for --restore-deterministic-wallet"), false};
@@ -181,6 +183,40 @@ namespace
   const command_line::arg_descriptor<bool> arg_use_legacy_seed = {"use-legacy-seed", sw::tr("Use 25 word legacy seed instead of Polyseed"), false};
 
   const command_line::arg_descriptor< std::vector<std::string> > arg_command = {"command", ""};
+
+  void wipe_seed_from_argv(int argc, char *argv[], const po::options_description& options)
+  {
+    for (int i = 1; i < argc; ++i)
+    {
+      char *arg = argv[i];
+      // boost may consume "--" as the preceding option's value.
+      if (std::strcmp(arg, "--") == 0)
+        continue;
+      if (arg[0] != '-' || arg[1] != '-')
+        continue;
+
+      char *name = arg + 2;
+      char *separator = std::strchr(name, '=');
+      const std::string option_name(name, separator ? separator - name : std::strlen(name));
+      const po::option_description *option = nullptr;
+      try
+      {
+        option = options.find_nothrow(option_name, true);
+      }
+      catch (const po::ambiguous_option&)
+      {
+        continue;
+      }
+      if (!option || (option->long_name() != arg_seed.name && option->long_name() != arg_electrum_seed.name))
+        continue;
+
+      char *value = separator ? separator + 1 : nullptr;
+      if (!separator && i + 1 < argc && argv[i + 1][0] != '-')
+        value = argv[++i];
+      if (value)
+        memwipe(value, std::strlen(value));
+    }
+  }
 
   const char* USAGE_START_MINING("start_mining [<number_of_threads>] [bg_mining] [ignore_battery]");
   const char* USAGE_SET_DAEMON("set_daemon <host>[:<port>] [trusted|untrusted|this-is-probably-a-spy-node] [login=<username>[:<password>]] [proxy=<proxy>]");
@@ -4008,7 +4044,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
               return false;
             if (m_electrum_seed.empty())
             {
-              fail_msg_writer() << tr("specify a recovery parameter with the --seed=\"multisig seed here\"");
+              fail_msg_writer() << tr("seed cannot be empty");
               return false;
             }
         }
@@ -4021,7 +4057,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
             return false;
           if (electrum_seed.empty())
           {
-            fail_msg_writer() << tr("specify a recovery parameter with the --seed=\"words list here\"");
+            fail_msg_writer() << tr("seed cannot be empty");
             return false;
           }
           m_electrum_seed = electrum_seed;
@@ -10640,6 +10676,8 @@ int main(int argc, char* argv[])
     [](const std::string &s, bool emphasis){ tools::scoped_message_writer(emphasis ? epee::console_color_white : epee::console_color_default, true) << s; },
     "monero-wallet-cli.log"
   );
+
+  wipe_seed_from_argv(argc, argv, desc_params);
 
   if (!vm)
   {
