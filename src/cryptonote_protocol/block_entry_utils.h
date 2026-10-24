@@ -78,9 +78,10 @@ namespace cryptonote
 
       if (!parse_success)
       {
-        MCERROR("verify", "failed to parse and/or validate transaction: "
-          << epee::string_tools::buff_to_hex_nodelimer(tx_entry.blob)
-        );
+        MCERROR("verify", "failed to parse and/or validate transaction: blob_size=" << tx_entry.blob.size()
+          << ", pruned=" << is_pruned);
+        MCTRACE("net.p2p.msg.dump", "Malformed transaction blob: "
+          << epee::string_tools::buff_to_hex_nodelimer(tx_entry.blob));
         return false;
       }
       else if (!blk_tx_hashes.count(tx_hash))
@@ -106,9 +107,9 @@ namespace cryptonote
     cryptonote::block blk;
     if (!cryptonote::parse_and_validate_block_from_blob(blk_entry.block, blk))
     {
-      MCERROR("verify", "sent bad block: failed to parse and/or validate block: "
-        << epee::string_tools::buff_to_hex_nodelimer(blk_entry.block)
-      );
+      MCERROR("verify", "sent bad block: failed to parse and/or validate block: blob_size=" << blk_entry.block.size());
+      MCTRACE("net.p2p.msg.dump", "Malformed block blob: "
+        << epee::string_tools::buff_to_hex_nodelimer(blk_entry.block));
       return false;
     }
 
@@ -116,14 +117,21 @@ namespace cryptonote
 
     if (blk_tx_hashes.size() != blk_entry.txs.size())
     {
-      MCERROR("verify", "sent bad block entry: number of hashes is not equal number of tx blobs: "
-        << epee::string_tools::buff_to_hex_nodelimer(blk_entry.block)
-      );
+      MCERROR("verify", "sent bad block entry: number of hashes is not equal number of tx blobs: block_hash="
+        << cryptonote::get_block_hash(blk) << ", blob_size=" << blk_entry.block.size()
+        << ", tx_hashes=" << blk.tx_hashes.size()
+        << ", unique_tx_hashes=" << blk_tx_hashes.size()
+        << ", tx_blobs=" << blk_entry.txs.size());
+      MCTRACE("net.p2p.msg.dump", "Block blob with mismatched transaction counts: "
+        << epee::string_tools::buff_to_hex_nodelimer(blk_entry.block));
       return false;
     }
     else if (blk_tx_hashes.size() != blk.tx_hashes.size())
     {
-      MCERROR("verify", "sent bad block entry: there are duplicate tx hashes in parsed block: "
+      MCERROR("verify", "sent bad block entry: there are duplicate tx hashes in parsed block: block_hash="
+        << cryptonote::get_block_hash(blk) << ", blob_size=" << blk_entry.block.size()
+        << ", tx_hashes=" << blk.tx_hashes.size() << ", unique_tx_hashes=" << blk_tx_hashes.size());
+      MCTRACE("net.p2p.msg.dump", "Block blob with duplicate transaction hashes: "
         << epee::string_tools::buff_to_hex_nodelimer(blk_entry.block));
       return false;
     }
