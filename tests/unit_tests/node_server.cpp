@@ -40,6 +40,7 @@
 #include "unit_tests_utils.h"
 #include <algorithm>
 #include <condition_variable>
+#include <mutex>
 #include <thread>
 
 #define MAKE_IPV4_ADDRESS(a,b,c,d) epee::net_utils::ipv4_network_address{MAKE_IP(a,b,c,d),0}
@@ -538,7 +539,7 @@ namespace
     boost::filesystem::remove_all(path, ec);
   }
 
-  boost::program_options::variables_map make_regtest_options(const path_t& dir)
+  boost::program_options::variables_map make_regtest_options(const path_t& dir, const std::vector<std::string>& extra = {})
   {
     boost::program_options::options_description desc;
     cryptonote::core::init_options(desc);
@@ -555,6 +556,7 @@ namespace
       "--disable-dns-checkpoints",
       "--offline",
     };
+    args.insert(args.end(), extra.begin(), extra.end());
 
     boost::program_options::variables_map vm;
     boost::program_options::store(
@@ -1025,6 +1027,212 @@ TEST(node_server, bracketed_ipv6_bind_address)
   peer.connect({boost::asio::ip::address_v6::loopback(), port}, ec);
   EXPECT_FALSE(ec) << ec.message();
   EXPECT_TRUE(server.deinit());
+}
+
+namespace
+{
+  using p2p_context = nodetool::p2p_connection_context_t<cryptonote::cryptonote_connection_context>;
+
+  const char our_onion[] = "apnlp7dglymbqp6s737ta2srwsgurruvrqsdcw534yfffskl3z5ncuid.onion:18083";
+  const char peer_onion[] = "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion:18080";
+  const char peer_onion_2[] = "zpv4fa3szgel7vf6jdjeugizdclq2vzkelscs2bhbgnlldzzggcen3ad.onion:18080";
+  const char seed_onion[] = "25njqamcweflpvkl73j4szahhihoc4xt3ktcgjnpaingr5yhkenl5sid.onion:18080";
+  const char our_i2p[] = "vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopn.b32.i2p";
+
+  struct relay_counting_core : test_core
+  {
+    std::size_t relayed = 0;
+    void on_transactions_relayed(epee::span<const cryptonote::blobdata>, cryptonote::relay_method) override { ++relayed; }
+  };
+
+  struct anonymous_node
+  {
+    relay_counting_core core;
+    cryptonote::t_cryptonote_protocol_handler<test_core> protocol;
+    Server server;
+
+    anonymous_node(const path_t& dir, const bool synchronized, std::vector<std::string> options = {}, const std::string& tx_proxy = "tor,127.0.0.1:9050")
+      : protocol(core, nullptr, true), server(protocol)
+    {
+      protocol.set_no_sync(!synchronized);
+      protocol.set_p2p_endpoint(&server);
+      options.push_back("--tx-proxy=" + tx_proxy);
+      options.push_back(std::string{"--anonymous-inbound="} + our_onion + ",127.0.0.1:0");
+      EXPECT_TRUE(server.init(make_regtest_options(dir, options)));
+    }
+  };
+
+  std::mutex dials_lock;
+  std::vector<epee::net_utils::network_address> dials;
+
+  template<typename zone_t>
+  boost::optional<p2p_context> record_dial(zone_t&, const epee::net_utils::network_address& address, epee::net_utils::ssl_support_t)
+  {
+    const std::lock_guard<std::mutex> lock{dials_lock};
+    dials.push_back(address);
+    return boost::none;
+  }
+
+  class dialing_node
+  {
+    struct temp_dir
+    {
+      const path_t path = create_temp_dir("tor-dials-%%%%%%%%%%%%%%%%");
+      ~temp_dir() { remove_tree(path); }
+    } dir;
+    test_core core;
+    cryptonote::t_cryptonote_protocol_handler<test_core> protocol;
+    Server server;
+    std::thread worker;
+
+  public:
+    dialing_node(const bool synchronized, std::vector<std::string> options, const char* gray_peer = nullptr)
+      : protocol(core, nullptr, true), server(protocol)
+    {
+      if (dir.path.empty())
+        throw std::runtime_error{"failed to create a temporary directory"};
+      {
+        const std::lock_guard<std::mutex> lock{dials_lock};
+        dials.clear();
+      }
+      set_synchronized(synchronized);
+      protocol.set_p2p_endpoint(&server);
+
+      boost::program_options::options_description desc;
+      cryptonote::core::init_options(desc);
+      Server::init_options(desc);
+      options.insert(options.end(), {"--regtest", "--p2p-bind-ip=127.0.0.1", "--p2p-bind-port=0", "--data-dir", dir.path.string(),
+        "--check-updates=disabled", "--disable-dns-checkpoints", "--tx-proxy=tor,127.0.0.1:9050",
+        std::string{"--anonymous-inbound="} + our_onion + ",127.0.0.1:0"});
+      boost::program_options::variables_map vm;
+      boost::program_options::store(boost::program_options::command_line_parser(options).options(desc).run(), vm);
+      boost::program_options::notify(vm);
+      EXPECT_TRUE(server.init(vm));
+
+      auto& tor = server.add_zone(epee::net_utils::zone::tor);
+      using zone_t = std::remove_reference<decltype(tor)>::type;
+      tor.m_connect = &record_dial<zone_t>;
+      server.add_zone(epee::net_utils::zone::public_).m_connect = &record_dial<zone_t>;
+      if (gray_peer)
+        tor.m_peerlist.append_with_peer_gray(make_peer(MONERO_UNWRAP(net::get_network_address(gray_peer, 0)), 1, time(nullptr)));
+
+      worker = std::thread{[this]{ server.run(); }};
+    }
+
+    ~dialing_node()
+    {
+      server.send_stop_signal();
+      worker.join();
+      server.deinit();
+    }
+
+    void set_synchronized(const bool synchronized) { protocol.set_no_sync(!synchronized); }
+
+    long times_dialed(const epee::net_utils::network_address& address) const
+    {
+      const std::lock_guard<std::mutex> lock{dials_lock};
+      return std::count(dials.begin(), dials.end(), address);
+    }
+
+    void wait_for(const epee::net_utils::network_address& address, const long times) const
+    {
+      for (unsigned i = 0; i < 300 && times_dialed(address) < times; ++i)
+        std::this_thread::sleep_for(std::chrono::milliseconds{50});
+      EXPECT_GE(times_dialed(address), times) << address.str();
+    }
+
+    bool dialed(const epee::net_utils::network_address& address) const { return times_dialed(address) != 0; }
+
+    bool dialed_tor() const
+    {
+      const std::lock_guard<std::mutex> lock{dials_lock};
+      return std::any_of(dials.begin(), dials.end(), [](const epee::net_utils::network_address& address) {
+        return address.get_zone() == epee::net_utils::zone::tor;
+      });
+    }
+  };
+}
+
+TEST(node_server, anonymous_inbound_waits_for_sync)
+{
+  const path_t dir = create_temp_dir("anonymous-inbound-%%%%%%%%%%%%%%%%");
+  ASSERT_FALSE(dir.empty());
+  const epee::scope_guard cleanup([&dir]{ remove_tree(dir); });
+
+  for (const bool synchronized : {false, true})
+  {
+    anonymous_node node{dir, synchronized, {"--tx-proxy=i2p,127.0.0.1:7656", std::string{"--anonymous-inbound="} + our_i2p + ",127.0.0.1:0"}};
+    epee::net_utils::i_connection_limit& limit = node.server;
+    EXPECT_EQ(!synchronized, limit.is_host_limit(net::tor_address::unknown()));
+    EXPECT_EQ(!synchronized, limit.is_host_limit(net::i2p_address::unknown()));
+  }
+
+  anonymous_node exempt{dir, false, {std::string{"--add-exclusive-node="} + peer_onion}};
+  epee::net_utils::i_connection_limit& limit = exempt.server;
+  EXPECT_FALSE(limit.is_host_limit(net::tor_address::unknown()));
+}
+
+TEST(node_server, local_txs_need_anonymous_connections)
+{
+  const path_t dir = create_temp_dir("anonymous-relay-%%%%%%%%%%%%%%%%");
+  ASSERT_FALSE(dir.empty());
+  const epee::scope_guard cleanup([&dir]{ remove_tree(dir); });
+
+  const auto send_local_tx = [](Server& server) {
+    nodetool::i_p2p_endpoint<cryptonote::cryptonote_connection_context>& endpoint = server;
+    return endpoint.send_txs({cryptonote::blobdata(1, 'x')}, epee::net_utils::zone::invalid, boost::uuids::uuid{}, cryptonote::relay_method::local);
+  };
+
+  for (const char* tx_proxy : {"tor,127.0.0.1:9050", "tor,127.0.0.1:9050,disable_noise"})
+  {
+    anonymous_node node{dir, true, {}, tx_proxy};
+    EXPECT_EQ(epee::net_utils::zone::invalid, send_local_tx(node.server)) << tx_proxy;
+    EXPECT_EQ(0u, node.core.relayed) << tx_proxy;
+  }
+
+  test_core core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> protocol{core, nullptr, true};
+  Server server{protocol};
+  protocol.set_p2p_endpoint(&server);
+  ASSERT_TRUE(server.init(make_regtest_options(dir)));
+  EXPECT_EQ(epee::net_utils::zone::public_, send_local_tx(server));
+}
+
+TEST(node_server, tor_connections_wait_for_sync)
+{
+  const auto address = [](const char* str) { return MONERO_UNWRAP(net::get_network_address(str, 0)); };
+  const auto clearnet = address("198.51.100.1:18080");
+
+  // the clearnet priority peer is dialed every pass, so its second dial means the first pass and gray list housekeeping are done
+  const std::vector<std::string> peers{"--add-priority-node=198.51.100.1:18080",
+    std::string{"--add-priority-node="} + peer_onion, std::string{"--add-peer="} + peer_onion_2,
+    "--seed-node=198.51.100.2:18080", std::string{"--seed-node="} + seed_onion};
+  {
+    dialing_node node{false, peers, peer_onion};
+    node.wait_for(clearnet, 2);
+    EXPECT_FALSE(node.dialed_tor());
+  }
+  {
+    dialing_node node{true, peers};
+    node.wait_for(clearnet, 2);
+    EXPECT_TRUE(node.dialed(address(peer_onion)));
+    EXPECT_TRUE(node.dialed(address(peer_onion_2)));
+    EXPECT_TRUE(node.dialed(address(seed_onion)));
+  }
+
+  // exclusive peers are tried in order, so the Tor one is handled before the clearnet one is dialed
+  {
+    dialing_node node{false, {std::string{"--add-exclusive-node="} + peer_onion, "--add-exclusive-node=198.51.100.1:18080"}};
+    node.wait_for(clearnet, 1);
+    EXPECT_FALSE(node.dialed_tor());
+
+    node.set_synchronized(true);
+    node.wait_for(address(peer_onion), 1);
+  }
+  {
+    dialing_node node{false, {std::string{"--add-exclusive-node="} + peer_onion}};
+    node.wait_for(address(peer_onion), 1);
+  }
 }
 
 TEST(cryptonote_protocol_handler, race_condition)
@@ -1712,6 +1920,7 @@ TEST(node_server, race_condition)
     bool get_payload_sync_data(payload_t &payload) { return {}; }
     bool on_callback(context_t &context) { return {}; }
     core_events_t &get_core(){ static core_events_t core_events; return core_events;}
+    bool is_synchronized() const { return {}; }
     void log_connections() {}
     connections_t get_connections() { return {}; }
     const block_queue_t &get_block_queue() const {

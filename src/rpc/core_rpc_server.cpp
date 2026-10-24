@@ -2843,7 +2843,13 @@ namespace cryptonote
         NOTIFY_NEW_TRANSACTIONS::request r;
         r.txs.push_back(std::move(txblob));
         const auto tx_relay = broadcasted ? relay_method::fluff : relay_method::local;
-        m_core.get_protocol()->relay_transactions(r, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid, tx_relay);
+        if (!m_core.get_protocol()->relay_transactions(r, boost::uuids::nil_uuid(), epee::net_utils::zone::invalid, tx_relay))
+        {
+          if (!res.status.empty()) res.status += ", ";
+          res.status += std::string("transaction not relayed: ") + str;
+          failed = true;
+          continue;
+        }
         //TODO: make sure that tx has reached other nodes here, probably wait to receive reflections from other nodes
       }
       else
