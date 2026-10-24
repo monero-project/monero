@@ -40,7 +40,12 @@ namespace
   }
 }
 
-static const size_t LINE_BUFFER_MAX = 1024 * 1024;
+// Large enough for exchange_multisig_keys with 16 signers (~4.2 MB).
+static const size_t LINE_BUFFER_MAX = 16 * 1024 * 1024;
+// The line editor rescans the whole line on each key, so pasting into it is
+// quadratic. Keep its lines short until that is fixed. 64 KiB still fits
+// exchange_multisig_keys for 2-of-10 (~51 KB).
+static const size_t EDITOR_LINE_MAX = 64 * 1024;
 
 static boost::mutex sync_mutex;
 static linenoiseState line_state;
@@ -88,7 +93,7 @@ static void begin_edit()
   if (linenoiseEditStart(&line_state, -1, -1, buf, buflen, current_prompt.c_str()) == 0)
   {
     editing_active = true;
-    line_state.buflen_max = LINE_BUFFER_MAX;
+    line_state.buflen_max = tty_editing ? EDITOR_LINE_MAX : LINE_BUFFER_MAX;
   }
   else if (allocated)
   {
@@ -103,10 +108,10 @@ static void end_edit()
   editing_active = false;
 }
 
-static void reset_line()
+static void reset_line(bool newline = true)
 {
   // A non-tty session never drew a prompt, so skip the redraw.
-  if (editing_active && tty_editing && write(line_state.ofd, "\n", 1) == -1) {}
+  if (newline && editing_active && tty_editing && write(line_state.ofd, "\n", 1) == -1) {}
   line_state.in_completion = 0;
   line_state.completion_idx = 0;
   line_state.buf[0] = '\0';
@@ -117,9 +122,9 @@ static void reset_line()
   line_state.oldrpos = 1;
   line_state.history_index = 0;
   line_state.fold_count = 0;
+  line_state.overflowed = 0;
   if (editing_active && tty_editing)
   {
-    linenoiseHistoryAdd("");
     linenoiseShow(&line_state);
   }
 }
@@ -166,8 +171,7 @@ void rdln::readline_buffer::start()
     setvbuf(stdin, NULL, _IONBF, 0);
     stdin_unbuffered = true;
   }
-  // Mirrors linenoiseEditStart()'s own no-tty check.
-  tty_editing = (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO)) || getenv("LINENOISE_ASSUME_TTY");
+  tty_editing = !linenoiseIsPlainInput(STDIN_FILENO, STDOUT_FILENO);
   m_cout_buf = std::cout.rdbuf();
   std::cout.rdbuf(this);
   linenoiseSetCompletionCallback(&completion_callback);
@@ -223,6 +227,18 @@ rdln::linestatus rdln::readline_buffer::get_line(std::string& line)
     return rdln::partial;
   }
 
+  // Don't run a line that was truncated.
+  if (result == NULL && errno == E2BIG)
+  {
+    static const char msg[] = "Error: input line too long, ignored\n";
+    if (editing_active && tty_editing)
+      linenoiseHide(&line_state);
+    m_cout_buf->sputn(msg, sizeof(msg) - 1);
+    m_cout_buf->pubsync();
+    reset_line(false);
+    return rdln::partial;
+  }
+
   const bool cancelled = (result == NULL && errno == EAGAIN);
 
   if (result == NULL)
@@ -253,18 +269,25 @@ void rdln::readline_buffer::set_prompt(const std::string& prompt)
   boost::lock_guard<boost::mutex> lock(sync_mutex);
   if(m_cout_buf == NULL)
     return;
+  if (editing_active && tty_editing)
+    linenoiseHide(&line_state);
+  current_prompt = tty_editing ? "\033[1;33m" + prompt + "\033[0m" : prompt;
   if (editing_active)
   {
-    if (tty_editing) linenoiseHide(&line_state);
-    current_prompt = prompt;
     line_state.prompt = current_prompt.c_str();
     line_state.plen = current_prompt.size();
     if (tty_editing) linenoiseShow(&line_state);
   }
   else
   {
-    current_prompt = prompt;
     begin_edit();
+  }
+
+  // linenoise draws no prompt on an unsupported terminal; print it here.
+  if (!tty_editing && isatty(STDIN_FILENO) && isatty(STDOUT_FILENO))
+  {
+    m_cout_buf->sputn(prompt.data(), prompt.size());
+    m_cout_buf->pubsync();
   }
 }
 
