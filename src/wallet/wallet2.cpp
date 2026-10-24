@@ -14684,13 +14684,6 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
       "Offset is larger than total outputs");
 
   const size_t original_size = m_transfers.size();
-  if (offset + output_array.size() > m_transfers.size())
-    m_transfers.resize(offset + output_array.size());
-  else if (num_outputs < m_transfers.size())
-  {
-    trim_transfer_maps(num_outputs);
-    m_transfers.resize(num_outputs);
-  }
 
   for (size_t i = 0; i < output_array.size(); ++i)
   {
@@ -14740,11 +14733,21 @@ process:
     THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != out_key,
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + boost::lexical_cast<std::string>(i + offset));
 
-    m_key_images[td.m_key_image] = i + offset;
-    m_pub_keys[td.get_public_key()] = i + offset;
-    m_transfers[i + offset] = std::move(td);
+    const crypto::key_image key_image = td.m_key_image;
+    const crypto::public_key pub_key = td.get_public_key();
+    if (i + offset < m_transfers.size())
+      m_transfers[i + offset] = std::move(td);
+    else
+      m_transfers.push_back(std::move(td));
+    m_key_images[key_image] = i + offset;
+    m_pub_keys[pub_key] = i + offset;
   }
 
+  if (num_outputs < m_transfers.size())
+  {
+    trim_transfer_maps(num_outputs);
+    m_transfers.resize(num_outputs);
+  }
   return m_transfers.size();
 }
 //----------------------------------------------------------------------------------------------------
@@ -14767,49 +14770,42 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
       "Offset is larger than total outputs");
 
   const size_t original_size = m_transfers.size();
-  if (offset + output_array.size() > m_transfers.size())
-    m_transfers.resize(offset + output_array.size());
-  else if (num_outputs < m_transfers.size())
-  {
-    trim_transfer_maps(num_outputs);
-    m_transfers.resize(num_outputs);
-  }
 
   for (size_t i = 0; i < output_array.size(); ++i)
   {
     exported_transfer_details etd = output_array[i];
-    transfer_details &td = m_transfers[i + offset];
-
-    // setup td with "cheap" loaded data
-    td.m_block_height = 0;
-    td.m_txid = crypto::null_hash;
-    td.m_global_output_index = etd.m_global_output_index;
-    td.m_spent = etd.m_flags.m_spent;
-    td.m_frozen = etd.m_flags.m_frozen;
-    td.m_spent_height = 0;
-    td.m_mask = rct::identity();
-    td.m_amount = etd.m_amount;
-    td.m_rct = etd.m_flags.m_rct;
-    td.m_key_image_known = etd.m_flags.m_key_image_known;
-    td.m_key_image_request = etd.m_flags.m_key_image_request;
-    td.m_key_image_partial = false;
-    td.m_subaddr_index.major = etd.m_subaddr_index_major;
-    td.m_subaddr_index.minor = etd.m_subaddr_index_minor;
+    const auto set_cheap_data = [&etd](transfer_details &td) {
+      td.m_block_height = 0;
+      td.m_txid = crypto::null_hash;
+      td.m_global_output_index = etd.m_global_output_index;
+      td.m_spent = etd.m_flags.m_spent;
+      td.m_frozen = etd.m_flags.m_frozen;
+      td.m_spent_height = 0;
+      td.m_mask = rct::identity();
+      td.m_amount = etd.m_amount;
+      td.m_rct = etd.m_flags.m_rct;
+      td.m_key_image_known = etd.m_flags.m_key_image_known;
+      td.m_key_image_request = etd.m_flags.m_key_image_request;
+      td.m_key_image_partial = false;
+      td.m_subaddr_index.major = etd.m_subaddr_index_major;
+      td.m_subaddr_index.minor = etd.m_subaddr_index_minor;
+    };
 
     // skip those we've already imported, or which have different data
     if (i + offset < original_size)
     {
-      bool needs_processing = false;
-      if (!td.m_key_image_known)
-        needs_processing = true;
-      else if (!(etd.m_internal_output_index == td.m_internal_output_index))
-        needs_processing = true;
-      else if (!(etd.m_pubkey == td.get_public_key()))
-        needs_processing = true;
-
-      if (!needs_processing)
+      const transfer_details &org_td = m_transfers[i + offset];
+      if (etd.m_flags.m_key_image_known && org_td.m_key_image_known &&
+          etd.m_internal_output_index == org_td.m_internal_output_index &&
+          etd.m_pubkey == org_td.get_public_key())
+      {
+        set_cheap_data(m_transfers[i + offset]);
         continue;
+      }
     }
+
+    transfer_details td = i + offset < original_size ? m_transfers[i + offset] : transfer_details{};
+    set_cheap_data(td);
 
     // construct a synthetic tx prefix that has the info we'll need: the output with its pubkey, the tx pubkey in extra
     td.m_tx = {};
@@ -14847,10 +14843,21 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
     THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != out_key,
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + boost::lexical_cast<std::string>(i + offset));
 
-    m_key_images[td.m_key_image] = i + offset;
-    m_pub_keys[td.get_public_key()] = i + offset;
+    const crypto::key_image key_image = td.m_key_image;
+    const crypto::public_key pub_key = td.get_public_key();
+    if (i + offset < m_transfers.size())
+      m_transfers[i + offset] = std::move(td);
+    else
+      m_transfers.push_back(std::move(td));
+    m_key_images[key_image] = i + offset;
+    m_pub_keys[pub_key] = i + offset;
   }
 
+  if (num_outputs < m_transfers.size())
+  {
+    trim_transfer_maps(num_outputs);
+    m_transfers.resize(num_outputs);
+  }
   return m_transfers.size();
 }
 //----------------------------------------------------------------------------------------------------
