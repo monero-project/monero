@@ -9049,7 +9049,10 @@ bool simple_wallet::unspent_outputs(const std::vector<std::string> &args_)
     }
   }
   tools::wallet2::transfer_container transfers;
-  m_wallet->get_transfers(transfers);
+  {
+    LOCK_IDLE_SCOPE();
+    m_wallet->get_transfers(transfers);
+  }
   std::map<uint64_t, tools::wallet2::transfer_container> amount_to_tds;
   uint64_t min_height = std::numeric_limits<uint64_t>::max();
   uint64_t max_height = 0;
@@ -9379,10 +9382,10 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
     std::string label = boost::join(local_args, " ");
     if (label.empty())
       label = tr("(Untitled account)");
+    LOCK_IDLE_SCOPE();
     m_wallet->add_subaddress_account(label);
     m_current_subaddress_account = m_wallet->get_num_subaddress_accounts() - 1;
     // update_prompt();
-    LOCK_IDLE_SCOPE();
     print_accounts();
   }
   else if (command == "switch" && local_args.size() == 1)
@@ -9394,6 +9397,7 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
       fail_msg_writer() << tr("failed to parse index: ") << local_args[0];
       return true;
     }
+    LOCK_IDLE_SCOPE();
     if (index_major >= m_wallet->get_num_subaddress_accounts())
     {
       fail_msg_writer() << tr("specify an index between 0 and ") << (m_wallet->get_num_subaddress_accounts() - 1);
@@ -9401,7 +9405,7 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
     }
     m_current_subaddress_account = index_major;
     // update_prompt();
-    show_balance();
+    show_balance_unlocked();
   }
   else if (command == "label" && local_args.size() >= 1)
   {
@@ -9417,8 +9421,8 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
     std::string label = boost::join(local_args, " ");
     try
     {
-      m_wallet->set_subaddress_label({index_major, 0}, label);
       LOCK_IDLE_SCOPE();
+      m_wallet->set_subaddress_label({index_major, 0}, label);
       print_accounts();
     }
     catch (const std::exception& e)
@@ -9443,6 +9447,7 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
     }
     try
     {
+      LOCK_IDLE_SCOPE();
       m_wallet->set_account_tag(account_indices, tag);
       print_accounts(tag);
     }
@@ -9467,6 +9472,7 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
     }
     try
     {
+      LOCK_IDLE_SCOPE();
       m_wallet->set_account_tag(account_indices, "");
       print_accounts();
     }
@@ -9487,6 +9493,7 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
     }
     try
     {
+      LOCK_IDLE_SCOPE();
       m_wallet->set_account_tag_description(tag, description);
       print_accounts(tag);
     }
@@ -9568,6 +9575,7 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
   //  address label <index> <label text with white spaces allowed>
   //  address device [<index>]
 
+  LOCK_IDLE_SCOPE();
   std::vector<std::string> local_args = args;
   tools::wallet2::transfer_container transfers;
   m_wallet->get_transfers(transfers);
