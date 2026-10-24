@@ -8501,7 +8501,7 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
   {
     // validate before mutating state or displaying to user
     // - Verify with the assumption signed txs are redacted.
-    // Manually check `signed_txs.key_images` so local state is not mutated before we validate.
+    // Manually check key images so local state is not mutated before we validate.
     // We inject the key image checker because `ptx` internal sorting ambiguity makes it cumbersome to
     // directly validate key images here.
     // NOTE: These txs may be READ-ONLY, which means spent/frozen inputs are allowed.
@@ -8509,7 +8509,17 @@ bool wallet2::parse_tx_from_str(const std::string &signed_tx_st, std::vector<too
     this->sanity_check_pending_tx_set(signed_txs.ptx,
       true,
       false,
-      { [&kis](const size_t i) {
+      { [this, &kis](const size_t i) {
+        if (kis.empty())
+        {
+          // Stateless signers may omit key images already synchronized with this wallet.
+          CHECK_AND_ASSERT_THROW_MES(i < m_transfers.size(), "failed loading signed tx: ptx selected transfer "
+            "is outside the bounds of wallet transfers");
+          const auto &td = m_transfers.at(i);
+          CHECK_AND_ASSERT_THROW_MES(td.m_key_image_known && !td.m_key_image_partial,
+            "failed loading signed tx: selected transfer key image is unknown or partial");
+          return td.m_key_image;
+        }
         CHECK_AND_ASSERT_THROW_MES(i < kis.size(), "failed loading signed tx: ptx selected transfer "
           "is outside the bounds of imported key images");
         return kis.at(i);
