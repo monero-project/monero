@@ -550,7 +550,7 @@ TEST(wallet_pool, preserves_daemon_reset_during_pool_processing)
         {
             EXPECT_TRUE(w.set_daemon("http://127.0.0.1:28081"));
             if (switch_back)
-                EXPECT_TRUE(w.set_daemon("http://127.0.0.1:18081"));
+            { EXPECT_TRUE(w.set_daemon("http://127.0.0.1:18081")); }
         };
         w.callback(&callback);
 
