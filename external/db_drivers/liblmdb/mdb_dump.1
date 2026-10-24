@@ -1,5 +1,5 @@
 .TH MDB_DUMP 1 "2017/07/31" "LMDB 0.9.70"
-.\" Copyright 2014-2017 Howard Chu, Symas Corp. All Rights Reserved.
+.\" Copyright 2014-2021 Howard Chu, Symas Corp. All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 mdb_dump \- LMDB environment export tool
@@ -67,14 +67,14 @@ Exit status is zero if no errors occur.
 Errors result in a non-zero exit status and
 a diagnostic message being written to standard error.
 
-Dumping and reloading databases that use user-defined comparison functions
-will result in new databases that use the default comparison functions.
-\fBIn this case it is quite likely that the reloaded database will be
-damaged beyond repair permitting neither record storage nor retrieval.\fP
+Dumping databases that use user-defined comparison functions will output
+records with the ordering imposed by those comparison functions. If
+.B mdb_load
+is invoked without including the
+.B -a
+option when reloading those records, the new databases will likely be
+damaged beyond repair, permitting neither record storage nor retrieval.
 
-The only available workaround is to modify the source for the
-.BR mdb_load (1)
-utility to load the database using the correct comparison functions.
 .SH "SEE ALSO"
 .BR mdb_load (1)
 .SH AUTHOR
