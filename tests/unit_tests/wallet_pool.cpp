@@ -100,6 +100,9 @@ public:
         transfer.m_key_image = input.k_image;
         transfer.m_key_image_known = true;
         transfer.m_subaddr_index = {0, 0};
+        const auto output_key = cryptonote::keypair::generate(hw::get_device("default")).pub;
+        transfer.m_tx.vout.push_back({transfer.m_amount, cryptonote::txout_to_key{output_key}});
+        wallet.m_pub_keys[output_key] = wallet.m_transfers.size() - 1;
         wallet.m_key_images[input.k_image] = wallet.m_transfers.size() - 1;
         return transfer;
     }

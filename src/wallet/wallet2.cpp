@@ -2133,6 +2133,8 @@ void wallet2::set_unspent(size_t idx)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::is_spent(const transfer_details &td, bool strict) const
 {
+  if (is_transfer_superseded(td))
+    return true;
   if (strict)
   {
     return td.m_spent && td.m_spent_height > 0;
@@ -2195,7 +2197,7 @@ bool wallet2::frozen(const multisig_tx_set& txs) const
   }
   // Step 2. Scan all transfers for frozen key images
   for (const auto& td : m_transfers)
-    if (td.m_frozen && kis_to_sign.count(td.m_key_image))
+    if (td.m_frozen && !is_transfer_superseded(td) && kis_to_sign.count(td.m_key_image))
       return true;
 
   return false;
@@ -2218,10 +2220,10 @@ bool wallet2::frozen(const crypto::key_image &ki) const
 //----------------------------------------------------------------------------------------------------
 size_t wallet2::get_transfer_details(const crypto::key_image &ki) const
 {
-  for (size_t idx = 0; idx < m_transfers.size(); ++idx)
+  for (size_t idx = m_transfers.size(); idx-- > 0; )
   {
     const transfer_details &td = m_transfers[idx];
-    if (td.m_key_image == ki)
+    if (td.m_key_image == ki && !is_transfer_superseded(td))
     {
       if (td.m_key_image_known)
         return idx;
@@ -2784,7 +2786,18 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 
           if (!pool)
           {
-            transfer_details &td = m_transfers[kit->second];
+            // Preserve scan order for detach. Never copy one-time signing nonces.
+            transfer_details &previous = m_transfers[kit->second];
+            memwipe(previous.m_multisig_k.data(), previous.m_multisig_k.size() * sizeof(rct::key));
+            previous.m_multisig_k.clear();
+            // Cold wallets need both records even if their shared key image is known.
+            previous.m_key_image_request = true;
+            m_transfers.push_back(previous);
+            set_spent(kit->second, height);
+            kit->second = m_transfers.size() - 1;
+            transfer_details &td = m_transfers.back();
+            if (td.m_key_image_known)
+              m_key_images[td.m_key_image] = kit->second;
 	    td.m_block_height = height;
 	    td.m_internal_output_index = o;
 	    td.m_global_output_index = o_indices[o];
@@ -4576,7 +4589,8 @@ wallet2::detached_blockchain_data wallet2::detach_blockchain(uint64_t height, st
     {
       LOG_PRINT_L1("Resetting spent/frozen status for output " << i << ": " << td.m_key_image);
       set_unspent(i);
-      thaw(i);
+      if (!is_transfer_superseded(td))
+        thaw(i);
     }
   }
 
@@ -4600,21 +4614,7 @@ wallet2::detached_blockchain_data wallet2::detach_blockchain(uint64_t height, st
   auto it = std::find_if(m_transfers.begin(), m_transfers.end(), [&](const transfer_details& td){return td.m_block_height >= height;});
   size_t i_start = it - m_transfers.begin();
 
-  for(size_t i = i_start; i!= m_transfers.size();i++)
-  {
-    if (!m_transfers[i].m_key_image_known || m_transfers[i].m_key_image_partial)
-      continue;
-    auto it_ki = m_key_images.find(m_transfers[i].m_key_image);
-    THROW_WALLET_EXCEPTION_IF(it_ki == m_key_images.end(), error::wallet_internal_error, "key image not found: index " + std::to_string(i) + ", ki " + epee::string_tools::pod_to_hex(m_transfers[i].m_key_image) + ", " + std::to_string(m_key_images.size()) + " key images known");
-    m_key_images.erase(it_ki);
-  }
-
-  for(size_t i = i_start; i!= m_transfers.size();i++)
-  {
-    auto it_pk = m_pub_keys.find(m_transfers[i].get_public_key());
-    THROW_WALLET_EXCEPTION_IF(it_pk == m_pub_keys.end(), error::wallet_internal_error, "public key not found");
-    m_pub_keys.erase(it_pk);
-  }
+  trim_transfer_maps(i_start);
 
   transfers_detached = std::distance(it, m_transfers.end());
   dbd.detached_tx_hashes.reserve(transfers_detached);
@@ -6887,20 +6887,61 @@ void wallet2::load(const std::string& wallet_, const epee::wipeable_string& pass
 //----------------------------------------------------------------------------------------------------
 void wallet2::trim_transfer_maps(size_t num_transfers)
 {
-  for (auto it = m_key_images.begin(); it != m_key_images.end(); )
+  // Carry learned key images and user state back to a restored predecessor.
+  for (size_t i = 0; i < num_transfers; ++i)
   {
-    if (it->second >= num_transfers)
-      it = m_key_images.erase(it);
-    else
-      ++it;
+    transfer_details &td = m_transfers[i];
+    auto it = m_pub_keys.find(td.get_public_key());
+    if (it != m_pub_keys.end() && it->second >= num_transfers && it->second < m_transfers.size())
+    {
+      const transfer_details &replacement = m_transfers[it->second];
+      td.m_frozen = replacement.m_frozen;
+      if (replacement.m_key_image_known)
+      {
+        td.m_key_image = replacement.m_key_image;
+        td.m_key_image_known = true;
+        td.m_key_image_partial = replacement.m_key_image_partial;
+      }
+      td.m_key_image_request = true;
+    }
   }
-  for (auto it = m_pub_keys.begin(); it != m_pub_keys.end(); )
+  m_key_images.clear();
+  m_pub_keys.clear();
+  for (size_t i = 0; i < num_transfers; ++i)
   {
-    if (it->second >= num_transfers)
-      it = m_pub_keys.erase(it);
-    else
-      ++it;
+    const transfer_details &td = m_transfers[i];
+    m_pub_keys[td.get_public_key()] = i;
   }
+  for (size_t i = 0; i < num_transfers; ++i)
+  {
+    const transfer_details &td = m_transfers[i];
+    if (td.m_key_image_known && !is_transfer_superseded(td))
+      m_key_images[td.m_key_image] = i;
+  }
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::is_transfer_superseded(const transfer_details &td) const
+{
+  const auto it = m_pub_keys.find(td.get_public_key());
+  return it != m_pub_keys.end() && &m_transfers[it->second] != &td;
+}
+//----------------------------------------------------------------------------------------------------
+void wallet2::set_transfer_key_image(size_t idx, const crypto::key_image &ki)
+{
+  const size_t active = m_pub_keys.at(m_transfers[idx].get_public_key());
+  for (size_t i: {idx, active})
+  {
+    transfer_details &td = m_transfers[i];
+    const auto it = m_key_images.find(td.m_key_image);
+    if (it != m_key_images.end() && it->second == i)
+      m_key_images.erase(it);
+    td.m_key_image = ki;
+    td.m_key_image_known = true;
+    td.m_key_image_partial = false;
+  }
+  // Learning a shared key image does not acknowledge export of its replacement.
+  m_transfers[idx].m_key_image_request = false;
+  m_key_images[ki] = active;
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::load_wallet_cache(const bool use_fs, const std::string& cache_buf)
@@ -7675,7 +7716,7 @@ void wallet2::rescan_spent()
   {
     transfer_details& td = m_transfers[i];
     // a view wallet may not know about key images
-    if (!td.m_key_image_known || td.m_key_image_partial)
+    if (!td.m_key_image_known || td.m_key_image_partial || is_transfer_superseded(td))
       continue;
     if (td.m_spent != (spent_status[i] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT))
     {
@@ -7988,6 +8029,16 @@ void wallet2::commit_tx(pending_tx& ptx)
 {
   using namespace cryptonote;
 
+  // Loading a signed transaction permits historical inputs for inspection.
+  // Reject superseded inputs before submitting their shared key images.
+  for (size_t idx: ptx.selected_transfers)
+  {
+    THROW_WALLET_EXCEPTION_IF(idx >= m_transfers.size(), error::wallet_internal_error,
+        "Bad output index in selected transfers: " + boost::lexical_cast<std::string>(idx));
+    THROW_WALLET_EXCEPTION_IF(is_transfer_superseded(m_transfers[idx]), error::wallet_internal_error,
+        "Cannot submit a transaction spending a superseded output; recreate the transaction");
+  }
+
   // Record the rings before relaying so a rebuild after a failed submission can reuse them.
   // The transaction may have been built elsewhere, so only record rings of this wallet's
   // selected outputs with a usable size.
@@ -8019,12 +8070,6 @@ void wallet2::commit_tx(pending_tx& ptx)
     THROW_ON_RPC_RESPONSE_ERROR(r, {}, daemon_send_resp, "sendrawtransaction", error::tx_rejected, ptx.tx, get_rpc_status(m_trusted_daemon, daemon_send_resp.status), get_text_reason(daemon_send_resp));
   }
 
-  // sanity checks
-  for (size_t idx: ptx.selected_transfers)
-  {
-    THROW_WALLET_EXCEPTION_IF(idx >= m_transfers.size(), error::wallet_internal_error,
-        "Bad output index in selected transfers: " + boost::lexical_cast<std::string>(idx));
-  }
   crypto::hash txid;
 
   txid = get_transaction_hash(ptx.tx);
@@ -13871,11 +13916,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
   PERF_TIMER_START(import_key_images_B);
   for (size_t n = 0; n < signed_key_images.size(); ++n)
   {
-    m_transfers[n + offset].m_key_image = signed_key_images[n].first;
-    m_key_images[m_transfers[n + offset].m_key_image] = n + offset;
-    m_transfers[n + offset].m_key_image_known = true;
-    m_transfers[n + offset].m_key_image_request = false;
-    m_transfers[n + offset].m_key_image_partial = false;
+    set_transfer_key_image(n + offset, signed_key_images[n].first);
   }
   PERF_TIMER_STOP(import_key_images_B);
 
@@ -13893,8 +13934,8 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
 
     for (size_t n = 0; n < daemon_resp.spent_status.size(); ++n)
     {
-      transfer_details &td = m_transfers[n + offset];
-      td.m_spent = daemon_resp.spent_status[n] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT;
+      const size_t active = m_pub_keys.at(m_transfers[n + offset].get_public_key());
+      m_transfers[active].m_spent = daemon_resp.spent_status[n] != COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT;
     }
   }
   spent = 0;
@@ -13919,7 +13960,7 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
   for(size_t i = 0; i < offset; ++i)
   {
     const transfer_details &td = m_transfers[i];
-    if (td.m_frozen)
+    if (td.m_frozen || is_transfer_superseded(td))
       continue;
     uint64_t amount = td.amount();
     if (td.m_spent)
@@ -13929,24 +13970,27 @@ uint64_t wallet2::import_key_images(const std::vector<std::pair<crypto::key_imag
   }
 
   PERF_TIMER_START(import_key_images_D);
+  std::unordered_set<size_t> imported_transfers;
   for(size_t i = 0; i < signed_key_images.size(); ++i)
   {
-    const transfer_details &td = m_transfers[i + offset];
-    if (td.m_frozen)
+    // Partial imports still account for the active output, once per key image.
+    const size_t active = m_pub_keys.at(m_transfers[i + offset].get_public_key());
+    const transfer_details &td = m_transfers[active];
+    if (td.m_frozen || !imported_transfers.insert(active).second)
       continue;
     uint64_t amount = td.amount();
     if (td.m_spent)
       spent += amount;
     else
       unspent += amount;
-    LOG_PRINT_L2("Transfer " << i << ": " << print_money(amount) << " (" << td.m_global_output_index << "): "
+    LOG_PRINT_L2("Transfer " << active << ": " << print_money(amount) << " (" << td.m_global_output_index << "): "
         << (td.m_spent ? "spent" : "unspent") << " (key image " << req.key_images[i] << ")");
 
     if (i < daemon_resp.spent_status.size() && daemon_resp.spent_status[i] == COMMAND_RPC_IS_KEY_IMAGE_SPENT::SPENT_IN_BLOCKCHAIN)
     {
       const std::unordered_map<crypto::key_image, crypto::hash>::const_iterator skii = spent_key_images.find(td.m_key_image);
       if (skii == spent_key_images.end())
-        swept_transfers.push_back(i);
+        swept_transfers.push_back(active);
       else
         spent_txids.insert(skii->second);
     }
@@ -14115,12 +14159,7 @@ bool wallet2::import_key_images(std::vector<crypto::key_image> key_images, size_
     transfer_details &td = m_transfers[transfer_idx];
     if (td.m_key_image_known && !td.m_key_image_partial && td.m_key_image != key_images[ki_idx])
       LOG_PRINT_L0("WARNING: imported key image differs from previously known key image at index " << ki_idx << ": trusting imported one");
-    td.m_key_image = key_images[ki_idx];
-    m_key_images[td.m_key_image] = transfer_idx;
-    td.m_key_image_known = true;
-    td.m_key_image_request = false;
-    td.m_key_image_partial = false;
-    m_pub_keys[td.get_public_key()] = transfer_idx;
+    set_transfer_key_image(transfer_idx, key_images[ki_idx]);
   }
 
   return true;
@@ -14636,8 +14675,22 @@ std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_det
 
   size_t offset = 0;
   if (!all)
+  {
     while (offset < m_transfers.size() && (m_transfers[offset].m_key_image_known && !m_transfers[offset].m_key_image_request))
       ++offset;
+    // A replacement must export its predecessor's spent state, even after a stale key-image import.
+    for (size_t i = 0; i < offset; ++i)
+    {
+      const size_t active = m_pub_keys.at(m_transfers[i].get_public_key());
+      if (active >= offset)
+      {
+        THROW_WALLET_EXCEPTION_IF(count <= active - i, error::wallet_internal_error,
+            "Output count too small to include duplicate replacement. Try using export_outputs all.");
+        offset = i;
+        break;
+      }
+    }
+  }
   else
     offset = std::min<size_t>(start, m_transfers.size());
 
@@ -14688,6 +14741,28 @@ std::string wallet2::export_outputs_to_str(bool all, uint32_t start, uint32_t co
   return magic + ciphertext;
 }
 //----------------------------------------------------------------------------------------------------
+template<typename GetOutputPublicKey>
+static void check_output_import_prefix(const wallet2::transfer_container &transfers,
+    const std::unordered_map<crypto::public_key, size_t> &pub_keys,
+    size_t offset, size_t num_outputs, size_t imported_count, GetOutputPublicKey get_public_key)
+{
+  // Only the exporter knows whether a restored predecessor was spent on the new chain.
+  for (size_t i = 0; i < offset; ++i)
+  {
+    const crypto::public_key &key = transfers[i].get_public_key();
+    const auto it = pub_keys.find(key);
+    if (it == pub_keys.end() || it->second == i)
+      continue;
+    const size_t active = it->second;
+    // Chunked reorg imports can temporarily duplicate the same output. Replacements are strictly larger.
+    if (transfers[i].amount() == transfers[active].amount())
+      continue;
+    THROW_WALLET_EXCEPTION_IF(active >= num_outputs ||
+        (active >= offset && active - offset < imported_count && get_public_key(active - offset) != key),
+        error::wallet_internal_error, "Reorg changed an omitted output. Try using export_outputs all.");
+  }
+}
+//----------------------------------------------------------------------------------------------------
 size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::transfer_details>> &outputs)
 {
   PERF_TIMER(import_outputs);
@@ -14706,6 +14781,11 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
   THROW_WALLET_EXCEPTION_IF(offset + output_array.size() > num_outputs, error::wallet_internal_error,
       "Offset is larger than total outputs");
 
+  check_output_import_prefix(m_transfers, m_pub_keys, offset, num_outputs, output_array.size(),
+      [&](size_t i) { return output_array[i].get_public_key(); });
+
+  // A rejected output can leave a successfully imported prefix.
+  epee::unique_scope_guard rebuild_maps([this] { trim_transfer_maps(m_transfers.size()); });
   const size_t original_size = m_transfers.size();
 
   for (size_t i = 0; i < output_array.size(); ++i)
@@ -14767,10 +14847,9 @@ process:
   }
 
   if (num_outputs < m_transfers.size())
-  {
-    trim_transfer_maps(num_outputs);
     m_transfers.resize(num_outputs);
-  }
+
+  rebuild_maps.reset();
   return m_transfers.size();
 }
 //----------------------------------------------------------------------------------------------------
@@ -14792,6 +14871,11 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
   THROW_WALLET_EXCEPTION_IF(offset + output_array.size() > num_outputs, error::wallet_internal_error,
       "Offset is larger than total outputs");
 
+  check_output_import_prefix(m_transfers, m_pub_keys, offset, num_outputs, output_array.size(),
+      [&](size_t i) { return output_array[i].m_pubkey; });
+
+  // A rejected output can leave a successfully imported prefix.
+  epee::unique_scope_guard rebuild_maps([this] { trim_transfer_maps(m_transfers.size()); });
   const size_t original_size = m_transfers.size();
 
   for (size_t i = 0; i < output_array.size(); ++i)
@@ -14877,10 +14961,9 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
   }
 
   if (num_outputs < m_transfers.size())
-  {
-    trim_transfer_maps(num_outputs);
     m_transfers.resize(num_outputs);
-  }
+
+  rebuild_maps.reset();
   return m_transfers.size();
 }
 //----------------------------------------------------------------------------------------------------
@@ -15266,13 +15349,8 @@ void wallet2::update_multisig_rescan_info(const std::vector<std::vector<rct::key
   const crypto::key_image new_key_image = get_multisig_composite_key_image(n, new_info);
 
   td.m_multisig_info = std::move(new_info);
-  m_key_images.erase(td.m_key_image);
-  td.m_key_image = new_key_image;
-  td.m_key_image_known = true;
-  td.m_key_image_request = false;
-  td.m_key_image_partial = false;
+  set_transfer_key_image(n, new_key_image);
   td.m_multisig_k = multisig_k[n];
-  m_key_images[td.m_key_image] = n;
 }
 //----------------------------------------------------------------------------------------------------
 size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs, bool refresh_after_import)

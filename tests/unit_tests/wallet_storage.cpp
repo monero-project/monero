@@ -89,7 +89,82 @@ public:
     {
         return wallet.m_transfers.at(index).get_public_key();
     }
+
+    static void receive(tools::wallet2 &wallet, const cryptonote::transaction &tx, uint64_t height)
+    {
+        while (wallet.m_blockchain.size() <= height)
+            wallet.m_blockchain.push_back(crypto::null_hash);
+        wallet.process_new_transaction(cryptonote::get_transaction_hash(tx), tx, {height},
+            height, 1, 0, true, false, false, {});
+    }
+
+    static void detach(tools::wallet2 &wallet, uint64_t height)
+    {
+        wallet.detach_blockchain(height);
+    }
+
+    static void check_transfer_index(const tools::wallet2 &wallet, size_t index)
+    {
+        const auto &td = wallet.m_transfers.at(index);
+        EXPECT_EQ(index, wallet.m_pub_keys.at(td.get_public_key()));
+        EXPECT_EQ(index, wallet.m_key_images.at(td.m_key_image));
+    }
 };
+
+TEST(wallet_storage, duplicate_output_reorg_preserves_funds)
+{
+    tools::wallet2 wallet(cryptonote::MAINNET, 1, true);
+    wallet.set_subaddress_lookahead(1, 1);
+    wallet.set_offline();
+    wallet.generate("", "");
+
+    const auto make_receive = [&](uint64_t amount)
+    {
+        const auto &address = wallet.get_account().get_keys().m_account_address;
+        crypto::public_key tx_public_key, output_key;
+        crypto::secret_key tx_secret_key;
+        crypto::generate_keys(tx_public_key, tx_secret_key);
+        crypto::key_derivation derivation;
+        EXPECT_TRUE(crypto::generate_key_derivation(address.m_view_public_key, tx_secret_key, derivation));
+        EXPECT_TRUE(crypto::derive_public_key(derivation, 0, address.m_spend_public_key, output_key));
+        cryptonote::transaction tx;
+        tx.version = 1;
+        tx.vin.push_back(cryptonote::txin_gen{1});
+        tx.vout.push_back({amount, cryptonote::txout_to_key{output_key}});
+        cryptonote::add_tx_pub_key_to_extra(tx, tx_public_key);
+        return tx;
+    };
+
+    const auto original = make_receive(5);
+    wallet_accessor_test::receive(wallet, original, 1);
+    const auto original_transfer = wallet.get_transfer_details(0);
+    const auto unrelated = make_receive(11);
+    wallet_accessor_test::receive(wallet, unrelated, 2);
+    auto replacement = original;
+    replacement.vout[0].amount = 20;
+    replacement.invalidate_hashes();
+    wallet_accessor_test::receive(wallet, replacement, 3);
+
+    ASSERT_EQ(3, wallet.get_num_transfer_details());
+    EXPECT_EQ(31, wallet.balance_all(false));
+    EXPECT_TRUE(wallet.get_transfer_details(0).m_spent);
+    wallet_accessor_test::check_transfer_index(wallet, 1);
+    wallet_accessor_test::check_transfer_index(wallet, 2);
+
+    ASSERT_NO_THROW(wallet_accessor_test::detach(wallet, 3));
+    ASSERT_EQ(2, wallet.get_num_transfer_details());
+    EXPECT_EQ(16, wallet.balance_all(false));
+    const auto &restored = wallet.get_transfer_details(0);
+    EXPECT_EQ(original_transfer.m_txid, restored.m_txid);
+    EXPECT_EQ(original_transfer.m_block_height, restored.m_block_height);
+    EXPECT_EQ(original_transfer.m_global_output_index, restored.m_global_output_index);
+    EXPECT_EQ(original_transfer.m_amount, restored.m_amount);
+    EXPECT_EQ(original_transfer.m_key_image, restored.m_key_image);
+    EXPECT_FALSE(restored.m_spent);
+    EXPECT_EQ(cryptonote::get_transaction_hash(unrelated), wallet.get_transfer_details(1).m_txid);
+    wallet_accessor_test::check_transfer_index(wallet, 0);
+    wallet_accessor_test::check_transfer_index(wallet, 1);
+}
 
 TEST(wallet_storage, store_to_file2file)
 {
