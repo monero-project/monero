@@ -67,6 +67,7 @@ namespace cryptonote
     static const command_line::arg_descriptor<std::size_t> arg_rpc_max_connections_per_private_ip;
     static const command_line::arg_descriptor<std::size_t> arg_rpc_max_connections;
     static const command_line::arg_descriptor<std::size_t> arg_rpc_response_soft_limit;
+    static const command_line::arg_descriptor<std::size_t> arg_rpc_threads;
 
     typedef epee::net_utils::connection_context_base connection_context;
 
