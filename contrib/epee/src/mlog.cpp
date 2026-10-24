@@ -236,6 +236,28 @@ void mlog_configure(const std::string &filename_base, bool console, const std::s
 #endif
 }
 
+bool mlog_reopen()
+{
+  el::base::threading::ScopedLock lock(el::Helpers::storage()->lock());
+  el::Logger *logger = el::Loggers::getLogger("default", false);
+  if (!logger)
+    return false;
+
+  el::base::TypedConfigurations *config = logger->typedConfigurations();
+  el::base::type::fstream_t *stream = config->fileStream(el::Level::Info);
+  if (!stream || !config->toFile(el::Level::Info))
+    return false;
+
+  el::base::type::fstream_t replacement(config->filename(el::Level::Info).c_str(),
+      el::base::type::fstream_t::out | el::base::type::fstream_t::app);
+  if (!replacement.is_open())
+    return false;
+
+  stream->flush();
+  stream->swap(replacement);
+  return true;
+}
+
 void mlog_set_categories(const char *categories)
 {
   std::string new_categories;

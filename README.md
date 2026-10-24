@@ -536,6 +536,8 @@ To run in background:
 ./bin/monerod --log-file monerod.log --detach
 ```
 
+On POSIX systems, send `SIGUSR1` to `monerod` after externally renaming its log file to reopen the configured log path.
+
 To run as a systemd service, copy [monerod.service](utils/systemd/monerod.service) to `/etc/systemd/system/` and [monerod.conf](utils/conf/monerod.conf) to `/etc/`. The [example service](utils/systemd/monerod.service) assumes that the user `monero` exists and its home is the data directory specified in the [example config](utils/conf/monerod.conf).
 
 If you're on Mac, you may need to add the `--max-concurrency 1` option to monero-wallet-cli, and possibly monerod, if you get crashes refreshing.
