@@ -495,7 +495,7 @@ namespace hw {
       this->sw = (this->buffer_recv[length_recv]<<8) | this->buffer_recv[length_recv+1];
       logRESP();
       MDEBUG("Device "<< this->id << " exchange: sw: " << this->sw << " expected: " << ok);
-      ASSERT_X(sw != SW_CLIENT_NOT_SUPPORTED, "Monero Ledger App doesn't support current monero version. Try to update the Monero Ledger App, at least " << MINIMAL_APP_VERSION_MAJOR<< "." << MINIMAL_APP_VERSION_MINOR << "." << MINIMAL_APP_VERSION_MICRO << " is required.");
+      ASSERT_X(sw != SW_CLIENT_NOT_SUPPORTED, "Monero Ledger App doesn't support current Monero version. Try to update the Monero Ledger App, at least " << MINIMAL_APP_VERSION_MAJOR<< "." << MINIMAL_APP_VERSION_MINOR << "." << MINIMAL_APP_VERSION_MICRO << " is required.");
       ASSERT_X(sw != SW_PROTOCOL_NOT_SUPPORTED, "Make sure no other program is communicating with the Ledger.");
       ASSERT_X(sw != SW_LOCKED_DEVICE, "Ledger is locked.");
       ASSERT_SW(this->sw,ok,mask);
