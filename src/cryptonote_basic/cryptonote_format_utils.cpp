@@ -1477,7 +1477,8 @@ namespace cryptonote
     crypto::hash hashes[3];
 
     // prefix
-    get_transaction_prefix_hash(t, hashes[0]);
+    calculate_transaction_prefix_hash(t, hashes[0]);
+    t.set_prefix_hash(hashes[0]);
 
     transaction &tt = const_cast<transaction&>(t);
 
@@ -1522,7 +1523,8 @@ namespace cryptonote
     crypto::hash hashes[3];
 
     // prefix
-    get_transaction_prefix_hash(t, hashes[0]);
+    calculate_transaction_prefix_hash(t, hashes[0]);
+    t.set_prefix_hash(hashes[0]);
 
     const blobdata blob = tx_to_blob(t);
     const unsigned int unprunable_size = t.unprunable_size;
@@ -1577,6 +1579,8 @@ namespace cryptonote
       }
       return true;
     }
+    // v1 txs don't refresh the cached prefix hash while hashing, so drop it in case the tx changed
+    t.set_prefix_hash_valid(false);
     bool ret = calculate_transaction_hash(t, res, blob_size);
     if (!ret)
       return false;

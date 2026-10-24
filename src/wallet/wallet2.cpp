@@ -14724,7 +14724,7 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
       CMPF(m_key_image);
       CMPF(m_internal_output_index);
 #undef CMPF
-      if (!(get_transaction_prefix_hash(td.m_tx) == get_transaction_prefix_hash(org_td.m_tx)))
+      if (!(calculate_transaction_prefix_hash(td.m_tx) == calculate_transaction_prefix_hash(org_td.m_tx)))
         goto process;
 
       // copy anyway, since the comparison does not include ancillary fields which may have changed

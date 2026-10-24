@@ -302,7 +302,7 @@ namespace hw {
         }
 
         void device_default::get_transaction_prefix_hash(const cryptonote::transaction_prefix& tx, crypto::hash& h) {
-            cryptonote::get_transaction_prefix_hash(tx, h);
+            cryptonote::calculate_transaction_prefix_hash(tx, h);
         }
 
         bool device_default::generate_output_ephemeral_keys(const size_t tx_version,
