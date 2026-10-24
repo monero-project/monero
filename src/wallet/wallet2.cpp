@@ -14903,27 +14903,23 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
           loaded = true;
     }
     catch (...) {}
-    if (!loaded)
-      std::get<2>(new_outputs).clear();
-
-    std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::transfer_details>> outputs;
-    if (!loaded) try
+    if (loaded)
+      imported_outputs = import_outputs(new_outputs);
+    else
     {
-      binary_archive<false> ar{epee::strspan<std::uint8_t>(body)};
-      if (::serialization::serialize(ar, outputs))
-        if (::serialization::check_stream_state(ar))
-          loaded = true;
-    }
-    catch (...) {}
+      std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::transfer_details>> outputs;
+      try
+      {
+        binary_archive<false> ar{epee::strspan<std::uint8_t>(body)};
+        if (::serialization::serialize(ar, outputs))
+          if (::serialization::check_stream_state(ar))
+            loaded = true;
+      }
+      catch (...) {}
 
-    if (!loaded)
-    {
-      std::get<0>(outputs) = 0;
-      std::get<1>(outputs) = 0;
-      std::get<2>(outputs) = {};
+      if (loaded)
+        imported_outputs = import_outputs(outputs);
     }
-
-    imported_outputs = !std::get<2>(new_outputs).empty() ? import_outputs(new_outputs) : !std::get<2>(outputs).empty() ? import_outputs(outputs) : 0;
   }
   catch (const std::exception &e)
   {
