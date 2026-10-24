@@ -1310,9 +1310,9 @@ namespace rct {
         try
         {
           if (semantics) {
+            std::deque<bool> results(rv.outPk.size(), false);
             tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
             tools::threadpool::waiter waiter(tpool);
-            std::deque<bool> results(rv.outPk.size(), false);
             DP("range proofs verified?");
             for (size_t i = 0; i < rv.outPk.size(); i++)
               tpool.submit(&waiter, [&, i] { results[i] = verRange(rv.outPk[i].mask, rv.p.rangeSigs[i]); });
@@ -1360,9 +1360,9 @@ namespace rct {
       {
         PERF_TIMER(verRctSemanticsSimple);
 
+        std::deque<bool> results;
         tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
         tools::threadpool::waiter waiter(tpool);
-        std::deque<bool> results;
         std::vector<const Bulletproof*> bp_proofs;
         std::vector<const BulletproofPlus*> bpp_proofs;
         size_t max_non_bp_proofs = 0, offset = 0;
@@ -1593,10 +1593,9 @@ namespace rct {
       if (pts.empty())
         return true;
 
+      std::atomic<bool> all_valid{true};
       tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
       tools::threadpool::waiter waiter(tpool);
-
-      std::atomic<bool> all_valid{true};
       for (std::size_t i = 0; i < pts.size(); ++i)
       {
         tpool.submit(&waiter, [&pts, &all_valid, i]
