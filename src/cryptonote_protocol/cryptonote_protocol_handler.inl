@@ -414,7 +414,35 @@ namespace cryptonote
     if (target == 0)
       target = m_core.get_current_blockchain_height();
 
-    if(m_core.have_block(hshd.top_id))
+    int where;
+    bool have_top = m_core.have_block(hshd.top_id, &where);
+    if (have_top && context.m_remote_address.get_zone() == epee::net_utils::zone::public_)
+    {
+      if (where == HAVE_BLOCK_INVALID)
+      {
+        m_p2p->add_host_fail(context.m_remote_address, 1);
+        return false;
+      }
+
+      // A matching main-chain hash proves the height without loading the block.
+      const bool main_height_matches = where == HAVE_BLOCK_MAIN_CHAIN && hshd.current_height != 0 &&
+        hshd.current_height <= m_core.get_current_blockchain_height() &&
+        m_core.get_block_id_by_height(hshd.current_height - 1) == hshd.top_id;
+      if (!main_height_matches)
+      {
+        block top_block;
+        // A known block may disappear between the two lookups.
+        if (!m_core.get_block_by_hash(hshd.top_id, top_block))
+          have_top = false;
+        else if (hshd.current_height != get_block_height(top_block) + 1)
+        {
+          MDEBUG(context << " sent a height that does not match its known top block");
+          m_p2p->add_host_fail(context.m_remote_address, 5);
+          return false;
+        }
+      }
+    }
+    if (have_top)
     {
       context.set_state_normal();
       if(is_inital  && hshd.current_height >= target && target == m_core.get_current_blockchain_height())

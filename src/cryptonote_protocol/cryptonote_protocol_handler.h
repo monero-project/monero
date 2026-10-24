@@ -191,9 +191,9 @@ namespace cryptonote
     std::unordered_map<epee::net_utils::zone, unsigned int> m_max_out_peers;
     mutable epee::critical_section m_max_out_peers_lock;
     tools::PerformanceTimer m_sync_timer, m_add_timer;
-    uint64_t m_last_add_end_time;
-    uint64_t m_sync_spans_downloaded, m_sync_old_spans_downloaded, m_sync_bad_spans_downloaded;
-    uint64_t m_sync_download_chain_size, m_sync_download_objects_size;
+    uint64_t m_last_add_end_time = 0;
+    uint64_t m_sync_spans_downloaded = 0, m_sync_old_spans_downloaded = 0, m_sync_bad_spans_downloaded = 0;
+    uint64_t m_sync_download_chain_size = 0, m_sync_download_objects_size = 0;
     size_t m_block_download_max_size;
     bool m_sync_pruned_blocks;
     size_t m_block_sync_queue_time;
