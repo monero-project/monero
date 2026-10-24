@@ -3834,6 +3834,8 @@ void wallet2::process_unconfirmed_transfer(bool incremental, const crypto::hash 
         continue;
       if (td.m_spent == spent)
         continue;
+      if (!spent && td.m_spent_height > 0)
+        continue; // spent by a confirmed tx, which this tx failing does not release
 
       LOG_PRINT_L1("Resetting spent status for output " << vini << ": " << key_image << " (spent=" << spent << ")");
       if (spent)
