@@ -195,3 +195,31 @@ TEST(threadpool, test_and_set)
   ASSERT_FALSE(check_test_and_set(N, [](std::size_t i) -> bool { return i > 0; }));
   ASSERT_FALSE(check_test_and_set(N, [](std::size_t i) -> bool { return true; }));
 }
+
+TEST(threadpool, worker_job_throws_with_null_waiter)
+{
+  // submit() documents that the waiter may be NULL, but the worker's
+  // exception handler dereferenced it unconditionally. A throwing job
+  // without a waiter used to crash the worker thread.
+  std::shared_ptr<tools::threadpool> tpool(tools::threadpool::getNewForUnitTests(1));
+  tools::threadpool::waiter waiter(*tpool);
+  std::atomic<bool> ran(false);
+  tpool->submit(nullptr, [] { throw std::runtime_error("boom"); });
+  tpool->submit(&waiter, [&ran] { ran = true; });
+  ASSERT_TRUE(waiter.wait());
+  EXPECT_TRUE(ran);
+}
+
+TEST(threadpool, worker_job_throws_non_std_exception)
+{
+  // #11400 only covered the inline (caller) path with throw 1; the worker
+  // path only caught std::exception, so a non-std::exception thrown from a
+  // worker job escaped run() and terminated the worker thread.
+  std::shared_ptr<tools::threadpool> tpool(tools::threadpool::getNewForUnitTests(1));
+  tools::threadpool::waiter waiter(*tpool);
+  std::atomic<bool> ran(false);
+  tpool->submit(nullptr, [] { throw 1; });
+  tpool->submit(&waiter, [&ran] { ran = true; });
+  ASSERT_TRUE(waiter.wait());
+  EXPECT_TRUE(ran);
+}
