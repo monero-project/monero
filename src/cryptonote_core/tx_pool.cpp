@@ -151,7 +151,6 @@ namespace cryptonote
     }
   }
   //---------------------------------------------------------------------------------
-  //---------------------------------------------------------------------------------
   tx_memory_pool::tx_memory_pool(Blockchain& bchs): m_blockchain(bchs), m_cookie(0), m_txpool_max_weight(DEFAULT_TXPOOL_MAX_WEIGHT), m_txpool_weight(0), m_mine_stem_txes(false), m_next_check(std::time(nullptr))
   {
     // class code expects unsigned values throughout
