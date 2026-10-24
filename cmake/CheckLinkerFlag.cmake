@@ -11,7 +11,7 @@ macro(CHECK_LINKER_FLAG flag VARIABLE)
     set(saved_CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
     set(CMAKE_C_FLAGS "${flag}")
     try_compile(${VARIABLE}
-      ${CMAKE_BINARY_DIR}
+      ${PROJECT_BINARY_DIR}
       ${_cle_source}
       COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS} ${flag}
       CMAKE_FLAGS
@@ -30,7 +30,7 @@ macro(CHECK_LINKER_FLAG flag VARIABLE)
         message(STATUS "Looking for ${flag} linker flag - found")
       endif()
       set(${VARIABLE} 1 CACHE INTERNAL "Have linker flag ${flag}")
-      file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeOutput.log
+      file(APPEND ${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeOutput.log
         "Determining if the ${flag} linker flag is supported "
         "passed with the following output:\n"
         "${OUTPUT}\n\n")
@@ -39,7 +39,7 @@ macro(CHECK_LINKER_FLAG flag VARIABLE)
         message(STATUS "Looking for ${flag} linker flag - not found")
       endif()
       set(${VARIABLE} "" CACHE INTERNAL "Have linker flag ${flag}")
-      file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log
+      file(APPEND ${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log
         "Determining if the ${flag} linker flag is supported "
         "failed with the following output:\n"
         "${OUTPUT}\n\n")
