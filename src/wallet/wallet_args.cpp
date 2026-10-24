@@ -138,7 +138,9 @@ namespace wallet_args
     bool r = command_line::handle_error_helper(desc_all, [&]()
     {
       auto parser = po::command_line_parser(argc, argv).options(desc_all).positional(positional_options);
-      po::store(parser.run(), vm);
+      const auto parsed = parser.run();
+      po::store(parsed, vm);
+      command_line::check_string_swallowed_option(desc_all, parsed);
 
       if (command_line::get_arg(vm, command_line::arg_help))
       {

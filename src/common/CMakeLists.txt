@@ -73,6 +73,7 @@ target_link_libraries(common
     ${LIBUNWIND_LIBRARIES}
     ${Boost_DATE_TIME_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
     ${Boost_SYSTEM_LIBRARY}
     ${Boost_THREAD_LIBRARY}
     ${Boost_REGEX_LIBRARY}
