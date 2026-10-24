@@ -119,7 +119,6 @@ static void reset_line()
   line_state.fold_count = 0;
   if (editing_active && tty_editing)
   {
-    linenoiseHistoryAdd("");
     linenoiseShow(&line_state);
   }
 }

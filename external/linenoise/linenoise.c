@@ -136,6 +136,7 @@ static char *linenoiseEditPasteFeed(struct linenoiseState *l);
 static void refreshLineWithCompletion(struct linenoiseState *ls, linenoiseCompletions *lc, int flags);
 static void refreshLineWithFlags(struct linenoiseState *l, int flags);
 static void linenoiseFoldClear(struct linenoiseState *l);
+static int linenoiseEditGrow(struct linenoiseState *l, size_t needed);
 
 static struct termios orig_termios; /* In order to restore at exit.*/
 static int maskmode = 0; /* Show "***" instead of input. For passwords. */
@@ -774,7 +775,6 @@ static void refreshLineWithCompletion(struct linenoiseState *ls, linenoiseComple
  * from stdin. */
 static int completeLine(struct linenoiseState *ls, int keypressed) {
     linenoiseCompletions lc = { 0, NULL };
-    int nwritten;
     char c = keypressed;
 
     completionCallback(ls->buf,&lc);
@@ -802,9 +802,14 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
             default:
                 /* Update buffer and return */
                 if (ls->completion_idx < lc.len) {
-                    nwritten = snprintf(ls->buf,ls->buflen,"%s",
-                        lc.cvec[ls->completion_idx]);
-                    ls->len = ls->pos = nwritten;
+                    /* Truncate if the buffer can't grow, like history recall. */
+                    const char *src = lc.cvec[ls->completion_idx];
+                    size_t len = strlen(src);
+                    if (linenoiseEditGrow(ls,len) == -1 && len > ls->buflen)
+                        len = ls->buflen;
+                    memcpy(ls->buf,src,len);
+                    ls->buf[len] = '\0';
+                    ls->len = ls->pos = len;
                     linenoiseFoldClear(ls);
                 }
                 ls->in_completion = 0;
@@ -1727,6 +1732,23 @@ void linenoiseEditDeletePrevWord(struct linenoiseState *l) {
     refreshLine(l);
 }
 
+/* Push the "" history entry for the edited line, unless already pushed.
+ * linenoiseHistoryAdd() skips a duplicate "", so an empty top entry counts. */
+static void linenoiseHistoryPushPlaceholder(struct linenoiseState *l) {
+    if (l->history_placeholder) return;
+    linenoiseHistoryAdd("");
+    l->history_placeholder = history_len > 0 && history[history_len-1][0] == '\0';
+}
+
+/* Pop the "" history entry, only if this session pushed it. */
+static void linenoiseHistoryPopPlaceholder(struct linenoiseState *l) {
+    if (l->history_placeholder && history_len > 0) {
+        history_len--;
+        free(history[history_len]);
+    }
+    l->history_placeholder = 0;
+}
+
 /* This function is part of the multiplexed API of Linenoise, that is used
  * in order to implement the blocking variant of the API but can also be
  * called by the user directly in an event driven program. It will:
@@ -1750,6 +1772,8 @@ void linenoiseEditDeletePrevWord(struct linenoiseState *l) {
  * The function returns 0 on success, or -1 if writing to standard output
  * fails. If stdin_fd or stdout_fd are set to -1, the default is to use
  * STDIN_FILENO and STDOUT_FILENO.
+ *
+ * 'l' must be zeroed before first use; passing back its own 'buf' resumes.
  */
 int linenoiseEditStart(struct linenoiseState *l, int stdin_fd, int stdout_fd, char *buf, size_t buflen, const char *prompt) {
     int resuming = (l->buf != NULL && l->buf == buf);
@@ -1794,11 +1818,9 @@ int linenoiseEditStart(struct linenoiseState *l, int stdin_fd, int stdout_fd, ch
     l->oldrows = 0;
     l->oldrpos = 1;  /* Cursor starts on row 1. */
 
-    if (!resuming) {
-        /* The latest history entry is always our current buffer, that
-         * initially is just an empty string. */
-        linenoiseHistoryAdd("");
-    }
+    /* The latest history entry is always our current buffer, that
+     * initially is just an empty string. */
+    linenoiseHistoryPushPlaceholder(l);
 
     linenoiseShow(l);
     return 0;
@@ -2003,6 +2025,10 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
      * count limits. */
     if ((!isatty(l->ifd) || !isatty(l->ofd)) && !getenv("LINENOISE_ASSUME_TTY")) return linenoiseNoTTYFeed();
 
+    /* Enter pops the placeholder; the caller may keep feeding without
+     * calling linenoiseEditStart() again. */
+    linenoiseHistoryPushPlaceholder(l);
+
     char c;
     int nread;
     char seq[3];
@@ -2029,8 +2055,7 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
         break;
     case ENTER:    /* enter */
     case 10:       /* ctrl-j / line feed: also accepted as enter */
-        history_len--;
-        free(history[history_len]);
+        linenoiseHistoryPopPlaceholder(l);
         if (mlmode) linenoiseEditMoveEnd(l);
         if (hintsCallback) {
             /* Force a refresh without hints to leave the previous
@@ -2053,8 +2078,7 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
         if (l->len > 0) {
             linenoiseEditDelete(l);
         } else {
-            history_len--;
-            free(history[history_len]);
+            linenoiseHistoryPopPlaceholder(l);
             errno = ENOENT;
             return NULL;
         }
@@ -2250,7 +2274,7 @@ void linenoiseEditStop(struct linenoiseState *l) {
  * state grow it dynamically for large pasted input. */
 static char *linenoiseBlockingEdit(int stdin_fd, int stdout_fd, const char *prompt)
 {
-    struct linenoiseState l;
+    struct linenoiseState l = {0};
     char *buf = malloc(LINENOISE_INITIAL_BUFLEN);
     char *res;
 
@@ -2312,6 +2336,12 @@ static char *linenoiseReadLine(FILE *fp, int *err) {
         if (len+1 >= cap) {
             size_t newcap = cap ? cap*2 : 16;
             char *oldval = line;
+            if (newcap <= cap) {
+                free(line);
+                if (err) *err = 1;
+                errno = ENOMEM;
+                return NULL;
+            }
             line = realloc(line,newcap);
             if (line == NULL) {
                 if (oldval) free(oldval);
@@ -2340,6 +2370,7 @@ static char *linenoiseNoTTY(void) {
     return linenoiseReadLine(stdin,NULL);
 }
 
+/* Like the tty path, truncate lines longer than LINENOISE_MAX_LINE. */
 static char *linenoiseNoTTYFeed(void) {
     static char *line = NULL;
     static size_t len = 0, cap = 0;
@@ -2351,12 +2382,14 @@ static char *linenoiseNoTTYFeed(void) {
     while (1) {
         if (elapsedMs(&t0) >= LOOP_TIME_BUDGET_MS) return linenoiseEditMore;
 
-        if (len+1 >= cap) {
+        if (len+1 >= cap && cap < LINENOISE_MAX_LINE) {
             size_t newcap = cap ? cap*2 : 16;
             char *oldval = line;
+            if (newcap > LINENOISE_MAX_LINE) newcap = LINENOISE_MAX_LINE;
             line = realloc(line,newcap);
             if (line == NULL) {
                 if (oldval) free(oldval);
+                len = cap = 0;
                 return NULL;
             }
             cap = newcap;
@@ -2391,8 +2424,7 @@ static char *linenoiseNoTTYFeed(void) {
             return result;
         }
 
-        line[len] = c;
-        len++;
+        if (len+1 < cap) line[len++] = c;
     }
 }
 
