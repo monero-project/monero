@@ -4694,6 +4694,14 @@ bool simple_wallet::try_connect_to_daemon(bool silent, uint32_t* version)
   return true;
 }
 
+// Matches a mnemonic language name case-insensitively, returning the canonical list entry (empty if no match)
+static std::string canonical_mnemonic_language(const std::vector<std::string> &language_list, const std::string &name)
+{
+  const auto it = std::find_if(language_list.begin(), language_list.end(),
+    [&name](const std::string &language){ return boost::algorithm::iequals(language, name); });
+  return it == language_list.end() ? std::string() : *it;
+}
+
 /*!
  * \brief Gets the word seed language from the user.
  * 
@@ -4789,9 +4797,9 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
   // Check for mnemonic language from command line argument
   std::vector<std::string> language_list;
   crypto::ElectrumWords::get_language_list(language_list, false, is_polyseed);
-  if (mnemonic_language.empty() && std::find(language_list.begin(), language_list.end(), m_mnemonic_language) != language_list.end())
+  if (mnemonic_language.empty())
   {
-    mnemonic_language = m_mnemonic_language;
+    mnemonic_language = canonical_mnemonic_language(language_list, m_mnemonic_language);
   }
 
   // Ask for seed language if:
@@ -4994,9 +5002,9 @@ boost::optional<epee::wipeable_string> simple_wallet::new_wallet(const boost::pr
 
   std::vector<std::string> language_list;
   crypto::ElectrumWords::get_language_list(language_list);
-  if (mnemonic_language.empty() && std::find(language_list.begin(), language_list.end(), m_mnemonic_language) != language_list.end())
+  if (mnemonic_language.empty())
   {
-    mnemonic_language = m_mnemonic_language;
+    mnemonic_language = canonical_mnemonic_language(language_list, m_mnemonic_language);
   }
 
   m_wallet->set_seed_language(mnemonic_language);
