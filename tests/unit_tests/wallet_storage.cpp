@@ -618,6 +618,16 @@ TEST(wallet_storage, change_export_format)
     EXPECT_EQ(primary_address_1, primary_address_2);
 }
 
+TEST(wallet_manual_encrypt, encrypt_with_wrong_password)
+{
+    const epee::wipeable_string password1("Beleza pura, malandro!");
+    const epee::wipeable_string password2("correct horse battery staple");
+    tools::wallet2 w;
+    w.generate("", password1);
+    ASSERT_TRUE(w.is_key_encryption_enabled());
+    EXPECT_THROW(w.encrypt_keys(password2), tools::error::invalid_password);
+}
+
 #define OLD_WALLET_KEYS_UNLOCKER 0
 #if OLD_WALLET_KEYS_UNLOCKER
 #define WALLET_KEYS_UNLOCKER_CTOR(wal, p_pwd) tools::wallet_keys_unlocker(wal, \
