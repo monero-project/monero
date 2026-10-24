@@ -35,6 +35,8 @@
 #include "cryptonote_core/i_core_events.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.inl"
+#include "net/i2p_address.h"
+#include "net/tor_address.h"
 #include "unit_tests_utils.h"
 #include <algorithm>
 #include <condition_variable>
@@ -1687,6 +1689,203 @@ TEST(regtest, isolates_p2p_state_from_mainnet_data_dir)
   nodetool::peerlist_types regtest_public = regtest_storage->take_zone(epee::net_utils::zone::public_);
   EXPECT_TRUE(regtest_public.white.empty());
   EXPECT_TRUE(regtest_public.gray.empty());
+}
+
+namespace
+{
+  class target_test_core : public test_core
+  {
+  public:
+    uint64_t target_height = 0;
+    bool safe_sync = false;
+    bool known_block = false;
+    bool synchronized = false;
+
+    uint64_t get_target_blockchain_height() const { return target_height; }
+    void set_target_blockchain_height(uint64_t height) { target_height = height; }
+    void safesyncmode(bool safe) { safe_sync = safe; }
+    bool have_block(const crypto::hash&, int* where = nullptr) const
+    {
+      if (known_block && where)
+        *where = HAVE_BLOCK_MAIN_CHAIN;
+      return known_block;
+    }
+    void on_synchronized() { synchronized = true; }
+  };
+
+  struct target_test_p2p : nodetool::p2p_endpoint_stub<cryptonote::cryptonote_connection_context>
+  {
+    std::vector<cryptonote::cryptonote_connection_context*> connections;
+
+    void for_each_connection(std::function<bool(cryptonote::cryptonote_connection_context&, nodetool::peerid_type, uint32_t)> f) override
+    {
+      for (auto* connection : connections)
+        if (!f(*connection, 0, 0))
+          break;
+    }
+  };
+
+  void set_test_address(cryptonote::cryptonote_connection_context& context, boost::uuids::uuid id,
+    const epee::net_utils::network_address& address)
+  {
+    static_cast<epee::net_utils::connection_context_base&>(context) =
+      epee::net_utils::connection_context_base{id, address, false, false};
+  }
+}
+
+TEST(cryptonote_protocol_handler, hidden_peer_retains_target_but_restores_safe_sync)
+{
+  target_test_core core;
+  target_test_p2p p2p;
+  cryptonote::t_cryptonote_protocol_handler<target_test_core> handler{core, &p2p};
+  ASSERT_TRUE(handler.init(make_regtest_options(".")));
+  cryptonote::cryptonote_connection_context hidden, public_peer;
+  boost::uuids::uuid hidden_id{}, public_id{};
+  hidden_id.data[0] = 1;
+  public_id.data[0] = 2;
+  set_test_address(hidden, hidden_id, net::tor_address::unknown());
+  set_test_address(public_peer, public_id, MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 1, 18080));
+  p2p.connections = {&hidden, &public_peer};
+
+  cryptonote::CORE_SYNC_DATA data{};
+  data.current_height = 8;
+  ASSERT_TRUE(handler.process_payload_sync_data(data, hidden, true));
+  ASSERT_EQ(hidden.m_state, cryptonote::cryptonote_connection_context::state_normal);
+  EXPECT_EQ(core.target_height, 0u);
+
+  data.current_height = 10;
+  ASSERT_TRUE(handler.process_payload_sync_data(data, public_peer, true));
+  ASSERT_EQ(public_peer.m_state, cryptonote::cryptonote_connection_context::state_synchronizing);
+  ASSERT_EQ(core.target_height, 10u);
+
+  handler.on_connection_close(public_peer);
+  EXPECT_EQ(core.target_height, 8u);
+  EXPECT_TRUE(core.safe_sync);
+  EXPECT_EQ(hidden.m_remote_blockchain_height, 8u);
+}
+
+TEST(cryptonote_protocol_handler, public_peer_retains_sync_target)
+{
+  for (const auto state : {cryptonote::cryptonote_connection_context::state_normal,
+                           cryptonote::cryptonote_connection_context::state_synchronizing})
+  {
+    SCOPED_TRACE(static_cast<int>(state));
+    target_test_core core;
+    target_test_p2p p2p;
+    cryptonote::t_cryptonote_protocol_handler<target_test_core> handler{core, &p2p};
+    ASSERT_TRUE(handler.init(make_regtest_options(".")));
+    cryptonote::cryptonote_connection_context tor, i2p, public_peer, closing;
+    boost::uuids::uuid tor_id{}, i2p_id{}, public_id{}, closing_id{};
+    tor_id.data[0] = 1;
+    i2p_id.data[0] = 2;
+    public_id.data[0] = 3;
+    closing_id.data[0] = 4;
+    set_test_address(tor, tor_id, MONERO_UNWRAP(net::tor_address::make("vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion", 18080)));
+    set_test_address(i2p, i2p_id, MONERO_UNWRAP(net::i2p_address::make("vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopn.b32.i2p")));
+    set_test_address(public_peer, public_id, MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 1, 18080));
+    set_test_address(closing, closing_id, MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 2, 18080));
+    tor.set_state_normal();
+    i2p.set_state_normal();
+    public_peer.m_state = state;
+    closing.m_state = cryptonote::cryptonote_connection_context::state_synchronizing;
+    tor.m_remote_blockchain_height = 12;
+    i2p.m_remote_blockchain_height = 13;
+    public_peer.m_remote_blockchain_height = 9;
+    closing.m_remote_blockchain_height = core.target_height = 14;
+    p2p.connections = {&tor, &i2p, &public_peer, &closing};
+
+    handler.on_connection_close(closing);
+    EXPECT_EQ(core.target_height, 13u);
+    EXPECT_FALSE(core.safe_sync);
+  }
+}
+
+TEST(cryptonote_protocol_handler, higher_hidden_peer_blocks_known_public_top)
+{
+  target_test_core core;
+  target_test_p2p p2p;
+  cryptonote::t_cryptonote_protocol_handler<target_test_core> handler{core, &p2p};
+  ASSERT_TRUE(handler.init(make_regtest_options(".")));
+  cryptonote::cryptonote_connection_context tor, i2p, public_peer, new_public_peer, closing;
+  boost::uuids::uuid tor_id{}, i2p_id{}, public_id{}, new_public_id{}, closing_id{};
+  tor_id.data[0] = 1;
+  i2p_id.data[0] = 2;
+  public_id.data[0] = 3;
+  closing_id.data[0] = 4;
+  new_public_id.data[0] = 5;
+  set_test_address(tor, tor_id, MONERO_UNWRAP(net::tor_address::make("vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion", 18080)));
+  set_test_address(i2p, i2p_id, MONERO_UNWRAP(net::i2p_address::make("vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopn.b32.i2p")));
+  set_test_address(public_peer, public_id, MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 1, 18080));
+  set_test_address(new_public_peer, new_public_id, MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 3, 18080));
+  set_test_address(closing, closing_id, MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 2, 18080));
+  tor.set_state_normal();
+  i2p.set_state_normal();
+  closing.m_state = cryptonote::cryptonote_connection_context::state_synchronizing;
+  tor.m_remote_blockchain_height = 8;
+  i2p.m_remote_blockchain_height = 9;
+  closing.m_remote_blockchain_height = core.target_height = 10;
+  p2p.connections = {&tor, &i2p, &public_peer, &closing};
+
+  handler.on_connection_close(closing);
+  ASSERT_EQ(core.target_height, 9u);
+  EXPECT_TRUE(core.safe_sync);
+  p2p.connections = {&tor, &i2p, &public_peer};
+
+  core.known_block = true;
+  cryptonote::CORE_SYNC_DATA data{};
+  data.current_height = core.get_current_blockchain_height();
+  ASSERT_TRUE(handler.process_payload_sync_data(data, public_peer, true));
+  EXPECT_FALSE(core.synchronized);
+  EXPECT_FALSE(handler.is_synchronized());
+
+  p2p.connections = {&tor, &public_peer};
+  handler.on_connection_close(i2p);
+  EXPECT_EQ(core.target_height, 8u);
+  p2p.connections = {&public_peer};
+  handler.on_connection_close(tor);
+  ASSERT_EQ(core.target_height, 1u);
+  EXPECT_FALSE(handler.is_synchronized());
+  p2p.connections = {&public_peer, &new_public_peer};
+  ASSERT_TRUE(handler.process_payload_sync_data(data, new_public_peer, true));
+  EXPECT_TRUE(core.synchronized);
+  EXPECT_TRUE(handler.is_synchronized());
+}
+
+TEST(cryptonote_protocol_handler, public_sync_below_hidden_target_keeps_safe_mode)
+{
+  target_test_core core;
+  target_test_p2p p2p;
+  cryptonote::t_cryptonote_protocol_handler<target_test_core> handler{core, &p2p};
+  ASSERT_TRUE(handler.init(make_regtest_options(".")));
+  cryptonote::cryptonote_connection_context hidden, closing, public_peer;
+  boost::uuids::uuid hidden_id{}, closing_id{}, public_id{};
+  hidden_id.data[0] = 1;
+  closing_id.data[0] = 2;
+  public_id.data[0] = 3;
+  set_test_address(hidden, hidden_id, MONERO_UNWRAP(net::tor_address::make("vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion", 18080)));
+  set_test_address(closing, closing_id, MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 1, 18080));
+  set_test_address(public_peer, public_id, MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 2, 18080));
+  hidden.set_state_normal();
+  hidden.m_remote_blockchain_height = 101;
+  p2p.connections = {&hidden, &closing};
+  core.safe_sync = true;
+
+  cryptonote::CORE_SYNC_DATA data{};
+  data.current_height = 101;
+  ASSERT_TRUE(handler.process_payload_sync_data(data, closing, true));
+  ASSERT_EQ(core.target_height, 101u);
+  ASSERT_FALSE(core.safe_sync);
+
+  handler.on_connection_close(closing);
+  ASSERT_EQ(core.target_height, 101u);
+  ASSERT_TRUE(core.safe_sync);
+
+  p2p.connections = {&hidden, &public_peer};
+  data.current_height = 81;
+  ASSERT_TRUE(handler.process_payload_sync_data(data, public_peer, true));
+  EXPECT_EQ(public_peer.m_state, cryptonote::cryptonote_connection_context::state_synchronizing);
+  EXPECT_EQ(core.target_height, 101u);
+  EXPECT_TRUE(core.safe_sync);
 }
 
 namespace nodetool { template class node_server<cryptonote::t_cryptonote_protocol_handler<test_core>>; }
