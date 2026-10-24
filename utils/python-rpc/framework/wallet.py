@@ -501,7 +501,7 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(auto_refresh)
 
-    def set_daemon(self, address, trusted = False, ssl_support = "autodetect", ssl_private_key_path = "", ssl_certificate_path = "", ssl_allowed_certificates = [], ssl_allowed_fingerprints = [], ssl_allow_any_cert = False):
+    def set_daemon(self, address, trusted = False, ssl_support = "autodetect", ssl_private_key_path = "", ssl_certificate_path = "", ssl_allowed_certificates = [], ssl_allowed_fingerprints = [], ssl_allow_any_cert = False, proxy = ""):
         set_daemon = {
             'method': 'set_daemon',
             'params' : {
@@ -513,6 +513,7 @@ class Wallet(object):
                 'ssl_allowed_certificates': ssl_allowed_certificates,
                 'ssl_allowed_fingerprints': ssl_allowed_fingerprints,
                 'ssl_allow_any_cert': ssl_allow_any_cert,
+                'proxy': proxy,
             },
             'jsonrpc': '2.0', 
             'id': '0'
