@@ -321,8 +321,8 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::is_host_limit(const epee::net_utils::network_address &address)
   {
-    const network_zone& zone = m_network_zones.at(address.get_zone());
-    if (zone.m_current_number_of_in_peers >= zone.m_config.m_net_config.max_in_connection_count) // in peers limit
+    network_zone& zone = m_network_zones.at(address.get_zone());
+    if (zone.m_net_server.get_config_object().get_in_connections_count() >= zone.m_config.m_net_config.max_in_connection_count) // in peers limit
     {
       MWARNING("Exceeded max incoming connections, so dropping this one.");
       return true;
