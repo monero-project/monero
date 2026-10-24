@@ -47,6 +47,8 @@ set(GTEST_LIBRARIES gtest gtest_main)
 message(STATUS "Copying test data directory...")
 file(COPY data DESTINATION .) # Copy data directory from source root to build root
 
+add_subdirectory(tests_common)
+
 if (CMAKE_BUILD_TYPE STREQUAL "fuzz" OR OSSFUZZ)
   add_subdirectory(fuzz)
 else ()
