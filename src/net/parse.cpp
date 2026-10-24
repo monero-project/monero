@@ -33,6 +33,7 @@
 #include "net/socks.h"
 #include "net/tor_address.h"
 #include "net/i2p_address.h"
+#include "net/host.h"
 #include "string_tools.h"
 #include "string_tools_lexical.h"
 
@@ -163,6 +164,7 @@ namespace net
         bool ipv6 = false;
 
         get_network_address_host_and_port(std::string(address), host_str, port_str);
+        net::canonicalize_host(host_str);
 
         boost::string_ref host_str_ref(host_str);
         boost::string_ref port_str_ref(port_str);
