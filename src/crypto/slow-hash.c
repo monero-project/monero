@@ -1105,9 +1105,11 @@ union cn_slow_hash_state
  * and moving between vector and regular registers stalls the pipeline.
  */
 #include <arm_neon.h>
-#ifndef __APPLE__
+#if defined(__linux__)
 #include <sys/auxv.h>
 #include <asm/hwcap.h>
+#elif defined(__FreeBSD__) || defined(__OpenBSD__)
+#include <sys/auxv.h>
 #endif
 
 STATIC INLINE int check_aes_hw(void)
@@ -1118,7 +1120,18 @@ STATIC INLINE int check_aes_hw(void)
     static int supported = -1;
 
     if(supported < 0)
+    {
+#if defined(__linux__)
         supported = (getauxval(AT_HWCAP) & HWCAP_AES) != 0;
+#elif (defined(__FreeBSD__) || defined(__OpenBSD__)) && defined(HWCAP_AES)
+        unsigned long hwcap = 0;
+
+        supported = elf_aux_info(AT_HWCAP, &hwcap, sizeof(hwcap)) == 0 &&
+            (hwcap & HWCAP_AES) != 0;
+#else
+        supported = 0;
+#endif
+    }
     return supported;
 #endif
 }
