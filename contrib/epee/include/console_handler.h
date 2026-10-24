@@ -404,7 +404,7 @@ eof:
           {
             continue;
           }
-          else if(0 == command.compare("exit") || 0 == command.compare("q"))
+          else if(0 == command.compare("exit") || 0 == command.compare("quit") || 0 == command.compare("q"))
           {
             continue_handle = false;
           }
