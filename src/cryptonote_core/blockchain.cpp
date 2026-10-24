@@ -3198,9 +3198,14 @@ bool Blockchain::have_tx_keyimges_as_spent(const transaction &tx) const
   LOG_PRINT_L3("Blockchain::" << __func__);
   for (const txin_v& in: tx.vin)
   {
-    CHECKED_GET_SPECIFIC_VARIANT(in, const txin_to_key, in_to_key, true);
-    if(have_tx_keyimg_as_spent(in_to_key.k_image))
+    if (in.type() != typeid(txin_to_key))
+      continue;
+    const auto &tokey_in = boost::get<txin_to_key>(in);
+    if(have_tx_keyimg_as_spent(tokey_in.k_image))
+    {
+      LOG_PRINT_L1("Key image already spent in blockchain: " << epee::string_tools::pod_to_hex(tokey_in.k_image));
       return true;
+    }
   }
   return false;
 }
