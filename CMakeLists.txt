@@ -1037,6 +1037,11 @@ find_package(Sodium REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(libzmq REQUIRED IMPORTED_TARGET libzmq)
 
+option(ENABLE_FCMP_INTEGRATION "Enable the FCMP++ integration" OFF)
+if (ENABLE_FCMP_INTEGRATION)
+  add_definitions(-DENABLE_FCMP_INTEGRATION)
+endif()
+
 include(external/supercop/functions.cmake) # place after setting flags and before src directory inclusion
 add_subdirectory(contrib)
 add_subdirectory(src)
