@@ -37,6 +37,9 @@ option(MX25519_COPYLEFT "Include the MPL-2.0 licensed assembly backends (ARM64, 
 
 add_subdirectory(db_drivers)
 add_subdirectory(easylogging++)
+if(NOT WIN32)
+  add_subdirectory(linenoise)
+endif()
 add_subdirectory(mx25519 EXCLUDE_FROM_ALL)
 add_subdirectory(qrcodegen)
 add_subdirectory(randomx EXCLUDE_FROM_ALL)
