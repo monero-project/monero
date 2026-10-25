@@ -46,6 +46,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <iterator>
 #include <cstring>
 #include <vector>
 #include <atomic>
@@ -476,6 +477,38 @@ TEST_F(WalletManagerTest, WalletManagerStoresPasswordOfWalletRecoveredFromKeys)
     ASSERT_TRUE(wallet3->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet3->mainAddress() == address1);
     ASSERT_TRUE(wmgr->closeWallet(wallet3));
+}
+
+TEST_F(WalletManagerTest, FailedKeyRecoveryDoesNotOverwriteExistingWallet)
+{
+    Monero::Wallet *wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    ASSERT_EQ(wallet->status(), Monero::Wallet::Status_Ok);
+    const std::string address = wallet->mainAddress();
+    const std::string view_key = wallet->secretViewKey();
+    const std::string spend_key = wallet->secretSpendKey();
+    ASSERT_TRUE(wmgr->closeWallet(wallet));
+
+    std::ifstream before_file(WALLET_NAME, std::ios::binary);
+    ASSERT_TRUE(before_file.good());
+    const std::string before((std::istreambuf_iterator<char>(before_file)), std::istreambuf_iterator<char>());
+    before_file.close();
+    ASSERT_FALSE(before.empty());
+
+    wallet = wmgr->createWalletFromKeys(WALLET_NAME, WALLET_PASS, WALLET_LANG,
+        Monero::NetworkType::MAINNET, 0, address, view_key, spend_key);
+    ASSERT_EQ(wallet->status(), Monero::Wallet::Status_Critical);
+    ASSERT_TRUE(wmgr->closeWallet(wallet));
+
+    std::ifstream after_file(WALLET_NAME, std::ios::binary);
+    ASSERT_TRUE(after_file.good());
+    const std::string after((std::istreambuf_iterator<char>(after_file)), std::istreambuf_iterator<char>());
+    after_file.close();
+    EXPECT_TRUE(after == before);
+
+    wallet = wmgr->openWallet(WALLET_NAME, WALLET_PASS, Monero::NetworkType::MAINNET);
+    ASSERT_EQ(wallet->status(), Monero::Wallet::Status_Ok);
+    EXPECT_EQ(wallet->mainAddress(), address);
+    ASSERT_TRUE(wmgr->closeWallet(wallet));
 }
 
 

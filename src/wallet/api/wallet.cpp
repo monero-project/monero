@@ -687,7 +687,7 @@ bool WalletImpl::recoverFromKeysWithPassword(const std::string &path,
         
     }
     catch (const std::exception& e) {
-        setStatusError(string(tr("failed to generate new wallet: ")) + e.what());
+        setStatusCritical(string(tr("failed to generate new wallet: ")) + e.what());
         return false;
     }
     m_password = password;
