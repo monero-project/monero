@@ -4741,9 +4741,15 @@ void wallet2::clear_soft(bool keep_key_images)
 void wallet2::clear_user_data()
 {
   for (auto i = m_confirmed_txs.begin(); i != m_confirmed_txs.end(); ++i)
+  {
     i->second.m_dests.clear();
+    i->second.m_payment_id = crypto::null_hash;
+  }
   for (auto i = m_unconfirmed_txs.begin(); i != m_unconfirmed_txs.end(); ++i)
+  {
     i->second.m_dests.clear();
+    i->second.m_payment_id = crypto::null_hash;
+  }
   for (auto i = m_transfers.begin(); i != m_transfers.end(); ++i)
     i->m_frozen = false;
   m_tx_keys.clear();
@@ -6215,6 +6221,9 @@ std::string wallet2::make_multisig(const epee::wipeable_string &password,
   const std::vector<std::string> &initial_kex_msgs,
   const std::uint32_t threshold)
 {
+  THROW_WALLET_EXCEPTION_IF(m_background_sync_type != BackgroundSyncOff, error::wallet_internal_error,
+      "Background sync must be disabled before converting a wallet to multisig");
+
   verify_password_with_cached_key(password);
   // decrypt account keys
   std::optional<wallet_keys_unlocker> unlocker(std::in_place, *this, &password);
