@@ -5850,15 +5850,22 @@ void wallet2::init_type(hw::device::device_type device_type)
 
 void wallet2::prepare_generate(const std::string& wallet_)
 {
-  clear();
-  prepare_file_names(wallet_);
+  // check for existing files before touching any state, so a failed generate
+  // doesn't leave this object bound to (and later storing over) another wallet
+  std::string keys_file, wallet_file, mms_file;
+  do_prepare_file_names(wallet_, keys_file, wallet_file, mms_file);
 
   if (!wallet_.empty())
   {
     boost::system::error_code ignored_ec;
-    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_wallet_file, ignored_ec), error::file_exists, m_wallet_file);
-    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(m_keys_file,   ignored_ec), error::file_exists, m_keys_file);
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(wallet_file, ignored_ec), error::file_exists, wallet_file);
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::exists(keys_file,   ignored_ec), error::file_exists, keys_file);
   }
+
+  clear();
+  m_keys_file = std::move(keys_file);
+  m_wallet_file = std::move(wallet_file);
+  m_mms_file = std::move(mms_file);
 }
 
 void wallet2::finish_generate(const std::string& wallet_, bool watch_only, const epee::wipeable_string& password, bool create_address_file)

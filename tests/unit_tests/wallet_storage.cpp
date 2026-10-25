@@ -198,6 +198,41 @@ TEST(wallet_storage, store_to_mem2file)
     }
 }
 
+TEST(wallet_storage, failed_generate_does_not_store_over_existing_wallet)
+{
+    const path source_wallet_file = unit_test::data_dir / "wallet_00fd416a";
+    const path existing_wallet_file = unit_test::data_dir / "wallet_00fd416a_failed_generate";
+
+    tools::copy_file(source_wallet_file.string(), existing_wallet_file.string());
+    tools::copy_file(source_wallet_file.string() + ".keys", existing_wallet_file.string() + ".keys");
+
+    std::string cache_before;
+    ASSERT_TRUE(load_file_to_string(existing_wallet_file.string(), cache_before));
+
+    epee::wipeable_string password("beepbeep");
+
+    {
+        tools::wallet2 w;
+        EXPECT_THROW(w.generate(existing_wallet_file.string(), password), tools::error::file_exists);
+        EXPECT_TRUE(w.get_wallet_file().empty());
+        EXPECT_TRUE(w.get_keys_file().empty());
+        w.store();
+    }
+
+    std::string cache_after;
+    ASSERT_TRUE(load_file_to_string(existing_wallet_file.string(), cache_after));
+    EXPECT_TRUE(cache_before == cache_after);
+
+    {
+        tools::wallet2 w;
+        w.load(existing_wallet_file.string(), password);
+        EXPECT_EQ(WALLET_00fd416a_PRIMARY_ADDRESS, w.get_address_as_str());
+    }
+
+    remove(existing_wallet_file);
+    remove(existing_wallet_file.string() + ".keys");
+}
+
 TEST(wallet_storage, export_key_images_uses_generated_key_image)
 {
     const path wallet_file = unit_test::data_dir / "wallet_9svHk1";
