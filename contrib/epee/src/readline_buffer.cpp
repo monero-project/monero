@@ -1,5 +1,7 @@
 #include "readline_buffer.h"
+#include "memwipe.h"
 #include <linenoise.h>
+#include <algorithm>
 #include <iostream>
 #include <cerrno>
 #include <csignal>
@@ -37,6 +39,20 @@ namespace
       ++i;
     }
     return out;
+  }
+
+  // Wipe old buffer storage when growing, as console output may contain private data
+  void append_wiped(std::string& buf, const char* s, size_t n)
+  {
+    if (buf.size() + n > buf.capacity())
+    {
+      std::string grown;
+      grown.reserve(std::max(buf.capacity() * 2, buf.size() + n));
+      grown.assign(buf);
+      memwipe(&buf[0], buf.size());
+      buf.swap(grown);
+    }
+    buf.append(s, n);
   }
 }
 
@@ -155,7 +171,7 @@ std::vector<std::string>& rdln::readline_buffer::completion_commands()
 }
 
 rdln::readline_buffer::readline_buffer()
-: std::stringbuf(), m_cout_buf(NULL)
+: std::streambuf(), m_cout_buf(NULL)
 {
   current = this;
 }
@@ -316,11 +332,9 @@ int rdln::readline_buffer::sync()
   if (editing_active && tty_editing)
     linenoiseHide(&line_state);
 
-  while ( this->sgetc() != EOF )
-  {
-    m_cout_buf->sputc( this->sgetc() );
-    this->snextc();
-  }
+  m_cout_buf->sputn(m_pending.data(), m_pending.size());
+  memwipe(&m_pending[0], m_pending.size());
+  m_pending.clear();
 
   m_cout_buf->pubsync();
 
@@ -328,6 +342,23 @@ int rdln::readline_buffer::sync()
     linenoiseShow(&line_state);
 
   return 0;
+}
+
+rdln::readline_buffer::int_type rdln::readline_buffer::overflow(int_type c)
+{
+  if (traits_type::eq_int_type(c, traits_type::eof()))
+    return traits_type::not_eof(c);
+  const char ch = traits_type::to_char_type(c);
+  boost::lock_guard<boost::mutex> lock(sync_mutex);
+  append_wiped(m_pending, &ch, 1);
+  return c;
+}
+
+std::streamsize rdln::readline_buffer::xsputn(const char* s, std::streamsize n)
+{
+  boost::lock_guard<boost::mutex> lock(sync_mutex);
+  append_wiped(m_pending, s, n);
+  return n;
 }
 
 void rdln::clear_screen()
