@@ -8275,8 +8275,13 @@ bool wallet2::sign_tx(unsigned_tx_set &exported_txs, std::vector<wallet2::pendin
 {
   wallet::sanity_check_unsigned_tx_set(exported_txs.txes, m_account.get_keys(), m_subaddresses);
 
-  if (!std::get<2>(exported_txs.new_transfers).empty())
-    import_outputs(exported_txs.new_transfers);
+  const auto &new_transfers = exported_txs.new_transfers;
+  const bool empty_trim = exported_txs.has_new_transfers_total &&
+      !m_has_ever_refreshed_from_node && std::get<2>(new_transfers).empty() &&
+      std::get<0>(new_transfers) == std::get<1>(new_transfers) &&
+      std::get<1>(new_transfers) < m_transfers.size();
+  if (!std::get<2>(new_transfers).empty() || empty_trim)
+    import_outputs(new_transfers);
   else if (!std::get<2>(exported_txs.transfers).empty())
     import_outputs(exported_txs.transfers);
 
