@@ -79,6 +79,7 @@ if (EPEE_READLINE)
       easylogging
       ${Boost_SYSTEM_LIBRARY}
     PRIVATE
+    epee
     linenoise)
 endif()
 
