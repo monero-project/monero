@@ -125,6 +125,7 @@
 #define LINENOISE_INITIAL_BUFLEN 4096
 #define PASTE_FOLD_CONTEXT 8                // Context chars kept around generic folds.
 #define PASTE_MAX_BYTES LINENOISE_MAX_LINE
+#define PROMPT_MIN_INPUT_COLS 8             // Columns a prompt must leave for input.
 static char *unsupported_term[] = {"dumb","cons25","emacs",NULL};
 static linenoiseCompletionCallback *completionCallback = NULL;
 static linenoiseHintsCallback *hintsCallback = NULL;
@@ -136,6 +137,7 @@ static char *linenoiseEditPasteFeed(struct linenoiseState *l);
 static void refreshLineWithCompletion(struct linenoiseState *ls, linenoiseCompletions *lc, int flags);
 static void refreshLineWithFlags(struct linenoiseState *l, int flags);
 static void linenoiseFoldClear(struct linenoiseState *l);
+static int linenoiseEditGrow(struct linenoiseState *l, size_t needed);
 
 static struct termios orig_termios; /* In order to restore at exit.*/
 static int maskmode = 0; /* Show "***" instead of input. For passwords. */
@@ -568,7 +570,7 @@ void linenoiseSetMultiLine(int ml) {
 
 /* Return true if the terminal name is in the list of terminals we know are
  * not able to understand basic escape sequences. */
-static int isUnsupportedTerm(void) {
+int linenoiseIsUnsupportedTerm(void) {
     char *term = getenv("TERM");
     int j;
 
@@ -576,6 +578,13 @@ static int isUnsupportedTerm(void) {
     for (j = 0; unsupported_term[j]; j++)
         if (!strcasecmp(term,unsupported_term[j])) return 1;
     return 0;
+}
+
+/* Return true if the multiplexed API should read plain lines instead of
+ * editing: not a tty, or a terminal without escape sequence support. */
+static int isPlainInput(int ifd, int ofd) {
+    if (linenoiseIsUnsupportedTerm()) return 1;
+    return (!isatty(ifd) || !isatty(ofd)) && !getenv("LINENOISE_ASSUME_TTY");
 }
 
 /* Raw mode: 1960 magic shit. */
@@ -774,7 +783,6 @@ static void refreshLineWithCompletion(struct linenoiseState *ls, linenoiseComple
  * from stdin. */
 static int completeLine(struct linenoiseState *ls, int keypressed) {
     linenoiseCompletions lc = { 0, NULL };
-    int nwritten;
     char c = keypressed;
 
     completionCallback(ls->buf,&lc);
@@ -802,9 +810,14 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
             default:
                 /* Update buffer and return */
                 if (ls->completion_idx < lc.len) {
-                    nwritten = snprintf(ls->buf,ls->buflen,"%s",
-                        lc.cvec[ls->completion_idx]);
-                    ls->len = ls->pos = nwritten;
+                    /* Truncate if the buffer can't grow, like history recall. */
+                    const char *src = lc.cvec[ls->completion_idx];
+                    size_t len = strlen(src);
+                    if (linenoiseEditGrow(ls,len) == -1 && len > ls->buflen)
+                        len = ls->buflen;
+                    memcpy(ls->buf,src,len);
+                    ls->buf[len] = '\0';
+                    ls->len = ls->pos = len;
                     linenoiseFoldClear(ls);
                 }
                 ls->in_completion = 0;
@@ -1278,7 +1291,9 @@ void refreshShowHints(struct abuf *ab, struct linenoiseState *l, int pwidth, siz
  * for cursor positioning and horizontal scrolling. */
 static void refreshSingleLine(struct linenoiseState *l, int flags) {
     char seq[64];
-    size_t pwidth = utf8StrWidth(l->prompt, l->plen); /* Prompt display width */
+    const char *prompt = l->prompt;
+    size_t plen = l->plen;
+    size_t pwidth = utf8StrWidth(prompt, plen); /* Prompt display width */
     int fd = l->ofd;
     char *render = NULL;
     char *buf;
@@ -1292,6 +1307,13 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     if (linenoiseRenderBuffer(l,&render,&len,&pos) == -1) return;
     buf = render;
 
+    /* A prompt too wide to leave room for input would wrap and hide what
+     * is typed, so show a short one instead. */
+    if (pwidth + PROMPT_MIN_INPUT_COLS > l->cols) {
+        prompt = l->cols > 2 ? "> " : "";
+        plen = pwidth = strlen(prompt);
+    }
+
     /* Calculate the display width up to cursor and total display width. */
     poscol = utf8StrWidth(buf, pos);
     lencol = utf8StrWidth(buf, len);
@@ -1300,9 +1322,9 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     /* Scroll the buffer horizontally if cursor is past the right edge.
      * We need to trim full UTF-8 characters from the left until the
      * cursor position fits within the terminal width. */
-    while (pwidth + poscol >= l->cols) {
+    while (pos > 0 && pwidth + poscol >= l->cols) {
         size_t clen = utf8NextCharLen(buf, 0, len);
-        if (clen == 0) break;
+        if (clen == 0 || clen > pos) break;
         int cwidth = utf8SingleCharWidth(buf, clen);
         buf += clen;
         len -= clen;
@@ -1327,7 +1349,7 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
 
     if (flags & REFRESH_WRITE) {
         /* Write the prompt and the current buffer content */
-        abAppend(&ab,l->prompt,l->plen);
+        abAppend(&ab,prompt,plen);
         if (maskmode == 1) {
             /* In mask mode, we output one '*' per UTF-8 character, not byte */
             size_t i = 0;
@@ -1727,6 +1749,23 @@ void linenoiseEditDeletePrevWord(struct linenoiseState *l) {
     refreshLine(l);
 }
 
+/* Push the "" history entry for the edited line, unless already pushed.
+ * linenoiseHistoryAdd() skips a duplicate "", so an empty top entry counts. */
+static void linenoiseHistoryPushPlaceholder(struct linenoiseState *l) {
+    if (l->history_placeholder) return;
+    linenoiseHistoryAdd("");
+    l->history_placeholder = history_len > 0 && history[history_len-1][0] == '\0';
+}
+
+/* Pop the "" history entry, only if this session pushed it. */
+static void linenoiseHistoryPopPlaceholder(struct linenoiseState *l) {
+    if (l->history_placeholder && history_len > 0) {
+        history_len--;
+        free(history[history_len]);
+    }
+    l->history_placeholder = 0;
+}
+
 /* This function is part of the multiplexed API of Linenoise, that is used
  * in order to implement the blocking variant of the API but can also be
  * called by the user directly in an event driven program. It will:
@@ -1750,14 +1789,16 @@ void linenoiseEditDeletePrevWord(struct linenoiseState *l) {
  * The function returns 0 on success, or -1 if writing to standard output
  * fails. If stdin_fd or stdout_fd are set to -1, the default is to use
  * STDIN_FILENO and STDOUT_FILENO.
+ *
+ * 'l' must be zeroed before first use; passing back its own 'buf' resumes.
  */
 int linenoiseEditStart(struct linenoiseState *l, int stdin_fd, int stdout_fd, char *buf, size_t buflen, const char *prompt) {
     int resuming = (l->buf != NULL && l->buf == buf);
     int ifd = stdin_fd != -1 ? stdin_fd : STDIN_FILENO;
     int ofd = stdout_fd != -1 ? stdout_fd : STDOUT_FILENO;
-    int no_tty = (!isatty(ifd) || !isatty(ofd)) && !getenv("LINENOISE_ASSUME_TTY");
+    int no_tty = isPlainInput(ifd, ofd);
 
-    /* No raw mode on a non-tty; enter it before touching 'l' otherwise. */
+    /* No raw mode for plain input; enter it before touching 'l' otherwise. */
     if (!no_tty) {
         if (enableRawMode(ifd) == -1) return -1;
     }
@@ -1794,11 +1835,9 @@ int linenoiseEditStart(struct linenoiseState *l, int stdin_fd, int stdout_fd, ch
     l->oldrows = 0;
     l->oldrpos = 1;  /* Cursor starts on row 1. */
 
-    if (!resuming) {
-        /* The latest history entry is always our current buffer, that
-         * initially is just an empty string. */
-        linenoiseHistoryAdd("");
-    }
+    /* The latest history entry is always our current buffer, that
+     * initially is just an empty string. */
+    linenoiseHistoryPushPlaceholder(l);
 
     linenoiseShow(l);
     return 0;
@@ -1999,9 +2038,12 @@ char *linenoiseEditMore = "If you see this, you are misusing the API: when linen
 char *linenoiseEditFeed(struct linenoiseState *l) {
     if (pasteInProgress) return linenoiseEditPasteFeed(l);
 
-    /* Not a TTY, pass control to line reading without character
-     * count limits. */
-    if ((!isatty(l->ifd) || !isatty(l->ofd)) && !getenv("LINENOISE_ASSUME_TTY")) return linenoiseNoTTYFeed();
+    /* Not a TTY or an unsupported terminal: read plain lines instead. */
+    if (isPlainInput(l->ifd, l->ofd)) return linenoiseNoTTYFeed();
+
+    /* Enter pops the placeholder; the caller may keep feeding without
+     * calling linenoiseEditStart() again. */
+    linenoiseHistoryPushPlaceholder(l);
 
     char c;
     int nread;
@@ -2029,8 +2071,7 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
         break;
     case ENTER:    /* enter */
     case 10:       /* ctrl-j / line feed: also accepted as enter */
-        history_len--;
-        free(history[history_len]);
+        linenoiseHistoryPopPlaceholder(l);
         if (mlmode) linenoiseEditMoveEnd(l);
         if (hintsCallback) {
             /* Force a refresh without hints to leave the previous
@@ -2053,8 +2094,7 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
         if (l->len > 0) {
             linenoiseEditDelete(l);
         } else {
-            history_len--;
-            free(history[history_len]);
+            linenoiseHistoryPopPlaceholder(l);
             errno = ENOENT;
             return NULL;
         }
@@ -2239,7 +2279,7 @@ void linenoiseEditStop(struct linenoiseState *l) {
         pasteInProgress = 0;
     }
 
-    if ((!isatty(l->ifd) || !isatty(l->ofd)) && !getenv("LINENOISE_ASSUME_TTY")) return;
+    if (isPlainInput(l->ifd, l->ofd)) return;
     disableRawMode(l->ifd);
 }
 
@@ -2250,7 +2290,7 @@ void linenoiseEditStop(struct linenoiseState *l) {
  * state grow it dynamically for large pasted input. */
 static char *linenoiseBlockingEdit(int stdin_fd, int stdout_fd, const char *prompt)
 {
-    struct linenoiseState l;
+    struct linenoiseState l = {0};
     char *buf = malloc(LINENOISE_INITIAL_BUFLEN);
     char *res;
 
@@ -2312,6 +2352,12 @@ static char *linenoiseReadLine(FILE *fp, int *err) {
         if (len+1 >= cap) {
             size_t newcap = cap ? cap*2 : 16;
             char *oldval = line;
+            if (newcap <= cap) {
+                free(line);
+                if (err) *err = 1;
+                errno = ENOMEM;
+                return NULL;
+            }
             line = realloc(line,newcap);
             if (line == NULL) {
                 if (oldval) free(oldval);
@@ -2340,6 +2386,7 @@ static char *linenoiseNoTTY(void) {
     return linenoiseReadLine(stdin,NULL);
 }
 
+/* Like the tty path, truncate lines longer than LINENOISE_MAX_LINE. */
 static char *linenoiseNoTTYFeed(void) {
     static char *line = NULL;
     static size_t len = 0, cap = 0;
@@ -2351,12 +2398,14 @@ static char *linenoiseNoTTYFeed(void) {
     while (1) {
         if (elapsedMs(&t0) >= LOOP_TIME_BUDGET_MS) return linenoiseEditMore;
 
-        if (len+1 >= cap) {
+        if (len+1 >= cap && cap < LINENOISE_MAX_LINE) {
             size_t newcap = cap ? cap*2 : 16;
             char *oldval = line;
+            if (newcap > LINENOISE_MAX_LINE) newcap = LINENOISE_MAX_LINE;
             line = realloc(line,newcap);
             if (line == NULL) {
                 if (oldval) free(oldval);
+                len = cap = 0;
                 return NULL;
             }
             cap = newcap;
@@ -2391,8 +2440,7 @@ static char *linenoiseNoTTYFeed(void) {
             return result;
         }
 
-        line[len] = c;
-        len++;
+        if (len+1 < cap) line[len++] = c;
     }
 }
 
@@ -2408,7 +2456,7 @@ char *linenoise(const char *prompt) {
         return linenoiseNoTTY();
     }
 
-    if (isUnsupportedTerm()) {
+    if (linenoiseIsUnsupportedTerm()) {
         char *retval;
         size_t len;
 

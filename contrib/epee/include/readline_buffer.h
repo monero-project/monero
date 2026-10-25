@@ -2,12 +2,13 @@
 
 #include <streambuf>
 #include <sstream>
+#include <string>
 #include <vector>
 
 namespace rdln
 {
   typedef enum { empty, partial, full } linestatus;
-  class readline_buffer : public std::stringbuf
+  class readline_buffer : public std::streambuf
   {
   public:
     readline_buffer();
@@ -24,9 +25,12 @@ namespace rdln
     
   protected:
     virtual int sync();
+    virtual int_type overflow(int_type c);
+    virtual std::streamsize xsputn(const char* s, std::streamsize n);
 
   private:
     std::streambuf* m_cout_buf;
+    std::string m_pending;
     static std::vector<std::string>& completion_commands();
   };
   

@@ -70,6 +70,7 @@ struct linenoiseState {
     size_t oldrows;     /* Rows used by last refrehsed line (multiline mode) */
     int oldrpos;        /* Cursor row from last refresh (for multiline clearing). */
     int history_index;  /* The history index we are currently editing. */
+    int history_placeholder; /* We pushed the "" history entry for this line. */
     int fold_count;    /* Number of folded ranges. */
     size_t fold_start[LINENOISE_MAX_FOLDS]; /* Folded range start offsets. */
     size_t fold_end[LINENOISE_MAX_FOLDS];   /* Folded range end offsets. */
@@ -107,6 +108,7 @@ int linenoiseHistorySave(const char *filename);
 int linenoiseHistoryLoad(const char *filename);
 
 /* Other utilities. */
+int linenoiseIsUnsupportedTerm(void);
 void linenoiseClearScreen(void);
 void linenoiseSetMultiLine(int ml);
 void linenoisePrintKeyCodes(void);
