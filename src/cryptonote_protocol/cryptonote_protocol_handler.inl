@@ -1652,6 +1652,8 @@ skip:
     {
       if (cntxt.m_connection_id == context.m_connection_id)
         return true;
+      if (context.m_remote_address.get_zone() != epee::net_utils::zone::public_)
+        return true;
       if (context.m_state == cryptonote_connection_context::state_normal)
       {
         const uint32_t peer_stripe = tools::get_pruning_stripe(context.m_pruning_seed);
