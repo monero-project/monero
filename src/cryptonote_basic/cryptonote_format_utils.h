@@ -185,7 +185,6 @@ namespace cryptonote
   uint64_t round_money_up(uint64_t amount, unsigned significant_digits);
   std::string round_money_up(const std::string &amount, unsigned significant_digits);
   //---------------------------------------------------------------
-  //---------------------------------------------------------------
   template<class t_object>
   bool t_serializable_object_to_blob(const t_object& to, blobdata& b_blob)
   {
