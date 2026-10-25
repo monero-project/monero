@@ -44,6 +44,27 @@ static constexpr const char WALLET_00fd416a_PRIMARY_ADDRESS[] =
 // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/src/wallet/wallet2.cpp#L156
 static constexpr const char WALLET2_ASCII_OUTPUT_MAGIC[] = "MoneroAsciiDataV1";
 
+TEST(wallet_storage, outgoing_payments_exclude_unknown_spend)
+{
+    tools::wallet2 wallet;
+    crypto::hash known_txid = crypto::null_hash;
+    known_txid.data[0] = 1;
+
+    tools::wallet2::confirmed_transfer_details confirmed;
+    confirmed.m_block_height = 42;
+    wallet.import_payments_out({{crypto::null_hash, {}}, {known_txid, confirmed}});
+
+    std::list<std::pair<crypto::hash, tools::wallet2::confirmed_transfer_details>> payments;
+    wallet.get_payments_out(payments, 0);
+    ASSERT_EQ(1u, payments.size());
+    EXPECT_EQ(known_txid, payments.front().first);
+
+    payments.clear();
+    wallet.get_payments_out(payments, 42, 42);
+    ASSERT_EQ(1u, payments.size());
+    EXPECT_EQ(known_txid, payments.front().first);
+}
+
 class wallet_accessor_test
 {
 public:
