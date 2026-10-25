@@ -73,6 +73,10 @@
 #ifdef WIN32
 #include <boost/locale.hpp>
 #include <fcntl.h>
+#include <io.h>
+#include <climits>
+#else
+#include <unistd.h>
 #endif
 
 #ifdef HAVE_READLINE
@@ -758,16 +762,38 @@ namespace
     return true;
   }
 
+  // Write secrets directly to stdout, so they never enter stdio's buffer.
+  void write_secret(const char *data, size_t size)
+  {
+    fflush(stdout);
+    while (size > 0)
+    {
+#ifdef WIN32
+      const int n = _write(_fileno(stdout), data, size > INT_MAX ? INT_MAX : (unsigned int)size);
+#else
+      const ssize_t n = ::write(STDOUT_FILENO, data, size);
+#endif
+      if (n < 0 && errno == EINTR)
+        continue;
+      if (n <= 0)
+        break;
+      data += n;
+      size -= n;
+    }
+  }
+
   void print_secret_key(const crypto::secret_key &k)
   {
     static constexpr const char hex[] = u8"0123456789abcdef";
+    char buf[sizeof(k) * 2];
     const uint8_t *ptr = (const uint8_t*)k.data;
-    for (size_t i = 0, sz = sizeof(k); i < sz; ++i)
+    for (size_t i = 0; i < sizeof(k); ++i)
     {
-      putchar(hex[*ptr >> 4]);
-      putchar(hex[*ptr & 15]);
-      ++ptr;
+      buf[2 * i] = hex[ptr[i] >> 4];
+      buf[2 * i + 1] = hex[ptr[i] & 15];
     }
+    write_secret(buf, sizeof(buf));
+    memwipe(buf, sizeof(buf));
   }
 }
 
@@ -3877,12 +3903,13 @@ void simple_wallet::print_seed(const epee::wipeable_string &seed, bool as_legacy
   {
     success_msg_writer(true) << tr("Use the following English legacy seed, without any seed offset, to restore if you can't use the wallet's original Polyseed:\n");
   }
-  // don't log
+  // don't log, and bypass std::cout and stdio so the seed enters neither buffer
+  PAUSE_READLINE();
+  write_secret(seed.data(), seed.size());
+  write_secret("\n", 1);
   if (m_wallet->is_polyseed())
   {
-    epee::wipeable_string zero_terminated_seed(seed);
-    zero_terminated_seed.push_back('\0');
-    std::cout << zero_terminated_seed.data() << std::endl << std::endl;
+    std::cout << std::endl;
     if (is_encrypted)
     {
       std::cout << tr("Polyseed is ENCRYPTED using a passphrase that is mandatory for restoring") << std::endl;
@@ -3891,16 +3918,6 @@ void simple_wallet::print_seed(const epee::wipeable_string &seed, bool as_legacy
     {
       std::cout << tr("Polyseed birthday: ") << tools::get_human_readable_timestamp(birthday) << std::endl;
     }
-  }
-  else
-  {
-    size_t len  = seed.size();
-    for (const char *ptr = seed.data(); len--; ++ptr)
-    {
-      putchar(*ptr);
-    }
-    putchar('\n');
-    fflush(stdout);
   }
 }
 //----------------------------------------------------------------------------------------------------
