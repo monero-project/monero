@@ -1669,7 +1669,7 @@ namespace net_utils
         MDEBUG("New server for RPC connections, SSL " << ssl_message);
         (*current_new_connection)->setRpcStation(); // hopefully this is not needed actually
       }
-      connection_ptr conn(std::move((*current_new_connection)));
+      connection_ptr conn(*current_new_connection);
       (*current_new_connection).reset(new connection<t_protocol_handler>(io_context_, m_state, m_connection_type, conn->get_ssl_support()));
       current_acceptor->async_accept((*current_new_connection)->socket(),
           boost::bind(accept_function_pointer, this,
