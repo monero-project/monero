@@ -37,6 +37,7 @@
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/endian/conversion.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/range/adaptor/sliced.hpp>
 #include <boost/range/combine.hpp>
 #include <boost/system/error_code.hpp>
@@ -59,6 +60,7 @@
 #include <pthread.h>
 #endif
 
+#include "common/download.h"
 #include "crypto/crypto.h"
 #include "net/dandelionpp.h"
 #include "net/error.h"
@@ -2541,6 +2543,28 @@ TEST(socks_connector, host)
 
     ASSERT_EQ(boost::future_status::ready, sock.wait_for(boost::chrono::seconds{3}));
     EXPECT_TRUE(sock.get().is_open());
+
+    // downloads use the same connector when set
+    io_thread dl_io{};
+    tools::set_download_connector(
+        net::socks::connector{
+            std::make_shared<net::socks::endpoint>(dl_io.acceptor.local_endpoint())
+        }
+    );
+    const std::string path = (boost::filesystem::temp_directory_path() / boost::filesystem::unique_path()).string();
+    std::atomic<bool> finished{false};
+    const tools::download_async_handle handle = tools::download_async(path, "http://example.com:8080/", [&finished] (const std::string&, const std::string&, bool) { finished = true; });
+
+    while (!dl_io.connected)
+        ASSERT_FALSE(finished);
+    boost::asio::read(dl_io.server, boost::asio::buffer(actual_bytes));
+    EXPECT_TRUE(std::memcmp(expected_bytes, actual_bytes, sizeof(actual_bytes)) == 0);
+
+    const std::uint8_t reject_bytes[] = {0, 91, 0, 0, 0, 0, 0, 0};
+    boost::asio::write(dl_io.server, boost::asio::buffer(reject_bytes));
+    tools::download_wait(handle);
+    tools::set_download_connector({});
+    boost::filesystem::remove(path);
 }
 
 TEST(socks_connector, ipv4)

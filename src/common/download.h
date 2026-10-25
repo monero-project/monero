@@ -32,11 +32,13 @@
 #include <string>
 #include <memory>
 #include <functional>
+#include "net/net_helper.h"
 
 namespace tools
 {
   struct download_thread_control;
   typedef std::shared_ptr<download_thread_control> download_async_handle;
+  typedef std::function<epee::net_utils::blocked_mode_client::connect_func> download_connector;
 
   inline bool content_range_starts_at(const std::string &content_range, uint64_t offset)
   {
@@ -48,4 +50,7 @@ namespace tools
   download_async_handle download_async(const std::string &path, const std::string &url, std::function<void(const std::string&, const std::string&, bool)> result, std::function<bool(const std::string&, const std::string&, size_t, ssize_t)> progress = NULL);
   bool download_wait(const download_async_handle &h);
   bool download_cancel(const download_async_handle &h);
+
+  // sets the connector used by all downloads e.g. a socks proxy. empty for direct connection
+  void set_download_connector(download_connector connector);
 }

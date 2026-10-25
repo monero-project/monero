@@ -38,6 +38,15 @@
 
 namespace tools
 {
+  static boost::mutex download_connector_mutex;
+  static download_connector default_download_connector;
+
+  void set_download_connector(download_connector connector)
+  {
+    boost::lock_guard<boost::mutex> lock(download_connector_mutex);
+    default_download_connector = std::move(connector);
+  }
+
   struct download_thread_control
   {
     const std::string path;
@@ -188,6 +197,11 @@ namespace tools
       epee::net_utils::ssl_support_t ssl = u_c.schema == "https" ? epee::net_utils::ssl_support_t::e_ssl_support_enabled : epee::net_utils::ssl_support_t::e_ssl_support_disabled;
       uint16_t port = u_c.port ? u_c.port : ssl == epee::net_utils::ssl_support_t::e_ssl_support_enabled ? 443 : 80;
       MDEBUG("Connecting to " << u_c.host << ":" << port);
+      {
+        boost::lock_guard<boost::mutex> connector_lock(download_connector_mutex);
+        if (default_download_connector)
+          client.set_connector(default_download_connector);
+      }
       client.set_server(u_c.host, std::to_string(port), boost::none, ssl);
       if (!client.connect(std::chrono::seconds(30)))
       {
