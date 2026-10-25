@@ -508,6 +508,7 @@ private:
     {
       std::vector<pending_tx> ptx;
       // All key images in `m_transfers` from the signing wallet. Does not include key images in `ptx`.
+      // May be empty if the receiving wallet already knows the complete key images of all selected transfers.
       std::vector<crypto::key_image> key_images;
       // All key images in `ptx` for outputs being received by the wallet (e.g. change, churn).
       std::unordered_map<crypto::public_key, crypto::key_image> tx_key_images;
