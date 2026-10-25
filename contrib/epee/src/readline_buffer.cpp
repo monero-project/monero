@@ -165,8 +165,9 @@ void rdln::readline_buffer::start()
     setvbuf(stdin, NULL, _IONBF, 0);
     stdin_unbuffered = true;
   }
-  // Mirrors linenoiseEditStart()'s own no-tty check.
-  tty_editing = (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO)) || getenv("LINENOISE_ASSUME_TTY");
+  // Mirrors linenoiseEditStart()'s own plain-input check.
+  tty_editing = !linenoiseIsUnsupportedTerm() &&
+    ((isatty(STDIN_FILENO) && isatty(STDOUT_FILENO)) || getenv("LINENOISE_ASSUME_TTY"));
   m_cout_buf = std::cout.rdbuf();
   std::cout.rdbuf(this);
   linenoiseSetCompletionCallback(&completion_callback);
@@ -252,18 +253,25 @@ void rdln::readline_buffer::set_prompt(const std::string& prompt)
   boost::lock_guard<boost::mutex> lock(sync_mutex);
   if(m_cout_buf == NULL)
     return;
+  if (editing_active && tty_editing)
+    linenoiseHide(&line_state);
+  current_prompt = tty_editing ? "\033[1;33m" + prompt + "\033[0m" : prompt;
   if (editing_active)
   {
-    if (tty_editing) linenoiseHide(&line_state);
-    current_prompt = prompt;
     line_state.prompt = current_prompt.c_str();
     line_state.plen = current_prompt.size();
     if (tty_editing) linenoiseShow(&line_state);
   }
   else
   {
-    current_prompt = prompt;
     begin_edit();
+  }
+
+  // linenoise draws no prompt on an unsupported terminal, so print it here.
+  if (!tty_editing && isatty(STDIN_FILENO) && isatty(STDOUT_FILENO))
+  {
+    m_cout_buf->sputn(prompt.data(), prompt.size());
+    m_cout_buf->pubsync();
   }
 }
 

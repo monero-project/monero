@@ -125,6 +125,7 @@
 #define LINENOISE_INITIAL_BUFLEN 4096
 #define PASTE_FOLD_CONTEXT 8                // Context chars kept around generic folds.
 #define PASTE_MAX_BYTES LINENOISE_MAX_LINE
+#define PROMPT_MIN_INPUT_COLS 8             // Columns a prompt must leave for input.
 static char *unsupported_term[] = {"dumb","cons25","emacs",NULL};
 static linenoiseCompletionCallback *completionCallback = NULL;
 static linenoiseHintsCallback *hintsCallback = NULL;
@@ -569,7 +570,7 @@ void linenoiseSetMultiLine(int ml) {
 
 /* Return true if the terminal name is in the list of terminals we know are
  * not able to understand basic escape sequences. */
-static int isUnsupportedTerm(void) {
+int linenoiseIsUnsupportedTerm(void) {
     char *term = getenv("TERM");
     int j;
 
@@ -577,6 +578,13 @@ static int isUnsupportedTerm(void) {
     for (j = 0; unsupported_term[j]; j++)
         if (!strcasecmp(term,unsupported_term[j])) return 1;
     return 0;
+}
+
+/* Return true if the multiplexed API should read plain lines instead of
+ * editing: not a tty, or a terminal without escape sequence support. */
+static int isPlainInput(int ifd, int ofd) {
+    if (linenoiseIsUnsupportedTerm()) return 1;
+    return (!isatty(ifd) || !isatty(ofd)) && !getenv("LINENOISE_ASSUME_TTY");
 }
 
 /* Raw mode: 1960 magic shit. */
@@ -1283,7 +1291,9 @@ void refreshShowHints(struct abuf *ab, struct linenoiseState *l, int pwidth, siz
  * for cursor positioning and horizontal scrolling. */
 static void refreshSingleLine(struct linenoiseState *l, int flags) {
     char seq[64];
-    size_t pwidth = utf8StrWidth(l->prompt, l->plen); /* Prompt display width */
+    const char *prompt = l->prompt;
+    size_t plen = l->plen;
+    size_t pwidth = utf8StrWidth(prompt, plen); /* Prompt display width */
     int fd = l->ofd;
     char *render = NULL;
     char *buf;
@@ -1297,6 +1307,13 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     if (linenoiseRenderBuffer(l,&render,&len,&pos) == -1) return;
     buf = render;
 
+    /* A prompt too wide to leave room for input would wrap and hide what
+     * is typed, so show a short one instead. */
+    if (pwidth + PROMPT_MIN_INPUT_COLS > l->cols) {
+        prompt = l->cols > 2 ? "> " : "";
+        plen = pwidth = strlen(prompt);
+    }
+
     /* Calculate the display width up to cursor and total display width. */
     poscol = utf8StrWidth(buf, pos);
     lencol = utf8StrWidth(buf, len);
@@ -1305,9 +1322,9 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
     /* Scroll the buffer horizontally if cursor is past the right edge.
      * We need to trim full UTF-8 characters from the left until the
      * cursor position fits within the terminal width. */
-    while (pwidth + poscol >= l->cols) {
+    while (pos > 0 && pwidth + poscol >= l->cols) {
         size_t clen = utf8NextCharLen(buf, 0, len);
-        if (clen == 0) break;
+        if (clen == 0 || clen > pos) break;
         int cwidth = utf8SingleCharWidth(buf, clen);
         buf += clen;
         len -= clen;
@@ -1332,7 +1349,7 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
 
     if (flags & REFRESH_WRITE) {
         /* Write the prompt and the current buffer content */
-        abAppend(&ab,l->prompt,l->plen);
+        abAppend(&ab,prompt,plen);
         if (maskmode == 1) {
             /* In mask mode, we output one '*' per UTF-8 character, not byte */
             size_t i = 0;
@@ -1779,9 +1796,9 @@ int linenoiseEditStart(struct linenoiseState *l, int stdin_fd, int stdout_fd, ch
     int resuming = (l->buf != NULL && l->buf == buf);
     int ifd = stdin_fd != -1 ? stdin_fd : STDIN_FILENO;
     int ofd = stdout_fd != -1 ? stdout_fd : STDOUT_FILENO;
-    int no_tty = (!isatty(ifd) || !isatty(ofd)) && !getenv("LINENOISE_ASSUME_TTY");
+    int no_tty = isPlainInput(ifd, ofd);
 
-    /* No raw mode on a non-tty; enter it before touching 'l' otherwise. */
+    /* No raw mode for plain input; enter it before touching 'l' otherwise. */
     if (!no_tty) {
         if (enableRawMode(ifd) == -1) return -1;
     }
@@ -2021,9 +2038,8 @@ char *linenoiseEditMore = "If you see this, you are misusing the API: when linen
 char *linenoiseEditFeed(struct linenoiseState *l) {
     if (pasteInProgress) return linenoiseEditPasteFeed(l);
 
-    /* Not a TTY, pass control to line reading without character
-     * count limits. */
-    if ((!isatty(l->ifd) || !isatty(l->ofd)) && !getenv("LINENOISE_ASSUME_TTY")) return linenoiseNoTTYFeed();
+    /* Not a TTY or an unsupported terminal: read plain lines instead. */
+    if (isPlainInput(l->ifd, l->ofd)) return linenoiseNoTTYFeed();
 
     /* Enter pops the placeholder; the caller may keep feeding without
      * calling linenoiseEditStart() again. */
@@ -2263,7 +2279,7 @@ void linenoiseEditStop(struct linenoiseState *l) {
         pasteInProgress = 0;
     }
 
-    if ((!isatty(l->ifd) || !isatty(l->ofd)) && !getenv("LINENOISE_ASSUME_TTY")) return;
+    if (isPlainInput(l->ifd, l->ofd)) return;
     disableRawMode(l->ifd);
 }
 
@@ -2440,7 +2456,7 @@ char *linenoise(const char *prompt) {
         return linenoiseNoTTY();
     }
 
-    if (isUnsupportedTerm()) {
+    if (linenoiseIsUnsupportedTerm()) {
         char *retval;
         size_t len;
 

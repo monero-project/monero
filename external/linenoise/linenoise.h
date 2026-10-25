@@ -108,6 +108,7 @@ int linenoiseHistorySave(const char *filename);
 int linenoiseHistoryLoad(const char *filename);
 
 /* Other utilities. */
+int linenoiseIsUnsupportedTerm(void);
 void linenoiseClearScreen(void);
 void linenoiseSetMultiLine(int ml);
 void linenoisePrintKeyCodes(void);
