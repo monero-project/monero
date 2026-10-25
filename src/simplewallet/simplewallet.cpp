@@ -3877,12 +3877,17 @@ void simple_wallet::print_seed(const epee::wipeable_string &seed, bool as_legacy
   {
     success_msg_writer(true) << tr("Use the following English legacy seed, without any seed offset, to restore if you can't use the wallet's original Polyseed:\n");
   }
-  // don't log
+  // don't log, and bypass std::cout so the seed never enters its buffer
+  size_t len  = seed.size();
+  for (const char *ptr = seed.data(); len--; ++ptr)
+  {
+    putchar(*ptr);
+  }
+  putchar('\n');
+  fflush(stdout);
   if (m_wallet->is_polyseed())
   {
-    epee::wipeable_string zero_terminated_seed(seed);
-    zero_terminated_seed.push_back('\0');
-    std::cout << zero_terminated_seed.data() << std::endl << std::endl;
+    std::cout << std::endl;
     if (is_encrypted)
     {
       std::cout << tr("Polyseed is ENCRYPTED using a passphrase that is mandatory for restoring") << std::endl;
@@ -3891,16 +3896,6 @@ void simple_wallet::print_seed(const epee::wipeable_string &seed, bool as_legacy
     {
       std::cout << tr("Polyseed birthday: ") << tools::get_human_readable_timestamp(birthday) << std::endl;
     }
-  }
-  else
-  {
-    size_t len  = seed.size();
-    for (const char *ptr = seed.data(); len--; ++ptr)
-    {
-      putchar(*ptr);
-    }
-    putchar('\n');
-    fflush(stdout);
   }
 }
 //----------------------------------------------------------------------------------------------------
