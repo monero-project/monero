@@ -1621,6 +1621,27 @@ void linenoiseEditMoveRight(struct linenoiseState *l) {
     }
 }
 
+/* Move across space-delimited words, matching the existing deletion shortcut. */
+static void linenoiseEditMoveWordLeft(struct linenoiseState *l) {
+    size_t old_pos = l->pos;
+
+    while (l->pos > 0 && l->buf[l->pos-1] == ' ')
+        l->pos -= linenoiseEditPrevLen(l, l->pos);
+    while (l->pos > 0 && l->buf[l->pos-1] != ' ')
+        l->pos -= linenoiseEditPrevLen(l, l->pos);
+    if (l->pos != old_pos) refreshLine(l);
+}
+
+static void linenoiseEditMoveWordRight(struct linenoiseState *l) {
+    size_t old_pos = l->pos;
+
+    while (l->pos < l->len && l->buf[l->pos] == ' ')
+        l->pos += linenoiseEditNextLen(l, l->pos);
+    while (l->pos < l->len && l->buf[l->pos] != ' ')
+        l->pos += linenoiseEditNextLen(l, l->pos);
+    if (l->pos != old_pos) refreshLine(l);
+}
+
 /* Move cursor to the start of the line. */
 void linenoiseEditMoveHome(struct linenoiseState *l) {
     if (l->pos != 0) {
@@ -2119,6 +2140,10 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
                     if (plen == 1 && param[0] == '3') {
                         linenoiseEditDelete(l);
                     }
+                } else if (plen == 3 && param[0] == '1' &&
+                           param[1] == ';' && param[2] == '5') {
+                    if (final == 'C') linenoiseEditMoveWordRight(l);
+                    if (final == 'D') linenoiseEditMoveWordLeft(l);
                 }
             } else {
                 switch(seq[1]) {
