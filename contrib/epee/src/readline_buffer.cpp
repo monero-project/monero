@@ -149,7 +149,7 @@ std::vector<std::string>& rdln::readline_buffer::completion_commands()
 }
 
 rdln::readline_buffer::readline_buffer()
-: std::stringbuf(), m_cout_buf(NULL)
+: std::streambuf(), m_cout_buf(NULL)
 {
   current = this;
 }
@@ -300,11 +300,8 @@ int rdln::readline_buffer::sync()
   if (editing_active && tty_editing)
     linenoiseHide(&line_state);
 
-  while ( this->sgetc() != EOF )
-  {
-    m_cout_buf->sputc( this->sgetc() );
-    this->snextc();
-  }
+  m_cout_buf->sputn(m_pending.data(), m_pending.size());
+  m_pending.clear();
 
   m_cout_buf->pubsync();
 
@@ -312,6 +309,22 @@ int rdln::readline_buffer::sync()
     linenoiseShow(&line_state);
 
   return 0;
+}
+
+rdln::readline_buffer::int_type rdln::readline_buffer::overflow(int_type c)
+{
+  if (traits_type::eq_int_type(c, traits_type::eof()))
+    return traits_type::not_eof(c);
+  boost::lock_guard<boost::mutex> lock(sync_mutex);
+  m_pending.push_back(traits_type::to_char_type(c));
+  return c;
+}
+
+std::streamsize rdln::readline_buffer::xsputn(const char* s, std::streamsize n)
+{
+  boost::lock_guard<boost::mutex> lock(sync_mutex);
+  m_pending.append(s, n);
+  return n;
 }
 
 void rdln::clear_screen()
