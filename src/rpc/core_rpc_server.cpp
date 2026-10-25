@@ -69,6 +69,7 @@ using namespace epee;
 #define RESTRICTED_TRANSACTIONS_COUNT 100
 #define RESTRICTED_SPENT_KEY_IMAGES_COUNT 5000
 #define RESTRICTED_BLOCK_COUNT 1000
+#define RESTRICTED_BLOCKS_BY_HEIGHT_COUNT 500
 
 static constexpr size_t GET_BLOCKS_BIN_MAX_ADDED_POOL_TX_BODIES = 20000;
 
@@ -550,7 +551,7 @@ namespace cryptonote
     RPC_TRACKER(get_blocks_by_height);
 
     const bool restricted = m_restricted && ctx;
-    if (restricted && req.heights.size() > RESTRICTED_BLOCK_COUNT)
+    if (restricted && req.heights.size() > RESTRICTED_BLOCKS_BY_HEIGHT_COUNT)
     {
       res.status = "Too many blocks requested in restricted mode";
       return true;
