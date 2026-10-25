@@ -111,6 +111,76 @@ class WalletTest():
         # Don't check the returned legacy seed against the Polyseed, it's of course different
         wallet.close_wallet()
 
+        print('Checking explicit language for an ambiguous legacy seed')
+        seed = ' '.join(['pluma'] * 25)
+        wallet.restore_deterministic_wallet(seed = seed)
+        assert wallet.query_key('spend_key').key == '3b040000' * 8
+        wallet.close_wallet()
+        wallet.restore_deterministic_wallet(seed = seed, language = 'Spanish')
+        assert wallet.query_key('spend_key').key == 'b4050000' * 8
+        wallet.close_wallet()
+        wallet.restore_deterministic_wallet(seed = seed, language = 'español')
+        assert wallet.query_key('spend_key').key == 'b4050000' * 8
+        wallet.setup_background_sync(background_sync_type = wallet.background_sync_options.reuse_password)
+        wallet.start_background_sync()
+        wallet.stop_background_sync(wallet_password = '', seed = seed.replace(' ', '  ', 1))
+        assert wallet.query_key('spend_key').key == 'b4050000' * 8
+        spanish_address = wallet.get_address().address
+        spanish_spend_key = wallet.query_key('spend_key').key
+        spanish_view_key = wallet.query_key('view_key').key
+        wallet.close_wallet()
+
+        wallet.generate_from_keys(address = spanish_address, spendkey = spanish_spend_key,
+            viewkey = spanish_view_key)
+        wallet.setup_background_sync(background_sync_type = wallet.background_sync_options.reuse_password)
+        wallet.start_background_sync()
+        wallet.stop_background_sync(wallet_password = '', seed = seed)
+        assert wallet.query_key('spend_key').key == spanish_spend_key
+        wallet.close_wallet()
+
+        wallet.generate_from_keys(address = spanish_address, spendkey = spanish_spend_key,
+            viewkey = spanish_view_key, language = 'English')
+        wallet.setup_background_sync(background_sync_type = wallet.background_sync_options.reuse_password)
+        wallet.start_background_sync()
+        wallet.stop_background_sync(wallet_password = '', seed = seed)
+        assert wallet.query_key('spend_key').key == spanish_spend_key
+        wallet.close_wallet()
+
+        seed_offset = 'background sync test'
+        wallet.restore_deterministic_wallet(seed = seed, seed_offset = seed_offset, language = 'Spanish')
+        offset_address = wallet.get_address().address
+        offset_spend_key = wallet.query_key('spend_key').key
+        offset_view_key = wallet.query_key('view_key').key
+        wallet.close_wallet()
+        wallet.generate_from_keys(address = offset_address, spendkey = offset_spend_key,
+            viewkey = offset_view_key)
+        wallet.setup_background_sync(background_sync_type = wallet.background_sync_options.reuse_password)
+        wallet.start_background_sync()
+        wallet.stop_background_sync(wallet_password = '', seed = seed, seed_offset = seed_offset)
+        assert wallet.query_key('spend_key').key == offset_spend_key
+        wallet.close_wallet()
+
+        wallet.restore_deterministic_wallet(seed = seed)
+        address = wallet.get_address().address
+        spend_key = wallet.query_key('spend_key').key
+        view_key = wallet.query_key('view_key').key
+        wallet.close_wallet()
+        wallet.generate_from_keys(address = address, spendkey = spend_key, viewkey = view_key, language = 'Spanish')
+        wallet.setup_background_sync(background_sync_type = wallet.background_sync_options.reuse_password)
+        wallet.start_background_sync()
+        wallet.stop_background_sync(wallet_password = '', seed = seed)
+        assert wallet.query_key('spend_key').key == spend_key
+        wallet.close_wallet()
+
+        french_seed = 'jungle rapport rang koala pire demain soupe queue sondage essai rustre palace truite ficher neveu vent sorte puma membre affirmer borner notice papier pincer ficher'
+        wallet.restore_deterministic_wallet(seed = french_seed, language = 'French')
+        french_spend_key = wallet.query_key('spend_key').key
+        wallet.setup_background_sync(background_sync_type = wallet.background_sync_options.reuse_password)
+        wallet.start_background_sync()
+        wallet.stop_background_sync(wallet_password = '', seed = french_seed)
+        assert wallet.query_key('spend_key').key == french_spend_key
+        wallet.close_wallet()
+
         print('Creating legacy seed wallet')
         wallet = Wallet()
         try: wallet.close_wallet()
