@@ -2203,7 +2203,7 @@ bool simple_wallet::clear(const std::vector<std::string> &args)
 
 bool simple_wallet::on_unknown_command(const std::vector<std::string> &args)
 {
-  if (args[0] == "exit" || args[0] == "q") // backward compat
+  if (args[0] == "exit" || args[0] == "quit" || args[0] == "q") // backward compat
     return false;
   fail_msg_writer() << boost::format(tr("Unknown command '%s', try 'help'")) % args.front();
   return true;
