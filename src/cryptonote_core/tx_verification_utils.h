@@ -189,7 +189,7 @@ public:
 private:
     // The only function which can set nic_verified_hf_version to non-zero value
     friend bool ver_non_input_consensus(pool_supplement& ps,
-        const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments,
+        std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments_inout,
         tx_verification_context& tvc,
         std::uint8_t hf_version);
 
@@ -248,7 +248,7 @@ bool ver_non_input_consensus(const transaction& tx, tx_verification_context& tvc
     std::uint8_t hf_version);
 
 bool ver_non_input_consensus(pool_supplement& ps,
-    const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments,
+    std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments_inout,
     tx_verification_context& tvc,
     std::uint8_t hf_version);
 

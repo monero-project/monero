@@ -305,9 +305,31 @@ static bool needs_torsion_check(const cryptonote::transaction &tx)
     return false;
 }
 
+static void collect_transparent_amount_commitments_static(
+    const std::vector<std::reference_wrapper<const transaction>> &txs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout)
+{
+    // Note: we do not clear transparent_amount_commitments_inout because it may be a rolling cache
+
+    for (const auto &tx_ref : txs)
+    {
+        const auto &tx = tx_ref.get();
+
+        // We only need commitments for transparent amounts, which are tx version 1 || coinbase txs
+        if (tx.version > 1 && !tx.is_coinbase())
+            continue;
+        for (const auto &tx_out : tx.vout)
+        {
+            const uint64_t amount = tx_out.amount;
+            if (transparent_amount_commitments_inout.find(amount) == transparent_amount_commitments_inout.end())
+                transparent_amount_commitments_inout[amount] = rct::zeroCommitVartime(amount);
+        }
+    }
+}
+
 template <class TxForwardIt>
 static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt tx_end,
-        const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments,
+        std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments_inout,
         tx_verification_context& tvc,
         std::uint8_t hf_version)
 {
@@ -365,10 +387,14 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
             rvv.push_back(&tx.rct_signatures);
 
         // Collect pubkeys and commitments for torsion check
-        if (needs_torsion_check(tx) && !collect_pubkeys_and_commitments(tx, transparent_amount_commitments, pubkeys_and_commitments))
+        if (needs_torsion_check(tx))
         {
-            tvc.m_verifivation_failed = true;
-            return false;
+            collect_transparent_amount_commitments_static({std::cref(tx)}, transparent_amount_commitments_inout);
+            if (!collect_pubkeys_and_commitments(tx, transparent_amount_commitments_inout, pubkeys_and_commitments))
+            {
+                tvc.m_verifivation_failed = true;
+                return false;
+            }
         }
     }
 
@@ -390,28 +416,6 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
     }
 
     return true;
-}
-
-static void collect_transparent_amount_commitments_static(
-    const std::vector<std::reference_wrapper<const transaction>> &txs,
-    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout)
-{
-    // Note: we do not clear transparent_amount_commitments_inout because it may be a rolling cache
-
-    for (const auto &tx_ref : txs)
-    {
-        const auto &tx = tx_ref.get();
-
-        // We only need commitments for transparent amounts, which are tx version 1 || coinbase txs
-        if (tx.version > 1 && !tx.is_coinbase())
-            continue;
-        for (const auto &tx_out : tx.vout)
-        {
-            const uint64_t amount = tx_out.amount;
-            if (transparent_amount_commitments_inout.find(amount) == transparent_amount_commitments_inout.end())
-                transparent_amount_commitments_inout[amount] = rct::zeroCommitVartime(amount);
-        }
-    }
 }
 
 static bool collect_fcmp_pp_tx_verify_input(cryptonote::transaction &tx,
@@ -845,15 +849,13 @@ bool batch_ver_fcmp_pp_consensus(pool_supplement& ps,
 bool ver_non_input_consensus(const transaction& tx, tx_verification_context& tvc,
     std::uint8_t hf_version)
 {
-    // We only need to collect transparent amount commitments for the torsion check here
+    // We defer transparent amount collection until after all tx layout Rules are satisfied.
     std::unordered_map<uint64_t, rct::key> transparent_amount_commitments;
-    if (needs_torsion_check(tx))
-        collect_transparent_amount_commitments_static({std::cref(tx)}, transparent_amount_commitments);
     return ver_non_input_consensus_templated(&tx, &tx + 1, transparent_amount_commitments, tvc, hf_version);
 }
 
 bool ver_non_input_consensus(pool_supplement& ps,
-    const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments,
+    std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments_inout,
     tx_verification_context& tvc,
     const std::uint8_t hf_version)
 {
@@ -867,7 +869,7 @@ bool ver_non_input_consensus(pool_supplement& ps,
     const auto tx_end = boost::make_transform_iterator(ps.txs_by_txid.cend(), it_transform);
 
     // Perform the checks...
-    const bool verified = ver_non_input_consensus_templated(tx_begin, tx_end, transparent_amount_commitments, tvc, hf_version);
+    const bool verified = ver_non_input_consensus_templated(tx_begin, tx_end, transparent_amount_commitments_inout, tvc, hf_version);
 
     // Cache the hard fork version on success
     if (verified)
