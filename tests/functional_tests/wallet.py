@@ -264,6 +264,14 @@ class WalletTest():
         assert res.addresses[2].address == '87KfgTZ8ER5D3Frefqnrqif11TjVsTPaTcp37kqqKMrdDRUhpJRczeR7KiBmSHF32UJLP3HHhKUDmEQyJrv2mV8yFDCq8eB'
         assert res.addresses[2].label == 'sub_1_2'
 
+        all_accounts = wallet.get_address(account_index = 99, subaddresses = [999], all_accounts = True)
+        assert all_accounts.address == wallet.get_address().address
+        assert len(all_accounts.addresses) == 6
+        assert [(a.account_index, a.address_index) for a in all_accounts.addresses] == [
+            (0, 0), (0, 1), (1, 0), (1, 1), (1, 2), (2, 0)]
+        assert all(a.address == wallet.get_address(a.account_index, [a.address_index]).addresses[0].address for a in all_accounts.addresses)
+        assert all(not a.used for a in all_accounts.addresses)
+
         res = wallet.label_address((1, 2), "sub_1_2_new")
         res = wallet.get_address(1, [2])
         assert len(res.addresses) == 1
