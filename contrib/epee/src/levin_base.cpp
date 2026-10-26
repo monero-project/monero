@@ -28,6 +28,8 @@
 
 #include "net/levin_base.h"
 
+#include <algorithm>
+#include "cryptonote_config.h"
 #include "int-util.h"
 
 namespace epee
@@ -41,15 +43,28 @@ namespace levin
     buffer.put_n(0, sizeof(header));
   }
 
-  byte_slice message_writer::finalize(const uint32_t command, const uint32_t flags, const uint32_t return_code, const bool expect_response)
+  byte_slice message_writer::finalize(const uint32_t command, const uint32_t flags, const uint32_t return_code, const bool expect_response, std::size_t pad_max)
   {
     if (buffer.size() < sizeof(header))
       throw std::runtime_error{"levin_writer::finalize already called"};
 
-    header head = make_header(command, payload_size(), flags, expect_response);
+    std::size_t pad_bytes = 0;
+    pad_max = std::min(pad_max, std::size_t(LEVIN_DEFAULT_MAX_PACKET_SIZE));
+    pad_max = pad_max - std::min(payload_size(), pad_max);
+    if (pad_max)
+    {
+      static_assert(0 < P2P_LEVIN_PAD_BOUNDARY);
+      static_assert(P2P_LEVIN_PAD_BOUNDARY <= std::numeric_limits<std::size_t>::max());
+      pad_bytes = P2P_LEVIN_PAD_BOUNDARY - (payload_size() % P2P_LEVIN_PAD_BOUNDARY);
+      pad_bytes %= P2P_LEVIN_PAD_BOUNDARY; // clear on pad boundary
+      pad_bytes = std::min(pad_bytes, pad_max);
+    }
+
+    header head = make_header(command, payload_size() + pad_bytes, flags, expect_response);
     head.m_return_code = SWAP32LE(return_code);
 
     std::memcpy(buffer.tellp() - buffer.size(), std::addressof(head), sizeof(head));
+    buffer.put_n(0, pad_bytes);
     return byte_slice{std::move(buffer)};
   }
 
@@ -92,12 +107,13 @@ namespace levin
          will ignore extra bytes. So just pad with zeroes and otherwise send
          a "normal", not fragmented message. */
 
+      // do not use randomized padding, this must be to message boundary
       message.buffer.put_n(0, noise_size - message.buffer.size());
-      return message.finalize_notify(command);
+      return message.finalize_notify(command, 0);
     }
 
     // fragment message
-    const byte_slice payload_bytes = message.finalize_notify(command);
+    const byte_slice payload_bytes = message.finalize_notify(command, 0);
     span<const std::uint8_t> payload = to_span(payload_bytes);
 
     const size_t payload_space = noise_size - sizeof(bucket_head2);

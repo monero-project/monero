@@ -202,7 +202,7 @@ namespace
       ? epee::net_utils::network_address{net::tor_address::unknown()}
       : epee::net_utils::network_address{MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 1, 18080)};
     static_cast<epee::net_utils::connection_context_base&>(context) =
-      epee::net_utils::connection_context_base{boost::uuids::uuid{}, address, false, false};
+      epee::net_utils::connection_context_base{boost::uuids::uuid{}, address, false, epee::net_utils::ssl_support_t::e_ssl_support_disabled};
     if (!initial)
       context.set_state_normal();
     cryptonote::CORE_SYNC_DATA data{};
@@ -1034,8 +1034,8 @@ TEST(cryptonote_protocol_handler, race_condition)
     io_context.run();
     acceptor.close(ec);
     EXPECT_EQ(ec.value(), 0);
-    EXPECT_TRUE(in->start(true, true));
-    EXPECT_TRUE(out->start(false, true));
+    EXPECT_TRUE(in->start(true, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled));
+    EXPECT_TRUE(out->start(false, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled));
     return std::make_pair<>(std::move(in), std::move(out));
   };
   auto get_conn_tag = [](connection_t &conn){
@@ -1197,16 +1197,16 @@ TEST(cryptonote_protocol_handler, race_condition)
       else
         return {};
     }
-    virtual bool invoke_notify_to_peer(int command, epee::levin::message_writer in, const contexts::basic& context) override {
+    virtual bool invoke_notify_to_peer(int command, epee::levin::message_writer in, const contexts::cryptonote& context) override {
       if (shared_state)
-        return shared_state->send(in.finalize_notify(command), context.m_connection_id);
+        return shared_state->send(in.finalize_notify(command, true), context.m_connection_id);
       else
         return {};
     }
     virtual bool relay_notify_to_list(int command, epee::levin::message_writer in, connections_t connections) override {
       if (shared_state) {
         for (auto &e: connections)
-          shared_state->send(in.finalize_notify(command), e.second);
+          shared_state->send(in.finalize_notify(command, true), e.second);
       }
       return {};
     }
@@ -1377,8 +1377,8 @@ TEST(cryptonote_protocol_handler, race_condition)
       event_t finish;
     } events;
     auto connections = create_conn_pair(
-      connection_ptr(new connection_t(io_context, daemon.main.shared_state, {}, {})),
-      connection_ptr(new connection_t(io_context, daemon.alt.shared_state, {}, {}))
+      connection_ptr(new connection_t(io_context, daemon.main.shared_state, {})),
+      connection_ptr(new connection_t(io_context, daemon.alt.shared_state, {}))
     );
     {
       auto conn = connections.first;
@@ -1465,8 +1465,8 @@ TEST(cryptonote_protocol_handler, race_condition)
       });
     }
     while (daemon.main.conn.size() < 1) {
-      daemon.main.conn.emplace_back(new connection_t(check.io_context, daemon.main.shared_state, {}, {}));
-      daemon.alt.conn.emplace_back(new connection_t(io_context, daemon.alt.shared_state, {}, {}));
+      daemon.main.conn.emplace_back(new connection_t(check.io_context, daemon.main.shared_state, {}));
+      daemon.alt.conn.emplace_back(new connection_t(io_context, daemon.alt.shared_state, {}));
       create_conn_pair(daemon.main.conn.back(), daemon.alt.conn.back());
       conduct_handshake(daemon.alt.net_node, daemon.alt.conn.back());
     }
@@ -1521,9 +1521,10 @@ TEST(cryptonote_protocol_handler, race_condition)
           add_block(*daemon.main.core, block, stat);
       }
     }
+
     while (daemon.main.conn.size() < 2) {
-      daemon.main.conn.emplace_back(new connection_t(check.io_context, daemon.main.shared_state, {}, {}));
-      daemon.alt.conn.emplace_back(new connection_t(io_context, daemon.alt.shared_state, {}, {}));
+      daemon.main.conn.emplace_back(new connection_t(check.io_context, daemon.main.shared_state, {}));
+      daemon.alt.conn.emplace_back(new connection_t(io_context, daemon.alt.shared_state, {}));
       create_conn_pair(daemon.main.conn.back(), daemon.alt.conn.back());
       conduct_handshake(daemon.alt.net_node, daemon.alt.conn.back());
     }
@@ -1741,16 +1742,17 @@ TEST(node_server, race_condition)
     });
     shared_state_ptr shared_state = std::make_shared<shared_state_t>();
     shared_state->set_handler(new command_handler_t, &command_handler_t::destroy);
-    connection_ptr conn{new connection_t(io_context, shared_state, {}, {})};
+    connection_ptr conn{new connection_t(io_context, shared_state, {})};
     endpoint_t endpoint(boost::asio::ip::make_address("127.0.0.1"), 19082);
     ec_t ec;
     conn->socket().connect(endpoint, ec);
     ASSERT_EQ(ec.value(), 0) << "connect to 127.0.0.1:19082 failed: " << ec.message();
-    conn->start({}, {});
+    conn->start({}, {}, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
     context_t context;
     conn->get_context(context);
     event_t handshaked;
     typename messages::handshake::request_t msg{{
+      std::string{},
       ::config::NETWORK_ID,
       19083,
     }};
@@ -1799,6 +1801,7 @@ TEST(node_server, race_condition)
           "--add-exclusive-node=127.0.0.1:19082",
           "--check-updates=disabled",
           "--disable-dns-checkpoints",
+          "--p2p-ssl=disabled"
         }).options([]{
           options_description_t options_description{};
           cryptonote::core::init_options(options_description);
