@@ -233,7 +233,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
   if (!boost::filesystem::exists(fs_import_file_path, ec))
   {
     MFATAL("bootstrap file not found: " << fs_import_file_path);
-    return false;
+    return 1;
   }
 
   uint64_t block_first;
@@ -250,7 +250,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
 
   if (total_source_blocks+block_first-1 <= start_height)
   {
-    return false;
+    return 0;
   }
 
   std::cout << ENDL;
@@ -265,7 +265,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
   if (import_file.fail())
   {
     MFATAL("import_file.open() fail");
-    return false;
+    return 1;
   }
 
   // 4 byte magic + (currently) 1024 byte header structures
@@ -331,6 +331,11 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
     import_file.read(buffer1, sizeof(chunk_size));
     // TODO: bootstrap.read_chunk();
     if (! import_file) {
+      if (!import_file.eof() || import_file.bad() || import_file.gcount() != 0)
+      {
+        MFATAL("Error reading chunk size");
+        return 2;
+      }
       std::cout << refresh_string;
       MINFO("End of file reached");
       quit = 1;
@@ -363,9 +368,8 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
       if (import_file.eof())
       {
         std::cout << refresh_string;
-        MINFO("End of file reached - file was truncated");
-        quit = 1;
-        break;
+        MFATAL("End of file reached - file was truncated");
+        return 2;
       }
       else
       {
@@ -513,6 +517,8 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
               core.get_blockchain_storage().get_db().batch_stop();
               pos = import_file.tellg();
               bytes = bootstrap.count_bytes(import_file, db_batch_size, h2, q2);
+              if (import_file.eof())
+                import_file.clear();
               import_file.seekg(pos);
               core.get_blockchain_storage().get_db().batch_start(db_batch_size, bytes);
               std::cout << ENDL;
@@ -534,7 +540,7 @@ int import_from_file(cryptonote::core& core, const std::string& import_file_path
 quitting:
   import_file.close();
 
-  if (opt_verify)
+  if (opt_verify && quit <= 1)
   {
     int ret = check_flush(core, blocks, true);
     if (ret)
@@ -561,7 +567,7 @@ quitting:
     MINFO("Finished at block: " << h-1 << "  total blocks: " << h);
 
   std::cout << ENDL;
-  return 0;
+  return quit > 1 ? 2 : 0;
 }
 
 int main(int argc, char* argv[])
@@ -759,13 +765,14 @@ int main(int argc, char* argv[])
     return 0;
   }
 
-  import_from_file(core, import_file_path, block_stop);
+  const int result = import_from_file(core, import_file_path, block_stop);
 
   // ensure db closed
   //   - transactions properly checked and handled
   //   - disk sync if needed
   //
   core.deinit();
+  return result;
   }
   catch (const DB_ERROR& e)
   {
@@ -773,8 +780,6 @@ int main(int argc, char* argv[])
     core.deinit();
     return 1;
   }
-
-  return 0;
 
   CATCH_ENTRY("Import error", 1);
 }
