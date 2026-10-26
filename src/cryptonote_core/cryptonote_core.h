@@ -916,6 +916,16 @@ namespace cryptonote
      static bool check_tx_inputs_ring_members_diff(const transaction& tx, const uint8_t hf_version);
 
      /**
+      * @brief verify that ring member absolute offsets don't overflow
+      *
+      * @param tx the transaction to check
+      * @param hf_version the hard fork version rules to use
+      *
+      * @return false if any absolute offsets overflowed, true otherwise
+      */
+     static bool check_tx_inputs_ring_members_overflow(const transaction& tx, const uint8_t hf_version);
+
+     /**
       * @brief verify that each input key image in a transaction is in
       * the valid domain
       *

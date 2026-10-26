@@ -527,23 +527,29 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::txout_to_script& txo
 }
 
 
-void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::txout_to_scripthash& txout)
+void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::txout_to_carrot_v1& txout)
 {
   dest.StartObject();
 
-  INSERT_INTO_JSON_OBJECT(dest, hash, txout.hash);
+  INSERT_INTO_JSON_OBJECT(dest, key, txout.key);
+  // TODO: the rest of Carrot
+  // INSERT_INTO_JSON_OBJECT(dest, view_tag, txout.view_tag);
+  // INSERT_INTO_JSON_OBJECT(dest, encrypted_janus_anchor, txout.encrypted_janus_anchor);
 
   dest.EndObject();
 }
 
-void fromJsonValue(const rapidjson::Value& val, cryptonote::txout_to_scripthash& txout)
+void fromJsonValue(const rapidjson::Value& val, cryptonote::txout_to_carrot_v1& txout)
 {
   if (!val.IsObject())
   {
     throw WRONG_TYPE("json object");
   }
 
-  GET_FROM_JSON_OBJECT(val, txout.hash, hash);
+  GET_FROM_JSON_OBJECT(val, txout.key, key);
+  // TODO: the rest of Carrot
+  // GET_FROM_JSON_OBJECT(val, txout.view_tag, view_tag);
+  // GET_FROM_JSON_OBJECT(val, txout.encrypted_janus_anchor, encrypted_janus_anchor);
 }
 
 
@@ -610,9 +616,9 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const cryptonote::t
     {
       INSERT_INTO_JSON_OBJECT(dest, to_script, output);
     }
-    void operator()(cryptonote::txout_to_scripthash const& output) const
+    void operator()(cryptonote::txout_to_carrot_v1 const& output) const
     {
-      INSERT_INTO_JSON_OBJECT(dest, to_scripthash, output);
+      INSERT_INTO_JSON_OBJECT(dest, to_carrot_v1, output);
     }
   };
   boost::apply_visitor(add_output{dest}, txout.target);
@@ -656,9 +662,9 @@ void fromJsonValue(const rapidjson::Value& val, cryptonote::tx_out& txout)
       fromJsonValue(elem.value, tmpVal);
       txout.target = std::move(tmpVal);
     }
-    else if (elem.name == "to_scripthash")
+    else if (elem.name == "to_carrot_v1")
     {
-      cryptonote::txout_to_scripthash tmpVal;
+      cryptonote::txout_to_carrot_v1 tmpVal;
       fromJsonValue(elem.value, tmpVal);
       txout.target = std::move(tmpVal);
     }
@@ -1134,7 +1140,7 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::rctSig& 
   }
 
   // prunable
-  if (!prune && (!sig.p.bulletproofs.empty() || !sig.p.bulletproofs_plus.empty() || !sig.p.rangeSigs.empty() || !sig.p.MGs.empty() || !sig.get_pseudo_outs().empty()))
+  if (!prune && (!sig.p.bulletproofs.empty() || !sig.p.bulletproofs_plus.empty() || !sig.p.rangeSigs.empty() || !sig.p.MGs.empty() || !sig.get_pseudo_outs().empty() || !sig.p.fcmp_pp.empty()))
   {
     dest.Key("prunable");
     dest.StartObject();
@@ -1145,6 +1151,13 @@ void toJsonValue(rapidjson::Writer<epee::byte_stream>& dest, const rct::rctSig& 
     INSERT_INTO_JSON_OBJECT(dest, mlsags, sig.p.MGs);
     INSERT_INTO_JSON_OBJECT(dest, clsags, sig.p.CLSAGs);
     INSERT_INTO_JSON_OBJECT(dest, pseudo_outs, sig.get_pseudo_outs());
+
+    if (sig.type == rct::RCTTypeFcmpPlusPlus)
+    {
+      INSERT_INTO_JSON_OBJECT(dest, reference_block, sig.p.reference_block);
+      INSERT_INTO_JSON_OBJECT(dest, n_tree_layers, sig.p.n_tree_layers);
+      INSERT_INTO_JSON_OBJECT(dest, fcmp_pp, sig.p.fcmp_pp);
+    }
 
     dest.EndObject();
   }
@@ -1187,6 +1200,13 @@ void fromJsonValue(const rapidjson::Value& val, rct::rctSig& sig)
     GET_FROM_JSON_OBJECT(prunable->value, sig.p.CLSAGs, clsags);
     GET_FROM_JSON_OBJECT(prunable->value, pseudo_outs, pseudo_outs);
 
+    if (sig.type == rct::RCTTypeFcmpPlusPlus)
+    {
+      GET_FROM_JSON_OBJECT(prunable->value, sig.p.reference_block, reference_block);
+      GET_FROM_JSON_OBJECT(prunable->value, sig.p.n_tree_layers, n_tree_layers);
+      GET_FROM_JSON_OBJECT(prunable->value, sig.p.fcmp_pp, fcmp_pp);
+    }
+
     sig.get_pseudo_outs() = std::move(pseudo_outs);
   }
   else
@@ -1197,6 +1217,10 @@ void fromJsonValue(const rapidjson::Value& val, rct::rctSig& sig)
     sig.p.MGs.clear();
     sig.p.CLSAGs.clear();
     sig.get_pseudo_outs().clear();
+
+    sig.p.reference_block = 0;
+    sig.p.n_tree_layers = 0;
+    sig.p.fcmp_pp.clear();
   }
 }
 
