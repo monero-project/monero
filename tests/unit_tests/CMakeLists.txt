@@ -66,6 +66,7 @@ set(unit_tests_sources
   lmdb.cpp
   main.cpp
   memwipe.cpp
+  merge_mining.cpp
   mlocker.cpp
   mnemonics.cpp
   mul_div.cpp
