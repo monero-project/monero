@@ -4371,24 +4371,30 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
         {
           waiter.wait();
           MINFO("Daemon claims next refresh block is out of hash chain bounds, resetting hash chain");
-          uint64_t stop_height = m_blockchain.offset();
-          std::vector<crypto::hash> tip(m_blockchain.size() - m_blockchain.offset());
-          for (size_t i = m_blockchain.offset(); i < m_blockchain.size(); ++i)
-            tip[i - m_blockchain.offset()] = m_blockchain[i];
           cryptonote::block b;
           generate_genesis(b);
-          m_blockchain.clear();
-          m_blockchain.push_back(get_block_hash(b));
-          short_chain_history.clear();
-          get_short_chain_history(short_chain_history);
-          fast_refresh(stop_height, blocks_start_height, short_chain_history, true);
-          THROW_WALLET_EXCEPTION_IF((m_blockchain.size() == stop_height || (m_blockchain.size() == 1 && stop_height == 0) ? false : true), error::wallet_internal_error, "Unexpected hashchain size");
-          THROW_WALLET_EXCEPTION_IF(m_blockchain.offset() != 0, error::wallet_internal_error, "Unexpected hashchain offset");
-          for (const auto &h: tip)
-            m_blockchain.push_back(h);
-          short_chain_history.clear();
-          get_short_chain_history(short_chain_history);
-          start_height = stop_height;
+          hashchain original_blockchain(std::move(m_blockchain));
+          try
+          {
+            const uint64_t stop_height = original_blockchain.offset();
+            m_blockchain.clear();
+            m_blockchain.push_back(get_block_hash(b));
+            short_chain_history.clear();
+            get_short_chain_history(short_chain_history);
+            fast_refresh(stop_height, blocks_start_height, short_chain_history, true);
+            THROW_WALLET_EXCEPTION_IF((m_blockchain.size() == stop_height || (m_blockchain.size() == 1 && stop_height == 0) ? false : true), error::wallet_internal_error, "Unexpected hashchain size");
+            THROW_WALLET_EXCEPTION_IF(m_blockchain.offset() != 0, error::wallet_internal_error, "Unexpected hashchain offset");
+            for (size_t i = m_blockchain.size(); i < original_blockchain.size(); ++i)
+              m_blockchain.push_back(original_blockchain[i]);
+            short_chain_history.clear();
+            get_short_chain_history(short_chain_history);
+            start_height = stop_height;
+          }
+          catch (...)
+          {
+            m_blockchain = std::move(original_blockchain);
+            throw;
+          }
           throw std::runtime_error(""); // loop again
         }
         catch (const std::exception &e)
