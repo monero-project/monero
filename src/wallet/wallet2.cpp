@@ -2162,6 +2162,7 @@ void wallet2::thaw(size_t idx)
   CHECK_AND_ASSERT_THROW_MES(idx < m_transfers.size(), "Invalid transfer_details index");
   transfer_details &td = m_transfers[idx];
   td.m_frozen = false;
+  m_detached_frozen_outputs.erase(td.get_public_key());
 }
 //----------------------------------------------------------------------------------------------------
 bool wallet2::frozen(size_t idx) const
@@ -2723,7 +2724,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               td.m_mask = rct::identity();
               td.m_rct = false;
             }
-            td.m_frozen = false;
+            td.m_frozen = m_detached_frozen_outputs.erase(tx_scan_info[o].in_ephemeral.pub) != 0;
 	    set_unspent(m_transfers.size()-1);
             if (td.m_key_image_known)
 	      m_key_images[td.m_key_image] = m_transfers.size()-1;
@@ -4574,9 +4575,8 @@ wallet2::detached_blockchain_data wallet2::detach_blockchain(uint64_t height, st
     wallet2::transfer_details &td = m_transfers[i];
     if (td.m_spent && td.m_spent_height >= height)
     {
-      LOG_PRINT_L1("Resetting spent/frozen status for output " << i << ": " << td.m_key_image);
+      LOG_PRINT_L1("Resetting spent status for output " << i << ": " << td.m_key_image);
       set_unspent(i);
-      thaw(i);
     }
   }
 
@@ -4619,7 +4619,11 @@ wallet2::detached_blockchain_data wallet2::detach_blockchain(uint64_t height, st
   transfers_detached = std::distance(it, m_transfers.end());
   dbd.detached_tx_hashes.reserve(transfers_detached);
   for (size_t i = i_start; i!=m_transfers.size();i++)
+  {
+    if (m_transfers[i].m_frozen)
+      m_detached_frozen_outputs.insert(m_transfers[i].get_public_key());
     dbd.detached_tx_hashes.insert(std::move(m_transfers[i].m_txid));
+  }
   MDEBUG(transfers_detached << " transfers detached / expected " << dbd.detached_tx_hashes.size());
   m_transfers.erase(it, m_transfers.end());
 
@@ -4691,6 +4695,7 @@ bool wallet2::deinit()
 //----------------------------------------------------------------------------------------------------
 bool wallet2::clear()
 {
+  m_detached_frozen_outputs.clear();
   m_blockchain.clear();
   m_transfers.clear();
   m_key_images.clear();
@@ -4717,6 +4722,9 @@ bool wallet2::clear()
 //----------------------------------------------------------------------------------------------------
 void wallet2::clear_soft(bool keep_key_images)
 {
+  for (const auto &td : m_transfers)
+    if (td.m_frozen)
+      m_detached_frozen_outputs.insert(td.get_public_key());
   m_blockchain.clear();
   m_transfers.clear();
   if (!keep_key_images)
@@ -4740,6 +4748,7 @@ void wallet2::clear_soft(bool keep_key_images)
 //----------------------------------------------------------------------------------------------------
 void wallet2::clear_user_data()
 {
+  m_detached_frozen_outputs.clear();
   for (auto i = m_confirmed_txs.begin(); i != m_confirmed_txs.end(); ++i)
     i->second.m_dests.clear();
   for (auto i = m_unconfirmed_txs.begin(); i != m_unconfirmed_txs.end(); ++i)
@@ -14787,6 +14796,7 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
 
       // copy anyway, since the comparison does not include ancillary fields which may have changed
       m_transfers[i + offset] = std::move(td);
+      m_detached_frozen_outputs.erase(m_transfers[i + offset].get_public_key());
       continue;
     }
 
@@ -14822,6 +14832,7 @@ process:
       m_transfers.push_back(std::move(td));
     m_key_images[key_image] = i + offset;
     m_pub_keys[pub_key] = i + offset;
+    m_detached_frozen_outputs.erase(pub_key);
   }
 
   if (num_outputs < m_transfers.size())
@@ -14881,6 +14892,7 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
           etd.m_pubkey == org_td.get_public_key())
       {
         set_cheap_data(m_transfers[i + offset]);
+        m_detached_frozen_outputs.erase(etd.m_pubkey);
         continue;
       }
     }
@@ -14932,6 +14944,7 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
       m_transfers.push_back(std::move(td));
     m_key_images[key_image] = i + offset;
     m_pub_keys[pub_key] = i + offset;
+    m_detached_frozen_outputs.erase(pub_key);
   }
 
   if (num_outputs < m_transfers.size())
