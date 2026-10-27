@@ -746,7 +746,8 @@ namespace cryptonote
     std::vector<cryptonote::blobdata> local_txs;
 
     block b;
-    if (!m_core.get_block_by_hash(arg.block_hash, b))
+    cryptonote::blobdata block_blob;
+    if (!m_core.get_block_by_hash(arg.block_hash, b, NULL, &block_blob))
     {
       LOG_ERROR_CCONTEXT("failed to find block: " << arg.block_hash << ", dropping connection");
       drop_connection(context, false, false);
@@ -756,7 +757,7 @@ namespace cryptonote
     std::vector<crypto::hash> txids;
     txids.reserve(b.tx_hashes.size());
     NOTIFY_NEW_FLUFFY_BLOCK::request fluffy_response;
-    fluffy_response.b.block = t_serializable_object_to_blob(b);
+    fluffy_response.b.block = std::move(block_blob);
     fluffy_response.current_blockchain_height = arg.current_blockchain_height;
     std::vector<bool> seen(b.tx_hashes.size(), false);
     for(auto& tx_idx: arg.missing_tx_indices)
@@ -796,7 +797,7 @@ namespace cryptonote
       }
     }    
 
-    std::vector<cryptonote::transaction> txs;
+    std::vector<cryptonote::blobdata> txs;
     std::vector<crypto::hash> missed;
     if (!m_core.get_transactions(txids, txs, missed))
     {
@@ -815,7 +816,7 @@ namespace cryptonote
 
     for(auto& tx: txs)
     {
-      fluffy_response.b.txs.push_back({t_serializable_object_to_blob(tx), crypto::null_hash});
+      fluffy_response.b.txs.push_back({std::move(tx), crypto::null_hash});
     }
 
     MLOG_P2P_MESSAGE
