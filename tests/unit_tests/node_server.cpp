@@ -316,6 +316,24 @@ TEST(node_server, ipv6_peer_group)
   EXPECT_FALSE(nodetool::get_ipv6_peer_group(MAKE_IPV4_ADDRESS(192, 0, 2, 1)));
 }
 
+TEST(node_server, ipv6_local_address)
+{
+  const auto make_ipv6 = [](const char* ip) {
+    return epee::net_utils::network_address{
+      epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6(ip), 18080}
+    };
+  };
+
+  EXPECT_TRUE(make_ipv6("fe80::1").is_local());
+  EXPECT_TRUE(make_ipv6("fec0::1").is_local());
+  EXPECT_TRUE(make_ipv6("fc00::1").is_local());
+  EXPECT_TRUE(make_ipv6("fd12:3456:789a::1").is_local());
+  EXPECT_FALSE(make_ipv6("fe00::1").is_local());
+  EXPECT_FALSE(make_ipv6("fb00::1").is_local());
+  EXPECT_FALSE(make_ipv6("2001:db8::1").is_local());
+  EXPECT_FALSE(make_ipv6("::1").is_local());
+}
+
 static bool is_blocked(Server &server, const epee::net_utils::network_address &address, time_t *t = NULL)
 {
   std::map<std::string, time_t> hosts = server.get_blocked_hosts();
