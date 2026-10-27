@@ -1353,6 +1353,9 @@ namespace nodetool
           hsh_result = false;
           return;
         }
+
+        // connection cannot close until this handler returns
+        zone.m_notifier.on_handshake_complete(context.m_connection_id, context.m_is_income);
         LOG_INFO_CC(context, "New connection handshaked, pruning seed " << epee::string_tools::to_string_hex(context.m_pruning_seed));
         LOG_DEBUG_CC(context, " COMMAND_HANDSHAKE INVOKED OK");
       }else
@@ -1592,7 +1595,6 @@ namespace nodetool
     ape.first_seen = first_seen_stamp ? first_seen_stamp : time(nullptr);
 
     zone.m_peerlist.append_with_peer_anchor(ape);
-    zone.m_notifier.on_handshake_complete(con->m_connection_id, con->m_is_income);
     zone.m_notifier.new_out_connection();
 
     LOG_DEBUG_CC(*con, "CONNECTION HANDSHAKED OK.");
