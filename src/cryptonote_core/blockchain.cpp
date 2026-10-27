@@ -2326,6 +2326,9 @@ bool Blockchain::get_outs(const COMMAND_RPC_GET_OUTPUTS_BIN::request& req, COMMA
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  db_rtxn_guard rtxn_guard(m_db);
+  critical_region_var.unlock();
+
   res.outs.clear();
   res.outs.reserve(req.outputs.size());
 
@@ -2589,6 +2592,9 @@ bool Blockchain::get_transactions_blobs(const std::vector<crypto::hash>& txs_ids
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
 
+  db_rtxn_guard rtxn_guard(m_db);
+  critical_region_var.unlock();
+
   txs.reserve(txs_ids.size());
   for (const auto& tx_hash : txs_ids)
   {
@@ -2612,6 +2618,9 @@ bool Blockchain::get_transactions_blobs(const std::vector<crypto::hash>& txs_ids
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  db_rtxn_guard rtxn_guard(m_db);
+  critical_region_var.unlock();
 
   txs.reserve(txs_ids.size());
   for (const auto& tx_hash : txs_ids)
@@ -2637,6 +2646,9 @@ bool Blockchain::get_split_transactions_blobs(const t_ids_container& txs_ids, t_
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  db_rtxn_guard rtxn_guard(m_db);
+  critical_region_var.unlock();
 
   reserve_container(txs, txs_ids.size());
   for (const auto& tx_hash : txs_ids)
@@ -2671,6 +2683,9 @@ bool Blockchain::get_transactions(const t_ids_container& txs_ids, t_tx_container
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
   CRITICAL_REGION_LOCAL(m_blockchain_lock);
+
+  db_rtxn_guard rtxn_guard(m_db);
+  critical_region_var.unlock();
 
   reserve_container(txs, txs_ids.size());
   for (const auto& tx_hash : txs_ids)
@@ -2803,6 +2818,8 @@ bool Blockchain::find_blockchain_supplement(const uint64_t req_start_block, cons
   }
 
   db_rtxn_guard rtxn_guard(m_db);
+  critical_region_var.unlock();
+
   top_hash = m_db->top_block_hash(&total_height);
   ++total_height;
   CHECK_AND_ASSERT_MES(total_height > start_height, false, "chain height expected to be higher than start block");
