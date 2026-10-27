@@ -18,6 +18,12 @@ static inline uint32_t make_ipv4_cidr_mask(const uint8_t mask)
 
 namespace epee { namespace net_utils
 {
+	static bool is_ipv6_unique_local(const boost::asio::ip::address_v6& ip)
+	{
+		const boost::asio::ip::address_v6::bytes_type bytes = ip.to_bytes();
+		return (bytes[0] & 0xfe) == 0xfc;
+	}
+
 	bool ipv4_network_address::equal(const ipv4_network_address& other) const noexcept
 	{ return is_same_host(other) && port() == other.port(); }
 
@@ -42,7 +48,8 @@ namespace epee { namespace net_utils
 
 	std::string ipv6_network_address::host_str() const { return m_address.to_string(); }
 	bool ipv6_network_address::is_loopback() const { return m_address.is_loopback(); }
-	bool ipv6_network_address::is_local() const { return m_address.is_link_local(); }
+	bool ipv6_network_address::is_local() const
+	{ return m_address.is_link_local() || m_address.is_site_local() || is_ipv6_unique_local(m_address); }
 
 	boost::optional<ipv4_network_address> get_ipv4_mapped_address(const ipv6_network_address& address)
 	{
@@ -53,12 +60,6 @@ namespace epee { namespace net_utils
 		const boost::asio::ip::address_v4 ipv4 =
 			boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, ip);
 		return ipv4_network_address{SWAP32BE(ipv4.to_uint()), address.port()};
-	}
-
-	static bool is_ipv6_unique_local(const boost::asio::ip::address_v6& ip)
-	{
-		const boost::asio::ip::address_v6::bytes_type bytes = ip.to_bytes();
-		return (bytes[0] & 0xfe) == 0xfc;
 	}
 
 	bool should_group_ipv6_by_prefix(const boost::asio::ip::address_v6& ip)
