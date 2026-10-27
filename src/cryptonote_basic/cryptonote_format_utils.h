@@ -50,8 +50,11 @@ namespace cryptonote
   //---------------------------------------------------------------
   void get_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h, hw::device &hwdev);
   crypto::hash get_transaction_prefix_hash(const transaction_prefix& tx, hw::device &hwdev);
-  void get_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h);
-  crypto::hash get_transaction_prefix_hash(const transaction_prefix& tx);
+  void calculate_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h);
+  crypto::hash calculate_transaction_prefix_hash(const transaction_prefix& tx);
+  // uses tx's cached prefix hash, which is only trusted while its cached tx hash is valid
+  void get_transaction_prefix_hash(const transaction& tx, crypto::hash& h);
+  crypto::hash get_transaction_prefix_hash(const transaction& tx);
   /* The size check is useful before parsing non-coinbase txs from untrusted sources. Coinbase blob sizes may be uncapped. */
   bool parse_and_validate_tx_prefix_from_blob(const blobdata_ref& tx_blob, transaction_prefix& tx, const bool max_size_check = false);
   bool parse_and_validate_tx_from_blob(const blobdata_ref& tx_blob, transaction& tx, crypto::hash& tx_hash, crypto::hash& tx_prefix_hash, const bool max_size_check = false);

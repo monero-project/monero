@@ -195,6 +195,76 @@ TEST(cn_format_utils, pruned_transaction_hash_caches_prunable_hash)
     EXPECT_EQ(prunable_hash, cryptonote::get_transaction_prunable_hash(pruned_tx, &pruned_tx_blob_ref));
 }
 
+TEST(cn_format_utils, transaction_prefix_hash_cache)
+{
+    const auto tx_path = unit_test::data_dir / "txs" / "bpp_tx_e89415.bin";
+    cryptonote::blobdata tx_blob;
+    ASSERT_TRUE(epee::file_io_utils::load_file_to_string(tx_path.string(), tx_blob));
+
+    // computing the tx hash caches the prefix hash
+    cryptonote::transaction tx;
+    crypto::hash tx_hash;
+    ASSERT_TRUE(cryptonote::parse_and_validate_tx_from_blob(tx_blob, tx, tx_hash));
+    ASSERT_TRUE(tx.is_prefix_hash_valid());
+    crypto::hash expected_prefix_hash;
+    crypto::cn_fast_hash(tx_blob.data(), tx.prefix_size, expected_prefix_hash);
+    EXPECT_EQ(expected_prefix_hash, tx.prefix_hash);
+    EXPECT_EQ(expected_prefix_hash, cryptonote::get_transaction_prefix_hash(tx));
+    EXPECT_EQ(expected_prefix_hash, cryptonote::calculate_transaction_prefix_hash(tx));
+
+    // copies keep the cache
+    const cryptonote::transaction tx_copy = tx;
+    EXPECT_TRUE(tx_copy.is_prefix_hash_valid());
+    EXPECT_EQ(expected_prefix_hash, cryptonote::get_transaction_prefix_hash(tx_copy));
+
+    // invalidate_hashes() drops the cache
+    cryptonote::transaction modified_tx = tx;
+    ++modified_tx.unlock_time;
+    modified_tx.invalidate_hashes();
+    EXPECT_FALSE(modified_tx.is_prefix_hash_valid());
+    const crypto::hash modified_prefix_hash = cryptonote::get_transaction_prefix_hash(modified_tx);
+    EXPECT_NE(expected_prefix_hash, modified_prefix_hash);
+    EXPECT_EQ(modified_prefix_hash, cryptonote::calculate_transaction_prefix_hash(modified_tx));
+
+    // the prefix hash is neither stored nor trusted without a valid tx hash
+    EXPECT_FALSE(modified_tx.is_prefix_hash_valid());
+    modified_tx = tx;
+    modified_tx.set_hash_valid(false);
+    ++modified_tx.unlock_time;
+    EXPECT_FALSE(modified_tx.is_prefix_hash_valid());
+    EXPECT_EQ(modified_prefix_hash, cryptonote::get_transaction_prefix_hash(modified_tx));
+
+    // parsing resets the cache
+    ASSERT_TRUE(cryptonote::parse_and_validate_tx_from_blob(tx_blob, modified_tx));
+    EXPECT_FALSE(modified_tx.is_prefix_hash_valid());
+    EXPECT_EQ(expected_prefix_hash, cryptonote::get_transaction_prefix_hash(modified_tx));
+}
+
+TEST(cn_format_utils, v1_transaction_prefix_hash_cache)
+{
+    // v1 tx hashes don't go through the prefix hash, so rehashing must not leave a stale one behind
+    cryptonote::transaction tx;
+    tx.version = 1;
+    tx.unlock_time = 1;
+    cryptonote::get_transaction_hash(tx);
+    const crypto::hash prefix_hash = cryptonote::get_transaction_prefix_hash(tx);
+    ASSERT_TRUE(tx.is_prefix_hash_valid());
+
+    tx.set_hash_valid(false);
+    tx.extra.push_back(0);
+    cryptonote::get_transaction_hash(tx);
+    const crypto::hash modified_prefix_hash = cryptonote::get_transaction_prefix_hash(tx);
+    EXPECT_NE(prefix_hash, modified_prefix_hash);
+    EXPECT_EQ(cryptonote::calculate_transaction_prefix_hash(tx), modified_prefix_hash);
+
+    // a prefix hash left without a valid tx hash is dropped when the tx is rehashed
+    tx.set_hash_valid(false);
+    tx.set_prefix_hash(prefix_hash);
+    cryptonote::get_transaction_hash(tx);
+    EXPECT_FALSE(tx.is_prefix_hash_valid());
+    EXPECT_EQ(modified_prefix_hash, cryptonote::get_transaction_prefix_hash(tx));
+}
+
 TEST(cn_format_utils, block_longhash_202612_arbitrary_blob)
 {
     const cryptonote::blobdata blob = "not the historical block 202612 hashing blob";

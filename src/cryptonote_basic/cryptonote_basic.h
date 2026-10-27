@@ -300,6 +300,7 @@ namespace cryptonote
     // hash cash
     mutable std::atomic<bool> hash_valid;
     mutable std::atomic<bool> prunable_hash_valid;
+    mutable std::atomic<bool> prefix_hash_valid;
     mutable std::atomic<bool> blob_size_valid;
 
   public:
@@ -309,6 +310,7 @@ namespace cryptonote
     // hash cash
     mutable crypto::hash hash;
     mutable crypto::hash prunable_hash;
+    mutable crypto::hash prefix_hash;
     mutable size_t blob_size;
 
     bool pruned;
@@ -325,13 +327,16 @@ namespace cryptonote
     void set_null();
     void invalidate_hashes();
     bool is_hash_valid() const { return hash_valid.load(std::memory_order_acquire); }
-    void set_hash_valid(bool v) const { hash_valid.store(v,std::memory_order_release); }
+    void set_hash_valid(bool v) const { hash_valid.store(v,std::memory_order_release); if (!v) set_prefix_hash_valid(false); }
     bool is_prunable_hash_valid() const { return prunable_hash_valid.load(std::memory_order_acquire); }
     void set_prunable_hash_valid(bool v) const { prunable_hash_valid.store(v,std::memory_order_release); }
+    bool is_prefix_hash_valid() const { return prefix_hash_valid.load(std::memory_order_acquire); }
+    void set_prefix_hash_valid(bool v) const { prefix_hash_valid.store(v,std::memory_order_release); }
     bool is_blob_size_valid() const { return blob_size_valid.load(std::memory_order_acquire); }
     void set_blob_size_valid(bool v) const { blob_size_valid.store(v,std::memory_order_release); }
     void set_hash(const crypto::hash &h) const { hash = h; set_hash_valid(true); }
     void set_prunable_hash(const crypto::hash &h) const { prunable_hash = h; set_prunable_hash_valid(true); }
+    void set_prefix_hash(const crypto::hash &h) const { prefix_hash = h; set_prefix_hash_valid(true); }
     void set_blob_size(size_t sz) const { blob_size = sz; set_blob_size_valid(true); }
 
     BEGIN_SERIALIZE_OBJECT()
@@ -339,6 +344,7 @@ namespace cryptonote
       {
         set_hash_valid(false);
         set_prunable_hash_valid(false);
+        set_prefix_hash_valid(false);
         set_blob_size_valid(false);
       }
 
@@ -443,11 +449,13 @@ namespace cryptonote
     transaction_prefix(t),
     hash_valid(t.is_hash_valid()),
     prunable_hash_valid(t.is_prunable_hash_valid()),
+    prefix_hash_valid(t.is_prefix_hash_valid()),
     blob_size_valid(t.is_blob_size_valid()),
     signatures(t.signatures),
     rct_signatures(t.rct_signatures),
     hash(t.hash),
     prunable_hash(t.prunable_hash),
+    prefix_hash(t.prefix_hash),
     blob_size(t.blob_size),
     pruned(t.pruned),
     unprunable_size(t.unprunable_size.load()),
@@ -458,11 +466,13 @@ namespace cryptonote
     transaction_prefix(std::move(t)),
     hash_valid(t.is_hash_valid()),
     prunable_hash_valid(t.is_prunable_hash_valid()),
+    prefix_hash_valid(t.is_prefix_hash_valid()),
     blob_size_valid(t.is_blob_size_valid()),
     signatures(std::move(t.signatures)),
     rct_signatures(std::move(t.rct_signatures)),
     hash(std::move(t.hash)),
     prunable_hash(std::move(t.prunable_hash)),
+    prefix_hash(std::move(t.prefix_hash)),
     blob_size(std::move(t.blob_size)),
     pruned(t.pruned),
     unprunable_size(t.unprunable_size.load()),
@@ -480,11 +490,13 @@ namespace cryptonote
 
     set_hash_valid(t.is_hash_valid());
     set_prunable_hash_valid(t.is_prunable_hash_valid());
+    set_prefix_hash_valid(t.is_prefix_hash_valid());
     set_blob_size_valid(t.is_blob_size_valid());
     signatures = t.signatures;
     rct_signatures = t.rct_signatures;
     hash = t.hash;
     prunable_hash = t.prunable_hash;
+    prefix_hash = t.prefix_hash;
     blob_size = t.blob_size;
     pruned = t.pruned;
     unprunable_size = t.unprunable_size.load();
@@ -501,11 +513,13 @@ namespace cryptonote
 
     set_hash_valid(t.is_hash_valid());
     set_prunable_hash_valid(t.is_prunable_hash_valid());
+    set_prefix_hash_valid(t.is_prefix_hash_valid());
     set_blob_size_valid(t.is_blob_size_valid());
     signatures = std::move(t.signatures);
     rct_signatures = std::move(t.rct_signatures);
     hash = std::move(t.hash);
     prunable_hash = std::move(t.prunable_hash);
+    prefix_hash = std::move(t.prefix_hash);
     blob_size = std::move(t.blob_size);
     pruned = std::move(t.pruned);
     unprunable_size = t.unprunable_size.load();
@@ -520,11 +534,13 @@ namespace cryptonote
     transaction_prefix(),
     hash_valid(false),
     prunable_hash_valid(false),
+    prefix_hash_valid(false),
     blob_size_valid(false),
     signatures(),
     rct_signatures{},
     hash{},
     prunable_hash{},
+    prefix_hash{},
     blob_size(0),
     pruned(false),
     unprunable_size(0),
@@ -541,6 +557,7 @@ namespace cryptonote
     rct_signatures = rct::rctSig{};
     set_hash_valid(false);
     set_prunable_hash_valid(false);
+    set_prefix_hash_valid(false);
     set_blob_size_valid(false);
     pruned = false;
     unprunable_size = 0;
@@ -552,6 +569,7 @@ namespace cryptonote
   {
     set_hash_valid(false);
     set_prunable_hash_valid(false);
+    set_prefix_hash_valid(false);
     set_blob_size_valid(false);
   }
 
