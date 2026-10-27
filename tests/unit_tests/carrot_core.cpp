@@ -31,10 +31,13 @@
 #include "carrot_core/account_secrets.h"
 #include "carrot_core/address_utils.h"
 #include "carrot_core/enote_utils.h"
+#include "carrot_core/exceptions.h"
+#include "carrot_core/hash_functions.h"
 #include "carrot_core/output_set_finalization.h"
 #include "carrot_core/payment_proposal.h"
 #include "carrot_core/scan.h"
 #include "carrot_core/scan_unsafe.h"
+#include "carrot_core/transcript_fixed.h"
 #include "carrot_mock_helpers.h"
 #include "crypto/generators.h"
 #include "mx25519.h"
@@ -2483,3 +2486,168 @@ TEST(carrot_core, get_additional_payment_proposal_change_unique)
         encrypted_payment_id));
 }
 //----------------------------------------------------------------------------------------------------------------------
+namespace
+{
+//----------------------------------------------------------------------------------------------------------------------
+
+constexpr unsigned char SOME_CATS_RANDOMNESS_DOMAIN_SEP[] = "somecats sender-view memo anchor";
+//----------------------------------------------------------------------------------------------------------------------
+constexpr unsigned char SOME_CATS_CIPHER_DOMAIN_SEP[] = "somecats cipher secret";
+//----------------------------------------------------------------------------------------------------------------------
+encrypted_janus_anchor_t get_some_cats_cipher_secret(const janus_anchor_t &anchor_recv,
+    const crypto::public_key &address_spend_pubkey,
+    const crypto::public_key &address_view_pubkey,
+    const payment_id_t &payment_id,
+     const crypto::key_image &tx_first_key_image)
+{
+    const input_context_t input_context = make_carrot_input_context(tx_first_key_image);
+
+    encrypted_janus_anchor_t some_cats_encryption_mask;
+    const auto transcript = make_fixed_transcript<SOME_CATS_CIPHER_DOMAIN_SEP>(
+        anchor_recv, input_context,
+        address_spend_pubkey, address_view_pubkey, payment_id);
+    derive_bytes_16(transcript.data(), transcript.size(), nullptr, some_cats_encryption_mask.bytes);
+
+    return some_cats_encryption_mask;
+}
+//----------------------------------------------------------------------------------------------------------------------
+void set_some_cats_memo(CarrotEnoteV1 &internal_enote_inout,
+    const CarrotPaymentProposalV1 &other_payment_proposal,
+    const janus_anchor_t &memo)
+{
+    const encrypted_janus_anchor_t some_cats_encryption_mask = get_some_cats_cipher_secret(
+        other_payment_proposal.randomness,
+        other_payment_proposal.destination.address_spend_pubkey,
+        other_payment_proposal.destination.address_view_pubkey,
+        other_payment_proposal.destination.payment_id,
+        internal_enote_inout.tx_first_key_image);
+
+    internal_enote_inout.anchor_enc = memo ^ some_cats_encryption_mask;
+}
+//----------------------------------------------------------------------------------------------------------------------
+janus_anchor_t decrypt_some_cats_memo_receiver(const CarrotEnoteV1 &enote,
+    const std::optional<encrypted_payment_id_t> &encrypted_payment_id,
+    const encrypted_janus_anchor_t &other_anchor_enc,
+    const view_incoming_key_device &k_view_incoming_dev,
+    const epee::span<const crypto::public_key> main_address_spend_pubkeys)
+{
+    crypto::x25519_pubkey s_sender_receiver;
+    bool r = try_make_carrot_shared_key_receiver(k_view_incoming_dev,
+        enote.enote_ephemeral_pubkey, s_sender_receiver);
+    CARROT_CHECK_AND_THROW(r, unexpected_scan_failure, "receiver ECDH failure for some cats");
+
+    crypto::secret_key sender_extension_g;
+    crypto::secret_key sender_extension_t;
+    crypto::public_key address_spend_pubkey;
+    xmr_amount amount;
+    crypto::secret_key amount_blinding_factor;
+    payment_id_t payment_id;
+    janus_anchor_t janus_anchor;
+    r = try_scan_carrot_enote_external_no_janus(enote, encrypted_payment_id,
+        s_sender_receiver, sender_extension_g, sender_extension_t,
+        address_spend_pubkey, amount, amount_blinding_factor, payment_id,
+        janus_anchor);
+    CARROT_CHECK_AND_THROW(r, unexpected_scan_failure, "receiver scan failure for some cats");
+
+    // K^j_v = k_v K_base, where:
+    //   [subaddress]   K_base = K^j_s
+    //   [main address] K_base = G
+    bool is_subaddress = false;
+    for (const crypto::public_key &main_address_spend_pubkey : main_address_spend_pubkeys)
+        if (address_spend_pubkey == main_address_spend_pubkey)
+            is_subaddress = true;
+    crypto::public_key address_view_pubkey = is_subaddress ? address_spend_pubkey : crypto::get_G();
+    r = k_view_incoming_dev.view_key_scalar_mult_ed25519(address_view_pubkey, address_view_pubkey);
+    CARROT_CHECK_AND_THROW(r, unexpected_scan_failure, "k_v mul failure for some cats");
+
+    const input_context_t input_context = make_carrot_input_context(enote.tx_first_key_image);
+    r = verify_carrot_normal_janus_protection(input_context,
+        address_spend_pubkey,
+        address_view_pubkey,
+        is_subaddress,
+        enote.enote_ephemeral_pubkey,
+        janus_anchor,
+        payment_id);
+    CARROT_CHECK_AND_THROW(r, unexpected_scan_failure, "Janus failure for some cats");
+
+    const encrypted_janus_anchor_t some_cats_encryption_mask = get_some_cats_cipher_secret(janus_anchor, address_spend_pubkey, address_view_pubkey, payment_id, enote.tx_first_key_image);
+    const janus_anchor_t memo = other_anchor_enc ^ some_cats_encryption_mask;
+    return memo;
+}
+//----------------------------------------------------------------------------------------------------------------------
+} //anonymous namespace
+TEST(carrot_some_cats, main)
+{
+    const CarrotPaymentProposalV1 normal_payment_proposal{
+        .destination = bob.cryptonote_address(),
+        .amount = rct::randXmrAmount(55555 * COIN),
+        .randomness = gen_janus_anchor()
+    };
+
+    const CarrotPaymentProposalSelfSendV1 selfsend_payment_proposal{
+        .destination_address_spend_pubkey = alice.carrot_account_spend_pubkey,
+        .is_subaddress = false,
+        .amount = rct::randXmrAmount(77777 * COIN),
+        .enote_type = CarrotEnoteType::PAYMENT,
+        .enote_ephemeral_privkey = {},
+        .internal_message = {}
+    };
+
+    const crypto::key_image tx_first_key_image = mock::gen_key_image();
+
+    constexpr const char MEMO[] = "Gud morning, JWD";
+    ASSERT_LE(strlen(MEMO), sizeof(janus_anchor_t));
+    janus_anchor_t memo_anchor;
+    strncpy(reinterpret_cast<char*>(&memo_anchor), MEMO, sizeof(janus_anchor_t));
+
+    RCTOutputEnoteProposal outgoing_enote;
+    encrypted_payment_id_t encrypted_payment_id;
+    get_output_proposal_normal_v1(normal_payment_proposal,
+        tx_first_key_image,
+        outgoing_enote,
+        encrypted_payment_id);
+    
+    RCTOutputEnoteProposal selfsend_enote;
+    get_output_proposal_internal_v1(selfsend_payment_proposal,
+        alice.s_view_internal_dev,
+        tx_first_key_image,
+        &normal_payment_proposal,
+        /*other_self_send_proposal=*/nullptr,
+        selfsend_enote);
+    set_some_cats_memo(selfsend_enote.enote, normal_payment_proposal, memo_anchor);
+
+    // regular external scan
+    crypto::x25519_pubkey s_sender_receiver;
+    ASSERT_TRUE(try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev,
+        outgoing_enote.enote.enote_ephemeral_pubkey, s_sender_receiver));
+    crypto::secret_key sender_extension_g;
+    crypto::secret_key sender_extension_t;
+    crypto::public_key address_spend_pubkey;
+    xmr_amount amount;
+    crypto::secret_key amount_blinding_factor;
+    payment_id_t payment_id;
+    ASSERT_TRUE(try_scan_carrot_enote_external_receiver(outgoing_enote.enote,
+        encrypted_payment_id, s_sender_receiver,
+        {&bob.carrot_account_spend_pubkey, 1}, bob.k_view_incoming_dev,
+        sender_extension_g, sender_extension_t, address_spend_pubkey, amount,
+        amount_blinding_factor, payment_id));
+    ASSERT_EQ(normal_payment_proposal.destination.address_spend_pubkey, address_spend_pubkey);
+    ASSERT_EQ(normal_payment_proposal.amount, amount);
+
+    // regular internal scan
+    CarrotEnoteType enote_type;
+    janus_anchor_t internal_message;
+    ASSERT_TRUE(try_scan_carrot_enote_internal_receiver(selfsend_enote.enote,
+        alice.s_view_internal_dev, sender_extension_g, sender_extension_t,
+        address_spend_pubkey, amount, amount_blinding_factor, enote_type,
+        internal_message));
+    ASSERT_EQ(selfsend_payment_proposal.destination_address_spend_pubkey, address_spend_pubkey);
+    ASSERT_EQ(selfsend_payment_proposal.amount, amount);
+
+    // decrypt SOME CATS memo on receiver side
+    const janus_anchor_t decrypted_memo = decrypt_some_cats_memo_receiver(outgoing_enote.enote,
+        encrypted_payment_id, selfsend_enote.enote.anchor_enc,
+        bob.k_view_incoming_dev,
+        {&bob.carrot_account_view_pubkey, 1});
+    EXPECT_EQ(memo_anchor, decrypted_memo);
+}
