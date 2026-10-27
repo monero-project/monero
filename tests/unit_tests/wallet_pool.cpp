@@ -29,7 +29,9 @@
 #include "gtest/gtest.h"
 
 #include <functional>
+#include <boost/filesystem.hpp>
 
+#include "scope_guard.h"
 #include "wallet/wallet2.h"
 
 class wallet_pool_test
@@ -63,6 +65,16 @@ public:
     static void append_block(tools::wallet2 &wallet)
     {
         wallet.m_blockchain.push_back(crypto::rand<crypto::hash>());
+    }
+
+    static void trim_hashchain(tools::wallet2 &wallet, size_t height)
+    {
+        wallet.m_blockchain.trim(height);
+    }
+
+    static const tools::hashchain &hashchain(const tools::wallet2 &wallet)
+    {
+        return wallet.m_blockchain;
     }
 
     static uint64_t pool_query_time(const tools::wallet2 &wallet)
@@ -284,21 +296,40 @@ namespace
         cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response &)>;
     using transaction_reply = std::function<bool(const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request &,
         cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response &)>;
+    using hashes_reply = std::function<void(const cryptonote::COMMAND_RPC_GET_HASHES_FAST::request &,
+        cryptonote::COMMAND_RPC_GET_HASHES_FAST::response &)>;
 
     class pool_http_client : public net::http::client
     {
         epee::net_utils::http::http_response_info response;
         pool_reply reply;
         transaction_reply tx_reply;
+        hashes_reply hash_reply;
 
     public:
-        pool_http_client(const pool_reply &reply, const transaction_reply &tx_reply)
-            : reply(reply), tx_reply(tx_reply) {}
+        pool_http_client(const pool_reply &reply, const transaction_reply &tx_reply, const hashes_reply &hash_reply)
+            : reply(reply), tx_reply(tx_reply), hash_reply(hash_reply) {}
 
         bool invoke(const boost::string_ref uri, const boost::string_ref method, const boost::string_ref body,
             std::chrono::milliseconds timeout, const epee::net_utils::http::http_response_info **result,
             const epee::net_utils::http::fields_list &headers) override
         {
+            if (uri == "/gethashes.bin")
+            {
+                EXPECT_TRUE(bool(hash_reply));
+                if (!hash_reply)
+                    return false;
+                cryptonote::COMMAND_RPC_GET_HASHES_FAST::request request = AUTO_VAL_INIT(request);
+                EXPECT_TRUE(epee::serialization::load_t_from_binary(request, std::string(body.data(), body.size())));
+                cryptonote::COMMAND_RPC_GET_HASHES_FAST::response hashes = AUTO_VAL_INIT(hashes);
+                hashes.status = CORE_RPC_STATUS_OK;
+                hash_reply(request, hashes);
+                response.m_response_code = 200;
+                const auto blob = epee::serialization::store_t_to_binary(hashes);
+                response.m_body.assign(reinterpret_cast<const char *>(blob.data()), blob.size());
+                *result = &response;
+                return true;
+            }
             if (uri == "/gettransactions")
             {
                 EXPECT_TRUE(bool(tx_reply));
@@ -353,14 +384,16 @@ namespace
     {
         pool_reply reply;
         transaction_reply tx_reply;
+        hashes_reply hash_reply;
 
     public:
-        explicit pool_http_client_factory(const pool_reply &reply, const transaction_reply &tx_reply = {})
-            : reply(reply), tx_reply(tx_reply) {}
+        explicit pool_http_client_factory(const pool_reply &reply, const transaction_reply &tx_reply = {},
+            const hashes_reply &hash_reply = {})
+            : reply(reply), tx_reply(tx_reply), hash_reply(hash_reply) {}
 
         std::unique_ptr<epee::net_utils::http::abstract_http_client> create() override
         {
-            return std::unique_ptr<epee::net_utils::http::abstract_http_client>(new pool_http_client(reply, tx_reply));
+            return std::unique_ptr<epee::net_utils::http::abstract_http_client>(new pool_http_client(reply, tx_reply, hash_reply));
         }
     };
 
@@ -456,6 +489,102 @@ TEST(wallet_pool, retries_pool_after_stopped_refresh)
     EXPECT_EQ(2, queries);
     EXPECT_EQ(1, callback.pool_receipts);
     EXPECT_EQ(2, wallet_pool_test::pool_query_time(w));
+}
+
+TEST(wallet_pool, restores_hashchain_after_incomplete_rebuild)
+{
+    const auto path = boost::filesystem::temp_directory_path() /
+        boost::filesystem::unique_path("monero-hashchain-%%%%-%%%%");
+    const epee::scope_guard cleanup([&] {
+        boost::filesystem::remove(path);
+        boost::filesystem::remove(path.string() + ".keys");
+    });
+    tools::hashchain original;
+    tools::wallet2 *wallet = nullptr;
+    size_t hash_pulls = 0;
+    const auto reply = [&](const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request &,
+        cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response &response)
+    {
+        response.current_height = 5;
+        const auto block = make_refresh_block(4, crypto::null_hash,
+            wallet->get_account().get_keys().m_account_address);
+        add_refresh_block(response, block);
+    };
+    const auto hash_reply = [&](const cryptonote::COMMAND_RPC_GET_HASHES_FAST::request &request,
+        cryptonote::COMMAND_RPC_GET_HASHES_FAST::response &)
+    {
+        EXPECT_EQ(0, request.start_height);
+        ++hash_pulls;
+        wallet->stop();
+    };
+    {
+        tools::wallet2 w(cryptonote::MAINNET, 1, true,
+            std::unique_ptr<epee::net_utils::http::http_client_factory>(
+                new pool_http_client_factory(reply, {}, hash_reply)));
+        wallet = &w;
+        wallet_pool_test::prepare_refresh(w);
+        wallet_pool_test::append_block(w);
+        wallet_pool_test::append_block(w);
+        wallet_pool_test::append_block(w);
+        wallet_pool_test::trim_hashchain(w, 2);
+        original = wallet_pool_test::hashchain(w);
+        ASSERT_EQ(2, original.offset());
+        ASSERT_EQ(4, original.size());
+
+        uint64_t fetched = 0;
+        bool received = false;
+        w.refresh(true, 0, fetched, received, false);
+        EXPECT_EQ(1, hash_pulls);
+        w.store_to(path.string(), epee::wipeable_string(""));
+    }
+    tools::wallet2 restored(cryptonote::MAINNET);
+    restored.load(path.string(), epee::wipeable_string(""));
+    const auto &chain = wallet_pool_test::hashchain(restored);
+    ASSERT_EQ(original.offset(), chain.offset());
+    ASSERT_EQ(original.size(), chain.size());
+    EXPECT_EQ(original.genesis(), chain.genesis());
+    for (size_t i = original.offset(); i < original.size(); ++i)
+        EXPECT_EQ(original[i], chain[i]) << i;
+}
+
+TEST(wallet_pool, does_not_duplicate_genesis_after_zero_offset_rebuild)
+{
+    size_t block_pulls = 0;
+    tools::wallet2 *wallet = nullptr;
+    const auto reply = [&](const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request &,
+        cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response &response)
+    {
+        response.current_height = 5;
+        if (block_pulls++ == 0)
+        {
+            const auto block = make_refresh_block(4, crypto::null_hash,
+                wallet->get_account().get_keys().m_account_address);
+            add_refresh_block(response, block);
+        }
+        else
+            response.start_height = response.current_height;
+    };
+    tools::wallet2 w(cryptonote::MAINNET, 1, true,
+        std::unique_ptr<epee::net_utils::http::http_client_factory>(
+            new pool_http_client_factory(reply)));
+    wallet = &w;
+    wallet_pool_test::prepare_refresh(w);
+    wallet_pool_test::append_block(w);
+    wallet_pool_test::append_block(w);
+    wallet_pool_test::append_block(w);
+    const auto original = wallet_pool_test::hashchain(w);
+    ASSERT_EQ(0, original.offset());
+    ASSERT_EQ(4, original.size());
+
+    uint64_t fetched = 0;
+    bool received = false;
+    w.refresh(true, 0, fetched, received, false);
+
+    const auto &chain = wallet_pool_test::hashchain(w);
+    ASSERT_EQ(original.offset(), chain.offset());
+    ASSERT_EQ(original.size(), chain.size());
+    for (size_t i = 0; i < original.size(); ++i)
+        EXPECT_EQ(original[i], chain[i]) << i;
 }
 
 TEST(wallet_pool, retries_pool_after_password_failure)
