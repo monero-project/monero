@@ -62,7 +62,7 @@ void SubaddressAccountImpl::refresh()
   {
     m_rows.push_back(new SubaddressAccountRow(
       i,
-      m_wallet->m_wallet->get_subaddress_as_str({i,0}),
+      m_wallet->address(i, 0),
       m_wallet->m_wallet->get_subaddress_label({i,0}),
       cryptonote::print_money(m_wallet->m_wallet->balance(i, false)),
       cryptonote::print_money(m_wallet->m_wallet->unlocked_balance(i, false))
@@ -79,6 +79,9 @@ void SubaddressAccountImpl::clearRows() {
 
 std::vector<SubaddressAccountRow*> SubaddressAccountImpl::getAll() const
 {
+  const auto ms_status = m_wallet->m_wallet->get_multisig_status();
+  if (ms_status.multisig_is_active && !ms_status.is_ready)
+    return {};
   return m_rows;
 }
 

@@ -1677,6 +1677,7 @@ private:
 
     void init_type(hw::device::device_type device_type);
     void setup_new_blockchain();
+    bool update_address_file(const std::string &address_file) const;
     void create_keys_file(const std::string &wallet_, bool watch_only, const epee::wipeable_string &password, bool create_address_file);
 
     wallet_device_callback * get_device_callback();

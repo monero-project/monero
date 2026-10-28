@@ -519,6 +519,12 @@ bool WalletImpl::create(const std::string &path, const std::string &password, co
 bool WalletImpl::createWatchOnly(const std::string &path, const std::string &password, const std::string &language) const
 {
     clearStatus();
+    const auto ms_status = m_wallet->get_multisig_status();
+    if (ms_status.multisig_is_active && !ms_status.is_ready) {
+        setStatusError(tr("This multisig wallet is not yet finalized"));
+        return false;
+    }
+
     std::unique_ptr<tools::wallet2> view_wallet(new tools::wallet2(m_wallet->nettype()));
 
     // Store same refresh height as original wallet
@@ -987,11 +993,17 @@ bool WalletImpl::setDevicePassphrase(const std::string &passphrase)
 
 std::string WalletImpl::address(uint32_t accountIndex, uint32_t addressIndex) const
 {
+    const auto ms_status = m_wallet->get_multisig_status();
+    if (ms_status.multisig_is_active && !ms_status.is_ready)
+        return "";
     return m_wallet->get_subaddress_as_str({accountIndex, addressIndex});
 }
 
 std::string WalletImpl::integratedAddress(const std::string &payment_id) const
 {
+    const auto ms_status = m_wallet->get_multisig_status();
+    if (ms_status.multisig_is_active && !ms_status.is_ready)
+        return "";
     crypto::hash8 pid;
     if (!tools::wallet2::parse_short_payment_id(payment_id, pid)) {
         return "";

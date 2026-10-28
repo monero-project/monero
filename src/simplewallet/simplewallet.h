@@ -186,6 +186,7 @@ namespace cryptonote
     bool account(const std::vector<std::string> &args = std::vector<std::string>());
     void print_accounts();
     void print_accounts(const std::string& tag);
+    bool check_multisig_ready() const;
     bool print_address(const std::vector<std::string> &args = std::vector<std::string>());
     bool print_integrated_address(const std::vector<std::string> &args = std::vector<std::string>());
     bool address_book(const std::vector<std::string> &args = std::vector<std::string>());
