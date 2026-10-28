@@ -2734,7 +2734,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             {
               THROW_WALLET_EXCEPTION_IF(m_multisig_rescan_k.empty() && !m_multisig_rescan_info.empty(),
                   error::wallet_internal_error, "NULL m_multisig_rescan_k");
-              if (!m_multisig_rescan_info.empty() && m_multisig_rescan_info.front().size() >= m_transfers.size())
+              if (m_multisig_rescan_info.size() >= m_transfers.size())
                 update_multisig_rescan_info(m_multisig_rescan_k, m_multisig_rescan_info, m_transfers.size() - 1);
             }
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
@@ -2816,7 +2816,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             {
               THROW_WALLET_EXCEPTION_IF(m_multisig_rescan_k.empty() && !m_multisig_rescan_info.empty(),
                   error::wallet_internal_error, "NULL m_multisig_rescan_k");
-              if (!m_multisig_rescan_info.empty() && m_multisig_rescan_info.front().size() >= m_transfers.size())
+              if (m_multisig_rescan_info.size() >= m_transfers.size())
                 update_multisig_rescan_info(m_multisig_rescan_k, m_multisig_rescan_info, m_transfers.size() - 1);
             }
             THROW_WALLET_EXCEPTION_IF(td.get_public_key() != tx_scan_info[o].in_ephemeral.pub, error::wallet_internal_error, "Inconsistent public keys");
@@ -4504,6 +4504,7 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     memwipe(v.data(), v.size() * sizeof(v[0]));
 
   m_multisig_rescan_k = std::vector<std::vector<rct::key>>{};
+  m_multisig_rescan_outputs.clear();
 
   LOG_PRINT_L1("Refresh done, blocks received: " << blocks_fetched << ", balance (all accounts): " << print_money(balance_all(false)) << ", unlocked: " << print_money(unlocked_balance_all(false)));
 }
@@ -15130,25 +15131,20 @@ rct::multisig_kLRki wallet2::get_multisig_composite_kLRki(size_t n, const std::u
   return kLRki;
 }
 //----------------------------------------------------------------------------------------------------
-crypto::key_image wallet2::get_multisig_composite_key_image(size_t n) const
+wallet2::multisig_rescan_output wallet2::get_multisig_rescan_output(const transfer_details &td) const
 {
-  CHECK_AND_ASSERT_THROW_MES(n < m_transfers.size(), "Bad output index");
-  return get_multisig_composite_key_image(n, m_transfers[n].m_multisig_info);
+  return {td.get_public_key(), get_tx_pub_key_from_received_outs(td),
+    cryptonote::get_additional_tx_pub_keys_from_extra(td.m_tx), td.m_internal_output_index};
 }
 //----------------------------------------------------------------------------------------------------
-crypto::key_image wallet2::get_multisig_composite_key_image(size_t n, const std::vector<multisig_info> &infos) const
+crypto::key_image wallet2::get_multisig_composite_key_image(const multisig_rescan_output &output, const std::vector<multisig_info> &infos) const
 {
-  CHECK_AND_ASSERT_THROW_MES(n < m_transfers.size(), "Bad output index");
-
-  const transfer_details &td = m_transfers[n];
-  const crypto::public_key tx_key = get_tx_pub_key_from_received_outs(td);
-  const std::vector<crypto::public_key> additional_tx_keys = cryptonote::get_additional_tx_pub_keys_from_extra(td.m_tx);
   crypto::key_image ki;
   std::vector<crypto::key_image> pkis;
   for (const auto &info: infos)
     for (const auto &pki: info.m_partial_key_images)
       pkis.push_back(pki);
-  bool r = multisig::generate_multisig_composite_key_image(get_account().get_keys(), m_subaddresses, td.get_public_key(), tx_key, additional_tx_keys, td.m_internal_output_index, pkis, m_multisig_signers.size(), m_multisig_threshold, ki);
+  bool r = multisig::generate_multisig_composite_key_image(get_account().get_keys(), m_subaddresses, output.public_key, output.tx_public_key, output.additional_tx_public_keys, output.internal_output_index, pkis, m_multisig_signers.size(), m_multisig_threshold, ki);
   THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
   return ki;
 }
@@ -15307,6 +15303,7 @@ void wallet2::update_multisig_rescan_info(const std::vector<std::vector<rct::key
 {
   CHECK_AND_ASSERT_THROW_MES(n < m_transfers.size(), "Bad index in update_multisig_info");
   CHECK_AND_ASSERT_THROW_MES(multisig_k.size() >= m_transfers.size(), "Mismatched sizes of multisig_k and info");
+  CHECK_AND_ASSERT_THROW_MES(n < info.size(), "Bad multisig info size");
 
   MDEBUG("update_multisig_rescan_info: updating index " << n);
   transfer_details &td = m_transfers[n];
@@ -15314,14 +15311,8 @@ void wallet2::update_multisig_rescan_info(const std::vector<std::vector<rct::key
   // validate the candidate before touching td.m_multisig_info, so a rejected candidate will never
   // overwrite installed info. only catches count mismatches (duplicate/missing components), not
   // a well-formed component that's just wrong for this output.
-  std::vector<multisig_info> new_info;
-  new_info.reserve(info.size());
-  for (const auto &pi: info)
-  {
-    CHECK_AND_ASSERT_THROW_MES(n < pi.size(), "Bad pi size");
-    new_info.push_back(pi[n]);
-  }
-  const crypto::key_image new_key_image = get_multisig_composite_key_image(n, new_info);
+  std::vector<multisig_info> new_info = info[n];
+  const crypto::key_image new_key_image = get_multisig_composite_key_image(get_multisig_rescan_output(td), new_info);
 
   td.m_multisig_info = std::move(new_info);
   m_key_images.erase(td.m_key_image);
@@ -15424,14 +15415,9 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs, bool re
 
   CHECK_AND_ASSERT_THROW_MES(info.size() + 1 <= m_multisig_signers.size() && info.size() + 1 >= m_multisig_threshold, "Wrong number of multisig sources");
 
-  std::vector<std::vector<rct::key>> k;
-  const epee::scope_guard wiper([&]() { for (auto &v: k) memwipe(v.data(), v.size() * sizeof(v[0])); });
-  k.reserve(m_transfers.size());
-  for (const auto &td: m_transfers)
-    k.push_back(td.m_multisig_k);
-
   // how many outputs we're going to update
-  size_t n_outputs = m_transfers.size();
+  const size_t n_known_outputs = std::max(m_transfers.size(), m_multisig_rescan_k.size());
+  size_t n_outputs = n_known_outputs;
   for (const auto &pi: info)
     if (pi.size() < n_outputs)
       n_outputs = pi.size();
@@ -15456,26 +15442,47 @@ size_t wallet2::import_multisig(std::vector<cryptonote::blobdata> blobs, bool re
     std::sort(info.begin(), info.end(), [](const std::vector<tools::wallet2::multisig_info> &i0, const std::vector<tools::wallet2::multisig_info> &i1){ return memcmp(&i0[0].m_signer, &i1[0].m_signer, sizeof(i0[0].m_signer)) < 0; });
   }
 
+  std::vector<std::vector<rct::key>> k;
+  const epee::scope_guard wiper([&]() { for (auto &v: k) memwipe(v.data(), v.size() * sizeof(v[0])); });
+  std::vector<multisig_rescan_output> outputs;
+  k.reserve(n_known_outputs);
+  outputs.reserve(n_known_outputs);
+  for (const auto &td: m_transfers)
+  {
+    k.push_back(td.m_multisig_k);
+    outputs.push_back(get_multisig_rescan_output(td));
+  }
+  for (size_t n = m_transfers.size(); n < n_known_outputs; ++n)
+  {
+    k.push_back(m_multisig_rescan_k[n]);
+    outputs.push_back(m_multisig_rescan_outputs.at(n));
+  }
+
+  auto rescan_info = m_multisig_rescan_info;
+  rescan_info.resize(std::max(rescan_info.size(), n_outputs));
+
   // validate every output before installing rescan state or detaching the chain. will only catch
   // count mismatches (missing/duplicate components), not a well-formed component that's just
   // wrong for this output.
-  for (size_t n = 0; n < n_outputs && n < m_transfers.size(); ++n)
+  for (size_t n = 0; n < n_outputs; ++n)
   {
-    std::vector<multisig_info> candidate;
+    auto &candidate = rescan_info[n];
+    candidate.clear();
     candidate.reserve(info.size());
-    for (const auto &pi: info)
-      candidate.push_back(pi[n]);
-    get_multisig_composite_key_image(n, candidate);
+    for (auto &pi: info)
+      candidate.push_back(std::move(pi[n]));
+    get_multisig_composite_key_image(outputs[n], candidate);
   }
 
   // wipe prior pending rescan state and install its replacement only after full validation
   for (auto &v: m_multisig_rescan_k)
     memwipe(v.data(), v.size() * sizeof(v[0]));
-  m_multisig_rescan_info = std::move(info);
+  m_multisig_rescan_info = std::move(rescan_info);
   m_multisig_rescan_k = std::move(k);
+  m_multisig_rescan_outputs = std::move(outputs);
 
   // first pass to determine where to detach the blockchain
-  for (size_t n = 0; n < n_outputs; ++n)
+  for (size_t n = 0; n < n_outputs && n < m_transfers.size(); ++n)
   {
     const transfer_details &td = m_transfers[n];
     if (!td.m_key_image_partial)
