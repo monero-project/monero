@@ -1661,9 +1661,22 @@ class TransferTest():
         daemon = Daemon()
         account = self.wallet[1].create_account('second account')
         assert account.account_index == 1
+
+        def check_all_account_balances():
+            for strict in (False, True):
+                first = self.wallet[1].get_balance(account_index = 0, strict = strict)
+                second = self.wallet[1].get_balance(account_index = 1, strict = strict)
+                all_accounts = self.wallet[1].get_balance(account_index = 1, address_indices = [999], all_accounts = True, strict = strict)
+                assert all_accounts.balance == first.balance + second.balance
+                assert all_accounts.unlocked_balance == first.unlocked_balance + second.unlocked_balance
+                assert all_accounts.blocks_to_unlock == max(first.blocks_to_unlock, second.blocks_to_unlock)
+                assert all_accounts.time_to_unlock == max(first.time_to_unlock, second.time_to_unlock)
+                assert all_accounts.get('per_subaddress', []) == first.get('per_subaddress', []) + second.get('per_subaddress', [])
+
         dst = {'address': account.address, 'amount': 100000000000}
         incoming_txid = self.wallet[0].transfer([dst]).tx_hash
         self.wallet[1].refresh()
+        check_all_account_balances()
 
         def check_transfer(txid, expected_type):
             try:
@@ -1685,11 +1698,13 @@ class TransferTest():
 
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 10)
         self.wallet[1].refresh()
+        check_all_account_balances()
         check_transfer(incoming_txid, 'in')
 
         assert self.wallet[1].get_balance(account_index = 1).unlocked_balance >= 50000000000
         dst = {'address': self.wallet[0].get_address().address, 'amount': 50000000000}
         outgoing_txid = self.wallet[1].transfer([dst], account_index = 1).tx_hash
+        check_all_account_balances()
         check_transfer(outgoing_txid, 'pending')
 
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
