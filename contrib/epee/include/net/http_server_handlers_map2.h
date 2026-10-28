@@ -99,11 +99,7 @@
 
 #define MAP_URI_AUTO_JON2(s_pattern, callback_f, command_type) MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, true)
 
-// For state changing endpoints: an empty body deserializes to a default
-// request, so a bodyless GET would otherwise invoke them. A browser sends
-// Origin on a POST, and a cross origin page cannot set a JSON content type
-// without a CORS preflight.
-#define REJECT_UNSAFE_REQUEST_IF(match) \
+#define REJECT_NON_POST_IF(match) \
     else if((match) && query_info.m_http_method != epee::net_utils::http::http_method_post) \
     { \
       response_info.m_response_code = 405; \
@@ -111,7 +107,14 @@
       response_info.m_mime_tipe = "text/plain"; \
       response_info.m_body = "POST required\n"; \
       return true; \
-    } \
+    }
+
+// For state changing endpoints: an empty body deserializes to a default
+// request, so a bodyless GET would otherwise invoke them. A browser sends
+// Origin on a POST, and a cross origin page cannot set a JSON content type
+// without a CORS preflight.
+#define REJECT_UNSAFE_REQUEST_IF(match) \
+    REJECT_NON_POST_IF(match) \
     else if((match) && !epee::net_utils::http::is_json_content_type(query_info.m_header_info.m_content_type)) \
     { \
       response_info.m_response_code = 415; \
@@ -123,6 +126,12 @@
 
 #define MAP_URI_AUTO_JON2_IF_UNSAFE(s_pattern, callback_f, command_type, cond) \
     REJECT_UNSAFE_REQUEST_IF((query_info.m_URI == s_pattern) && (cond)) \
+    MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, cond)
+
+// For endpoints whose response a DNS rebound page must not read: it sends
+// no Origin on a GET, but does on a POST.
+#define MAP_URI_AUTO_JON2_IF_POST(s_pattern, callback_f, command_type, cond, post_cond) \
+    REJECT_NON_POST_IF((query_info.m_URI == s_pattern) && (cond) && (post_cond)) \
     MAP_URI_AUTO_JON2_IF(s_pattern, callback_f, command_type, cond)
 
 #define MAP_URI_AUTO_BIN2(s_pattern, callback_f, command_type) \
