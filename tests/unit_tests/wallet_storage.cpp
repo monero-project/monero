@@ -104,6 +104,8 @@ public:
         add_transfer(0, 0, 5);
         add_transfer(0, 0, 500);
         add_transfer(1, 1, 70, false, 0, false, wallet.get_blockchain_current_height());
+        add_transfer(2, 1, 5);
+        add_transfer(2, 2, 15, false, 0, true);
 
         tools::wallet2::unconfirmed_transfer_details pending{};
         pending.m_subaddr_account = 1;
@@ -175,6 +177,62 @@ TEST(wallet_balance, batched_account_balances_match_individual_balances)
         EXPECT_EQ(wallet.balance(1, strict), filtered[1].balance);
         EXPECT_EQ(wallet.unlocked_balance(1, strict), filtered[1].unlocked_balance);
         EXPECT_EQ(0, filtered[2].balance);
+    }
+}
+
+TEST(wallet_balance, batched_subaddress_balances_match_individual_balances)
+{
+    const path wallet_file = unit_test::data_dir / "wallet_9svHk1";
+    tools::wallet2 wallet(cryptonote::TESTNET);
+    wallet.load(wallet_file.string(), epee::wipeable_string("test"));
+    wallet.set_subaddress_lookahead(1, 1);
+    wallet.add_subaddress_account("second");
+    wallet.add_subaddress_account("third");
+    wallet.ignore_outputs_below(10);
+    wallet.ignore_outputs_above(200);
+    wallet_accessor_test::set_balance_test_data(wallet);
+    tools::wallet2::transfer_container transfers;
+    wallet.get_transfers(transfers);
+
+    for (bool strict: {false, true})
+    {
+        const auto batched = wallet.balances_per_subaddress_all(strict);
+        ASSERT_EQ(wallet.get_num_subaddress_accounts(), batched.size());
+        uint64_t total_balance = 0, total_unlocked_balance = 0;
+        uint64_t blocks_to_unlock = 0, time_to_unlock = 0;
+        for (uint32_t major = 0; major < batched.size(); ++major)
+        {
+            const auto balances = wallet.balance_per_subaddress(major, strict);
+            const auto unlocked = wallet.unlocked_balance_per_subaddress(major, strict);
+            std::vector<uint32_t> emitted_indices;
+            for (const auto& entry: batched[major])
+            {
+                emitted_indices.push_back(entry.first);
+                const auto found = balances.find(entry.first);
+                ASSERT_NE(balances.end(), found);
+                EXPECT_EQ(found->second, entry.second.balance);
+                const auto unlocked_entry = unlocked.find(entry.first);
+                EXPECT_EQ(unlocked_entry == unlocked.end() ? 0 : unlocked_entry->second.first, entry.second.unlocked_balance);
+                EXPECT_EQ(unlocked_entry == unlocked.end() ? 0 : unlocked_entry->second.second.first, entry.second.blocks_to_unlock);
+                EXPECT_EQ(unlocked_entry == unlocked.end() ? 0 : unlocked_entry->second.second.second, entry.second.time_to_unlock);
+                EXPECT_EQ(std::count_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) {
+                    return !td.m_spent && td.m_subaddr_index.major == major && td.m_subaddr_index.minor == entry.first;
+                }), entry.second.num_unspent_outputs);
+                total_balance += entry.second.balance;
+                total_unlocked_balance += entry.second.unlocked_balance;
+                blocks_to_unlock = std::max(blocks_to_unlock, entry.second.blocks_to_unlock);
+                time_to_unlock = std::max(time_to_unlock, entry.second.time_to_unlock);
+            }
+            std::vector<uint32_t> expected_indices;
+            for (const auto& entry: balances)
+                expected_indices.push_back(entry.first);
+            EXPECT_EQ(expected_indices, emitted_indices);
+        }
+        EXPECT_EQ(wallet.balance_all(strict), total_balance);
+        uint64_t expected_blocks = 0, expected_time = 0;
+        EXPECT_EQ(wallet.unlocked_balance_all(strict, &expected_blocks, &expected_time), total_unlocked_balance);
+        EXPECT_EQ(expected_blocks, blocks_to_unlock);
+        EXPECT_EQ(expected_time, time_to_unlock);
     }
 }
 

@@ -7417,6 +7417,81 @@ std::vector<wallet2::account_balance> wallet2::balances_per_account(const std::v
   return balances;
 }
 //----------------------------------------------------------------------------------------------------
+std::vector<std::map<uint32_t, wallet2::subaddress_balance>> wallet2::balances_per_subaddress_all(bool strict)
+{
+  std::vector<std::map<uint32_t, subaddress_balance>> balances(get_num_subaddress_accounts());
+  const uint64_t blockchain_height = get_blockchain_current_height();
+  const uint64_t now = time(NULL);
+
+  for (const transfer_details& td: m_transfers)
+  {
+    if (td.m_subaddr_index.major >= balances.size())
+      continue;
+
+    if (td.amount() > m_ignore_outputs_above || td.amount() < m_ignore_outputs_below ||
+        is_spent(td, strict) || td.m_frozen)
+      continue;
+
+    subaddress_balance& subaddress = balances[td.m_subaddr_index.major][td.m_subaddr_index.minor];
+    subaddress.balance += td.amount();
+    if (is_transfer_unlocked(td))
+    {
+      subaddress.unlocked_balance += td.amount();
+    }
+    else
+    {
+      uint64_t unlock_height = td.m_block_height + std::max<uint64_t>(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE, CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_BLOCKS);
+      if (td.m_tx.unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER && td.m_tx.unlock_time > unlock_height)
+        unlock_height = td.m_tx.unlock_time;
+      const uint64_t unlock_time = td.m_tx.unlock_time >= CRYPTONOTE_MAX_BLOCK_NUMBER ? td.m_tx.unlock_time : 0;
+      subaddress.blocks_to_unlock = std::max(subaddress.blocks_to_unlock, unlock_height > blockchain_height ? unlock_height - blockchain_height : 0);
+      subaddress.time_to_unlock = std::max(subaddress.time_to_unlock, unlock_time > now ? unlock_time - now : 0);
+    }
+  }
+
+  if (!strict)
+  {
+    for (const auto& utx: m_unconfirmed_txs)
+    {
+      const unconfirmed_transfer_details& tx = utx.second;
+      if (tx.m_state == unconfirmed_transfer_details::failed || tx.m_subaddr_account >= balances.size())
+        continue;
+
+      subaddress_balance& change = balances[tx.m_subaddr_account][0];
+      change.balance += tx.m_change;
+      for (const auto& dest: tx.m_dests)
+      {
+        const auto index = get_subaddress_index(dest.addr);
+        if (index && index->major == tx.m_subaddr_account)
+        {
+          subaddress_balance& subaddress = balances[index->major][index->minor];
+          subaddress.balance += dest.amount;
+        }
+      }
+    }
+
+    for (const auto& utx: m_unconfirmed_payments)
+    {
+      const auto& payment = utx.second.m_pd;
+      if (payment.m_subaddr_index.major < balances.size())
+      {
+        subaddress_balance& subaddress = balances[payment.m_subaddr_index.major][payment.m_subaddr_index.minor];
+        subaddress.balance += payment.m_amount;
+      }
+    }
+  }
+  for (const transfer_details& td: m_transfers)
+  {
+    if (td.m_spent || td.m_subaddr_index.major >= balances.size())
+      continue;
+    auto& account = balances[td.m_subaddr_index.major];
+    const auto subaddress = account.find(td.m_subaddr_index.minor);
+    if (subaddress != account.end())
+      ++subaddress->second.num_unspent_outputs;
+  }
+  return balances;
+}
+//----------------------------------------------------------------------------------------------------
 uint64_t wallet2::unlocked_balance(uint32_t index_major, bool strict, uint64_t *blocks_to_unlock, uint64_t *time_to_unlock)
 {
   uint64_t amount = 0;
