@@ -694,24 +694,48 @@ namespace tools
     if (!m_wallet) return not_open(er);
     try
     {
-      res.balance = req.all_accounts ? m_wallet->balance_all(req.strict) : m_wallet->balance(req.account_index, req.strict);
-      res.unlocked_balance = req.all_accounts ? m_wallet->unlocked_balance_all(req.strict, &res.blocks_to_unlock, &res.time_to_unlock) : m_wallet->unlocked_balance(req.account_index, req.strict, &res.blocks_to_unlock, &res.time_to_unlock);
+      if (req.all_accounts)
+      {
+        res.balance = 0;
+        res.unlocked_balance = 0;
+        res.blocks_to_unlock = 0;
+        res.time_to_unlock = 0;
+        res.multisig_import_needed = m_wallet->get_multisig_status().multisig_is_active && m_wallet->has_multisig_partial_key_images();
+        const auto balances = m_wallet->balances_per_subaddress_all(req.strict);
+        for (uint32_t account_index = 0; account_index < balances.size(); ++account_index)
+        {
+          for (const auto& entry: balances[account_index])
+          {
+            const auto& subaddress = entry.second;
+            res.balance += subaddress.balance;
+            res.unlocked_balance += subaddress.unlocked_balance;
+            res.blocks_to_unlock = std::max(res.blocks_to_unlock, subaddress.blocks_to_unlock);
+            res.time_to_unlock = std::max(res.time_to_unlock, subaddress.time_to_unlock);
+
+            wallet_rpc::COMMAND_RPC_GET_BALANCE::per_subaddress_info info;
+            info.account_index = account_index;
+            info.address_index = entry.first;
+            const cryptonote::subaddress_index index = {account_index, entry.first};
+            info.address = m_wallet->get_subaddress_as_str(index);
+            info.balance = subaddress.balance;
+            info.unlocked_balance = subaddress.unlocked_balance;
+            info.blocks_to_unlock = subaddress.blocks_to_unlock;
+            info.time_to_unlock = subaddress.time_to_unlock;
+            info.label = m_wallet->get_subaddress_label(index);
+            info.num_unspent_outputs = subaddress.num_unspent_outputs;
+            res.per_subaddress.emplace_back(std::move(info));
+          }
+        }
+        return true;
+      }
+
+      res.balance = m_wallet->balance(req.account_index, req.strict);
+      res.unlocked_balance = m_wallet->unlocked_balance(req.account_index, req.strict, &res.blocks_to_unlock, &res.time_to_unlock);
       res.multisig_import_needed = m_wallet->get_multisig_status().multisig_is_active && m_wallet->has_multisig_partial_key_images();
       std::map<uint32_t, std::map<uint32_t, uint64_t>> balance_per_subaddress_per_account;
       std::map<uint32_t, std::map<uint32_t, std::pair<uint64_t, std::pair<uint64_t, uint64_t>>>> unlocked_balance_per_subaddress_per_account;
-      if (req.all_accounts)
-      {
-        for (uint32_t account_index = 0; account_index < m_wallet->get_num_subaddress_accounts(); ++account_index)
-        {
-          balance_per_subaddress_per_account[account_index] = m_wallet->balance_per_subaddress(account_index, req.strict);
-          unlocked_balance_per_subaddress_per_account[account_index] = m_wallet->unlocked_balance_per_subaddress(account_index, req.strict);
-        }
-      }
-      else
-      {
-        balance_per_subaddress_per_account[req.account_index] = m_wallet->balance_per_subaddress(req.account_index, req.strict);
-        unlocked_balance_per_subaddress_per_account[req.account_index] = m_wallet->unlocked_balance_per_subaddress(req.account_index, req.strict);
-      }
+      balance_per_subaddress_per_account[req.account_index] = m_wallet->balance_per_subaddress(req.account_index, req.strict);
+      unlocked_balance_per_subaddress_per_account[req.account_index] = m_wallet->unlocked_balance_per_subaddress(req.account_index, req.strict);
       std::vector<tools::wallet2::transfer_details> transfers;
       m_wallet->get_transfers(transfers);
       for (const auto& p : balance_per_subaddress_per_account)
@@ -720,7 +744,7 @@ namespace tools
         std::map<uint32_t, uint64_t> balance_per_subaddress = p.second;
         std::map<uint32_t, std::pair<uint64_t, std::pair<uint64_t, uint64_t>>> unlocked_balance_per_subaddress = unlocked_balance_per_subaddress_per_account[account_index];
         std::set<uint32_t> address_indices;
-        if (!req.all_accounts && !req.address_indices.empty())
+        if (!req.address_indices.empty())
         {
           address_indices = req.address_indices;
         }
