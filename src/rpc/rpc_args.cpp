@@ -135,7 +135,7 @@ namespace cryptonote
       command_line::add_arg(desc, arg.rpc_ssl_allow_any_cert);
   }
 
-  boost::optional<rpc_args> rpc_args::process(const boost::program_options::variables_map& vm, const bool any_cert_option)
+  boost::optional<rpc_args> rpc_args::process(const boost::program_options::variables_map& vm, const bool any_cert_option, const bool parse_login)
   {
     const descriptors arg{};
     rpc_args config{};
@@ -230,7 +230,7 @@ namespace cryptonote
     const bool has_rpc_arg = command_line::has_arg(vm, arg.rpc_login);
     const bool use_rpc_env = !has_rpc_arg && (env_rpc_login = getenv("RPC_LOGIN")) != nullptr && strlen(env_rpc_login) > 0;
     boost::optional<tools::login> login{};
-    if (has_rpc_arg || use_rpc_env)
+    if (parse_login && (has_rpc_arg || use_rpc_env))
     {
       config.login = tools::login::parse(
           has_rpc_arg ? command_line::get_arg(vm, arg.rpc_login) : std::string(env_rpc_login), true, [](bool verify) {
