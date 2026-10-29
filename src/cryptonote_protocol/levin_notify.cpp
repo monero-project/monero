@@ -790,7 +790,8 @@ namespace levin
       return;
 
     auto& zone = zone_;
-    boost::asio::dispatch(zone_->strand, [zone, id]{
+    // Queue cleanup so it cannot overtake pending handshake registration.
+    boost::asio::post(zone_->strand, [zone, id]{
       zone->contexts.erase(id);
     });
   }
