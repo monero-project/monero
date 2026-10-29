@@ -3183,6 +3183,12 @@ void wallet2::check_estimated_refresh_height()
       << daemon_height << ", using restore height " << height);
   m_refresh_from_block_height = std::min(m_refresh_from_block_height, height);
   m_refresh_from_block_height_estimated = false;
+
+  // Blocks the wallet already has from that height on were skipped, and a refresh made while the daemon
+  // was unreachable pads the hash chain up to a checkpoint below the estimate, which this chain does not
+  // have. Nothing can have been found yet, so start over from the genesis block.
+  if (m_transfers.empty() && m_blockchain.size() > std::max<uint64_t>(m_refresh_from_block_height, 1))
+    clear_soft();
 }
 //----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)

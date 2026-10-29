@@ -640,21 +640,28 @@ class WalletTest():
         wallet.set_daemon('127.0.0.1:0')
         try:
             wallet.create_wallet(filename = 'test1')
+            wallet.auto_refresh(False)
+            # a refresh while offline pads the hash chain up to a mainnet checkpoint
+            try: wallet.refresh()
+            except: pass
         finally:
             wallet.set_daemon('http://127.0.0.1:18180', trusted = True, ssl_support = 'disabled')
-        address = wallet.get_address().address
+        try:
+            address = wallet.get_address().address
 
-        daemon.generateblocks(address, 1)
-        wallet.refresh()
-        assert wallet.get_balance().balance > 0
+            daemon.generateblocks(address, 1)
+            wallet.refresh()
+            assert wallet.get_balance().balance > 0
 
-        # the estimate is still in the keys file, the next session must not skip blocks either
-        wallet.close_wallet()
-        wallet.open_wallet(filename = 'test1', password = '')
-        daemon.generateblocks(address, 1)
-        wallet.refresh()
-        res = wallet.get_transfers()
-        assert len(res['in']) == 2
+            # the estimate is still in the keys file, the next session must not skip blocks either
+            wallet.close_wallet()
+            wallet.open_wallet(filename = 'test1', password = '')
+            daemon.generateblocks(address, 1)
+            wallet.refresh()
+            res = wallet.get_transfers()
+            assert len(res['in']) == 2
+        finally:
+            wallet.auto_refresh(True)
 
         wallet.close_wallet()
         util_resources.remove_wallet_files('test1')
