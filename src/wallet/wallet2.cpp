@@ -1256,6 +1256,7 @@ wallet2::wallet2(network_type nettype, uint64_t kdf_rounds, bool unattended, std
   m_first_refresh_done(false),
   m_refresh_from_block_height(0),
   m_explicit_refresh_from_block_height(true),
+  m_refresh_from_block_height_estimated(false),
   m_skip_to_height(0),
   m_ask_password(AskPasswordToDecrypt),
   m_max_reorg_depth(ORPHANED_BLOCKS_MAX_COUNT),
@@ -3146,6 +3147,44 @@ bool wallet2::should_skip_block(const cryptonote::block &b, uint64_t height) con
     && height >= m_skip_to_height);
 }
 //----------------------------------------------------------------------------------------------------
+void wallet2::check_estimated_refresh_height()
+{
+  if (!m_refresh_from_block_height_estimated)
+    return;
+
+  std::string err;
+  const uint64_t daemon_height = get_daemon_blockchain_height(err);
+  if (!err.empty())
+    return;
+  if (m_refresh_from_block_height <= daemon_height)
+  {
+    m_refresh_from_block_height_estimated = false;
+    return;
+  }
+  // a syncing daemon may still reach the estimate, check again once it does
+  const uint64_t target_height = get_daemon_blockchain_target_height(err);
+  if (!err.empty() || m_refresh_from_block_height <= target_height)
+    return;
+
+  // The estimate is above the tip of the chain the daemon knows about, so that chain does not follow the
+  // schedule the estimate assumes (e.g. regtest), or the local clock was off. Every block would be skipped,
+  // so restart from the chain's height at wallet creation. Lowering the height can only make us scan more.
+  uint64_t height = 0;
+  try
+  {
+    height = get_blockchain_height_by_timestamp(m_account.get_createtime());
+  }
+  catch (const std::exception &e)
+  {
+    MWARNING("Failed to get the restore height from the daemon: " << e.what());
+    return;
+  }
+  LOG_PRINT_L0("Estimated restore height " << m_refresh_from_block_height << " is above the daemon height "
+      << daemon_height << ", using restore height " << height);
+  m_refresh_from_block_height = std::min(m_refresh_from_block_height, height);
+  m_refresh_from_block_height_estimated = false;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache)
 {
   THROW_WALLET_EXCEPTION_IF(bche.txs.size() + 1 != parsed_block.o_indices.indices.size(), error::wallet_internal_error,
@@ -4253,6 +4292,8 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
     return;
   }
 
+  check_estimated_refresh_height();
+
   if (!m_first_refresh_done)
   {
     // We want to process the whole pool again, in case we identify received outputs in the chain we might have spent in the pool
@@ -4908,6 +4949,9 @@ boost::optional<wallet2::keys_file_data> wallet2::get_keys_file_data(const crypt
   value2.SetUint64(m_refresh_from_block_height);
   json.AddMember("refresh_height", value2, json.GetAllocator());
 
+  value2.SetInt(m_refresh_from_block_height_estimated ? 1 : 0);
+  json.AddMember("refresh_height_estimated", value2, json.GetAllocator());
+
   value2.SetUint64(m_skip_to_height);
   json.AddMember("skip_to_height", value2, json.GetAllocator());
 
@@ -5244,6 +5288,7 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     m_auto_refresh = true;
     m_refresh_type = RefreshType::RefreshDefault;
     m_refresh_from_block_height = 0;
+    m_refresh_from_block_height_estimated = false;
     m_skip_to_height = 0;
     m_ask_password = AskPasswordToDecrypt;
     cryptonote::set_default_decimal_point(CRYPTONOTE_DISPLAY_DECIMAL_POINT);
@@ -5396,6 +5441,8 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     }
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_height, uint64_t, Uint64, false, 0);
     m_refresh_from_block_height = field_refresh_height;
+    GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, refresh_height_estimated, int, Int, false, false);
+    m_refresh_from_block_height_estimated = field_refresh_height_estimated;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, skip_to_height, uint64_t, Uint64, false, 0);
     m_skip_to_height = field_skip_to_height;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, ask_password, AskPasswordType, Int, false, AskPasswordToDecrypt);
@@ -5973,7 +6020,7 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
 
   // calculate a starting refresh height
   if(m_refresh_from_block_height == 0 && !recover){
-    m_refresh_from_block_height = estimate_blockchain_height();
+    m_refresh_from_block_height = estimate_blockchain_height(0, &m_refresh_from_block_height_estimated);
   }
 
   finish_generate(wallet_, false, password, create_address_file);
@@ -6007,11 +6054,14 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
   setup_keys(password);
 
   if (recover) {
-    m_refresh_from_block_height = restoreHeight > 0 ? restoreHeight : estimate_blockchain_height(seed.birthday());
+    if (restoreHeight > 0)
+      m_refresh_from_block_height = restoreHeight;
+    else
+      m_refresh_from_block_height = estimate_blockchain_height(seed.birthday(), &m_refresh_from_block_height_estimated);
   }
   else {
     if (m_refresh_from_block_height == 0) {
-      m_refresh_from_block_height = estimate_blockchain_height();
+      m_refresh_from_block_height = estimate_blockchain_height(0, &m_refresh_from_block_height_estimated);
     }
   }
 
@@ -6022,10 +6072,11 @@ crypto::secret_key wallet2::generate(const std::string& wallet_, const epee::wip
 
 /*!
 * \brief Estimate current blockchain height, or blockchain height at a given time
-* \param time     If not 0, ask for blockchain height at a given time
-* \return         Blockchain height estimated as best as possible
+* \param time        If not 0, ask for blockchain height at a given time
+* \param clock_only  If not null, set to true if the daemon gave no usable answer and the estimate is based on the local clock only
+* \return            Blockchain height estimated as best as possible
 */
-uint64_t wallet2::estimate_blockchain_height(uint64_t time)
+uint64_t wallet2::estimate_blockchain_height(uint64_t time, bool *clock_only)
 {
   // -1 month for fluctuations in block time and machine date/time setup.
   // avg seconds per block
@@ -6035,6 +6086,7 @@ uint64_t wallet2::estimate_blockchain_height(uint64_t time)
 
   std::string err;
   uint64_t height = 0;
+  bool from_clock = false;
 
   height = get_approximate_blockchain_height(time);
   if (time == 0) {
@@ -6056,6 +6108,7 @@ uint64_t wallet2::estimate_blockchain_height(uint64_t time)
         height = target_height;
     } else {
       // if we couldn't talk to the daemon, check safety margin.
+      from_clock = true;
       if (height > blocks_per_month)
         height -= blocks_per_month;
       else
@@ -6063,7 +6116,10 @@ uint64_t wallet2::estimate_blockchain_height(uint64_t time)
     }
     uint64_t local_height = get_daemon_blockchain_height(err);
     if (err.empty() && local_height > height)
+    {
       height = local_height;
+      from_clock = false;
+    }
   }
 
   else {
@@ -6084,6 +6140,7 @@ uint64_t wallet2::estimate_blockchain_height(uint64_t time)
     }
     else {
       // Subtract safety margin from the approximation
+      from_clock = true;
       if (height > blocks_per_month)
         height -= blocks_per_month;
       else
@@ -6091,6 +6148,8 @@ uint64_t wallet2::estimate_blockchain_height(uint64_t time)
     }
   }
 
+  if (clock_only)
+    *clock_only = from_clock;
   return height;
 }
 

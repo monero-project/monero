@@ -56,6 +56,7 @@ class WalletTest():
       self.generate_from_json()
       self.change_password()
       self.store()
+      self.create_without_daemon()
 
     def set_daemon_with_proxy(self):
         print('Testing daemon URLs with a proxy')
@@ -621,6 +622,41 @@ class WalletTest():
         wallet.open_wallet(filename = 'test1', password = '')
         wallet.close_wallet()
 
+        util_resources.remove_wallet_files('test1')
+
+    def create_without_daemon(self):
+        print('Creating a wallet without a daemon')
+        daemon = Daemon()
+        wallet = Wallet()
+
+        # close the wallet if any, will throw if none is loaded
+        try: wallet.close_wallet()
+        except: pass
+
+        util_resources.remove_wallet_files('test1')
+
+        # without a daemon the restore height is estimated from the mainnet schedule,
+        # far above the regtest chain
+        wallet.set_daemon('127.0.0.1:0')
+        try:
+            wallet.create_wallet(filename = 'test1')
+        finally:
+            wallet.set_daemon('http://127.0.0.1:18180', trusted = True, ssl_support = 'disabled')
+        address = wallet.get_address().address
+
+        daemon.generateblocks(address, 1)
+        wallet.refresh()
+        assert wallet.get_balance().balance > 0
+
+        # the estimate is still in the keys file, the next session must not skip blocks either
+        wallet.close_wallet()
+        wallet.open_wallet(filename = 'test1', password = '')
+        daemon.generateblocks(address, 1)
+        wallet.refresh()
+        res = wallet.get_transfers()
+        assert len(res['in']) == 2
+
+        wallet.close_wallet()
         util_resources.remove_wallet_files('test1')
 
 

@@ -814,7 +814,7 @@ private:
     void decrypt_keys(const crypto::chacha_key &key);
     void decrypt_keys(const epee::wipeable_string &password);
 
-    void set_refresh_from_block_height(uint64_t height) {m_refresh_from_block_height = height;}
+    void set_refresh_from_block_height(uint64_t height) {m_refresh_from_block_height = height; m_refresh_from_block_height_estimated = false;}
     uint64_t get_refresh_from_block_height() const {return m_refresh_from_block_height;}
 
     void explicit_refresh_from_block_height(bool expl) {m_explicit_refresh_from_block_height = expl;}
@@ -1322,7 +1322,7 @@ private:
     * \brief Calculates the approximate blockchain height from current date/time.
     */
     uint64_t get_approximate_blockchain_height(uint64_t time = 0) const;
-    uint64_t estimate_blockchain_height(uint64_t time = 0);
+    uint64_t estimate_blockchain_height(uint64_t time = 0, bool *clock_only = nullptr);
     std::vector<size_t> select_available_outputs_from_histogram(uint64_t count, bool atleast, bool unlocked, bool allow_rct);
     std::vector<size_t> select_available_outputs(const std::function<bool(const transfer_details &td)> &f);
     std::vector<size_t> select_available_unmixable_outputs();
@@ -1574,6 +1574,7 @@ private:
     void trim_transfer_maps(size_t num_transfers);
     void process_new_transaction(const crypto::hash &txid, const cryptonote::transaction& tx, const std::vector<uint64_t> &o_indices, uint64_t height, uint8_t block_version, uint64_t ts, bool miner_tx, bool pool, bool double_spend_seen, const tx_cache_data &tx_cache_data, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL, bool ignore_callbacks = false);
     bool should_skip_block(const cryptonote::block &b, uint64_t height) const;
+    void check_estimated_refresh_height();
     void process_new_blockchain_entry(const cryptonote::block& b, const cryptonote::block_complete_entry& bche, const parsed_block &parsed_block, const crypto::hash& bl_id, uint64_t height, const std::vector<tx_cache_data> &tx_cache_data, size_t tx_cache_data_offset, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
     detached_blockchain_data detach_blockchain(uint64_t height, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
     void handle_reorg(uint64_t height, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
@@ -1754,6 +1755,10 @@ private:
     // If m_refresh_from_block_height is explicitly set to zero we need this to differentiate it from the case that
     // m_refresh_from_block_height was defaulted to zero.*/
     bool m_explicit_refresh_from_block_height;
+    // Set when m_refresh_from_block_height was estimated from the local clock alone because no daemon
+    // could be reached. Such a guess can lie above the daemon's chain (e.g. on regtest) and is checked
+    // against the daemon on the next refresh.
+    bool m_refresh_from_block_height_estimated;
     uint64_t m_pool_info_query_time;
     uint64_t m_skip_to_height;
     // m_skip_to_height is useful when we don't want to modify the wallet's restore height.
