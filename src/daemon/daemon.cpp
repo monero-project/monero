@@ -136,12 +136,15 @@ public:
     const auto main_rpc_port = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
     const auto restricted_rpc_port_arg = cryptonote::core_rpc_server::arg_rpc_restricted_bind_port;
     const bool has_restricted_rpc_port_arg = !command_line::is_arg_defaulted(vm, restricted_rpc_port_arg);
-    rpcs.emplace_back(new t_rpc{vm, core, p2p, restricted, main_rpc_port, "core"});
+    const bool restricted_no_login = command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_restricted_no_login);
+    if (restricted_no_login && !has_restricted_rpc_port_arg)
+      throw std::runtime_error("--rpc-restricted-no-login requires --rpc-restricted-bind-port");
+    rpcs.emplace_back(new t_rpc{vm, core, p2p, restricted, main_rpc_port, "core", false});
 
     if(has_restricted_rpc_port_arg)
     {
       auto restricted_rpc_port = command_line::get_arg(vm, restricted_rpc_port_arg);
-      rpcs.emplace_back(new t_rpc{vm, core, p2p, true, restricted_rpc_port, "restricted"});
+      rpcs.emplace_back(new t_rpc{vm, core, p2p, true, restricted_rpc_port, "restricted", restricted_no_login});
     }
 
     if (!command_line::get_arg(vm, daemon_args::arg_zmq_rpc_disabled))
