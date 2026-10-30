@@ -44,6 +44,16 @@ class DaemonGetInfoTest():
     def run_test(self):
         self._test_hardfork_info()
         self._test_get_info()
+        self._test_update_with_proxy()
+
+    def _test_update_with_proxy(self):
+        print('Test update with proxy and DNS leaks disabled')
+
+        daemon = Daemon(idx = 1)
+        for command in ('check', 'download', 'update'):
+            res = daemon.update(command, path = '')
+            assert res['update'] == False
+            assert res.status == 'DNS update checks are disabled when using --proxy without --proxy-allow-dns-leaks'
 
     def _test_hardfork_info(self):
         print('Test hard_fork_info')
