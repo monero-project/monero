@@ -33,6 +33,7 @@
 #include "p2p/net_node.h"
 #include "p2p/net_node.inl"
 #include "cryptonote_core/i_core_events.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.inl"
 #include "net/tor_address.h"
@@ -193,6 +194,136 @@ namespace
     unsigned fail_score;
   };
 
+  class missing_tx_test_core : public test_core
+  {
+  public:
+    int incoming_block_calls = 0;
+
+    // test_core's method is not virtual; the handler template calls this derived overload.
+    bool handle_single_incoming_block(const cryptonote::blobdata&,
+      const cryptonote::block*,
+      cryptonote::block_verification_context& bvc,
+      cryptonote::pool_supplement&,
+      bool = true)
+    {
+      ++incoming_block_calls;
+      bvc.m_verifivation_failed = true;
+      bvc.m_missing_txs = true;
+      return false;
+    }
+  };
+
+  struct missing_tx_test_p2p : nodetool::p2p_endpoint_stub<cryptonote::cryptonote_connection_context>
+  {
+    int missing_tx_requests = 0;
+
+    bool invoke_notify_to_peer(int command,
+      epee::levin::message_writer,
+      const epee::net_utils::connection_context_base&) override
+    {
+      if (command == cryptonote::NOTIFY_REQUEST_FLUFFY_MISSING_TX::ID)
+        ++missing_tx_requests;
+      return true;
+    }
+  };
+
+  cryptonote::blobdata make_missing_tx_fluffy_block()
+  {
+    cryptonote::block block;
+    block.major_version = 1;
+    block.minor_version = 0;
+    block.timestamp = 1;
+    block.prev_id = crypto::null_hash;
+    block.nonce = 0;
+
+    block.miner_tx.version = 1;
+    block.miner_tx.unlock_time = 0;
+    block.miner_tx.vin.clear();
+    block.miner_tx.vout.clear();
+    block.miner_tx.extra.clear();
+
+    cryptonote::txin_gen gen{};
+    gen.height = 0;
+    block.miner_tx.vin.push_back(gen);
+
+    crypto::hash tx_hash{};
+    tx_hash.data[0] = 0x22;
+    block.tx_hashes.push_back(tx_hash);
+
+    cryptonote::blobdata blob;
+    if (!cryptonote::block_to_blob(block, blob))
+      throw std::runtime_error("failed to serialize test block");
+    return blob;
+  }
+
+  struct missing_tx_block_fixture
+  {
+    cryptonote::blobdata block;
+    std::vector<cryptonote::tx_blob_entry> txs;
+  };
+
+  missing_tx_block_fixture make_missing_tx_block_with_txs()
+  {
+    cryptonote::block block;
+    block.major_version = 1;
+    block.minor_version = 0;
+    block.timestamp = 1;
+    block.prev_id = crypto::null_hash;
+    block.nonce = 0;
+
+    block.miner_tx.version = 1;
+    block.miner_tx.unlock_time = 0;
+    block.miner_tx.vin.clear();
+    block.miner_tx.vout.clear();
+    block.miner_tx.extra.clear();
+    block.miner_tx.vin.push_back(cryptonote::txin_gen{0});
+
+    missing_tx_block_fixture fixture;
+    for (uint64_t height = 1; height <= 2; ++height)
+    {
+      cryptonote::transaction tx;
+      tx.version = 1;
+      tx.unlock_time = 0;
+      tx.vin.clear();
+      tx.vout.clear();
+      tx.extra.clear();
+      tx.vin.push_back(cryptonote::txin_gen{height});
+
+      cryptonote::blobdata blob;
+      if (!cryptonote::tx_to_blob(tx, blob))
+        throw std::runtime_error("failed to serialize test transaction");
+
+      crypto::hash tx_hash{};
+      if (!cryptonote::get_transaction_hash(tx, tx_hash))
+        throw std::runtime_error("failed to hash test transaction");
+
+      block.tx_hashes.push_back(tx_hash);
+      fixture.txs.push_back(cryptonote::tx_blob_entry{blob, crypto::null_hash});
+    }
+
+    if (!cryptonote::block_to_blob(block, fixture.block))
+      throw std::runtime_error("failed to serialize test block");
+    return fixture;
+  }
+
+  int invoke_fluffy_block(
+    cryptonote::t_cryptonote_protocol_handler<missing_tx_test_core>& handler,
+    cryptonote::cryptonote_connection_context& context,
+    cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::request request)
+  {
+    const epee::byte_slice payload = epee::serialization::store_t_to_binary(request);
+    epee::byte_stream out;
+    bool handled = false;
+
+    // handle_notify_new_fluffy_block is private, so invoke it through the handler map.
+    return handler.handle_invoke_map(true,
+      cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::ID,
+      epee::to_span(payload),
+      out,
+      context,
+      handled);
+  }
+
   known_top_result process_known_top(known_top_test_core& core, const crypto::hash& top, uint64_t height, bool initial, bool hidden = false)
   {
     known_top_test_p2p p2p;
@@ -293,6 +424,70 @@ TEST(cryptonote_protocol_handler, unknown_top_starts_synchronizing)
   EXPECT_TRUE(result.accepted);
   EXPECT_EQ(result.state, cryptonote::cryptonote_connection_context::state_synchronizing);
   EXPECT_EQ(result.fail_score, 0u);
+}
+
+TEST(cryptonote_protocol_handler, duplicate_fluffy_missing_tx_is_ignored)
+{
+  missing_tx_test_core core;
+  missing_tx_test_p2p p2p;
+  cryptonote::t_cryptonote_protocol_handler<missing_tx_test_core> handler{core, &p2p, true};
+
+  cryptonote::cryptonote_connection_context context;
+  context.m_state = cryptonote::cryptonote_connection_context::state_normal;
+
+  cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::request request;
+  request.b.block = make_missing_tx_fluffy_block();
+  request.current_blockchain_height = 1;
+
+  EXPECT_EQ(invoke_fluffy_block(handler, context, request), 1);
+  EXPECT_EQ(invoke_fluffy_block(handler, context, request), 1);
+
+  EXPECT_EQ(core.incoming_block_calls, 1);
+  EXPECT_EQ(p2p.missing_tx_requests, 1);
+}
+
+TEST(cryptonote_protocol_handler, partial_fluffy_missing_tx_response_is_ignored)
+{
+  const missing_tx_block_fixture fixture = make_missing_tx_block_with_txs();
+  missing_tx_test_core core;
+  missing_tx_test_p2p p2p;
+  cryptonote::t_cryptonote_protocol_handler<missing_tx_test_core> handler{core, &p2p, true};
+
+  cryptonote::cryptonote_connection_context context;
+  context.m_state = cryptonote::cryptonote_connection_context::state_normal;
+
+  cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::request request;
+  request.b.block = fixture.block;
+  request.current_blockchain_height = 1;
+
+  EXPECT_EQ(invoke_fluffy_block(handler, context, request), 1);
+  request.b.txs.push_back(fixture.txs[0]);
+  EXPECT_EQ(invoke_fluffy_block(handler, context, request), 1);
+
+  EXPECT_EQ(core.incoming_block_calls, 1);
+  EXPECT_EQ(p2p.missing_tx_requests, 1);
+}
+
+TEST(cryptonote_protocol_handler, complete_fluffy_missing_tx_response_is_processed)
+{
+  const missing_tx_block_fixture fixture = make_missing_tx_block_with_txs();
+  missing_tx_test_core core;
+  missing_tx_test_p2p p2p;
+  cryptonote::t_cryptonote_protocol_handler<missing_tx_test_core> handler{core, &p2p, true};
+
+  cryptonote::cryptonote_connection_context context;
+  context.m_state = cryptonote::cryptonote_connection_context::state_normal;
+
+  cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::request request;
+  request.b.block = fixture.block;
+  request.current_blockchain_height = 1;
+
+  EXPECT_EQ(invoke_fluffy_block(handler, context, request), 1);
+  request.b.txs = fixture.txs;
+  EXPECT_EQ(invoke_fluffy_block(handler, context, request), 1);
+
+  EXPECT_EQ(core.incoming_block_calls, 2);
+  EXPECT_EQ(p2p.missing_tx_requests, 2);
 }
 
 TEST(node_server, ipv6_peer_group)

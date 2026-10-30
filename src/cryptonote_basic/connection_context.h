@@ -30,6 +30,8 @@
 // Parts of this file are originally copyright (c) 2006-2013, Andrey N. Sabelnikov, www.sabelnikov.net
 
 #pragma once
+#include <set>
+#include <unordered_map>
 #include <unordered_set>
 #include <atomic>
 #include <algorithm>
@@ -101,6 +103,8 @@ namespace cryptonote
     std::vector<std::pair<crypto::hash, uint64_t>> m_needed_objects;
     std::vector<crypto::hash> m_expected_heights;
     std::unordered_set<crypto::hash> m_requested_objects;
+    // per-connection pending state, cleared when leaving normal state
+    std::unordered_map<crypto::hash, std::set<uint64_t>> m_pending_fluffy_missing_txs;
     uint64_t m_remote_blockchain_height;
     uint64_t m_last_response_height;
     uint64_t m_expected_heights_start;
