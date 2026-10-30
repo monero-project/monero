@@ -36,12 +36,14 @@
 
 #include <string>
 #include <boost/thread/mutex.hpp>
+#include <boost/thread/recursive_mutex.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/thread/condition_variable.hpp>
 
 class WalletApiAccessorTest;
 
 namespace Monero {
+class EnoteDetailsImpl;
 class TransactionHistoryImpl;
 class PendingTransactionImpl;
 class UnsignedTransactionImpl;
@@ -241,6 +243,15 @@ public:
     virtual uint64_t getBytesReceived() override;
     virtual uint64_t getBytesSent() override;
 
+    void freeze(const std::string &key_image) override;
+    void freezeByPubKey(const std::string &enote_pub_key) override;
+    void thaw(const std::string &key_image) override;
+    void thawByPubKey(const std::string &enote_pub_key) override;
+    bool isFrozen(const std::string &key_image) const override;
+    std::vector<std::unique_ptr<EnoteDetails>> getEnoteDetails() const override;
+    std::unique_ptr<EnoteDetails> getEnoteDetails(const std::string &enote_pub_key) const override;
+    std::unique_ptr<EnoteDetails> getEnoteDetails(const std::size_t enote_index) const override;
+
 private:
     void clearStatus() const;
     void setStatusError(const std::string& message) const;
@@ -254,6 +265,15 @@ private:
     void pendingTxPostProcess(PendingTransactionImpl * pending);
     bool doInit(const std::string &daemon_address, const std::string &proxy_address, uint64_t upper_transaction_size_limit = 0, bool ssl = false);
     bool checkBackgroundSync(const std::string &message) const;
+
+    /**
+    * brief: makeEnoteDetails - helper for getEnoteDetails()
+    * param: td - enote to describe
+    * param: payment_id - see EnoteDetails::paymentId()
+    * return: enote details
+    * note: throws on failure
+    */
+    std::unique_ptr<EnoteDetails> makeEnoteDetails(const tools::wallet2::transfer_details &td, const std::string &payment_id) const;
 
 private:
     friend class PendingTransactionImpl;
@@ -289,7 +309,7 @@ private:
     boost::mutex        m_refreshMutex;
 
     // synchronizing  sync and async refresh
-    boost::mutex        m_refreshMutex2;
+    mutable boost::recursive_mutex m_refreshMutex2;
     boost::condition_variable m_refreshCV;
     boost::thread       m_refreshThread;
     // flag indicating wallet is recovering from seed

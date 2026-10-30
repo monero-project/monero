@@ -35,6 +35,7 @@
 #include <ctime>
 #include <iostream>
 #include <list>
+#include <memory>
 #include <optional>
 #include <set>
 #include <stdexcept>
@@ -58,6 +59,75 @@ enum NetworkType : uint8_t {
     // backwards compatible shim for old declaration of handmade optional<> struct
     template<typename T>
     using optional = std::optional<T>;
+
+/**
+* brief: EnoteDetails - Container for all the necessary information that belongs to an enote
+*/
+struct EnoteDetails
+{
+    enum class TxProtocol {
+        TxProtocol_CryptoNote,
+        TxProtocol_RingCT
+    };
+
+    virtual ~EnoteDetails() = 0;
+    //! enote public key (Ko), as hex string
+    virtual std::string onetimeAddress() const = 0;
+    //! view tag, as hex string
+    virtual std::string viewTag() const = 0;
+    //! payment id, as 16 char (8 bytes, short encrypted) or 64 char (32 bytes, long unencrypted [DEPRECATED]) hex string
+    //! empty if the enote was received without one, and for change
+    virtual std::string paymentId() const = 0;
+    //! blockchain height at which this enote was received
+    virtual std::uint64_t blockHeight() const = 0;
+    //! when enote will become spendable
+    // NOTE: there was a change in tx relay rule that prevents to make txs with arbitrary lock times: https://github.com/monero-project/monero/pull/9151
+    // txs that were created before the new rule can still be locked, unlockTime() is represented either as block index if unlockTime() < CRYPTONOTE_MAX_BLOCK_NUMBER or else as time
+    // now with the new rule, txs will have this set to either 0 for normal txs
+    //                        or blockHeight() + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW for coinbase txs
+    // NOTE: if unlockTime() == 0, the blockchain still has to reach blockHeight() + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE before this enote is actually unlocked
+    virtual std::uint64_t unlockTime() const = 0;
+    //! return true if enote is unlocked
+    virtual bool isUnlocked() const = 0;
+    //! tx id, as hex string
+    virtual std::string txId() const = 0;
+    //! index in tx
+    virtual std::uint64_t internalEnoteIndex() const = 0;
+    //! index in db
+    virtual std::uint64_t globalEnoteIndex() const = 0;
+    //! return true if enote is spent
+    virtual bool isSpent() const = 0;
+    //! return true if enote is frozen
+    virtual bool isFrozen() const = 0;
+    //! blockchain height at which enote was spent, set to 0 if enote hasn't been spent yet
+    virtual std::uint64_t spentHeight() const = 0;
+    //! key image, as hex string
+    virtual std::string keyImage() const = 0;
+    //! x, blinding factor in amount commitment C = x G + a H, as hex string
+    virtual std::string mask() const = 0;
+    //! amount in piconero
+    virtual std::uint64_t amount() const = 0;
+    //! protocol version : TxProtocol_CryptoNote / TxProtocol_RingCT
+    virtual TxProtocol protocolVersion() const = 0;
+    //! return true if key image is known
+    virtual bool isKeyImageKnown() const = 0;
+    //! return true if:
+    //      a) for view wallets: we want to request the key image for this enote
+    //      b) for cold wallets: the key image for this enote was requested
+    virtual bool isKeyImageRequest() const = 0;
+    //! public key index in tx_extra
+    virtual std::uint64_t pkIndex() const = 0;
+    //! show uses of this enote as decoy in the blockchain in the format [ [block_height, tx_id], ... ]
+    // Note: tracking this is disabled by default, it can be enabled with `set track-uses 1` in monero-wallet-cli
+    virtual std::vector<std::pair<std::uint64_t, std::string>> uses() const = 0;
+    //! account index
+    virtual std::uint32_t subaddressIndexMajor() const = 0;
+    //! subaddress index
+    virtual std::uint32_t subaddressIndexMinor() const = 0;
+
+    // Multisig
+    virtual bool isKeyImagePartial() const = 0;
+};
 
 /**
  * @brief Transaction-like interface for sending money
@@ -1155,6 +1225,52 @@ struct Wallet
 
     //! get bytes sent
     virtual uint64_t getBytesSent() = 0;
+
+    /**
+    * brief: freeze - freeze enote "so they don't appear in balance, nor are considered when creating a transaction, etc." (https://github.com/monero-project/monero/pull/5333)
+    * param: key_image - key image of enote
+    * param: enote_pub_key - public key of enote
+    * note: sets status error on failure
+    * note: fails while background syncing
+    */
+    virtual void freeze(const std::string &key_image) = 0;
+    virtual void freezeByPubKey(const std::string &enote_pub_key) = 0;
+    /**
+    * brief: thaw - thaw enote that is frozen, so it appears in balance and can be spent in a transaction
+    * param: key_image - key image of enote
+    * param: enote_pub_key - public key of enote
+    * note: sets status error on failure
+    * note: fails while background syncing
+    */
+    virtual void thaw(const std::string &key_image) = 0;
+    virtual void thawByPubKey(const std::string &enote_pub_key) = 0;
+    /**
+    * brief: isFrozen - check if enote is frozen
+    * param: key_image - key image of enote
+    * return : true if enote is frozen, else false
+    * note: sets status error on failure
+    */
+    virtual bool isFrozen(const std::string &key_image) const = 0;
+    /**
+    * brief: getEnoteDetails - get information about all enotes
+    * return: vector of enotes details, empty on failure
+    * note: sets status error on failure
+    */
+    virtual std::vector<std::unique_ptr<EnoteDetails>> getEnoteDetails() const = 0;
+    /**
+    * brief: getEnoteDetails - get information about a single enote
+    * param: enote_pub_key - ephemeral public key
+    * return: enote details if succeeded, else nullptr
+    * note: sets status error on failure
+    */
+    virtual std::unique_ptr<EnoteDetails> getEnoteDetails(const std::string &enote_pub_key) const = 0;
+    /**
+    * brief: getEnoteDetails - get information about a single enote
+    * param: enote_index - index of enote in internal storage
+    * return: enote details if succeeded, else nullptr
+    * note: sets status error on failure
+    */
+    virtual std::unique_ptr<EnoteDetails> getEnoteDetails(const std::size_t enote_index) const = 0;
 };
 
 /**
