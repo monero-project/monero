@@ -91,6 +91,12 @@ namespace cryptonote
     static constexpr int handshake_command() noexcept { return 1001; }
     bool handshake_complete() const noexcept { return m_state != state_before_handshake; }
 
+    struct pending_fluffy_missing_txs
+    {
+      uint64_t block_height;
+      std::set<uint64_t> tx_indices;
+    };
+
     //! \return Maximum number of bytes permissible for `command`.
     static size_t get_max_bytes(int command) noexcept;
 
@@ -103,8 +109,9 @@ namespace cryptonote
     std::vector<std::pair<crypto::hash, uint64_t>> m_needed_objects;
     std::vector<crypto::hash> m_expected_heights;
     std::unordered_set<crypto::hash> m_requested_objects;
-    // per-connection pending state, cleared when leaving normal state
-    std::unordered_map<crypto::hash, std::set<uint64_t>> m_pending_fluffy_missing_txs;
+    // per-connection pending state, cleared on sync state transitions and
+    // pruned when a fluffy block is received
+    std::unordered_map<crypto::hash, pending_fluffy_missing_txs> m_pending_fluffy_missing_txs;
     uint64_t m_remote_blockchain_height;
     uint64_t m_last_response_height;
     uint64_t m_expected_heights_start;
