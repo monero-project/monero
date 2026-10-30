@@ -5762,6 +5762,19 @@ void wallet2::setup_new_blockchain()
   add_subaddress_account(tr("Primary account"));
 }
 
+bool wallet2::update_address_file(const std::string &address_file) const
+{
+  if (m_multisig)
+  {
+    // Remove any address file left over from before multisig conversion.
+    boost::system::error_code ec;
+    boost::filesystem::remove(address_file, ec);
+    return !ec;
+  }
+
+  return save_to_file(address_file, m_account.get_public_address_str(m_nettype), true);
+}
+
 void wallet2::create_keys_file(const std::string &wallet_, bool watch_only, const epee::wipeable_string &password, bool create_address_file)
 {
   if (!wallet_.empty())
@@ -5771,8 +5784,8 @@ void wallet2::create_keys_file(const std::string &wallet_, bool watch_only, cons
 
     if (create_address_file)
     {
-      r = save_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype), true);
-      if(!r) MERROR("String with address text not saved");
+      r = update_address_file(m_wallet_file + ".address.txt");
+      if(!r) MERROR("Failed to update address file");
     }
   }
 }
@@ -6378,12 +6391,6 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
     {
       bool r = this->store_keys(m_keys_file, password, false);
       THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
-
-      if (boost::filesystem::exists(m_wallet_file + ".address.txt"))
-      {
-        r = this->save_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype), true);
-        if(!r) MERROR("String with address text not saved");
-      }
     }
 
     m_subaddresses.clear();
@@ -7241,6 +7248,23 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_keys_file);
   }
 
+  if (m_multisig)
+  {
+    const bool r = update_address_file(m_wallet_file + ".address.txt");
+    if (!r) MERROR("Failed to remove multisig address file");
+
+    if (m_background_sync_type == BackgroundSyncCustomPassword)
+    {
+      const bool r = update_address_file(make_background_wallet_file_name(m_wallet_file) + ".address.txt");
+      if (!r) MERROR("Failed to remove multisig background address file");
+      if (!same_file && had_old_wallet_files)
+      {
+        const bool r = update_address_file(make_background_wallet_file_name(old_file) + ".address.txt");
+        if (!r) MERROR("Failed to remove old multisig background address file");
+      }
+    }
+  }
+
   if (!same_file && had_old_wallet_files)
   {
     bool r = false;
@@ -7248,7 +7272,7 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     {
       // save address to the new file
       const std::string address_file = m_wallet_file + ".address.txt";
-      r = save_to_file(address_file, m_account.get_public_address_str(m_nettype), true);
+      r = update_address_file(address_file);
       THROW_WALLET_EXCEPTION_IF(!r, error::file_save_error, m_wallet_file);
       // remove old address file
       r = boost::filesystem::remove(old_address_file);
@@ -7308,8 +7332,8 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
 
   if (!had_old_wallet_files && m_nettype != MAINNET)
   {
-    const bool r = save_to_file(m_wallet_file + ".address.txt", m_account.get_public_address_str(m_nettype), true);
-    if (!r) MERROR("String with address text not saved");
+    const bool r = update_address_file(m_wallet_file + ".address.txt");
+    if (!r) MERROR("Failed to update address file");
   }
 
   if (m_message_store.get_active())
@@ -14393,10 +14417,10 @@ void wallet2::store_background_keys(const crypto::chacha_key &custom_background_
 
   // GUI uses the address file to differentiate non-mainnet wallets in the UI
   const std::string background_address_file = make_background_wallet_file_name(m_wallet_file) + ".address.txt";
-  if (m_nettype != MAINNET && !boost::filesystem::exists(background_address_file))
+  if (m_multisig || (m_nettype != MAINNET && !boost::filesystem::exists(background_address_file)))
   {
-    r = save_to_file(background_address_file, m_account.get_public_address_str(m_nettype), true);
-    if (!r) MERROR("String with address text not saved");
+    r = update_address_file(background_address_file);
+    if (!r) MERROR("Failed to update address file");
   }
 
   MDEBUG("Background keys stored");

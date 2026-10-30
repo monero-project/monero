@@ -67,7 +67,7 @@ void SubaddressImpl::refresh(uint32_t accountIndex)
   clearRows();
   for (size_t i = 0; i < m_wallet->m_wallet->get_num_subaddresses(accountIndex); ++i)
   {
-    m_rows.push_back(new SubaddressRow(i, m_wallet->m_wallet->get_subaddress_as_str({accountIndex, (uint32_t)i}), m_wallet->m_wallet->get_subaddress_label({accountIndex, (uint32_t)i})));
+    m_rows.push_back(new SubaddressRow(i, m_wallet->address(accountIndex, (uint32_t)i), m_wallet->m_wallet->get_subaddress_label({accountIndex, (uint32_t)i})));
   }
 }
 
@@ -80,6 +80,9 @@ void SubaddressImpl::clearRows() {
 
 std::vector<SubaddressRow*> SubaddressImpl::getAll() const
 {
+  const auto ms_status = m_wallet->m_wallet->get_multisig_status();
+  if (ms_status.multisig_is_active && !ms_status.is_ready)
+    return {};
   return m_rows;
 }
 
