@@ -556,18 +556,10 @@ namespace cryptonote
     if (context.m_pending_fluffy_missing_txs.empty())
       return;
 
-    const uint64_t chain_height = m_core.get_current_blockchain_height();
-
     for (auto it = context.m_pending_fluffy_missing_txs.begin();
          it != context.m_pending_fluffy_missing_txs.end();)
     {
-      const auto& pending = it->second;
-      // A block at or below the current tip can no longer be added to the
-      // main chain, so its pending request is obsolete. Blocks above the tip
-      // are checked separately in case they were accepted as an alt block.
-      if (pending.block_height <= chain_height)
-        it = context.m_pending_fluffy_missing_txs.erase(it);
-      else if (m_core.have_block(it->first))
+      if (m_core.have_block(it->first))
         it = context.m_pending_fluffy_missing_txs.erase(it);
       else
         ++it;
@@ -667,8 +659,8 @@ namespace cryptonote
       // both ranges are sorted by index
       const bool covers_pending = std::includes(
         supplied_indices.begin(), supplied_indices.end(),
-        pending_missing->second.tx_indices.begin(),
-        pending_missing->second.tx_indices.end());
+        pending_missing->second.begin(),
+        pending_missing->second.end());
       if (!covers_pending)
       {
         MDEBUG(context << "Ignoring duplicate fluffy block that does not resolve pending missing transactions: " << new_block_hash);
@@ -738,10 +730,7 @@ namespace cryptonote
         missing_tx_req.current_blockchain_height = new_block_height + 1;
         if (!need_tx_indices.empty())
           context.m_pending_fluffy_missing_txs[new_block_hash] =
-            cryptonote_connection_context::pending_fluffy_missing_txs{
-              new_block_height,
-              std::set<uint64_t>(need_tx_indices.begin(), need_tx_indices.end())
-            };
+            std::set<uint64_t>(need_tx_indices.begin(), need_tx_indices.end());
         missing_tx_req.missing_tx_indices = std::move(need_tx_indices);
 
         // Post NOTIFY_REQUEST_FLUFFY_MISSING_TX request to peer
