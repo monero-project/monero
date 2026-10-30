@@ -208,6 +208,7 @@ namespace cryptonote
     {
       NOTIFY_REQUEST_CHAIN::request r = {};
       context.m_needed_objects.clear();
+      context.m_last_known_hash = crypto::null_hash;
       m_core.get_short_chain_history(r.block_ids, context.m_expect_height);
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       r.prune = m_sync_pruned_blocks;
@@ -2081,6 +2082,26 @@ skip:
         {
           if (context.m_remote_blockchain_height > m_block_queue.get_next_needed_height(bc_height))
           {
+            // other connections may have queued or added this peer's whole chain entry
+            const crypto::hash &last_hash = context.m_last_known_hash;
+            const uint64_t first_height = context.m_expected_heights_start;
+            const uint64_t last_height = context.m_last_response_height;
+            const boost::optional<crypto::hash> first_hash = context.get_expected_hash(first_height);
+            const auto known_at_height = [this](const crypto::hash &hash, uint64_t height) {
+              return m_block_queue.have_height(hash) == height || m_core.get_block_id_by_height(height) == hash;
+            };
+            // a full chain entry from the hash we asked for, with both ends at the heights the peer
+            // gave, so that each round moves up by nearly a chain entry and the rounds end at our tip
+            const bool known_progress = context.m_chain_entry_from_requested_hash
+              && context.m_expected_heights.size() + HASH_OF_HASHES_STEP > BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT
+              && first_hash && known_at_height(*first_hash, first_height)
+              && known_at_height(last_hash, last_height);
+            if (known_progress)
+            {
+              MDEBUG(context << "All hashes up to " << last_height << " are known, asking for the next chain entry");
+              check_span_lock.unlock();
+              return request_chain(false);
+            }
             MERROR(context << "Nothing we can request from this peer, and we did not request anything previously");
             return false;
           }
@@ -2617,6 +2638,8 @@ skip:
     }
 
     context.m_expected_heights_start = arg.start_height;
+    // the last known hash moves on when blocks arrive, here it is still the hash we asked for
+    context.m_chain_entry_from_requested_hash = context.m_last_known_hash == crypto::null_hash || arg.m_block_ids.front() == context.m_last_known_hash;
 
     context.m_expected_heights.clear();
     context.m_expected_heights.reserve(arg.m_block_ids.size());
