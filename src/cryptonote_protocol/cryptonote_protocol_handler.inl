@@ -38,9 +38,11 @@
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+#include <algorithm>
 #include <cmath>
 #include <list>
 #include <limits>
+#include <set>
 #include <ctime>
 
 #include <cryptonote_core/cryptonote_core.h>
@@ -201,7 +203,10 @@ namespace cryptonote
     if (context.m_new_stripe_notification.compare_exchange_strong(notified, not notified))
     {
       if (context.m_state == cryptonote_connection_context::state_normal)
+      {
         context.m_state = cryptonote_connection_context::state_synchronizing;
+        context.m_pending_fluffy_missing_txs.clear();
+      }
     }
 
     if(context.m_state == cryptonote_connection_context::state_synchronizing && context.m_last_request_time == boost::posix_time::not_a_date_time)
@@ -499,6 +504,7 @@ namespace cryptonote
     }
 
     context.m_state = cryptonote_connection_context::state_synchronizing;
+    context.m_pending_fluffy_missing_txs.clear();
     //let the socket to send response to handshake, but request callback, to let send request data after response
     LOG_PRINT_CCONTEXT_L2("requesting callback");
     ++context.m_callback_request_count;
@@ -545,11 +551,30 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
+  void t_cryptonote_protocol_handler<t_core>::discard_stale_pending_fluffy_missing_txs(cryptonote_connection_context& context)
+  {
+    if (context.m_pending_fluffy_missing_txs.empty())
+      return;
+
+    for (auto it = context.m_pending_fluffy_missing_txs.begin();
+         it != context.m_pending_fluffy_missing_txs.end();)
+    {
+      if (m_core.have_block(it->first))
+        it = context.m_pending_fluffy_missing_txs.erase(it);
+      else
+        ++it;
+    }
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_fluffy_block(int command, NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& context)
   {
     // If we are synchronizing the node or setting up this connection, then do nothing
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
+
+    discard_stale_pending_fluffy_missing_txs(context);
+
     if(!is_synchronized()) // can happen if a peer connection goes to normal but another thread still hasn't finished adding queued blocks
     {
       LOG_DEBUG_CC(context, "Received new block while syncing, ignored");
@@ -581,18 +606,6 @@ namespace cryptonote
       drop_connection(context, false, false);
       return LEVIN_ERROR_CONNECTION;
     }
-
-    // Log block info
-    const uint64_t new_block_height = get_block_height(new_block);
-    const uint64_t peer_height = arg.current_blockchain_height;
-    MLOG_P2P_MESSAGE(context << "Received NOTIFY_NEW_FLUFFY_BLOCK " << new_block_hash << " (height "
-      << new_block_height << ", " << arg.b.txs.size() << " txes, peer's height: " << peer_height << ")");
-
-    // Pause mining while verifying an unknown block to avoid wasted mining cycles.
-    const bool pause_mining = !m_core.have_block(new_block_hash);
-    if (pause_mining)
-      m_core.pause_mine();
-    const epee::scope_guard resume_mine_on_leave([this, pause_mining](){ if (pause_mining) m_core.resume_mine(); });
 
     // This set allows us to quickly sanity check that the block binds all txs contained in this
     // fluffy payload, which means that no extra stowaway txs can be harbored. In the case of a
@@ -631,6 +644,42 @@ namespace cryptonote
       drop_connection(context, false, false);
       return LEVIN_ERROR_CONNECTION;
     }
+
+    const auto pending_missing = context.m_pending_fluffy_missing_txs.find(new_block_hash);
+    if (pending_missing != context.m_pending_fluffy_missing_txs.end())
+    {
+      std::set<uint64_t> supplied_indices;
+      for (const auto& extra_tx : extra_block_txs)
+      {
+        const auto txid_it = blk_txids_set.find(extra_tx.first);
+        if (txid_it != blk_txids_set.end())
+          supplied_indices.insert(txid_it->second);
+      }
+
+      // both ranges are sorted by index
+      const bool covers_pending = std::includes(
+        supplied_indices.begin(), supplied_indices.end(),
+        pending_missing->second.begin(),
+        pending_missing->second.end());
+      if (!covers_pending)
+      {
+        MDEBUG(context << "Ignoring duplicate fluffy block that does not resolve pending missing transactions: " << new_block_hash);
+        return 1;
+      }
+      context.m_pending_fluffy_missing_txs.erase(pending_missing);
+    }
+
+    // Log block info
+    const uint64_t new_block_height = get_block_height(new_block);
+    const uint64_t peer_height = arg.current_blockchain_height;
+    MLOG_P2P_MESSAGE(context << "Received NOTIFY_NEW_FLUFFY_BLOCK " << new_block_hash << " (height "
+      << new_block_height << ", " << arg.b.txs.size() << " txes, peer's height: " << peer_height << ")");
+
+    // Pause mining while verifying an unknown block to avoid wasted mining cycles.
+    const bool pause_mining = !m_core.have_block(new_block_hash);
+    if (pause_mining)
+      m_core.pause_mine();
+    const epee::scope_guard resume_mine_on_leave([this, pause_mining](){ if (pause_mining) m_core.resume_mine(); });
 
     // try adding block to the blockchain
     block_verification_context bvc = {}; 
@@ -679,6 +728,9 @@ namespace cryptonote
         NOTIFY_REQUEST_FLUFFY_MISSING_TX::request missing_tx_req;
         missing_tx_req.block_hash = new_block_hash;
         missing_tx_req.current_blockchain_height = new_block_height + 1;
+        if (!need_tx_indices.empty())
+          context.m_pending_fluffy_missing_txs[new_block_hash] =
+            std::set<uint64_t>(need_tx_indices.begin(), need_tx_indices.end());
         missing_tx_req.missing_tx_indices = std::move(need_tx_indices);
 
         // Post NOTIFY_REQUEST_FLUFFY_MISSING_TX request to peer
@@ -704,6 +756,7 @@ namespace cryptonote
     {
       context.m_needed_objects.clear();
       context.m_state = cryptonote_connection_context::state_synchronizing;
+      context.m_pending_fluffy_missing_txs.clear();
       NOTIFY_REQUEST_CHAIN::request r = {};
       m_core.get_short_chain_history(r.block_ids, context.m_expect_height);
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
@@ -717,6 +770,8 @@ namespace cryptonote
 
     if (bvc.m_added_to_main_chain || bvc.m_already_exists)
     {
+      context.m_pending_fluffy_missing_txs.erase(new_block_hash);
+
       // Update peer's sync height using this block we just validated
       // Note: peer_height is not guaranteed to be the height of the block we just validated + 1.
       // See https://github.com/monero-project/monero/pull/11048#discussion_r3720736824
