@@ -1093,3 +1093,41 @@ TEST(Serialization, tuple_many_tuples)
 
   EXPECT_EQ(tupler, tupler_recovered);
 }
+
+TEST(Serialization, exported_transfer_details_txid)
+{
+  tools::wallet2::exported_transfer_details etd{};
+  etd.m_pubkey = crypto::rand<crypto::public_key>();
+  etd.m_internal_output_index = 3;
+  etd.m_global_output_index = 1234;
+  etd.m_tx_pubkey = crypto::rand<crypto::public_key>();
+  etd.m_flags.flags = 0;
+  etd.m_flags.m_rct = 1;
+  etd.m_amount = 5000;
+  etd.m_subaddr_index_major = 1;
+  etd.m_subaddr_index_minor = 2;
+  etd.m_txid = crypto::rand<crypto::hash>();
+
+  std::string blob;
+  ASSERT_TRUE(::serialization::dump_binary(etd, blob));
+
+  tools::wallet2::exported_transfer_details etd_v2;
+  ASSERT_TRUE(::serialization::parse_binary(blob, etd_v2));
+  EXPECT_EQ(etd.m_pubkey, etd_v2.m_pubkey);
+  EXPECT_EQ(etd.m_amount, etd_v2.m_amount);
+  EXPECT_EQ(etd.m_txid, etd_v2.m_txid);
+
+  // a version 1 blob is the version 2 one without the trailing txid
+  ASSERT_EQ(2, blob[0]);
+  ASSERT_GT(blob.size(), sizeof(crypto::hash));
+  std::string blob_v1 = blob.substr(0, blob.size() - sizeof(crypto::hash));
+  blob_v1[0] = 1;
+
+  tools::wallet2::exported_transfer_details etd_v1;
+  etd_v1.m_txid = crypto::rand<crypto::hash>();
+  ASSERT_TRUE(::serialization::parse_binary(blob_v1, etd_v1));
+  EXPECT_EQ(etd.m_pubkey, etd_v1.m_pubkey);
+  EXPECT_EQ(etd.m_amount, etd_v1.m_amount);
+  EXPECT_EQ(etd.m_subaddr_index_minor, etd_v1.m_subaddr_index_minor);
+  EXPECT_EQ(crypto::null_hash, etd_v1.m_txid);
+}

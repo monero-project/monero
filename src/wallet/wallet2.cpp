@@ -115,7 +115,7 @@ using namespace cryptonote;
 // used to target a given block weight (additional outputs may be added on top to build fee)
 #define TX_WEIGHT_TARGET(bytes) (bytes*2/3)
 
-#define UNSIGNED_TX_PREFIX "Monero unsigned tx set\005"
+#define UNSIGNED_TX_PREFIX "Monero unsigned tx set\006"
 #define SIGNED_TX_PREFIX "Monero signed tx set\005"
 #define MULTISIG_UNSIGNED_TX_PREFIX "Monero multisig unsigned tx set\001"
 
@@ -135,7 +135,7 @@ using namespace cryptonote;
 
 #define MULTISIG_EXPORT_FILE_MAGIC "Monero multisig export\001"
 
-#define OUTPUT_EXPORT_FILE_MAGIC "Monero output export\004"
+#define OUTPUT_EXPORT_FILE_MAGIC "Monero output export\005"
 
 #define SEGREGATION_FORK_HEIGHT 99999999
 #define TESTNET_SEGREGATION_FORK_HEIGHT 99999999
@@ -8221,7 +8221,8 @@ bool wallet2::parse_unsigned_tx_from_str(const std::string &unsigned_tx_st, unsi
       LOG_PRINT_L0("Not loading deprecated format");
       return false;
   }
-  else if (version == '\005')
+  // version 5 sets carry exported_transfer_details without the txid
+  else if (version == '\005' || version == '\006')
   {
     try { s = decrypt_with_view_secret_key(s); }
     catch(const std::exception &e) { LOG_PRINT_L0("Failed to decrypt unsigned tx: " << e.what()); return false; }
@@ -14720,6 +14721,7 @@ std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_det
     etd.m_additional_tx_keys = get_additional_tx_pub_keys_from_extra(td.m_tx);
     etd.m_subaddr_index_major = td.m_subaddr_index.major;
     etd.m_subaddr_index_minor = td.m_subaddr_index.minor;
+    etd.m_txid = td.m_txid;
 
     outs.push_back(etd);
   }
@@ -14857,7 +14859,8 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
     exported_transfer_details etd = output_array[i];
     const auto set_cheap_data = [&etd](transfer_details &td) {
       td.m_block_height = 0;
-      td.m_txid = crypto::null_hash;
+      // unverified, taken as is from the hot wallet
+      td.m_txid = etd.m_txid;
       td.m_global_output_index = etd.m_global_output_index;
       td.m_spent = etd.m_flags.m_spent;
       td.m_frozen = etd.m_flags.m_frozen;
@@ -14947,7 +14950,9 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
   PERF_TIMER(import_outputs_from_str);
   std::string data = outputs_st;
   const size_t magiclen = strlen(OUTPUT_EXPORT_FILE_MAGIC);
-  if (data.size() < magiclen || memcmp(data.data(), OUTPUT_EXPORT_FILE_MAGIC, magiclen))
+  // also accept version 4 exports, which lack the txid
+  if (data.size() < magiclen || memcmp(data.data(), OUTPUT_EXPORT_FILE_MAGIC, magiclen - 1) ||
+      (data[magiclen - 1] != '\004' && data[magiclen - 1] != '\005'))
   {
     THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Bad magic from outputs"));
   }
@@ -15008,6 +15013,7 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
       if (loaded)
         imported_outputs = import_outputs(outputs);
     }
+    THROW_WALLET_EXCEPTION_IF(!loaded, error::wallet_internal_error, "Failed to parse output data");
   }
   catch (const std::exception &e)
   {
