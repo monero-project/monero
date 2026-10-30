@@ -1084,6 +1084,7 @@ namespace nodetool
     {
       res = zone.second.m_peerlist.init(m_peerlist_storage.take_zone(zone.first), m_allow_local_ip);
       CHECK_AND_ASSERT_MES(res, false, "Failed to init peerlist.");
+      zone.second.m_peerlist.get_and_empty_anchor_peerlist(zone.second.m_saved_anchors);
     }
 
     for(const auto& p: m_command_line_peers)
@@ -1230,7 +1231,10 @@ namespace nodetool
 
     peerlist_types active{};
     for (auto& zone : m_network_zones)
+    {
       zone.second.m_peerlist.get_peerlist(active);
+      active.anchor.insert(active.anchor.end(), zone.second.m_saved_anchors.begin(), zone.second.m_saved_anchors.end());
+    }
 
     const std::string state_file_path = m_config_folder + "/" + P2P_NET_DATA_FILENAME;
     if (!m_peerlist_storage.store(state_file_path, active))
@@ -1643,9 +1647,15 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::make_new_connection_from_anchor_peerlist(const std::vector<anchor_peerlist_entry>& anchor_peerlist)
+  bool node_server<t_payload_net_handler>::make_new_connection_from_anchor_peerlist(network_zone& zone)
   {
-    for (const auto& pe: anchor_peerlist) {
+    while (!zone.m_saved_anchors.empty()) {
+      // connection attempts fail once stopping, don't use up the anchors on them
+      if (zone.m_net_server.is_stop_signal_sent())
+        return false;
+
+      const anchor_peerlist_entry pe = zone.m_saved_anchors.front();
+      zone.m_saved_anchors.erase(zone.m_saved_anchors.begin());
       _note("Considering connecting (out) to anchor peer: " << peerid_to_string(pe.id) << " " << pe.adr.str());
 
       if(is_peer_used(pe)) {
@@ -2074,6 +2084,9 @@ namespace nodetool
         conn_count = new_conn_count;
       }
 
+      // saved anchors left over would otherwise pile up across restarts
+      zone.second.m_saved_anchors.clear();
+
       if (start_conn_count == get_outgoing_connections_count(zone.second) && start_conn_count < zone.second.m_config.m_net_config.max_out_connection_count)
       {
         MINFO("Failed to connect to any, trying seeds");
@@ -2092,12 +2105,6 @@ namespace nodetool
     if (m_offline)
       return false;
 
-    std::vector<anchor_peerlist_entry> apl;
-
-    if (peer_type == anchor) {
-      zone.m_peerlist.get_and_empty_anchor_peerlist(apl);
-    }
-
     size_t conn_count = get_outgoing_connections_count(zone);
     //add new connections from white peers
     if(conn_count < expected_connections)
@@ -2107,7 +2114,7 @@ namespace nodetool
 
       MDEBUG("Making expected connection, type " << peer_type << ", " << conn_count << "/" << expected_connections << " connections");
 
-      if (peer_type == anchor && !make_new_connection_from_anchor_peerlist(apl)) {
+      if (peer_type == anchor && !make_new_connection_from_anchor_peerlist(zone)) {
         return false;
       }
 
