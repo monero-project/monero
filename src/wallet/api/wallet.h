@@ -117,6 +117,7 @@ public:
     void setRingDatabase(const std::string &path) override;
     bool connectToDaemon() override;
     ConnectionStatus connected() const override;
+    bool daemonNettype(NetworkType &nettype) const override;
     void setTrustedDaemon(bool arg) override;
     bool trustedDaemon() const override;
     bool setProxy(const std::string &address) override;

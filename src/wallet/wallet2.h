@@ -904,6 +904,7 @@ private:
     RefreshType get_refresh_type() const { return m_refresh_type; }
 
     cryptonote::network_type nettype() const { return m_nettype; }
+    cryptonote::network_type get_daemon_nettype() const { return m_node_rpc_proxy.get_daemon_nettype(); }
     bool watch_only() const { return m_watch_only; }
     bool is_background_wallet() const { return m_is_background_wallet; }
     multisig::multisig_account_status get_multisig_status() const;

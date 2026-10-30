@@ -107,6 +107,13 @@ namespace cryptonote {
    */
   const char* get_network_type_name(network_type nettype);
 
+  /**
+   * @brief Get network type from human-readable name
+   * @param name One of ["mainnet", "testnet", "stagenet", "fakechain"]
+   * @return Network type, or UNDEFINED if name is not recognized
+   */
+  network_type get_network_type_from_name(const std::string &name);
+
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b);
   bool operator ==(const cryptonote::block& a, const cryptonote::block& b);
 
