@@ -7590,6 +7590,55 @@ void wallet2::get_payments(std::list<std::pair<crypto::hash,wallet2::payment_det
   });
 }
 //----------------------------------------------------------------------------------------------------
+static uint64_t get_amount_sent(uint64_t amount_in, uint64_t amount_out, uint64_t change)
+{
+  // A pre-RingCT transaction's amount_out is the sum of its outputs, which is more than amount_in when only
+  // some of its inputs are known, but gives the amount without them
+  if (amount_out > amount_in && amount_out - amount_in <= (uint64_t)std::numeric_limits<int64_t>::max())
+    return amount_out >= change ? amount_out - change : 0;
+
+  // otherwise amount_in - amount_out is the fee, and with only some inputs known the result can be negative
+  const uint64_t fee = amount_in - amount_out;
+  return amount_in >= fee && amount_in - fee >= change ? amount_in - fee - change : 0;
+}
+//----------------------------------------------------------------------------------------------------
+static bool is_outgoing_amount_complete(const std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &rings,
+  uint64_t amount_in, const std::unordered_map<crypto::key_image, size_t> &key_images, const wallet2::transfer_container &transfers)
+{
+  // amount_in only covers the inputs whose key images were known when the transfer was last processed, and
+  // importing key images later does not always update it, so check it against the inputs known now
+  uint64_t known_in = 0;
+  for (const auto &ring: rings)
+  {
+    const auto it = key_images.find(ring.first);
+    if (it == key_images.end() || it->second >= transfers.size())
+      return false;
+    known_in += transfers[it->second].amount();
+  }
+  return rings.empty() || known_in == amount_in;
+}
+//----------------------------------------------------------------------------------------------------
+uint64_t wallet2::get_amount_sent(const confirmed_transfer_details &pd) const
+{
+  const uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
+  return tools::get_amount_sent(pd.m_amount_in, pd.m_amount_out, change);
+}
+//----------------------------------------------------------------------------------------------------
+uint64_t wallet2::get_amount_sent(const unconfirmed_transfer_details &pd) const
+{
+  return tools::get_amount_sent(pd.m_amount_in, pd.m_amount_out, pd.m_change);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::is_outgoing_amount_complete(const confirmed_transfer_details &pd) const
+{
+  return tools::is_outgoing_amount_complete(pd.m_rings, pd.m_amount_in, m_key_images, m_transfers);
+}
+//----------------------------------------------------------------------------------------------------
+bool wallet2::is_outgoing_amount_complete(const unconfirmed_transfer_details &pd) const
+{
+  return tools::is_outgoing_amount_complete(pd.m_rings, pd.m_amount_in, m_key_images, m_transfers);
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>>& confirmed_payments,
     uint64_t min_height, uint64_t max_height, const boost::optional<uint32_t>& subaddr_account, const std::set<uint32_t>& subaddr_indices) const
 {

@@ -33,6 +33,7 @@
 
 from framework.daemon import Daemon
 from framework.wallet import Wallet
+import json
 import random
 
 SEED = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
@@ -55,6 +56,8 @@ class ColdSigningTest():
         self.transfer_after_empty_export_import()
         self.transfer_to_multi_subaddresses()
         self.self_transfer_to_other_account()
+        self.partial_key_images()
+        self.partial_key_images_sweep()
         self.sweep()
         self.failed_output_import_keeps_complete_transfers()
 
@@ -393,6 +396,106 @@ class ColdSigningTest():
         assert incoming(other_account.account_index) == [(0, amount)]
         outgoing = observer.get_transfers(account_index = 0).get('out', [])
         assert len([entry for entry in outgoing if entry.txid == txid]) == 1
+        observer.close_wallet()
+
+    def partial_key_images(self):
+        # 1 XMR from two coinbase inputs: one input alone is below change + fee
+        self.partial_key_images_amount(1000000000000, partial_positive = False)
+        # 60 XMR: one input alone covers change + fee, but not the whole amount
+        self.partial_key_images_amount(60000000000000, partial_positive = True)
+
+    def partial_key_images_amount(self, amount, partial_positive):
+        print("Outgoing amount with only some key images imported, sending " + str(amount))
+        daemon = Daemon()
+
+        self.export_import(False)
+        res = self.hot_wallet.transfer([{'address': OTHER_ADDRESS, 'amount': amount}])
+        txid = self.sign_and_submit(res.unsigned_txset)[0]
+        tx = json.loads(daemon.get_transactions([txid], decode_as_json = True).txs[0].as_json)
+        spent = [vin['key']['k_image'] for vin in tx['vin']]
+        assert len(spent) > 1
+
+        observer = Wallet(idx = 1)
+        try: observer.close_wallet()
+        except: pass
+        observer.generate_from_keys(
+            viewkey = self.cold_wallet.query_key("view_key").key,
+            address = STANDARD_ADDRESS)
+        observer.refresh()
+
+        outputs = observer.export_outputs(all = True)
+        self.cold_wallet.import_outputs(outputs.outputs_data_hex)
+        key_images = self.cold_wallet.export_key_images(True)
+        signed = key_images.signed_key_images
+        first = next(i for i, ki in enumerate(signed) if ki.key_image in spent)
+        known_in = next(t.amount for t in self.cold_wallet.incoming_transfers().transfers if t.key_image == signed[first].key_image)
+
+        # knowing one of the inputs, the wallet sees only part of what was spent
+        observer.import_key_images([signed[first]], offset = key_images.offset + first)
+        res = observer.get_transfer_by_txid(txid).transfer
+        assert res.type == 'out'
+        assert res.amount_incomplete
+        assert res.amount == max(0, known_in - res.change_amount - res.fee)
+        assert (res.amount > 0) == partial_positive
+        assert res.amount < amount
+
+        observer.import_key_images(signed, offset = key_images.offset)
+        res = observer.get_transfer_by_txid(txid).transfer
+        assert 'amount_incomplete' not in res
+        assert res.amount == amount
+        observer.close_wallet()
+
+    def partial_key_images_sweep(self):
+        print("Outgoing sweep scanned with only some key images, then importing the rest")
+        daemon = Daemon()
+        minor = self.hot_wallet.get_address_index(SUBADDRESS2).index.minor
+
+        self.export_import(False)
+        res = self.hot_wallet.transfer([{'address': SUBADDRESS2, 'amount': 2000000000000}, {'address': SUBADDRESS2, 'amount': 3000000000000}])
+        self.sign_and_submit(res.unsigned_txset)
+        self.mine(10)
+
+        observer = Wallet(idx = 1)
+        try: observer.close_wallet()
+        except: pass
+        observer.generate_from_keys(
+            viewkey = self.cold_wallet.query_key("view_key").key,
+            address = STANDARD_ADDRESS)
+        observer.refresh()
+        outputs = observer.export_outputs(all = True)
+        self.cold_wallet.import_outputs(outputs.outputs_data_hex)
+        key_images = self.cold_wallet.export_key_images(True)
+        signed = key_images.signed_key_images
+        swept = [t.key_image for t in self.cold_wallet.incoming_transfers(transfer_type = 'available').transfers if t.subaddr_index.minor == minor]
+        assert len(swept) > 1
+        first = next(i for i, ki in enumerate(signed) if ki.key_image in swept)
+        observer.import_key_images([signed[first]], offset = key_images.offset + first)
+
+        # a sweep pays nothing back to the wallet, so importing key images later does not revisit it
+        self.export_import(False)
+        res = self.hot_wallet.sweep_all(OTHER_ADDRESS, subaddr_indices = [minor])
+        txid = self.sign_and_submit(res.unsigned_txset)[0]
+        tx = json.loads(daemon.get_transactions([txid], decode_as_json = True).txs[0].as_json)
+        assert len(tx['vin']) > 1
+        sent = self.hot_wallet.get_transfer_by_txid(txid).transfer
+
+        observer.refresh()
+        assert all(t.txid != txid for t in observer.get_transfers().get('in', []))
+        res = observer.get_transfer_by_txid(txid).transfer
+        assert res.amount_incomplete
+        assert res.amount < sent.amount
+
+        # the record isn't revisited, so it stays flagged until a rescan rebuilds it
+        observer.import_key_images(signed, offset = key_images.offset)
+        res = observer.get_transfer_by_txid(txid).transfer
+        assert res.amount_incomplete
+        assert res.amount < sent.amount
+
+        observer.rescan_blockchain(keep_key_images = True)
+        res = observer.get_transfer_by_txid(txid).transfer
+        assert 'amount_incomplete' not in res
+        assert res.amount == sent.amount
+        assert res.fee == sent.fee
         observer.close_wallet()
 
     def self_transfer_to_other_account(self):

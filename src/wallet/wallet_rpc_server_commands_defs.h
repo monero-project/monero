@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 37
+#define WALLET_RPC_VERSION_MINOR 38
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -1500,6 +1500,7 @@ namespace wallet_rpc
     uint64_t height;
     uint64_t timestamp;
     uint64_t amount;
+    bool amount_incomplete = false; // outgoing amount may be a lower bound, not all of its inputs are known
     amounts_container amounts;
     uint64_t fee;
     uint64_t change_amount;
@@ -1521,6 +1522,7 @@ namespace wallet_rpc
       KV_SERIALIZE(height)
       KV_SERIALIZE(timestamp)
       KV_SERIALIZE(amount)
+      KV_SERIALIZE_OPT(amount_incomplete, false)
       KV_SERIALIZE(amounts)
       KV_SERIALIZE(fee)
       KV_SERIALIZE_OPT(change_amount, (uint64_t)0)

@@ -561,7 +561,8 @@ namespace tools
     entry.locked = !m_wallet->is_transfer_unlocked(pd.m_unlock_time, pd.m_block_height);
     entry.fee = pd.m_amount_in - pd.m_amount_out;
     uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
-    entry.amount = pd.m_amount_in - change - entry.fee;
+    entry.amount = m_wallet->get_amount_sent(pd);
+    entry.amount_incomplete = !m_wallet->is_outgoing_amount_complete(pd);
     entry.change_amount = change;
     entry.note = m_wallet->get_tx_note(txid);
 
@@ -590,7 +591,8 @@ namespace tools
     entry.height = 0;
     entry.timestamp = pd.m_timestamp;
     entry.fee = pd.m_amount_in - pd.m_amount_out;
-    entry.amount = pd.m_amount_in - pd.m_change - entry.fee;
+    entry.amount = m_wallet->get_amount_sent(pd);
+    entry.amount_incomplete = !m_wallet->is_outgoing_amount_complete(pd);
     entry.change_amount = pd.m_change;
     entry.unlock_time = pd.m_tx.unlock_time;
     entry.locked = true;

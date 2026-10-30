@@ -8675,12 +8675,12 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
       const bool selected = out && min_height < pd.m_block_height && pd.m_block_height <= max_height &&
         (subaddr_indices.empty() || std::any_of(pd.m_subaddr_indices.begin(), pd.m_subaddr_indices.end(),
           [&subaddr_indices](uint32_t index) { return subaddr_indices.count(index) != 0; }));
-      uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
       uint64_t fee = pd.m_amount_in - pd.m_amount_out;
+      const uint64_t amount = m_wallet->get_amount_sent(pd);
       if (!selected)
       {
         transfers.push_back({"out", pd.m_block_height, pd.m_timestamp, "out", true,
-          pd.m_amount_in - change - fee, i->first, {}, fee, {}, {}, {}, {}, false});
+          amount, i->first, {}, fee, {}, {}, {}, {}, false});
         continue;
       }
       std::vector<std::pair<std::string, uint64_t>> destinations;
@@ -8697,7 +8697,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
         pd.m_timestamp,
         "out",
         true,
-        pd.m_amount_in - change - fee,
+        amount,
         i->first,
         payment_id,
         fee,
@@ -8762,8 +8762,8 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
     m_wallet->get_unconfirmed_payments_out(upayments, m_current_subaddress_account, subaddr_indices);
     for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments.begin(); i != upayments.end(); ++i) {
       const tools::wallet2::unconfirmed_transfer_details &pd = i->second;
-      uint64_t amount = pd.m_amount_in;
-      uint64_t fee = amount - pd.m_amount_out;
+      uint64_t fee = pd.m_amount_in - pd.m_amount_out;
+      const uint64_t amount = m_wallet->get_amount_sent(pd);
       std::vector<std::pair<std::string, uint64_t>> destinations;
       for (const auto &d: pd.m_dests) {
         destinations.push_back({d.address(m_wallet->nettype(), pd.m_payment_id), d.amount});
@@ -8780,7 +8780,7 @@ bool simple_wallet::get_transfers(std::vector<std::string>& local_args, std::vec
           pd.m_timestamp,
           "out",
           false,
-          amount - pd.m_change - fee,
+          amount,
           i->first,
           payment_id,
           fee,
@@ -10464,6 +10464,8 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       const tools::wallet2::confirmed_transfer_details &pd = i->second;
       uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
       uint64_t fee = pd.m_amount_in - pd.m_amount_out;
+      const uint64_t amount = m_wallet->get_amount_sent(pd);
+      const bool complete = m_wallet->is_outgoing_amount_complete(pd);
       std::string dests;
       for (const auto &d: pd.m_dests) {
         if (!dests.empty())
@@ -10477,10 +10479,12 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       success_msg_writer() << "txid: " << txid;
       success_msg_writer() << "Height: " << pd.m_block_height;
       success_msg_writer() << "Timestamp: " << tools::get_human_readable_timestamp(pd.m_timestamp);
-      success_msg_writer() << "Amount: " << print_money(pd.m_amount_in - change - fee);
+      success_msg_writer() << "Amount: " << print_money(amount);
       success_msg_writer() << "Payment ID: " << payment_id;
       success_msg_writer() << "Change: " << print_money(change);
       success_msg_writer() << "Fee: " << print_money(fee);
+      if (!complete)
+        success_msg_writer() << "Not all of its inputs are known, the amount may be incomplete";
       success_msg_writer() << "Destinations: " << dests;
       success_msg_writer() << "Note: " << m_wallet->get_tx_note(txid);
       return true;
@@ -10527,8 +10531,9 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
     if (i->first == txid)
     {
       const tools::wallet2::unconfirmed_transfer_details &pd = i->second;
-      uint64_t amount = pd.m_amount_in;
-      uint64_t fee = amount - pd.m_amount_out;
+      uint64_t fee = pd.m_amount_in - pd.m_amount_out;
+      const uint64_t amount = m_wallet->get_amount_sent(pd);
+      const bool complete = m_wallet->is_outgoing_amount_complete(pd);
       std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
       if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
         payment_id = payment_id.substr(0,16);
@@ -10537,10 +10542,12 @@ bool simple_wallet::show_transfer(const std::vector<std::string> &args)
       success_msg_writer() << (is_failed ? "Failed" : "Pending") << " outgoing transaction found";
       success_msg_writer() << "txid: " << txid;
       success_msg_writer() << "Timestamp: " << tools::get_human_readable_timestamp(pd.m_timestamp);
-      success_msg_writer() << "Amount: " << print_money(amount - pd.m_change - fee);
+      success_msg_writer() << "Amount: " << print_money(amount);
       success_msg_writer() << "Payment ID: " << payment_id;
       success_msg_writer() << "Change: " << print_money(pd.m_change);
       success_msg_writer() << "Fee: " << print_money(fee);
+      if (!complete)
+        success_msg_writer() << "Not all of its inputs are known, the amount may be incomplete";
       success_msg_writer() << "Note: " << m_wallet->get_tx_note(txid);
       return true;
     }

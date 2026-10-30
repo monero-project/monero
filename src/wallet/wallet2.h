@@ -983,6 +983,13 @@ private:
     void get_payments_out(std::list<std::pair<crypto::hash,wallet2::confirmed_transfer_details>>& confirmed_payments,
       uint64_t min_height, uint64_t max_height = (uint64_t)-1, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void get_unconfirmed_payments_out(std::list<std::pair<crypto::hash,wallet2::unconfirmed_transfer_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
+    // Amount an outgoing transfer sent to others as recorded (inputs minus change and fee), without wrapping
+    // below zero. A view-only wallet only records the inputs whose key images it knows, so unless
+    // is_outgoing_amount_complete() the amount may be a lower bound.
+    uint64_t get_amount_sent(const confirmed_transfer_details &pd) const;
+    uint64_t get_amount_sent(const unconfirmed_transfer_details &pd) const;
+    bool is_outgoing_amount_complete(const confirmed_transfer_details &pd) const;
+    bool is_outgoing_amount_complete(const unconfirmed_transfer_details &pd) const;
     void get_unconfirmed_payments(std::list<std::pair<crypto::hash,wallet2::pool_payment_details>>& unconfirmed_payments, const boost::optional<uint32_t>& subaddr_account = boost::none, const std::set<uint32_t>& subaddr_indices = {}) const;
     void sanity_check_pending_tx(const wallet2::pending_tx &ptx, const bool redacted, const bool expect_imported_key_images, std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver, const bool allow_read_only) const;
     void sanity_check_pending_tx_set(const std::vector<pending_tx> &ptxs, const bool redacted, const bool expect_imported_key_images, std::optional<std::function<const crypto::key_image(const size_t)>> transfer_ki_resolver, const bool allow_read_only) const;
