@@ -274,6 +274,19 @@ namespace cryptonote {
     };
   }
   //--------------------------------------------------------------------------------
+  network_type get_network_type_from_name(const std::string &name)
+  {
+    if (name == "mainnet")
+      return MAINNET;
+    if (name == "testnet")
+      return TESTNET;
+    if (name == "stagenet")
+      return STAGENET;
+    if (name == "fakechain")
+      return FAKECHAIN;
+    return UNDEFINED;
+  }
+  //--------------------------------------------------------------------------------
   bool operator ==(const cryptonote::transaction& a, const cryptonote::transaction& b) {
     return cryptonote::get_transaction_hash(a) == cryptonote::get_transaction_hash(b);
   }
