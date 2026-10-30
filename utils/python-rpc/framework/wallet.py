@@ -948,12 +948,13 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(set_account_tag_description)
 
-    def rescan_blockchain(self, hard = False):
+    def rescan_blockchain(self, hard = False, keep_key_images = False):
         rescan_blockchain = {
             'method': 'rescan_blockchain',
             'jsonrpc': '2.0',
             'params': {
                 'hard': hard,
+                'keep_key_images': keep_key_images,
             },
             'id': '0'
         }

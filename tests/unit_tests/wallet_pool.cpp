@@ -87,6 +87,40 @@ public:
         wallet.m_pool_info_query_time = 1;
     }
 
+    static tools::wallet2::confirmed_transfer_details &confirmed_tx(tools::wallet2 &wallet, const crypto::hash &txid)
+    {
+        return wallet.m_confirmed_txs[txid];
+    }
+
+    // adds a received output spent by an input of rings, returns its key image
+    static crypto::key_image add_input(tools::wallet2 &wallet,
+        std::vector<std::pair<crypto::key_image, std::vector<uint64_t>>> &rings, uint64_t amount, bool rct, bool known)
+    {
+        const crypto::key_image key_image = crypto::rand<crypto::key_image>();
+        rings.push_back({key_image, {}});
+        wallet.m_transfers.emplace_back();
+        auto &transfer = wallet.m_transfers.back();
+        transfer.m_amount = amount;
+        transfer.m_rct = rct;
+        transfer.m_key_image = key_image;
+        if (known)
+            learn_key_image(wallet, key_image);
+        return key_image;
+    }
+
+    // what a key image import does to the transfer, without touching outgoing records
+    static void learn_key_image(tools::wallet2 &wallet, const crypto::key_image &key_image)
+    {
+        for (size_t i = 0; i < wallet.m_transfers.size(); ++i)
+        {
+            if (wallet.m_transfers[i].m_key_image == key_image)
+            {
+                wallet.m_transfers[i].m_key_image_known = true;
+                wallet.m_key_images[key_image] = i;
+            }
+        }
+    }
+
     static const tools::wallet2::transfer_details &add_spent_output(tools::wallet2 &wallet, cryptonote::transaction &tx)
     {
         cryptonote::txin_to_key input = AUTO_VAL_INIT(input);
@@ -896,4 +930,98 @@ TEST(wallet_pool, retries_full_pool_after_block_parse_failure)
     EXPECT_EQ(2, queries);
     EXPECT_EQ(1, callback.pool_receipts);
     EXPECT_EQ(2, wallet_pool_test::pool_query_time(w));
+}
+
+TEST(wallet_pool, outgoing_amount_of_complete_transfer)
+{
+    // 10 in, 7 sent, 2 change, 1 fee
+    tools::wallet2 w;
+    auto &pd = wallet_pool_test::confirmed_tx(w, crypto::null_hash);
+    wallet_pool_test::add_input(w, pd.m_rings, 5, true, true);
+    wallet_pool_test::add_input(w, pd.m_rings, 5, true, true);
+    pd.m_amount_in = 10;
+    pd.m_amount_out = 9;
+    pd.m_change = 2;
+
+    EXPECT_EQ(7, w.get_amount_sent(pd));
+    EXPECT_TRUE(w.is_outgoing_amount_complete(pd));
+}
+
+TEST(wallet_pool, outgoing_amount_with_partial_rct_inputs)
+{
+    // 10 in, 7 sent, 2 change, 1 fee, scanned while only the first input's key image was known
+    tools::wallet2 w;
+    auto &pd = wallet_pool_test::confirmed_tx(w, crypto::null_hash);
+    wallet_pool_test::add_input(w, pd.m_rings, 5, true, true);
+    const crypto::key_image second = wallet_pool_test::add_input(w, pd.m_rings, 5, true, false);
+    pd.m_amount_in = 5;
+    pd.m_amount_out = 4;
+    pd.m_change = 2;
+
+    EXPECT_EQ(2, w.get_amount_sent(pd));
+    EXPECT_FALSE(w.is_outgoing_amount_complete(pd));
+
+    // an import that does not revisit the transfer leaves the record partial
+    wallet_pool_test::learn_key_image(w, second);
+    EXPECT_EQ(2, w.get_amount_sent(pd));
+    EXPECT_FALSE(w.is_outgoing_amount_complete(pd));
+}
+
+TEST(wallet_pool, outgoing_amount_does_not_wrap)
+{
+    // 10 in, 7 sent, 2 change, 1 fee: the known input does not cover change and fee
+    tools::wallet2 w;
+    auto &pd = wallet_pool_test::confirmed_tx(w, crypto::null_hash);
+    wallet_pool_test::add_input(w, pd.m_rings, 2, true, true);
+    wallet_pool_test::add_input(w, pd.m_rings, 8, true, false);
+    pd.m_amount_in = 2;
+    pd.m_amount_out = 1;
+    pd.m_change = 2;
+
+    EXPECT_EQ(0, w.get_amount_sent(pd));
+    EXPECT_FALSE(w.is_outgoing_amount_complete(pd));
+}
+
+TEST(wallet_pool, outgoing_amount_does_not_wrap_below_fee)
+{
+    // 10 in, 7 sent, 2 change, 1 fee: the known input does not even cover the fee, so m_amount_out wrapped
+    tools::wallet2 w;
+    auto &pd = wallet_pool_test::confirmed_tx(w, crypto::null_hash);
+    wallet_pool_test::add_input(w, pd.m_rings, 0, true, true);
+    wallet_pool_test::add_input(w, pd.m_rings, 10, true, false);
+    pd.m_amount_in = 0;
+    pd.m_amount_out = (uint64_t)-1;
+    pd.m_change = 2;
+
+    EXPECT_EQ(0, w.get_amount_sent(pd));
+    EXPECT_FALSE(w.is_outgoing_amount_complete(pd));
+}
+
+TEST(wallet_pool, outgoing_amount_with_partial_v1_inputs)
+{
+    // two pre-RingCT inputs of 5, outputs of 9 with no change: amount_out is the sum of the outputs
+    tools::wallet2 w;
+    auto &pd = wallet_pool_test::confirmed_tx(w, crypto::null_hash);
+    wallet_pool_test::add_input(w, pd.m_rings, 5, false, true);
+    wallet_pool_test::add_input(w, pd.m_rings, 5, false, false);
+    pd.m_amount_in = 5;
+    pd.m_amount_out = 9;
+    pd.m_change = 0;
+
+    EXPECT_EQ(9, w.get_amount_sent(pd));
+    EXPECT_FALSE(w.is_outgoing_amount_complete(pd));
+}
+
+TEST(wallet_pool, outgoing_amount_of_pending_transfer)
+{
+    tools::wallet2 w;
+    auto &pd = wallet_pool_test::unconfirmed_tx(w, crypto::null_hash);
+    wallet_pool_test::add_input(w, pd.m_rings, 2, true, true);
+    wallet_pool_test::add_input(w, pd.m_rings, 8, true, false);
+    pd.m_amount_in = 2;
+    pd.m_amount_out = 1;
+    pd.m_change = 2;
+
+    EXPECT_EQ(0, w.get_amount_sent(pd));
+    EXPECT_FALSE(w.is_outgoing_amount_complete(pd));
 }
