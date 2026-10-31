@@ -1579,6 +1579,7 @@ private:
     void handle_reorg(uint64_t height, std::map<std::pair<uint64_t, uint64_t>, size_t> *output_tracker_cache = NULL);
     void get_short_chain_history(std::list<crypto::hash>& ids, uint64_t granularity = 1) const;
     bool clear();
+    cryptonote::COMMAND_RPC_GET_TRANSACTIONS::entry get_tx_for_proof(const crypto::hash &txid, cryptonote::transaction &tx);
     void clear_soft(bool keep_key_images=false);
     /*
      * clear_user_data clears data created by the user, which is mostly data
