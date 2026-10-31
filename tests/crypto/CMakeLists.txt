@@ -28,7 +28,6 @@
 
 set(crypto_sources
   crypto-ops-data.c
-  crypto-ops.c
   crypto.cpp
   hash.c
   main.cpp
