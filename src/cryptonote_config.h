@@ -154,6 +154,7 @@
 #define P2P_DEFAULT_LIMIT_RATE_UP                       8192       // kB/s
 #define P2P_DEFAULT_LIMIT_RATE_DOWN                     32768       // kB/s
 #define P2P_MIN_LIMIT_RATE_PER_PEER                     64         // kB/s
+#define P2P_RATE_LIMITED_BATCH_SAFETY_FACTOR            75         // percent; to add buffer for the 20-second sync response time out (NON_RESPONSIVE_PEER_KICK_TIME)
 
 #define P2P_FAILED_ADDR_FORGET_SECONDS                  (60*60)     //1 hour
 #define P2P_FAILED_SEED_ADDR_FORGET_SECONDS             (60*5)      //5 minutes

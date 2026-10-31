@@ -48,6 +48,7 @@
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "profile_tools.h"
 #include "net/network_throttle-detail.hpp"
+#include "net/connection_basic.hpp"
 #include "common/pruning.h"
 #include "common/util.h"
 #include "misc_log_ex.h"
@@ -234,6 +235,24 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
+  int64_t t_cryptonote_protocol_handler<t_core>::effective_non_responsive_kick_time() const
+  {
+    // If we are throttling our own downloads, a large chain-entry response
+    // can take longer than 20s to arrive since we are reading slowly
+    // This function gives ourselves more time before kicking the peer, so we don't lower their 
+    // trust factor due to the limit we created.
+    const int64_t down_kbps = epee::net_utils::connection_basic::get_rate_down_limit_per_peer();
+    if (down_kbps <= 0)
+    {
+      return NON_RESPONSIVE_PEER_KICK_TIME;
+    }
+    constexpr int64_t worst_case_bytes = 2 * 1024 * 1024;
+    const int64_t needed_us = (worst_case_bytes * 1000000) / (down_kbps * 1024);
+    const int64_t padded = needed_us * 100 / P2P_RATE_LIMITED_BATCH_SAFETY_FACTOR;
+    return std::max<int64_t>(NON_RESPONSIVE_PEER_KICK_TIME, padded);
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
   bool t_cryptonote_protocol_handler<t_core>::deinit()
   {
     return true;
@@ -263,7 +282,8 @@ namespace cryptonote
         const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
         const boost::posix_time::time_duration dt = now - context.m_last_request_time;
         const auto ms = dt.total_microseconds();
-        if (ms > IDLE_PEER_KICK_TIME || (context.m_expect_response && ms > NON_RESPONSIVE_PEER_KICK_TIME))
+        const int64_t non_responsive_us = effective_non_responsive_kick_time();
+        if (ms > IDLE_PEER_KICK_TIME || (context.m_expect_response && ms > non_responsive_us))
         {
           if (context.m_score-- >= 0)
           {
@@ -1042,6 +1062,36 @@ namespace cryptonote
       drop_connection(context, false, false);
       return LEVIN_ERROR_CONNECTION;
     }
+
+    // If a per-peer upload limit is set, trim the response to what we can send
+    // before the remote's NON_RESPONSIVE_PEER_KICK_TIME fires.
+    const int64_t up_kbps = epee::net_utils::connection_basic::get_rate_up_limit_per_peer();
+    if (up_kbps > 0 && !rsp.blocks.empty())
+    {
+      const uint64_t window_s = NON_RESPONSIVE_PEER_KICK_TIME / 1000000;
+      const uint64_t cap_bytes = static_cast<uint64_t>(up_kbps) * 1024 * window_s * P2P_RATE_LIMITED_BATCH_SAFETY_FACTOR / 100;
+      uint64_t running = 0;
+      size_t keep = 0;
+      for (const auto &b : rsp.blocks)
+      {
+        uint64_t sz = b.block.size();
+        for (const auto &tx : b.txs)
+        {
+          sz += tx.blob.size();
+        }
+        if (keep > 0 && running + sz > cap_bytes) 
+        {
+          break;
+        }
+        running += sz;
+        ++keep;
+      }
+      if (keep < rsp.blocks.size())
+      {
+        rsp.blocks.resize(keep);
+      }
+    }
+
     context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
     MLOG_P2P_MESSAGE("-->>NOTIFY_RESPONSE_GET_OBJECTS: blocks.size()="
                      << rsp.blocks.size() << ", rsp.m_current_blockchain_height=" << rsp.current_blockchain_height
@@ -1729,7 +1779,8 @@ skip:
         const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
         const boost::posix_time::time_duration dt = now - context.m_last_request_time;
         const auto ms = dt.total_microseconds();
-        if (ms > IDLE_PEER_KICK_TIME || (context.m_expect_response && ms > NON_RESPONSIVE_PEER_KICK_TIME))
+        const int64_t non_responsive_us = effective_non_responsive_kick_time();
+        if (ms > IDLE_PEER_KICK_TIME || (context.m_expect_response && ms > non_responsive_us))
         {
           context.m_idle_peer_notification = true;
           LOG_PRINT_CCONTEXT_L2("requesting callback");
@@ -2207,7 +2258,20 @@ skip:
       bool is_next = false;
       size_t count = 0;
       const uint64_t max_average = m_core.is_block_sync_size_adaptive() ? max_average_of_blocksize_in_queue() : 0;
-      const size_t l_m_bss = m_core.get_block_sync_size(m_core.get_current_blockchain_height(), max_average);
+      size_t l_m_bss = m_core.get_block_sync_size(m_core.get_current_blockchain_height(), max_average);
+
+      const int64_t down_kbps = epee::net_utils::connection_basic::get_rate_down_limit_per_peer();
+      if (down_kbps > 0 && l_m_bss > 0)
+      {
+        const uint64_t projected_block_size = std::max<uint64_t>(max_average, 1);
+        const uint64_t window_s = NON_RESPONSIVE_PEER_KICK_TIME / 1000000;
+        const uint64_t cap_bytes = static_cast<uint64_t>(down_kbps) * 1024 * window_s * P2P_RATE_LIMITED_BATCH_SAFETY_FACTOR / 100;
+        const size_t cap_blocks = std::max<size_t>(1, cap_bytes / projected_block_size);
+        if (cap_blocks < l_m_bss)
+        {
+          l_m_bss = cap_blocks;
+        }
+      }
       std::pair<uint64_t, uint64_t> span = std::make_pair(0, 0);
       if (force_next_span)
       {
