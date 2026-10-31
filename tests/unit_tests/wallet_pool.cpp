@@ -399,6 +399,85 @@ namespace
     }
 }
 
+TEST(wallet_pool, fetches_full_v1_transaction_for_tx_proof)
+{
+    cryptonote::transaction tx;
+    crypto::hash txid;
+    size_t pruned_requests = 0;
+    size_t full_requests = 0;
+    bool wrong_full_transaction = false;
+    const auto pool_reply = [](const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request &,
+        cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response &) {};
+    const auto tx_reply = [&](const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request &request,
+        cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response &response)
+    {
+        EXPECT_EQ(1, request.txs_hashes.size());
+        EXPECT_EQ(epee::string_tools::pod_to_hex(txid), request.txs_hashes.front());
+        ++(request.prune ? pruned_requests : full_requests);
+        response.txs.emplace_back();
+        auto &entry = response.txs.back();
+        entry.tx_hash = epee::string_tools::pod_to_hex(txid);
+        entry.prunable_hash = epee::string_tools::pod_to_hex(crypto::null_hash);
+        entry.in_pool = tx.version == 1;
+        auto reply_tx = tx;
+        if (!request.prune && wrong_full_transaction)
+            ++reply_tx.unlock_time;
+        auto blob = cryptonote::tx_to_blob(reply_tx);
+        if (request.prune)
+        {
+            EXPECT_TRUE(cryptonote::prune_transaction_blob(blob));
+            entry.pruned_as_hex = epee::string_tools::buff_to_hex_nodelimer(blob);
+        }
+        else
+            entry.as_hex = epee::string_tools::buff_to_hex_nodelimer(blob);
+        return true;
+    };
+
+    tools::wallet2 wallet(cryptonote::MAINNET, 1, true,
+        std::unique_ptr<epee::net_utils::http::http_client_factory>(new pool_http_client_factory(pool_reply, tx_reply)));
+    wallet.set_offline(true);
+    wallet.generate("", "");
+    wallet.set_offline(false);
+    const auto &address = wallet.get_account().get_keys().m_account_address;
+    tx = make_pool_payment(wallet);
+    tx.signatures.resize(1);
+    tx.signatures[0].resize(1);
+    ASSERT_EQ(1, tx.version);
+    txid = cryptonote::get_transaction_hash(tx);
+    cryptonote::transaction parsed_tx;
+    ASSERT_TRUE(cryptonote::parse_and_validate_tx_from_blob(cryptonote::tx_to_blob(tx), parsed_tx));
+    ASSERT_EQ(txid, cryptonote::get_transaction_hash(parsed_tx));
+
+    const auto proof = wallet.get_tx_proof(txid, address, false, "v1 proof");
+    ASSERT_EQ(0, proof.find("InProofV2"));
+    EXPECT_EQ(1, pruned_requests);
+    EXPECT_EQ(1, full_requests);
+
+    uint64_t received = 0;
+    bool in_pool = false;
+    uint64_t confirmations = 0;
+    EXPECT_TRUE(wallet.check_tx_proof(txid, address, false, "v1 proof", proof, received, in_pool, confirmations));
+    EXPECT_GT(received, 0);
+    EXPECT_TRUE(in_pool);
+    EXPECT_EQ(2, pruned_requests);
+    EXPECT_EQ(2, full_requests);
+
+    wrong_full_transaction = true;
+    EXPECT_ANY_THROW(wallet.check_tx_proof(txid, address, false, "v1 proof", proof, received, in_pool, confirmations));
+    EXPECT_EQ(3, pruned_requests);
+    EXPECT_EQ(3, full_requests);
+
+    wrong_full_transaction = false;
+    ASSERT_TRUE(cryptonote::construct_miner_tx(2, 0, 0, 0, 0, address, tx, {}, 999, HF_VERSION_VIEW_TAGS + 1));
+    ASSERT_EQ(2, tx.version);
+    txid = cryptonote::get_transaction_hash(tx);
+    pruned_requests = full_requests = 0;
+    const auto v2_proof = wallet.get_tx_proof(txid, address, false, "v2 proof");
+    EXPECT_EQ(0, v2_proof.find("InProofV2"));
+    EXPECT_EQ(1, pruned_requests);
+    EXPECT_EQ(0, full_requests);
+}
+
 TEST(wallet_pool, advances_cursor_on_successful_refresh)
 {
     cryptonote::transaction pool_tx;

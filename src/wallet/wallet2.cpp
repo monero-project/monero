@@ -12722,15 +12722,16 @@ bool wallet2::is_out_to_acc(const cryptonote::account_public_address &address, c
   return found;
 }
 
-std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::account_public_address &address, bool is_subaddress, const std::string &message)
+COMMAND_RPC_GET_TRANSACTIONS::entry wallet2::get_tx_for_proof(const crypto::hash &txid, cryptonote::transaction &tx)
 {
-    // fetch tx pubkey from the daemon
-    COMMAND_RPC_GET_TRANSACTIONS::request req;
-    COMMAND_RPC_GET_TRANSACTIONS::response res;
-    req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
-    req.decode_as_json = false;
-    req.prune = true;
+  COMMAND_RPC_GET_TRANSACTIONS::request req;
+  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
+  req.decode_as_json = false;
+  req.prune = true;
 
+  for (;;)
+  {
+    COMMAND_RPC_GET_TRANSACTIONS::response res;
     bool ok;
     {
       const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
@@ -12739,12 +12740,28 @@ std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::ac
         error::wallet_internal_error, "Failed to get transaction from daemon");
     }
 
-    cryptonote::transaction tx;
+    cryptonote::transaction fetched_tx;
     crypto::hash tx_hash;
-    ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
+    ok = get_pruned_tx(res.txs.front(), fetched_tx, tx_hash);
     THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-
     THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
+
+    if (fetched_tx.version == 1 && fetched_tx.pruned)
+    {
+      THROW_WALLET_EXCEPTION_IF(!req.prune, error::wallet_internal_error, "Failed to get full transaction from daemon");
+      req.prune = false;
+      continue;
+    }
+
+    tx = std::move(fetched_tx);
+    return std::move(res.txs.front());
+  }
+}
+
+std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::account_public_address &address, bool is_subaddress, const std::string &message)
+{
+    cryptonote::transaction tx;
+    get_tx_for_proof(txid, tx);
 
     // determine if the address is found in the subaddress hash table (i.e. whether the proof is outbound or inbound)
     crypto::secret_key tx_key = crypto::null_skey;
@@ -12917,39 +12934,20 @@ std::string wallet2::get_tx_proof(const cryptonote::transaction &tx, const crypt
 
 bool wallet2::check_tx_proof(const crypto::hash &txid, const cryptonote::account_public_address &address, bool is_subaddress, const std::string &message, const std::string &sig_str, uint64_t &received, bool &in_pool, uint64_t &confirmations)
 {
-  // fetch tx pubkey from the daemon
-  COMMAND_RPC_GET_TRANSACTIONS::request req;
-  COMMAND_RPC_GET_TRANSACTIONS::response res;
-  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
-  req.decode_as_json = false;
-  req.prune = true;
-
-  bool ok;
-  {
-    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-    ok = net_utils::invoke_http_json("/gettransactions", req, res, *m_http_client);
-    THROW_WALLET_EXCEPTION_IF(!ok || res.txs.size() != 1,
-      error::wallet_internal_error, "Failed to get transaction from daemon");
-  }
-
   cryptonote::transaction tx;
-  crypto::hash tx_hash;
-  ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
-  THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-
-  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
+  const auto tx_entry = get_tx_for_proof(txid, tx);
 
   if (!check_tx_proof(tx, address, is_subaddress, message, sig_str, received))
     return false;
 
-  in_pool = res.txs.front().in_pool;
+  in_pool = tx_entry.in_pool;
   confirmations = 0;
   if (!in_pool)
   {
     std::string err;
     uint64_t bc_height = get_daemon_blockchain_height(err);
-    if (err.empty() && bc_height > res.txs.front().block_height)
-      confirmations = bc_height - res.txs.front().block_height;
+    if (err.empty() && bc_height > tx_entry.block_height)
+      confirmations = bc_height - tx_entry.block_height;
   }
 
   return true;
