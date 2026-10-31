@@ -294,28 +294,27 @@ TEST(logging, empty_configuration)
 
 TEST(logging, deadlock)
 {
-  std::mutex inner_mutex;
+  mlog_set_categories("global:INFO");
 
-  // 1. Thread 1 starts logger
-  // 2. Thread 2 grabs inner mutex shared across threads
-  // 3. Thread 2 logs
-  // 4. Thread 1 grabs inner mutex shared across threads
-  // 5. Thread 1 finishes logging
-  std::condition_variable cv1, cv2;
-  std::mutex mutex1, mutex2;
-  std::unique_lock<std::mutex> lock_until_t1_starts_logger(mutex1);
-  std::unique_lock<std::mutex> lock_until_t2_finishes_logging(mutex2);
-  bool t1_started_logger = false;
-  bool t2_finished_logging = false;
+  std::mutex inner_mutex;
+  std::mutex stage_mutex;
+  std::condition_variable stage_cv;
+  bool t1_in_formatter = false;
+  bool t2_holds_inner = false;
 
   const auto thread1_func = [&]
   {
     const auto thread1_inner_func = [&]() -> std::string
     {
-      t1_started_logger = true;
-      lock_until_t1_starts_logger.unlock();
-      cv1.notify_one();
-      cv2.wait(lock_until_t2_finishes_logging, [&]{return t2_finished_logging;});
+      {
+        std::lock_guard<std::mutex> guard(stage_mutex);
+        t1_in_formatter = true;
+      }
+      stage_cv.notify_all();
+      {
+        std::unique_lock<std::mutex> lock(stage_mutex);
+        stage_cv.wait(lock, [&]{ return t2_holds_inner; });
+      }
 
       std::lock_guard<std::mutex> guard(inner_mutex);
       return "world!";
@@ -325,16 +324,20 @@ TEST(logging, deadlock)
 
   const auto thread2_func = [&]
   {
-    cv1.wait(lock_until_t1_starts_logger, [&]{return t1_started_logger;});
+    {
+      std::unique_lock<std::mutex> lock(stage_mutex);
+      stage_cv.wait(lock, [&]{ return t1_in_formatter; });
+    }
 
     {
       std::lock_guard<std::mutex> guard(inner_mutex);
+      {
+        std::lock_guard<std::mutex> stage_guard(stage_mutex);
+        t2_holds_inner = true;
+      }
+      stage_cv.notify_all();
       MGINFO("Hello, world! - Sincerely, thread 2");
     }
-
-    t2_finished_logging = true;
-    lock_until_t2_finishes_logging.unlock();
-    cv2.notify_one();
   };
 
   std::thread t1(thread1_func);
