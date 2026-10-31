@@ -12754,6 +12754,11 @@ std::string wallet2::get_tx_proof(const crypto::hash &txid, const cryptonote::ac
     {
       THROW_WALLET_EXCEPTION_IF(!get_tx_key(txid, tx_key, additional_tx_keys), error::wallet_internal_error, "Tx secret key wasn't found in the wallet file.");
     }
+    else
+    {
+      THROW_WALLET_EXCEPTION_IF(spends_one_of_ours(tx) || get_tx_key_cached(txid, tx_key, additional_tx_keys), error::wallet_internal_error,
+        "This wallet sent this tx; an InProof for it could reveal this wallet's change");
+    }
 
     return get_tx_proof(tx, tx_key, additional_tx_keys, address, is_subaddress, message);
 }

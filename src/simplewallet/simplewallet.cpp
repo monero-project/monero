@@ -3291,7 +3291,7 @@ simple_wallet::simple_wallet()
   m_cmd_binder.set_handler("get_tx_proof",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::get_tx_proof, _1),
                            tr(USAGE_GET_TX_PROOF),
-                           tr("Generate a signature proving funds sent to <address> in <txid>, optionally with a challenge string <message>, using either the transaction secret key (when <address> is not your wallet's address) or the view secret key (otherwise), which does not disclose the secret key."));
+                           tr("Generate a signature proving funds sent to <address> in <txid>, optionally with a challenge string <message>, using either the transaction secret key (when <address> is not your wallet's address) or the view secret key (otherwise), which does not disclose the secret key. A proof using the view secret key is refused for a transaction the wallet knows it sent, since it could reveal your change."));
   m_cmd_binder.set_handler("check_tx_proof",
                            boost::bind(&simple_wallet::on_command, this, &simple_wallet::check_tx_proof, _1),
                            tr(USAGE_CHECK_TX_PROOF),
