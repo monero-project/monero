@@ -766,6 +766,7 @@ namespace cryptonote
       */
      size_t get_block_sync_size(uint64_t height, const uint64_t max_average_of_blocksize_in_queue = 0) const;
      bool is_block_sync_size_adaptive() const { return block_sync_size == 0; }
+     uint64_t get_batch_max_weight() const { return batch_max_weight; }
 
      /**
       * @brief get the sum of coinbase tx amounts between blocks
