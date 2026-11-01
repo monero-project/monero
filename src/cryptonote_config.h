@@ -153,9 +153,12 @@
 #define P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT       2
 #define P2P_DEFAULT_LIMIT_RATE_UP                       8192       // kB/s
 #define P2P_DEFAULT_LIMIT_RATE_DOWN                     32768       // kB/s
-#define P2P_MIN_LIMIT_RATE_PER_PEER                     64         // kB/s
+#define P2P_MIN_LIMIT_RATE_UP_PER_PEER                  512        // kB/s; requesters expect a full span (up to 10 MB) within 20 s
+#define P2P_WARN_LIMIT_RATE_UP_PER_PEER                 1024       // kB/s; below this, large spans may still miss the requester's 20 s timeout
+#define P2P_MIN_LIMIT_RATE_DOWN_PER_PEER                64         // kB/s
 #define P2P_MAX_LIMIT_RATE_PER_PEER                     (4LL * 1024 * 1024 * 1024) // kB/s; to prevent arithmetic overflow.
-#define P2P_RATE_LIMITED_BATCH_SAFETY_FACTOR            75         // percent; to add buffer for the 20-second sync response time out (NON_RESPONSIVE_PEER_KICK_TIME)
+#define P2P_RATE_LIMITED_BATCH_SAFETY_FACTOR            75         // percent; under a per-peer download limit, spans are sized to arrive in this share of NON_RESPONSIVE_PEER_KICK_TIME
+#define P2P_RATE_LIMITED_MIN_PROGRESS_PERCENT           25         // percent; under a per-peer download limit, a reply slower than this share of the limit is non-responsive
 
 #define P2P_FAILED_ADDR_FORGET_SECONDS                  (60*60)     //1 hour
 #define P2P_FAILED_SEED_ADDR_FORGET_SECONDS             (60*5)      //5 minutes

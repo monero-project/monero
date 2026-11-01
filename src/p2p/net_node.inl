@@ -3066,10 +3066,14 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_rate_up_limit_per_peer(const boost::program_options::variables_map& vm, int64_t limit)
   {
-    if (limit != -1 && (limit < P2P_MIN_LIMIT_RATE_PER_PEER || limit > P2P_MAX_LIMIT_RATE_PER_PEER))
+    if (limit != -1 && (limit < P2P_MIN_LIMIT_RATE_UP_PER_PEER || limit > P2P_MAX_LIMIT_RATE_PER_PEER))
     {
-      MERROR("Invalid per-peer upload limit: " << limit << " kB/s (must be -1 for unlimited, or between " << P2P_MIN_LIMIT_RATE_PER_PEER << " and " << P2P_MAX_LIMIT_RATE_PER_PEER << " kB/s)");
+      MERROR("Invalid per-peer upload limit: " << limit << " kB/s (must be -1 for unlimited, or between " << P2P_MIN_LIMIT_RATE_UP_PER_PEER << " and " << P2P_MAX_LIMIT_RATE_PER_PEER << " kB/s)");
       return false;
+    }
+    if (limit != -1 && limit < P2P_WARN_LIMIT_RATE_UP_PER_PEER)
+    {
+      MWARNING("Per-peer upload limit below " << P2P_WARN_LIMIT_RATE_UP_PER_PEER << " kB/s may cause peers syncing large spans from this node to time out");
     }
 
     epee::net_utils::connection<epee::levin::async_protocol_handler<p2p_connection_context> >::set_rate_up_limit_per_peer(limit);
@@ -3080,9 +3084,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::set_rate_down_limit_per_peer(const boost::program_options::variables_map& vm, int64_t limit)
   {
-    if (limit != -1 && (limit < P2P_MIN_LIMIT_RATE_PER_PEER || limit > P2P_MAX_LIMIT_RATE_PER_PEER))
+    if (limit != -1 && (limit < P2P_MIN_LIMIT_RATE_DOWN_PER_PEER || limit > P2P_MAX_LIMIT_RATE_PER_PEER))
     {
-      MERROR("Invalid per-peer download limit: " << limit << " kB/s (must be -1 for unlimited, or between " << P2P_MIN_LIMIT_RATE_PER_PEER << " and " << P2P_MAX_LIMIT_RATE_PER_PEER << " kB/s)");
+      MERROR("Invalid per-peer download limit: " << limit << " kB/s (must be -1 for unlimited, or between " << P2P_MIN_LIMIT_RATE_DOWN_PER_PEER << " and " << P2P_MAX_LIMIT_RATE_PER_PEER << " kB/s)");
       return false;
     }
 

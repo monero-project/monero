@@ -158,7 +158,7 @@ namespace nodetool
     const command_line::arg_descriptor<int64_t> arg_limit_rate_up = {"limit-rate-up", "set limit-rate-up [kB/s]", P2P_DEFAULT_LIMIT_RATE_UP};
     const command_line::arg_descriptor<int64_t> arg_limit_rate_down = {"limit-rate-down", "set limit-rate-down [kB/s]", P2P_DEFAULT_LIMIT_RATE_DOWN};
     const command_line::arg_descriptor<int64_t> arg_limit_rate = {"limit-rate", "set limit-rate [kB/s]", -1};
-    const command_line::arg_descriptor<int64_t> arg_limit_rate_up_per_peer = { "limit-rate-up-per-peer", "set P2P per-peer upload limit [kB/s] (64 to 4294967296, does not apply to RPC traffic), or -1 for unlimited", -1 };
+    const command_line::arg_descriptor<int64_t> arg_limit_rate_up_per_peer = { "limit-rate-up-per-peer", "set P2P per-peer upload limit [kB/s] (512 to 4294967296, does not apply to RPC traffic), or -1 for unlimited", -1 };
     const command_line::arg_descriptor<int64_t> arg_limit_rate_down_per_peer = { "limit-rate-down-per-peer", "set P2P per-peer download limit [kB/s] (64 to 4294967296, does not apply to RPC traffic), or -1 for unlimited", -1 };
 
     const command_line::arg_descriptor<bool> arg_pad_transactions = {

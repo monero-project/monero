@@ -239,14 +239,15 @@ namespace cryptonote
   {
     if (!context.m_expect_response || elapsed_us <= NON_RESPONSIVE_PEER_KICK_TIME)
       return false;
-    // Our download limit can slow a reply past any fixed timeout, so only
-    // kick a peer that has stopped sending. IDLE_PEER_KICK_TIME still applies.
-    if (epee::net_utils::connection_basic::get_rate_down_limit_per_peer() > 0)
-    {
-      const int64_t silent_us = static_cast<int64_t>(time(NULL) - context.m_last_recv) * 1000000;
-      return silent_us > NON_RESPONSIVE_PEER_KICK_TIME;
-    }
-    return true;
+    const int64_t down_kbps = epee::net_utils::connection_basic::get_rate_down_limit_per_peer();
+    if (down_kbps <= 0)
+      return true;
+    // Our download limit can slow a reply past the usual timeout, so keep
+    // waiting only while the peer sends at a fair share of that limit.
+    // A slower or silent peer is not held back by us and is kicked as usual.
+    const uint64_t received = context.m_recv_cnt - context.m_request_recv_cnt;
+    const uint64_t allowed = static_cast<uint64_t>(down_kbps) * 1024 * static_cast<uint64_t>(elapsed_us / 1000000);
+    return received < allowed / 100 * P2P_RATE_LIMITED_MIN_PROGRESS_PERCENT;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
@@ -315,6 +316,7 @@ namespace cryptonote
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       r.prune = m_sync_pruned_blocks;
       context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+      context.m_request_recv_cnt = context.m_recv_cnt;
       context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
@@ -778,6 +780,7 @@ namespace cryptonote
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       r.prune = m_sync_pruned_blocks;
       context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+      context.m_request_recv_cnt = context.m_recv_cnt;
       context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size() );
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
@@ -1060,6 +1063,7 @@ namespace cryptonote
     }
 
     context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+    context.m_request_recv_cnt = context.m_recv_cnt;
     MLOG_P2P_MESSAGE("-->>NOTIFY_RESPONSE_GET_OBJECTS: blocks.size()="
                      << rsp.blocks.size() << ", rsp.m_current_blockchain_height=" << rsp.current_blockchain_height
                      << ", missed_ids.size()=" << rsp.missed_ids.size());
@@ -2375,6 +2379,7 @@ skip:
           }
         }
         context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+        context.m_request_recv_cnt = context.m_recv_cnt;
         context.m_expect_height = span.first;
         context.m_expect_response = NOTIFY_RESPONSE_GET_OBJECTS::ID;
         MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_GET_OBJECTS: blocks.size()=" << req.blocks.size()
@@ -2454,6 +2459,7 @@ skip:
       //LOG_PRINT_CCONTEXT_L1("r = " << 200);
 
       context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
+      context.m_request_recv_cnt = context.m_recv_cnt;
       context.m_expect_response = NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
       MLOG_P2P_MESSAGE("-->>NOTIFY_REQUEST_CHAIN: m_block_ids.size()=" << r.block_ids.size());
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
