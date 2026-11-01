@@ -33,8 +33,10 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <chrono>
+#include <csignal>
 #include <cstring>
 #include <thread>
 
@@ -57,6 +59,7 @@
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "daemonizer/daemonizer.h"
 #include "fee_priority.h"
+#include "scope_guard.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "wallet.rpc"
@@ -5188,6 +5191,19 @@ namespace tools
   //------------------------------------------------------------------------------------------------------------------------------
 }
 
+#ifndef _WIN32
+namespace
+{
+  std::atomic<bool> reopen_log_requested{false};
+  static_assert(ATOMIC_BOOL_LOCK_FREE == 2, "SIGUSR1 requires a lock-free atomic flag");
+
+  void request_log_reopen(int)
+  {
+    reopen_log_requested.store(true, std::memory_order_relaxed);
+  }
+}
+#endif
+
 class t_daemon
 {
 private:
@@ -5204,6 +5220,41 @@ public:
 
   bool run()
   {
+#ifndef _WIN32
+    reopen_log_requested.store(false, std::memory_order_relaxed);
+    struct sigaction reopen_action = {};
+    reopen_action.sa_handler = request_log_reopen;
+    reopen_action.sa_flags = SA_RESTART;
+    sigemptyset(&reopen_action.sa_mask);
+    struct sigaction previous_action = {};
+    const bool reopen_signal_installed = sigaction(SIGUSR1, &reopen_action, &previous_action) == 0;
+    const epee::scope_guard restore_reopen_signal([&] {
+      if (reopen_signal_installed)
+        sigaction(SIGUSR1, &previous_action, nullptr);
+    });
+    if (!reopen_signal_installed)
+      MWARNING("Failed to install SIGUSR1 log reopen handler");
+
+    std::atomic<bool> stop_reopen_thread{false};
+    std::thread reopen_thread([&] {
+      while (!stop_reopen_thread)
+      {
+        if (reopen_log_requested.exchange(false, std::memory_order_relaxed))
+        {
+          if (mlog_reopen())
+            MINFO("Reopened log file after SIGUSR1");
+          else
+            MERROR("Failed to reopen the log file after SIGUSR1");
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds{100});
+      }
+    });
+    const epee::scope_guard stop_reopen([&] {
+      stop_reopen_thread = true;
+      reopen_thread.join();
+    });
+#endif
+
     std::unique_ptr<tools::wallet2> wal;
     try
     {
