@@ -316,6 +316,8 @@ namespace cryptonote
      * defaults to 0 when an older peer leaves it out.
      */
     uint64_t cumulative_difficulty;
+
+    //! High 64 bits of the cumulative difficulty; see `cumulative_difficulty`.
     uint64_t cumulative_difficulty_top64;
 
     crypto::hash  top_id;

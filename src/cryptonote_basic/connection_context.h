@@ -74,7 +74,7 @@ namespace cryptonote
       state_standby,
 
       /**
-       * State where we are in sync with the current peer. This is the only
+       * State where we are in sync with this peer. This is the only
        * state that accepts `NOTIFY_NEW_FLUFFY_BLOCK`, `NOTIFY_NEW_TRANSACTIONS`,
        * and `NOTIFY_GET_TXPOOL_COMPLEMENT` messages.
        */
@@ -163,7 +163,7 @@ namespace cryptonote
     uint64_t m_last_response_height;
 
     /**
-     * The last block hash received from the current peer, or the last needed
+     * The last block hash received from this peer, or the last needed
      * hash that was skipped. The next `NOTIFY_REQUEST_CHAIN` will continue from
      * this, and it's reset to null on a refresh.
      */
