@@ -76,6 +76,7 @@
 class Serialization_portability_wallet_Test;
 class wallet_accessor_test;
 class wallet_pool_test;
+class wallet_ring_size_test;
 namespace multisig { class multisig_account; }
 
 namespace tools
@@ -177,6 +178,7 @@ private:
     friend class ::Serialization_portability_wallet_Test;
     friend class ::wallet_accessor_test;
     friend class ::wallet_pool_test;
+    friend class ::wallet_ring_size_test;
     friend class wallet_keys_unlocker;
     friend class wallet_device_callback;
   public:
@@ -1430,6 +1432,7 @@ private:
     uint64_t get_fee_quantization_mask();
     uint64_t get_min_ring_size();
     uint64_t get_max_ring_size();
+    bool locally_requires_ring_size_16() const;
     uint64_t adjust_mixin(uint64_t mixin);
 
     fee_priority adjust_priority(fee_priority priority);

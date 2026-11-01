@@ -9155,8 +9155,29 @@ fee_algorithm wallet2::get_fee_algorithm()
   return fee_algorithm::PreHardforkV3;
 }
 //------------------------------------------------------------------------------------------------------------------------------
+bool wallet2::locally_requires_ring_size_16() const
+{
+  const hardfork_t *forks;
+  size_t num_forks;
+  switch (m_nettype)
+  {
+    case MAINNET: forks = mainnet_hard_forks; num_forks = num_mainnet_hard_forks; break;
+    case TESTNET: forks = testnet_hard_forks; num_forks = num_testnet_hard_forks; break;
+    case STAGENET: forks = stagenet_hard_forks; num_forks = num_stagenet_hard_forks; break;
+    default: return false;
+  }
+
+  // The 11-member grace period ends at the fork after HF_VERSION_MIN_MIXIN_15.
+  const auto *fork = std::find_if(forks, forks + num_forks, [](const hardfork_t &hf) {
+    return hf.version == HF_VERSION_MIN_MIXIN_15 + 1;
+  });
+  return fork != forks + num_forks && m_blockchain.size() >= fork->height;
+}
+//------------------------------------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_min_ring_size()
 {
+  if (locally_requires_ring_size_16())
+    return 16;
   if (use_fork_rules(HF_VERSION_MIN_MIXIN_15, 0))
     return 16;
   if (use_fork_rules(8, 10))
@@ -9172,6 +9193,8 @@ uint64_t wallet2::get_min_ring_size()
 //------------------------------------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_max_ring_size()
 {
+  if (locally_requires_ring_size_16())
+    return 16;
   if (use_fork_rules(HF_VERSION_MIN_MIXIN_15, 0))
     return 16;
   if (use_fork_rules(8, 10))
