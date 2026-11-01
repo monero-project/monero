@@ -2233,10 +2233,10 @@ skip:
       const int64_t down_kbps = epee::net_utils::connection_basic::get_rate_down_limit_per_peer();
       if (down_kbps > 0 && l_m_bss > 0)
       {
-        // per-block ceiling used by get_block_sync_size; used when the queue is empty
+        // Estimate upcoming block size from the queue and recent chain; fall back to a floor if both are empty.
+        const uint64_t recent_max_weight = m_core.get_recent_max_block_weight();
         const uint64_t fallback_block_size = std::max<uint64_t>(1, m_core.get_batch_max_weight() / BLOCKS_MAX_WINDOW);
-        // observed average block size in the queue, or the fallback if the queue is empty
-        const uint64_t projected_block_size = std::max<uint64_t>(max_average, fallback_block_size);
+        const uint64_t projected_block_size = std::max({max_average, recent_max_weight, fallback_block_size});
         const uint64_t window_s = NON_RESPONSIVE_PEER_KICK_TIME / 1000000;
         const uint64_t cap_bytes = static_cast<uint64_t>(down_kbps) * 1024 * window_s * P2P_RATE_LIMITED_BATCH_SAFETY_FACTOR / 100;
         const size_t cap_blocks = std::max<size_t>(1, cap_bytes / projected_block_size);

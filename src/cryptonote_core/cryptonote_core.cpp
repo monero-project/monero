@@ -925,6 +925,17 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
+  uint64_t core::get_recent_max_block_weight() const
+  {
+    std::vector<uint64_t> weights;
+    m_blockchain_storage.get_last_n_blocks_weights(weights, BLOCKS_MAX_WINDOW);
+    if (weights.empty())
+    {
+      return 0;
+    }
+    return *std::max_element(weights.begin(), weights.end());
+  }
+  //-----------------------------------------------------------------------------------------------
   size_t core::get_block_sync_size(uint64_t height, const uint64_t max_average_of_blocksize_in_queue) const
   {
     size_t res = 0;
