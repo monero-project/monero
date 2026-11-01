@@ -381,6 +381,10 @@ namespace cryptonote
     if (hshd.current_height > 0)
     {
       const uint8_t version = m_core.get_ideal_hard_fork_version(hshd.current_height - 1);
+      // A different version for that height means the peer is on another fork,
+      // or running outdated or broken software, so there is no point syncing
+      // with it. If it claims a newer version than we know of, we may be the
+      // ones needing an upgrade, which is worth logging.
       if (version >= 6 && version != hshd.top_version)
       {
         if (version < hshd.top_version && version == m_core.get_ideal_hard_fork_version())
@@ -402,6 +406,8 @@ namespace cryptonote
       }
     }
 
+    // Heights claimed by peers should only increase; a drop can be suspicious
+    // or happen after a re-org, so it results in a strike rather than a drop.
     if (hshd.current_height < context.m_remote_blockchain_height)
     {
       MINFO(context << "Claims " << hshd.current_height << ", claimed " << context.m_remote_blockchain_height << " before");
@@ -2774,6 +2780,22 @@ skip:
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
+
+  /**
+   * @brief Decreases a connection's score.
+   * @param context Context of the current connection.
+   * @param score Number of points to subtract from `context.m_score`.
+   *
+   * After subtracting, if `m_score` is <= `DROP_PEERS_ON_SCORE`, the peer is
+   * dropped through `drop_connection_with_score(context, 5)`, which adds 5 to
+   * the IP's host fail score in `p2p/` (above `P2P_IP_FAILS_BEFORE_BLOCK` means
+   * a ban lasting `P2P_IP_BLOCKTIME`), flushes that connection's spans from the
+   * block queue, and closes the connection.
+   *
+   * If `score` is 0 or negative, it logs "Negative score hit" and returns
+   * without changing anything.
+   *
+   */
   template<class t_core>
   void t_cryptonote_protocol_handler<t_core>::hit_score(cryptonote_connection_context &context, int32_t score)
   {
