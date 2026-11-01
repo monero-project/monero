@@ -235,20 +235,18 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  int64_t t_cryptonote_protocol_handler<t_core>::effective_non_responsive_kick_time() const
+  bool t_cryptonote_protocol_handler<t_core>::is_non_responsive(const cryptonote_connection_context& context, int64_t elapsed_us) const
   {
-    // Extend the non-responsive kick window when we are throttling reads,
-    // so our own rate cap does not make us kick peers who are faithfully sending
-    const int64_t down_kbps = epee::net_utils::connection_basic::get_rate_down_limit_per_peer();
-    if (down_kbps <= 0)
+    if (!context.m_expect_response || elapsed_us <= NON_RESPONSIVE_PEER_KICK_TIME)
+      return false;
+    // Our download limit can slow a reply past any fixed timeout, so only
+    // kick a peer that has stopped sending. IDLE_PEER_KICK_TIME still applies.
+    if (epee::net_utils::connection_basic::get_rate_down_limit_per_peer() > 0)
     {
-      return NON_RESPONSIVE_PEER_KICK_TIME;
+      const int64_t silent_us = static_cast<int64_t>(time(NULL) - context.m_last_recv) * 1000000;
+      return silent_us > NON_RESPONSIVE_PEER_KICK_TIME;
     }
-    constexpr int64_t worst_case_bytes = 2 * 1024 * 1024;
-    // Divide first so no later input overflows the signed multiply
-    const int64_t needed_us = worst_case_bytes / down_kbps * 1000000 / 1024;
-    const int64_t padded = needed_us * 100 / P2P_RATE_LIMITED_BATCH_SAFETY_FACTOR;
-    return std::max<int64_t>(NON_RESPONSIVE_PEER_KICK_TIME, padded);
+    return true;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
@@ -281,8 +279,7 @@ namespace cryptonote
         const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
         const boost::posix_time::time_duration dt = now - context.m_last_request_time;
         const auto ms = dt.total_microseconds();
-        const int64_t non_responsive_us = effective_non_responsive_kick_time();
-        if (ms > IDLE_PEER_KICK_TIME || (context.m_expect_response && ms > non_responsive_us))
+        if (ms > IDLE_PEER_KICK_TIME || is_non_responsive(context, ms))
         {
           if (context.m_score-- >= 0)
           {
@@ -1749,8 +1746,7 @@ skip:
         const boost::posix_time::ptime now = boost::posix_time::microsec_clock::universal_time();
         const boost::posix_time::time_duration dt = now - context.m_last_request_time;
         const auto ms = dt.total_microseconds();
-        const int64_t non_responsive_us = effective_non_responsive_kick_time();
-        if (ms > IDLE_PEER_KICK_TIME || (context.m_expect_response && ms > non_responsive_us))
+        if (ms > IDLE_PEER_KICK_TIME || is_non_responsive(context, ms))
         {
           context.m_idle_peer_notification = true;
           LOG_PRINT_CCONTEXT_L2("requesting callback");
@@ -2233,7 +2229,9 @@ skip:
       const int64_t down_kbps = epee::net_utils::connection_basic::get_rate_down_limit_per_peer();
       if (down_kbps > 0 && l_m_bss > 0)
       {
-        // Estimate upcoming block size from the queue and recent chain; fall back to a floor if both are empty.
+        // Keep spans small enough to arrive in about NON_RESPONSIVE_PEER_KICK_TIME.
+        // Block size is estimated as the largest of the queue average, the heaviest
+        // recent block, and a fixed floor.
         const uint64_t recent_max_weight = m_core.get_recent_max_block_weight();
         const uint64_t fallback_block_size = std::max<uint64_t>(1, m_core.get_batch_max_weight() / BLOCKS_MAX_WINDOW);
         const uint64_t projected_block_size = std::max({max_average, recent_max_weight, fallback_block_size});

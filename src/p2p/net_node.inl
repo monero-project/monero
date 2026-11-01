@@ -2999,7 +2999,7 @@ namespace nodetool
   {
     if (limit < -1 || limit == 0)
     {
-      MERROR("Invalid upload limit: " << limit << " kB/s (-1 for unlimited; 0 is not allowed)");
+      MERROR("Invalid upload limit: " << limit << " kB/s (-1 for the default; 0 is not allowed)");
       return false;
     }
     this->islimitup=(limit != -1) && (limit != default_limit_up);
@@ -3018,7 +3018,7 @@ namespace nodetool
   {
     if (limit < -1 || limit == 0)
     {
-      MERROR("Invalid download limit: " << limit << " kB/s (-1 for unlimited; 0 is not allowed)");
+      MERROR("Invalid download limit: " << limit << " kB/s (-1 for the default; 0 is not allowed)");
       return false;
     }
     this->islimitdown=(limit != -1) && (limit != default_limit_down);
@@ -3035,7 +3035,7 @@ namespace nodetool
   {
     if (limit < -1 || limit == 0)
     {
-      MERROR("Invalid rate limit: " << limit << " kB/s (-1 for unlimited; 0 is not allowed)");
+      MERROR("Invalid rate limit: " << limit << " kB/s (-1 for the default; 0 is not allowed)");
       return false;
     }
     int64_t limit_up = 0;
