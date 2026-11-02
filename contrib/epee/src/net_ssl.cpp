@@ -27,6 +27,7 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <algorithm>
 #include <string.h>
 #include <thread>
 #include <boost/asio/ip/address_v6.hpp>
@@ -39,6 +40,7 @@
 #include <condition_variable>
 #include <boost/lambda/lambda.hpp>
 #include <boost/asio/bind_executor.hpp>
+#include <openssl/evp.h>
 #include <openssl/ssl.h>
 #include <openssl/pem.h>
 #include "misc_log_ex.h"
@@ -140,6 +142,23 @@ namespace
     return pkey;
 #endif
   }
+
+  openssl_pkey gen_ecc_pkey(const int id) noexcept
+  {
+    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(id, NULL);
+    if (!ctx)
+      return nullptr;
+
+    EVP_PKEY* out = nullptr;
+    if (0 < EVP_PKEY_keygen_init(ctx))
+    {
+      if (EVP_PKEY_keygen(ctx, &out) <= 0)
+        out = nullptr;
+    }
+    
+    EVP_PKEY_CTX_free(ctx);
+    return openssl_pkey{out};
+  }
 }
 
 namespace epee
@@ -149,14 +168,41 @@ namespace net_utils
 
 
 // https://stackoverflow.com/questions/256405/programmatically-create-x509-certificate-using-openssl
-bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
+bool create_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert, const ssl_public_t type)
 {
+  /* According to the experts rsa4096 => ~140 bits, ed25519 => ~126 bits, and
+    ed448 => ~224 bits. ed25519 is roughly 2x performance of ed448, and both
+    EC algorithms are crazy faster in signature generation than rsa4096. We use
+    ed25519 for P2P (performance) and default to ed448 for rpc and wallet-rpc.
+
+    There's little benefit to rsa4096/ed448 in TLS 1.3 anyway, as we require a
+    ECDHE algorithm which is basically always x25519. In other words, the key
+    exchange is typically ~126 bits, even if the signature algorithm that
+    proves identity is of higher bit-strength. 
+
+    RSA-4096 is primarily left in case someone needs it for legacy usage. */
   MINFO("Generating SSL certificate");
-  openssl_pkey pkey_deleter = gen_rsa_pkey_compat();
+  openssl_pkey pkey_deleter;
+  const EVP_MD* digest = nullptr;
+  switch (type)
+  {
+  case ssl_public_t::rsa4096:
+    pkey_deleter = gen_rsa_pkey_compat();
+    digest = EVP_sha256();
+    break;
+  case ssl_public_t::ed25519: 
+    pkey_deleter = gen_ecc_pkey(EVP_PKEY_ED25519);
+    break;
+  default:
+  case ssl_public_t::ed448:
+    pkey_deleter = gen_ecc_pkey(EVP_PKEY_ED448);
+    break;
+  }
+
   pkey = pkey_deleter.get();
   if (!pkey)
   {
-    MERROR("Failed to create new private key with gen_rsa_pkey_compat()");
+    MERROR("Failed to create new private key type " << int(type));
     return false;
   }
 
@@ -177,7 +223,7 @@ bool create_rsa_ssl_certificate(EVP_PKEY *&pkey, X509 *&cert)
   }
   X509_set_issuer_name(cert, X509_get_subject_name(cert));
 
-  if (X509_sign(cert, pkey, EVP_sha256()) == 0)
+  if (X509_sign(cert, pkey, digest) == 0)
   {
     MERROR("Error signing certificate");
     X509_free(cert);
@@ -192,7 +238,8 @@ ssl_options_t::ssl_options_t(std::vector<std::vector<std::uint8_t>> fingerprints
     ca_path(std::move(ca_path)),
     auth(),
     support(ssl_support_t::e_ssl_support_enabled),
-    verification(ssl_verification_t::user_certificates)
+    verification(ssl_verification_t::user_certificates),
+    local_cert_type(ssl_public_t::ed448)
 {
   std::sort(fingerprints_.begin(), fingerprints_.end());
 }
@@ -278,7 +325,7 @@ boost::asio::ssl::context ssl_options_t::create_context() const
     X509 *cert;
     bool ok = false;
 
-    CHECK_AND_ASSERT_THROW_MES(create_rsa_ssl_certificate(pkey, cert), "Failed to create certificate");
+    CHECK_AND_ASSERT_THROW_MES(create_ssl_certificate(pkey, cert, local_cert_type), "Failed to create certificate");
     CHECK_AND_ASSERT_THROW_MES(SSL_CTX_use_certificate(ctx, cert), "Failed to use generated certificate");
     if (!SSL_CTX_use_PrivateKey(ctx, pkey))
       MERROR("Failed to use generated RSA private key for RSA");
@@ -425,17 +472,19 @@ void ssl_options_t::configure(
       verification_host = address.to_string();
     }
 
-    socket.set_verify_callback([this, verification_host](const bool preverified, boost::asio::ssl::verify_context &ctx)
+    // callback occurs after `configure` has exited, so keep copies and not references
+    ssl_options_t this_copy(*this);
+    socket.set_verify_callback([host, verification_host, this_copy = std::move(this_copy)](const bool preverified, boost::asio::ssl::verify_context &ctx)
     {
       // preverified means it passed system or user CA check. System CA is never loaded
       // when fingerprints are whitelisted.
       const bool verified = preverified &&
         (verification_host.empty() || MONERO_HOSTNAME_VERIFY(verification_host)(preverified, ctx));
 
-      if (!verified && !has_fingerprint(ctx))
+      if (!verified && !this_copy.has_fingerprint(ctx))
       {
         // autodetect will reconnect without SSL - warn and keep connection encrypted
-        if (support != ssl_support_t::e_ssl_support_autodetect)
+        if (this_copy.support != ssl_support_t::e_ssl_support_autodetect)
         {
           MERROR("SSL certificate is not in the allowed list, connection dropped");
           return false;
@@ -573,6 +622,44 @@ bool ssl_options_t::handshake(
   }
   MDEBUG("SSL handshake success");
   return true;
+}
+
+std::vector<std::uint8_t> convert_fingerprint(const boost::string_ref id)
+{
+  std::vector<std::uint8_t> out;
+  out.resize(id.size());
+  std::copy(id.begin(), id.end(), out.begin());
+  return out;
+}
+
+std::string get_ssl_fingerprint(const X509 *cert, const EVP_MD *fdig)
+{
+  CHECK_AND_ASSERT_THROW_MES(cert && fdig, "Pointer args to get_ssl_fingerprint cannot be null");
+
+  std::string md;
+  unsigned n = 0;
+  md.resize(EVP_MAX_MD_SIZE);
+  if (!X509_digest(cert, fdig, reinterpret_cast<std::uint8_t*>(&md[0]), &n))
+  {
+    const unsigned long ssl_err_val = static_cast<int>(ERR_get_error());
+    const boost::system::error_code ssl_err_code = boost::asio::error::ssl_errors(static_cast<int>(ssl_err_val));
+    MERROR("Failed to create SSL fingerprint: " << ERR_reason_error_string(ssl_err_val));
+    throw boost::system::system_error(ssl_err_code, ERR_reason_error_string(ssl_err_val));
+  }
+  md.resize(n);
+  return md;
+}
+
+std::string get_ssl_fingerprint(boost::asio::ssl::context &ssl_context, const EVP_MD *fdig)
+{
+  SSL_CTX *ctx = ssl_context.native_handle();
+  CHECK_AND_ASSERT_THROW_MES(ctx, "Failed to get SSL context");
+  
+  X509* ssl_cert = nullptr;
+  std::unique_ptr<SSL, decltype(&SSL_free)> dflt_SSL(SSL_new(ctx), SSL_free);
+  CHECK_AND_ASSERT_THROW_MES(dflt_SSL, "Failed to create new SSL object");
+  CHECK_AND_ASSERT_THROW_MES((ssl_cert = SSL_get_certificate(dflt_SSL.get())), "Failed to get SSL certificate");
+  return get_ssl_fingerprint(ssl_cert, fdig);
 }
 
 std::string get_hr_ssl_fingerprint(const X509 *cert, const EVP_MD *fdig)

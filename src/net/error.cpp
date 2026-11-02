@@ -65,6 +65,8 @@ namespace
                 return "Invalid port value (expected 0-65535)";
             case net::error::invalid_scheme:
                 return "Invalid/unsupported scheme was provided";
+            case net::error::invalid_ssl_peer:
+                return "Invalid option for ssl peer";
             case net::error::invalid_tor_address:
                 return "Invalid Tor address";
             case net::error::legacy_tor_address:

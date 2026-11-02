@@ -103,7 +103,7 @@ connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_thro
 int connection_basic_pimpl::m_default_tos;
 
 // methods:
-connection_basic::connection_basic(boost::asio::io_context &io_context, boost::asio::ip::tcp::socket&& sock, std::shared_ptr<connection_basic_shared_state> state, ssl_support_t ssl_support)
+connection_basic::connection_basic(boost::asio::io_context &io_context, boost::asio::ip::tcp::socket&& sock, std::shared_ptr<connection_basic_shared_state> state)
 	:
 	m_state(std::move(state)),
 	mI( new connection_basic_pimpl("peer") ),
@@ -111,8 +111,7 @@ connection_basic::connection_basic(boost::asio::io_context &io_context, boost::a
 	socket_(io_context, get_context(m_state.get())),
 	m_want_close_connection(false),
 	m_was_shutdown(false),
-	m_is_multithreaded(false),
-	m_ssl_support(ssl_support)
+	m_is_multithreaded(false)
 {
 	// add nullptr checks if removed
 	assert(m_state != nullptr); // release runtime check in get_context
@@ -128,7 +127,7 @@ connection_basic::connection_basic(boost::asio::io_context &io_context, boost::a
 	_note("Spawned connection #"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_state->sock_count);
 }
 
-connection_basic::connection_basic(boost::asio::io_context &io_context, std::shared_ptr<connection_basic_shared_state> state, ssl_support_t ssl_support)
+connection_basic::connection_basic(boost::asio::io_context &io_context, std::shared_ptr<connection_basic_shared_state> state)
 	:
 	m_state(std::move(state)),
 	mI( new connection_basic_pimpl("peer") ),
@@ -136,8 +135,7 @@ connection_basic::connection_basic(boost::asio::io_context &io_context, std::sha
 	socket_(io_context, get_context(m_state.get())),
 	m_want_close_connection(false),
 	m_was_shutdown(false),
-	m_is_multithreaded(false),
-	m_ssl_support(ssl_support)
+	m_is_multithreaded(false)
 {
 	// add nullptr checks if removed
 	assert(m_state != nullptr); // release runtime check in get_context
