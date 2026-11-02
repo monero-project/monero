@@ -28,7 +28,7 @@
 
 #include "include_base_utils.h"
 #include "file_io_utils.h"
-#include "common/utf8.h"
+#include "mnemonics/utf8.h"
 #include "fuzzer.h"
 
 BEGIN_INIT_SIMPLE_FUZZER()

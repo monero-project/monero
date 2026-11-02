@@ -55,6 +55,7 @@
 #include "console_handler.h"
 #include "common/command_line.h"
 #include "common/util.h"
+#include "simplewallet/string_width.h"
 #include "common/scoped_message_writer.h"
 #include "simplewallet.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"

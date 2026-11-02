@@ -93,6 +93,7 @@ set(unit_tests_sources
   hardfork.cpp
   unbound.cpp
   uri.cpp
+  string_width.cpp
   util.cpp
   varint.cpp
   verRctNonSemanticsSimple.cpp
