@@ -33,6 +33,7 @@
 #include "net/socks.h"
 #include "net/tor_address.h"
 #include "net/i2p_address.h"
+#include "net/host.h"
 #include "string_tools.h"
 #include "string_tools_lexical.h"
 
@@ -164,14 +165,17 @@ namespace net
 
         get_network_address_host_and_port(std::string(address), host_str, port_str);
 
-        boost::string_ref host_str_ref(host_str);
+        // IPv6 scope IDs are case-sensitive; only lowercase a copy
+        std::string canonical_host{host_str};
+        net::canonicalize_host(canonical_host);
+        const boost::string_ref canonical_host_ref(canonical_host);
         boost::string_ref port_str_ref(port_str);
 
         if (host_str.empty())
             return make_error_code(net::error::invalid_host);
-        if (host_str_ref.ends_with(".onion"))
+        if (canonical_host_ref.ends_with(".onion"))
             return tor_address::make(address, default_port);
-        if (host_str_ref.ends_with(".i2p"))
+        if (canonical_host_ref.ends_with(".i2p"))
             return i2p_address::make(address);
 
         boost::system::error_code ec;

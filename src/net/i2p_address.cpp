@@ -36,6 +36,7 @@
 #include "net/host.h"
 #include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage.h"
+#include "string_tools_lexical.h"
 
 namespace net
 {
@@ -146,9 +147,17 @@ namespace net
     expect<i2p_address> i2p_address::make(const boost::string_ref address)
     {
         boost::string_ref host = address.substr(0, address.rfind(':'));
+        const boost::string_ref port = address.substr(host.size() + (host.size() == address.size() ? 0 : 1));
+
         std::string normalized_host{host};
         net::canonicalize_host(normalized_host);
         MONERO_CHECK(host_check(normalized_host));
+
+        // i2p has no virtual ports, but accept and ignore a valid one for
+        // compatibility (e.g. `print_pl` displays i2p peers as `host:0`)
+        std::uint16_t porti = 0;
+        if (!port.empty() && !epee::string_tools::get_xtype_from_string(porti, std::string{port}))
+            return {net::error::invalid_port};
 
         static_assert(sizeof(i2p_address::host_) >= b32_length + sizeof(tld_b32) &&
                       sizeof(i2p_address::host_) >= i2p_name_max_length + sizeof(tld_i2p));
