@@ -40,7 +40,12 @@
 namespace cryptonote
 {
 
-
+/**
+ * Number to start at for protocol message IDs.
+ *
+ * Every message below names its contents `request_t`, even the replies,
+ * because they are all one-way notifies at the Levin level.
+ */
 #define BC_COMMANDS_POOL_BASE 2000
 
   /************************************************************************/
@@ -171,6 +176,12 @@ namespace cryptonote
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
+
+  /**
+   * Legacy message type providing a new block. It is receive-only, as nothing
+   * in the codebase sends it anymore, and is just converted into a fluffy
+   * block.
+   */
   struct NOTIFY_NEW_BLOCK
   {
     const static int ID = BC_COMMANDS_POOL_BASE + 1;
@@ -191,15 +202,35 @@ namespace cryptonote
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
+
+  /**
+   * Message type relaying transactions, in either the Dandelion++ stem or
+   * fluff phase. It is also the reply to `NOTIFY_GET_TXPOOL_COMPLEMENT`. This
+   * is ignored unless the peer is in `state_normal` and we are fully synced,
+   * and a peer sending a duplicate or invalid transaction will be dropped.
+   */
   struct NOTIFY_NEW_TRANSACTIONS
   {
     const static int ID = BC_COMMANDS_POOL_BASE + 2;
 
     struct request_t
     {
+      //! Transaction blobs.
       std::vector<blobdata>   txs;
-      std::string _; // padding
-      bool dandelionpp_fluff; //zero initialization defaults to stem mode
+
+      /**
+       * Padding, rounding the message size up to a multiple of 1 KiB when the
+       * `--pad-transactions` option is set, as an attempt to prevent traffic
+       * analysis.
+       */
+      std::string _;
+
+      /**
+       * True for fluff, false for stem. If missing on the wire, this defaults
+       * to true, as older peers always fluff; zero initialization defaults to
+       * stem.
+       */
+      bool dandelionpp_fluff;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txs)
@@ -212,13 +243,23 @@ namespace cryptonote
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
+
+  /**
+   * Message type asking a peer for the full blocks in one span, with the reply
+   * being `NOTIFY_RESPONSE_GET_OBJECTS`. A peer asking for more than
+   * `CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT` (100) blocks, or sending this
+   * before the handshake, will be dropped.
+   */
   struct NOTIFY_REQUEST_GET_OBJECTS
   {
     const static int ID = BC_COMMANDS_POOL_BASE + 3;
 
     struct request_t
     {
+      //! Hashes of the blocks being requested.
       std::vector<crypto::hash> blocks;
+
+      //! Whether pruned transaction data is wanted for these blocks.
       bool prune;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -229,14 +270,25 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<request_t> request;
   };
 
+  /**
+   * Message type providing the blocks (plus their transactions) asked for in
+   * `NOTIFY_REQUEST_GET_OBJECTS`. A peer will be dropped if it sends this
+   * unrequested, sends no blocks, sends a block that wasn't requested, leaves
+   * out a requested block, or sends pruned data that wasn't asked for.
+   */
   struct NOTIFY_RESPONSE_GET_OBJECTS
   {
     const static int ID = BC_COMMANDS_POOL_BASE + 4;
 
     struct request_t
     {
+      //! The requested blocks; `pruned` and `block_weight` are set when pruned.
       std::vector<block_complete_entry>  blocks;
+
+      //! Hashes of requested blocks that the peer doesn't have.
       std::vector<crypto::hash>          missed_ids;
+
+      //! The peer's current chain height.
       uint64_t                         current_blockchain_height;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -248,14 +300,30 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<request_t> request;
   };
 
-
+  /**
+   * Summary of our chain tip, exchanged with every peer. It is not a message
+   * itself, but the `payload_data` carried inside the P2P `COMMAND_HANDSHAKE`
+   * and `COMMAND_TIMED_SYNC` commands (1001 and 1002). It is built by
+   * `get_payload_sync_data` and read by `process_payload_sync_data`.
+   */
   struct CORE_SYNC_DATA
   {
+    //! Top block height + 1 (i.e. the number of blocks in the chain).
     uint64_t current_height;
+
+    /**
+     * Low and high 64 bits of the 128-bit cumulative difficulty. The high part
+     * defaults to 0 when an older peer leaves it out.
+     */
     uint64_t cumulative_difficulty;
+
+    //! High 64 bits of the cumulative difficulty; see `cumulative_difficulty`.
     uint64_t cumulative_difficulty_top64;
+
     crypto::hash  top_id;
     uint8_t top_version;
+
+    //! Our pruning seed, or 0 if not pruned.
     uint32_t pruning_seed;
 
     BEGIN_KV_SERIALIZE_MAP()
@@ -271,6 +339,12 @@ namespace cryptonote
     END_KV_SERIALIZE_MAP()
   };
 
+  /**
+   * Message type asking a peer where our chains diverge, by sending a sample of
+   * our chain. The peer finds the first hash it knows and replies with
+   * `NOTIFY_RESPONSE_CHAIN_ENTRY`, listing hashes starting from it. A peer
+   * sending this before the handshake will be dropped.
+   */
   struct NOTIFY_REQUEST_CHAIN
   {
     const static int ID = BC_COMMANDS_POOL_BASE + 6;
@@ -278,6 +352,11 @@ namespace cryptonote
     struct request_t
     {
       std::list<crypto::hash> block_ids; /*IDs of the first 10 blocks are sequential, next goes with pow(2,n) offset, like 2, 4, 8, 16, 32, 64 and so on, and the last one is always genesis block */
+
+      /**
+       * Whether we accept pruned blocks. If false, the peer only lists hashes
+       * up to its next pruned block, so that it can serve all of them in full.
+       */
       bool prune;
 
       BEGIN_KV_SERIALIZE_MAP()
@@ -288,6 +367,12 @@ namespace cryptonote
     typedef epee::misc_utils::struct_init<request_t> request;
   };
 
+  /**
+   * Message type providing the starting height, total height, and block hashes
+   * (plus weights), in reply to `NOTIFY_REQUEST_CHAIN`. Senders include up to
+   * `BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT` (10,000) hashes, and receivers
+   * accept up to `BLOCKS_IDS_SYNCHRONIZING_MAX_COUNT` (25,000).
+   */
   struct NOTIFY_RESPONSE_CHAIN_ENTRY
   {
     const static int ID = BC_COMMANDS_POOL_BASE + 7;
@@ -321,6 +406,13 @@ namespace cryptonote
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
+
+  /**
+   * Message type issuing a new (fluffy) block. When relayed, its transactions
+   * are stripped; the receiver asks for any it lacks with
+   * `NOTIFY_REQUEST_FLUFFY_MISSING_TX`, and the reply is another
+   * `NOTIFY_NEW_FLUFFY_BLOCK` with those transactions attached.
+   */
   struct NOTIFY_NEW_FLUFFY_BLOCK
   {
     const static int ID = BC_COMMANDS_POOL_BASE + 8;
@@ -341,16 +433,35 @@ namespace cryptonote
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
+
+  /**
+   * Message type asking a peer for the transactions we are missing from a
+   * fluffy block. The reply is a `NOTIFY_NEW_FLUFFY_BLOCK` message with those
+   * transactions attached. A peer will be dropped if it sends this before the
+   * handshake, asks about an unknown block or a duplicate/out-of-range index,
+   * or transactions that can't be found.
+   */
   struct NOTIFY_REQUEST_FLUFFY_MISSING_TX
   {
     const static int ID = BC_COMMANDS_POOL_BASE + 9;
 
     struct request_t
     {
+      //! Hash of the fluffy block these transactions belong to.
       crypto::hash block_hash;
-      uint64_t current_blockchain_height;      
+
+      /**
+       * Set by the requester to the block's height + 1, and copied by the peer
+       * into its reply.
+       */
+      uint64_t current_blockchain_height;
+
+      /**
+       * Indices into the block's `tx_hashes` of the missing transactions. These
+       * are used instead of hashes, as they are smaller.
+       */
       std::vector<uint64_t> missing_tx_indices;
-      
+
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE_VAL_POD_AS_BLOB(block_hash)
         KV_SERIALIZE(current_blockchain_height)
@@ -363,12 +474,24 @@ namespace cryptonote
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
+
+  /**
+   * Message type asking a peer for the pool transactions we don't have. The
+   * reply is a `NOTIFY_NEW_TRANSACTIONS` message. This is sent once, to one
+   * peer, right after we are fully synced, and is ignored unless the peer is
+   * in `state_normal`.
+   *
+   * The peer only returns transactions that were already 'fluffed' or came
+   * from blocks, so stem-phase transactions still under embargo are never
+   * leaked.
+   */
   struct NOTIFY_GET_TXPOOL_COMPLEMENT
   {
     const static int ID = BC_COMMANDS_POOL_BASE + 10;
 
     struct request_t
     {
+      //! Hashes of the transactions already in our pool.
       std::vector<crypto::hash> hashes;
 
       BEGIN_KV_SERIALIZE_MAP()

@@ -169,7 +169,24 @@ namespace cryptonote
     void notify_new_stripe(cryptonote_connection_context &context, uint32_t stripe);
     size_t skip_unneeded_hashes(cryptonote_connection_context& context, bool check_block_queue) const;
     bool request_txpool_complement(cryptonote_connection_context &context);
+
+    /**
+     * @brief Decreases a connection's score.
+     * @param context Context of the current connection.
+     * @param score Number of points to subtract from `context.m_score`.
+     *
+     * After subtracting, if `m_score` is <= `DROP_PEERS_ON_SCORE`, the peer is
+     * dropped through `drop_connection_with_score(context, 5)`, which adds 5 to
+     * the IP's host fail score in `p2p/` (above `P2P_IP_FAILS_BEFORE_BLOCK`
+     * means a ban lasting `P2P_IP_BLOCKTIME`), flushes that connection's spans
+     * from the block queue, and closes the connection.
+     *
+     * If `score` is 0 or negative, it logs "Negative score hit" and returns
+     * without changing anything.
+     */
     void hit_score(cryptonote_connection_context &context, int32_t score);
+
+
     void calculate_block_queue_limit(double blocks_per_second);
 
     t_core& m_core;
