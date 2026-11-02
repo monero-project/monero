@@ -57,6 +57,9 @@ class ColdSigningTest():
         self.self_transfer_to_other_account()
         self.sweep()
         self.failed_output_import_keeps_complete_transfers()
+        self.sign_with_refreshed_full_wallet()
+        self.sign_with_refreshed_full_wallet_behind_watch_only()
+        self.sign_after_reorg_with_empty_output_export()
 
     def reset(self):
         print('Resetting blockchain')
@@ -470,6 +473,85 @@ class ColdSigningTest():
         imported_output = next(t for t in cold_transfers if t.pubkey == high_subaddress_output.pubkey)
         assert imported_output.subaddr_index.minor == 220
         assert imported_output.key_image
+
+    def sign_with_refreshed_full_wallet(self):
+        print("Signing with a refreshed full wallet after an empty output export")
+        self.reset()
+        self.create(0)
+        self.mine()
+        self.hot_wallet.refresh()
+
+        full_wallet = Wallet(idx = 1)
+        try: full_wallet.close_wallet()
+        except: pass
+        full_wallet.restore_deterministic_wallet(seed = SEED)
+        full_wallet.refresh()
+        original_count = len(self.hot_wallet.incoming_transfers()['transfers'])
+        assert len(full_wallet.incoming_transfers()['transfers']) == original_count
+
+        key_images = full_wallet.export_key_images(True)
+        self.hot_wallet.import_key_images(key_images.signed_key_images, offset = key_images.offset)
+
+        unsigned_txset = self.hot_wallet.transfer([{'address': OTHER_ADDRESS, 'amount': 1000000000000}]).unsigned_txset
+        signed_txset = full_wallet.sign_transfer(unsigned_txset).signed_txset
+        assert len(full_wallet.incoming_transfers()['transfers']) == original_count
+        assert len(self.hot_wallet.submit_transfer(signed_txset).tx_hash_list) == 1
+        full_wallet.close_wallet()
+
+    def sign_with_refreshed_full_wallet_behind_watch_only(self):
+        print("Signing with a refreshed full wallet behind the watch-only wallet")
+        self.reset()
+        self.create(0)
+        self.mine()
+
+        full_wallet = Wallet(idx = 1)
+        try: full_wallet.close_wallet()
+        except: pass
+        full_wallet.restore_deterministic_wallet(seed = SEED)
+        full_wallet.refresh()
+        signer_count = len(full_wallet.incoming_transfers()['transfers'])
+
+        daemon = Daemon()
+        daemon.generateblocks(STANDARD_ADDRESS, 1)
+        self.hot_wallet.refresh()
+        assert len(self.hot_wallet.incoming_transfers()['transfers']) == signer_count + 1
+
+        self.cold_wallet.import_outputs(self.hot_wallet.export_outputs().outputs_data_hex)
+        key_images = self.cold_wallet.export_key_images(True)
+        self.hot_wallet.import_key_images(key_images.signed_key_images, offset = key_images.offset)
+
+        unsigned_txset = self.hot_wallet.transfer([{'address': OTHER_ADDRESS, 'amount': 1000000000000}]).unsigned_txset
+        signed_txset = full_wallet.sign_transfer(unsigned_txset).signed_txset
+        assert len(full_wallet.incoming_transfers()['transfers']) == signer_count
+        assert len(self.hot_wallet.submit_transfer(signed_txset).tx_hash_list) == 1
+        full_wallet.close_wallet()
+
+    def sign_after_reorg_with_empty_output_export(self):
+        print("Signing after a reorg removes an output known to the cold wallet")
+        self.reset()
+        self.create(0)
+        self.mine()
+        self.export_import(False)
+
+        daemon = Daemon()
+        original_count = len(self.hot_wallet.incoming_transfers()['transfers'])
+        daemon.generateblocks(STANDARD_ADDRESS, 1)
+        self.hot_wallet.refresh()
+        assert len(self.hot_wallet.incoming_transfers()['transfers']) == original_count + 1
+        self.cold_wallet.import_outputs(self.hot_wallet.export_outputs().outputs_data_hex)
+        key_images = self.cold_wallet.export_key_images(True)
+        self.hot_wallet.import_key_images(key_images.signed_key_images, offset = key_images.offset)
+
+        daemon.pop_blocks(1)
+        daemon.generateblocks(OTHER_ADDRESS, 1)
+        self.hot_wallet.refresh()
+        assert len(self.hot_wallet.incoming_transfers()['transfers']) == original_count
+        assert len(self.cold_wallet.incoming_transfers()['transfers']) == original_count + 1
+
+        unsigned_txset = self.hot_wallet.transfer([{'address': OTHER_ADDRESS, 'amount': 1000000000000}]).unsigned_txset
+        signed_txset = self.cold_wallet.sign_transfer(unsigned_txset).signed_txset
+        assert len(self.cold_wallet.incoming_transfers()['transfers']) == original_count
+        assert len(self.hot_wallet.submit_transfer(signed_txset).tx_hash_list) == 1
 
 class Guard:
     def __enter__(self):

@@ -477,9 +477,12 @@ private:
       std::vector<tx_construction_data> txes;
       std::tuple<uint64_t, uint64_t, wallet2::transfer_container> transfers;
       std::tuple<uint64_t, uint64_t, std::vector<wallet2::exported_transfer_details>> new_transfers;
+      bool has_new_transfers_total = false;
 
       BEGIN_SERIALIZE_OBJECT()
         VERSION_FIELD(2)
+        if (!typename Archive<W>::is_saving())
+          has_new_transfers_total = version >= 2;
         FIELD(txes)
         if (version == 0)
         {
