@@ -2232,6 +2232,13 @@ size_t wallet2::get_transfer_details(const crypto::key_image &ki) const
   CHECK_AND_ASSERT_THROW_MES(false, "Key image not found");
 }
 //----------------------------------------------------------------------------------------------------
+size_t wallet2::get_output_index(const crypto::public_key &pk) const
+{
+  auto search = m_pub_keys.find(pk);
+  CHECK_AND_ASSERT_THROW_MES(search != m_pub_keys.end(), "Public key not found in owned outputs");
+  return search->second;
+}
+//----------------------------------------------------------------------------------------------------
 bool wallet2::frozen(const transfer_details &td) const
 {
   return td.m_frozen;

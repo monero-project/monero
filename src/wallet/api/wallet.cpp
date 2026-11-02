@@ -30,6 +30,7 @@
 
 
 #include "wallet.h"
+#include "enote_details.h"
 #include "pending_transaction.h"
 #include "unsigned_transaction.h"
 #include "transaction_history.h"
@@ -66,7 +67,7 @@ using namespace cryptonote;
     m_wallet->stop(); \
     m_refreshCV.notify_one(); \
     boost::mutex::scoped_lock lock(m_refreshMutex); \
-    boost::mutex::scoped_lock lock2(m_refreshMutex2); \
+    boost::lock_guard<boost::recursive_mutex> lock2(m_refreshMutex2); \
     const epee::scope_guard scope_exit_handler([&](){ \
         /* m_refreshMutex's still locked here */ \
         if (refresh_enabled) \
@@ -155,6 +156,40 @@ namespace {
     }
     void checkMultisigWalletNotReady(const std::unique_ptr<tools::wallet2> &wallet) {
         return checkMultisigWalletNotReady(wallet.get());
+    }
+
+    // txid -> (subaddress index, payment id) for each incoming payment
+    using EnotePaymentIds = std::unordered_multimap<crypto::hash, std::pair<cryptonote::subaddress_index, crypto::hash>>;
+
+    // Payment IDs are taken from the payments recorded while scanning, as in TransactionHistory.
+    // Change has no recorded payment; the payment ID of an outgoing transaction is encrypted for
+    // its recipient.
+    EnotePaymentIds getEnotePaymentIds(const tools::wallet2 &wallet, uint64_t min_height, uint64_t max_height)
+    {
+        std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> payments;
+        wallet.get_payments(payments, min_height, max_height);
+
+        EnotePaymentIds payment_ids;
+        for (const auto &p : payments)
+            payment_ids.emplace(p.second.m_tx_hash, std::make_pair(p.second.m_subaddr_index, p.first));
+        return payment_ids;
+    }
+
+    std::string getEnotePaymentId(const EnotePaymentIds &payment_ids, const tools::wallet2::transfer_details &td)
+    {
+        const auto range = payment_ids.equal_range(td.m_txid);
+        for (auto it = range.first; it != range.second; ++it)
+        {
+            if (it->second.first != td.m_subaddr_index || it->second.second == crypto::null_hash)
+                continue;
+
+            std::string payment_id = epee::string_tools::pod_to_hex(it->second.second);
+            // short payment IDs are stored in the first 8 bytes
+            if (payment_id.find_first_not_of('0', 16) == std::string::npos)
+                payment_id = payment_id.substr(0, 16);
+            return payment_id;
+        }
+        return std::string();
     }
 }
 
@@ -2551,7 +2586,7 @@ void WalletImpl::doRefresh()
 {
     bool rescan = m_refreshShouldRescan.exchange(false);
     // synchronizing async and sync refresh calls
-    boost::lock_guard<boost::mutex> guarg(m_refreshMutex2);
+    boost::lock_guard<boost::recursive_mutex> guarg(m_refreshMutex2);
     do try {
         LOG_PRINT_L3(__FUNCTION__ << ": doRefresh, rescan = "<<rescan);
         // Syncing daemon and refreshing wallet simultaneously is very resource intensive.
@@ -2870,6 +2905,254 @@ uint64_t WalletImpl::getBytesReceived()
 uint64_t WalletImpl::getBytesSent()
 {
     return m_wallet->get_bytes_sent();
+}
+
+//-------------------------------------------------------------------------------------------------------------------
+void WalletImpl::freeze(const std::string &key_image)
+{
+    clearStatus();
+
+    crypto::key_image ki_pod;
+    if (!epee::string_tools::hex_to_pod(key_image, ki_pod))
+    {
+        setStatusError((boost::format(tr("Failed to parse key image `%s`")) % key_image).str());
+        return;
+    }
+
+    try
+    {
+        boost::lock_guard<boost::recursive_mutex> guarg(m_refreshMutex2);
+        // stopping background sync reloads the wallet cache from disk and discards changes made meanwhile
+        if (checkBackgroundSync("cannot freeze enotes"))
+            return;
+        m_wallet->freeze(ki_pod);
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR(__FUNCTION__ << " error: " << e.what());
+        setStatusError((boost::format(tr("Failed to freeze enote with key image `%s`: %s")) % key_image % e.what()).str());
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+void WalletImpl::freezeByPubKey(const std::string &enote_pub_key)
+{
+    clearStatus();
+
+    crypto::public_key pk;
+    if (!epee::string_tools::hex_to_pod(enote_pub_key, pk))
+    {
+        setStatusError((boost::format(tr("Failed to parse public key `%s`")) % enote_pub_key).str());
+        return;
+    }
+
+    try
+    {
+        boost::lock_guard<boost::recursive_mutex> guarg(m_refreshMutex2);
+        // stopping background sync reloads the wallet cache from disk and discards changes made meanwhile
+        if (checkBackgroundSync("cannot freeze enotes"))
+            return;
+        m_wallet->freeze(m_wallet->get_output_index(pk));
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR(__FUNCTION__ << " error: " << e.what());
+        setStatusError((boost::format(tr("Failed to freeze enote with public key `%s`: %s")) % enote_pub_key % e.what()).str());
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+void WalletImpl::thaw(const std::string &key_image)
+{
+    clearStatus();
+
+    crypto::key_image ki_pod;
+    if (!epee::string_tools::hex_to_pod(key_image, ki_pod))
+    {
+        setStatusError((boost::format(tr("Failed to parse key image `%s`")) % key_image).str());
+        return;
+    }
+
+    try
+    {
+        boost::lock_guard<boost::recursive_mutex> guarg(m_refreshMutex2);
+        // stopping background sync reloads the wallet cache from disk and discards changes made meanwhile
+        if (checkBackgroundSync("cannot thaw enotes"))
+            return;
+        m_wallet->thaw(ki_pod);
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR(__FUNCTION__ << " error: " << e.what());
+        setStatusError((boost::format(tr("Failed to thaw enote with key image `%s`: %s")) % key_image % e.what()).str());
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+void WalletImpl::thawByPubKey(const std::string &enote_pub_key)
+{
+    clearStatus();
+
+    crypto::public_key pk;
+    if (!epee::string_tools::hex_to_pod(enote_pub_key, pk))
+    {
+        setStatusError((boost::format(tr("Failed to parse public key `%s`")) % enote_pub_key).str());
+        return;
+    }
+
+    try
+    {
+        boost::lock_guard<boost::recursive_mutex> guarg(m_refreshMutex2);
+        // stopping background sync reloads the wallet cache from disk and discards changes made meanwhile
+        if (checkBackgroundSync("cannot thaw enotes"))
+            return;
+        m_wallet->thaw(m_wallet->get_output_index(pk));
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR(__FUNCTION__ << " error: " << e.what());
+        setStatusError((boost::format(tr("Failed to thaw enote with public key `%s`: %s")) % enote_pub_key % e.what()).str());
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+bool WalletImpl::isFrozen(const std::string &key_image) const
+{
+    clearStatus();
+
+    crypto::key_image ki_pod;
+    if (!epee::string_tools::hex_to_pod(key_image, ki_pod))
+    {
+        setStatusError((boost::format(tr("Failed to parse key image `%s`")) % key_image).str());
+        return false;
+    }
+
+    try
+    {
+        boost::lock_guard<boost::recursive_mutex> guarg(m_refreshMutex2);
+        return m_wallet->frozen(ki_pod);
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR(__FUNCTION__ << " error: " << e.what());
+        setStatusError((boost::format(tr("Failed to determine if enote with key image `%s` is frozen: %s")) % key_image % e.what()).str());
+    }
+
+    return false;
+}
+//-------------------------------------------------------------------------------------------------------------------
+std::vector<std::unique_ptr<EnoteDetails>> WalletImpl::getEnoteDetails() const
+{
+    clearStatus();
+
+    std::vector<std::unique_ptr<EnoteDetails>> enotes_details{};
+    try
+    {
+        boost::lock_guard<boost::recursive_mutex> guarg(m_refreshMutex2);
+        const EnotePaymentIds payment_ids = getEnotePaymentIds(*m_wallet, 0, std::numeric_limits<uint64_t>::max());
+        std::size_t n_transfers = m_wallet->get_num_transfer_details();
+        enotes_details.reserve(n_transfers);
+
+        for (std::size_t i = 0; i < n_transfers; ++i)
+        {
+            const tools::wallet2::transfer_details &td = m_wallet->get_transfer_details(i);
+            enotes_details.push_back(makeEnoteDetails(td, getEnotePaymentId(payment_ids, td)));
+        }
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR(__FUNCTION__ << " error: " << e.what());
+        setStatusError(std::string(tr("Failed to get enote details: ")) + e.what());
+        return {};
+    }
+    return enotes_details;
+}
+//-------------------------------------------------------------------------------------------------------------------
+std::unique_ptr<EnoteDetails> WalletImpl::getEnoteDetails(const std::string &enote_pub_key) const
+{
+    clearStatus();
+
+    crypto::public_key pk{};
+    if (!epee::string_tools::hex_to_pod(enote_pub_key, pk))
+    {
+        setStatusError((boost::format(tr("Failed to parse public key `%s`")) % enote_pub_key).str());
+        return nullptr;
+    }
+
+    boost::lock_guard<boost::recursive_mutex> guarg(m_refreshMutex2);
+    std::size_t enote_index{};
+    try { enote_index = m_wallet->get_output_index(pk); }
+    catch (const exception &e)
+    {
+        setStatusError(std::string(tr("Could not find index of enote: ")) + e.what());
+        return nullptr;
+    }
+    return getEnoteDetails(enote_index);
+}
+//-------------------------------------------------------------------------------------------------------------------
+std::unique_ptr<EnoteDetails> WalletImpl::getEnoteDetails(const std::size_t enote_index) const
+{
+    clearStatus();
+
+    boost::lock_guard<boost::recursive_mutex> guarg(m_refreshMutex2);
+    if (enote_index >= m_wallet->get_num_transfer_details())
+    {
+        setStatusError(std::string(tr("Could not find enote details for index: ")) + std::to_string(enote_index));
+        return nullptr;
+    }
+
+    try
+    {
+        const tools::wallet2::transfer_details &td = m_wallet->get_transfer_details(enote_index);
+        // get_payments() excludes min_height
+        const uint64_t height = td.m_block_height;
+        const EnotePaymentIds payment_ids = getEnotePaymentIds(*m_wallet, height > 0 ? height - 1 : 0, height);
+        return makeEnoteDetails(td, getEnotePaymentId(payment_ids, td));
+    }
+    catch (const std::exception &e)
+    {
+        LOG_ERROR(__FUNCTION__ << " error: " << e.what());
+        setStatusError(std::string(tr("Failed to get enote details: ")) + e.what());
+        return nullptr;
+    }
+}
+//-------------------------------------------------------------------------------------------------------------------
+
+//-------------------------------------------------------------------------------------------------------------------
+// PRIVATE
+//-------------------------------------------------------------------------------------------------------------------
+std::unique_ptr<EnoteDetails> WalletImpl::makeEnoteDetails(const tools::wallet2::transfer_details &td, const std::string &payment_id) const
+{
+    std::unique_ptr<EnoteDetailsImpl> ed(new EnoteDetailsImpl);
+    crypto::public_key enote_pub_key{};
+    if (td.m_internal_output_index >= td.m_tx.vout.size())
+        throw std::runtime_error(tr("Enotes internal_output_index out of bounds"));
+    cryptonote::get_output_public_key(td.m_tx.vout[td.m_internal_output_index], enote_pub_key);
+    auto view_tag = cryptonote::get_output_view_tag(td.m_tx.vout[td.m_internal_output_index]);
+
+    ed->m_onetime_address = epee::string_tools::pod_to_hex(enote_pub_key);
+    ed->m_view_tag = view_tag ? epee::string_tools::pod_to_hex(*view_tag) : "";
+    ed->m_payment_id = payment_id;
+    ed->m_block_height = td.m_block_height;
+    ed->m_unlock_time = td.m_tx.unlock_time;
+    ed->m_is_unlocked = m_wallet->is_transfer_unlocked(td);
+    ed->m_tx_id = epee::string_tools::pod_to_hex(td.m_txid);
+    ed->m_internal_enote_index = td.m_internal_output_index;
+    ed->m_global_enote_index = td.m_global_output_index;
+    ed->m_spent = td.m_spent;
+    ed->m_frozen = td.m_frozen;
+    ed->m_spent_height = td.m_spent_height;
+    ed->m_key_image = epee::string_tools::pod_to_hex(td.m_key_image);
+    ed->m_mask = epee::string_tools::pod_to_hex(td.m_mask);
+    ed->m_amount = td.m_amount;
+    ed->m_protocol_version = td.m_rct ? EnoteDetails::TxProtocol::TxProtocol_RingCT : EnoteDetails::TxProtocol::TxProtocol_CryptoNote;
+    ed->m_key_image_known = td.m_key_image_known;
+    ed->m_key_image_request = td.m_key_image_request;
+    ed->m_pk_index = td.m_pk_index;
+    ed->m_uses.reserve(td.m_uses.size());
+    ed->m_subaddress_index_major = td.m_subaddr_index.major;
+    ed->m_subaddress_index_minor = td.m_subaddr_index.minor;
+    for (auto &u : td.m_uses)
+        ed->m_uses.push_back(std::make_pair(u.first, epee::string_tools::pod_to_hex(u.second)));
+    ed->m_key_image_partial = td.m_key_image_partial;
+
+    return ed;
 }
 
 } // namespace
