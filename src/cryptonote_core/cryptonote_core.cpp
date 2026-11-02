@@ -1560,9 +1560,9 @@ namespace cryptonote
     return m_blockchain_storage.get_block_id_by_height(height);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan) const
+  bool core::get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan, cryptonote::blobdata *blk_blob) const
   {
-    return m_blockchain_storage.get_block_by_hash(h, blk, orphan);
+    return m_blockchain_storage.get_block_by_hash(h, blk, orphan, blk_blob);
   }
   //-----------------------------------------------------------------------------------------------
   std::string core::print_pool(bool short_format) const

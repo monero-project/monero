@@ -561,23 +561,29 @@ namespace cryptonote
     res.blocks.reserve(req.heights.size());
     for (uint64_t height : req.heights)
     {
+      blobdata blk_blob;
       block blk;
       try
       {
-        blk = m_core.get_blockchain_storage().get_db().get_block_from_height(height);
+        blk_blob = m_core.get_blockchain_storage().get_db().get_block_blob_from_height(height);
       }
       catch (...)
       {
         res.status = "Error retrieving block at height " + std::to_string(height);
         return true;
       }
-      std::vector<transaction> txs;
+      if (!parse_and_validate_block_from_blob(blk_blob, blk))
+      {
+        res.status = "Error parsing block at height " + std::to_string(height);
+        return true;
+      }
+      std::vector<blobdata> txs;
       std::vector<crypto::hash> missed_txs;
       m_core.get_transactions(blk.tx_hashes, txs, missed_txs);
       res.blocks.resize(res.blocks.size() + 1);
-      res.blocks.back().block = block_to_blob(blk);
+      res.blocks.back().block = std::move(blk_blob);
       for (auto& tx : txs)
-        res.blocks.back().txs.push_back({tx_to_blob(tx), crypto::null_hash});
+        res.blocks.back().txs.push_back({std::move(tx), crypto::null_hash});
     }
     res.status = CORE_RPC_STATUS_OK;
     return true;
