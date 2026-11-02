@@ -95,7 +95,7 @@ public:
 
   std::atomic<bool> m_stopped;
   std::atomic<bool> m_terminated;
-  std::atomic<bool> m_deinitalized;
+  std::atomic<bool> m_deinitialized;
   boost::thread m_run_thread;
 
   mock_daemon(
@@ -107,7 +107,7 @@ public:
       , m_start_p2p(false)
       , m_start_zmq(false)
       , m_terminated(false)
-      , m_deinitalized(false)
+      , m_deinitialized(false)
       , m_stopped(false)
       , m_protocol{*core, nullptr, command_line::get_arg(vm, cryptonote::arg_offline)}
       , m_server{m_protocol}

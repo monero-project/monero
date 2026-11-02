@@ -185,7 +185,7 @@ namespace hw {
         bool has_view_key = false;
         bool requested_view_key = false;
 
-        device *controle_device;
+        device *control_device;
 
     public:
         device_ledger();

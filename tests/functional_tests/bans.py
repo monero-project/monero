@@ -30,7 +30,7 @@
 
 import time
 
-"""Test peer baning RPC calls
+"""Test peer banning RPC calls
 
 Test the following RPCs:
     - set_bans

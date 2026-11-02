@@ -292,7 +292,7 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_initial
   ASSERT_EQ(1, m_commands_handler.close_connection_counter());
 }
 
-TEST_F(positive_test_connection_to_levin_protocol_handler_calls, concurent_handler_initialization_and_destruction_is_correct)
+TEST_F(positive_test_connection_to_levin_protocol_handler_calls, concurrent_handler_initialization_and_destruction_is_correct)
 {
   const size_t connection_count = 10000;
   auto create_and_destroy_connections = [this]()

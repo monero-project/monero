@@ -112,7 +112,7 @@ bool is_sorted_and_unique(const T &container,
     return is_sorted_and_unique(container, compare_func<typename T::value_type>(comparison_op_func));
 }
 /// convenience wrapper for checking if the key to a mapped object is correct for that object
-/// example: std::unorderd_map<rct::key, std::pair<rct::key, rct::xmr_amount>> where the map key is supposed to
+/// example: std::unordered_map<rct::key, std::pair<rct::key, rct::xmr_amount>> where the map key is supposed to
 ///   reproduce the pair's rct::key; use the predicate to check that relationship
 template <typename KeyT, typename ValueT, typename PredT>
 bool keys_match_internal_values(const std::unordered_map<KeyT, ValueT> &map, PredT check_key_func)
@@ -138,7 +138,7 @@ bool keys_match_internal_values(const std::unordered_map<KeyT, ValueT> &map, Pre
 
     return true;
 }
-/// convenience erasor for unordered maps: std::erase_if(std::unordered_map) is C++20
+/// convenience eraser for unordered maps: std::erase_if(std::unordered_map) is C++20
 template <typename KeyT, typename ValueT, typename PredT>
 void for_all_in_map_erase_if(std::unordered_map<KeyT, ValueT> &map_inout, PredT predicate)
 {

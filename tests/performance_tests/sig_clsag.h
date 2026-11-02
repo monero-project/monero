@@ -133,7 +133,7 @@ class test_sig_clsag
                 }
             }
 
-            // Check balanace
+            // Check balance
             std::vector<MultiexpData> balance;
             balance.reserve(w + T);
             balance.resize(0);

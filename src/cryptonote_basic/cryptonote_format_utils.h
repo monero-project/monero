@@ -60,7 +60,7 @@ namespace cryptonote
   bool parse_and_validate_tx_base_from_blob(const blobdata_ref& tx_blob, transaction& tx, const bool max_size_check = false, const bool require_eof = false);
   /**
    * @brief extract transaction version from transaction blob
-   * @param tx_blob transction blob
+   * @param tx_blob transaction blob
    * @return transaction version
    * @throw std::runtime_error if the version could not be deserialized
    */

@@ -91,7 +91,7 @@ namespace cryptonote
   template<class t_core>
     t_cryptonote_protocol_handler<t_core>::t_cryptonote_protocol_handler(t_core& rcore, nodetool::i_p2p_endpoint<connection_context>* p_net_layout, bool offline):m_core(rcore),
                                                                                                               m_p2p(p_net_layout),
-                                                                                                              m_syncronized_connections_count(0),
+                                                                                                              m_synchronized_connections_count(0),
                                                                                                               m_synchronized(offline),
                                                                                                               m_ask_for_txpool_complement(true),
                                                                                                               m_stopping(false),
@@ -369,9 +369,9 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_inital)
+  bool t_cryptonote_protocol_handler<t_core>::process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_initial)
   {
-    if(context.m_state == cryptonote_connection_context::state_before_handshake && !is_inital)
+    if(context.m_state == cryptonote_connection_context::state_before_handshake && !is_initial)
       return true;
 
     if(context.m_state == cryptonote_connection_context::state_synchronizing)
@@ -445,7 +445,7 @@ namespace cryptonote
     if (have_top)
     {
       context.set_state_normal();
-      if(is_inital  && hshd.current_height >= target && target == m_core.get_current_blockchain_height())
+      if(is_initial  && hshd.current_height >= target && target == m_core.get_current_blockchain_height())
         on_connection_synchronized();
       return true;
     }
@@ -467,7 +467,7 @@ namespace cryptonote
     uint64_t max_block_height = std::max(hshd.current_height,m_core.get_current_blockchain_height());
     uint64_t last_block_v1 = m_core.get_nettype() == TESTNET ? 624633 : m_core.get_nettype() == MAINNET ? 1009826 : (uint64_t)-1;
     uint64_t diff_v2 = max_block_height > last_block_v1 ? std::min(abs_diff, max_block_height - last_block_v1) : 0;
-    MCLOG(is_inital && abs_diff > 1 ? el::Level::Info : el::Level::Debug, "global", el::Color::Yellow, context <<  "Sync data returned a new top block candidate: " << m_core.get_current_blockchain_height() << " -> " << hshd.current_height
+    MCLOG(is_initial && abs_diff > 1 ? el::Level::Info : el::Level::Debug, "global", el::Color::Yellow, context <<  "Sync data returned a new top block candidate: " << m_core.get_current_blockchain_height() << " -> " << hshd.current_height
       << " [Your node is " << abs_diff << " blocks (" << tools::get_human_readable_timespan((abs_diff - diff_v2) * DIFFICULTY_TARGET_V1 + diff_v2 * DIFFICULTY_TARGET_V2) << ") "
       << (0 <= diff ? std::string("behind") : std::string("ahead"))
       << "] " << ENDL << "SYNCHRONIZATION started");

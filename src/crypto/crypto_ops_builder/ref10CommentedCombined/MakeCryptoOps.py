@@ -139,7 +139,7 @@ xmr_comments = textwrap.dedent("""\
 
 
 def qhasmToC(fi, header, out):
-    #replaces mentiones of "header" in "fi" with output in "out"
+    #replaces mentions of "header" in "fi" with output in "out"
     #also removes qhasm comments
     out1 = out+".tmp"
     rem_qhasm = " |grep -v 'qhasm' |grep -v ' asm'"

@@ -80,7 +80,7 @@ namespace hw {
       void io_hid_close (void);
 
       unsigned int wrapCommand(const unsigned char *command, size_t command_len, unsigned char *out, size_t out_len);
-      unsigned int unwrapReponse(const unsigned char *data, size_t data_len, unsigned char *out, size_t out_len);
+      unsigned int unwrapResponse(const unsigned char *data, size_t data_len, unsigned char *out, size_t out_len);
  
       hid_device_info *find_device(hid_device_info *devices_list, boost::optional<int> interface_number, boost::optional<unsigned short> usage_page);
  

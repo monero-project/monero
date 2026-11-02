@@ -37,15 +37,15 @@ using namespace cryptonote;
 namespace
 {
   bool lift_up_difficulty(std::vector<test_event_entry>& events, std::vector<uint64_t>& timestamps,
-                          std::vector<difficulty_type>& cummulative_difficulties, test_generator& generator,
+                          std::vector<difficulty_type>& cumulative_difficulties, test_generator& generator,
                           size_t new_block_count, const block &blk_last, const account_base& miner_account)
   {
-    difficulty_type commulative_diffic = cummulative_difficulties.empty() ? 0 : cummulative_difficulties.back();
+    difficulty_type commulative_diffic = cumulative_difficulties.empty() ? 0 : cumulative_difficulties.back();
     block blk_prev = blk_last;
     for (size_t i = 0; i < new_block_count; ++i)
     {
       block blk_next;
-      difficulty_type diffic = next_difficulty(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V1);
+      difficulty_type diffic = next_difficulty(timestamps, cumulative_difficulties,DIFFICULTY_TARGET_V1);
       if (!generator.construct_block_manually(blk_next, blk_prev, miner_account,
         test_generator::bf_timestamp | test_generator::bf_diffic, 0, 0, blk_prev.timestamp, crypto::hash(), diffic))
         return false;
@@ -54,10 +54,10 @@ namespace
       if (timestamps.size() == DIFFICULTY_WINDOW)
       {
         timestamps.erase(timestamps.begin());
-        cummulative_difficulties.erase(cummulative_difficulties.begin());
+        cumulative_difficulties.erase(cumulative_difficulties.begin());
       }
       timestamps.push_back(blk_next.timestamp);
-      cummulative_difficulties.push_back(commulative_diffic);
+      cumulative_difficulties.push_back(commulative_diffic);
 
       events.push_back(blk_next);
       blk_prev = blk_next;
@@ -553,8 +553,8 @@ bool gen_block_invalid_binary_format::generate(std::vector<test_event_entry>& ev
   BLOCK_VALIDATION_INIT_GENERATE();
 
   std::vector<uint64_t> timestamps;
-  std::vector<difficulty_type> cummulative_difficulties;
-  difficulty_type cummulative_diff = 1;
+  std::vector<difficulty_type> cumulative_difficulties;
+  difficulty_type cumulative_diff = 1;
 
   // Unlock blk_0 outputs
   block blk_last = blk_0;
@@ -563,7 +563,7 @@ bool gen_block_invalid_binary_format::generate(std::vector<test_event_entry>& ev
   {
     MAKE_NEXT_BLOCK(events, blk_curr, blk_last, miner_account);
     timestamps.push_back(blk_curr.timestamp);
-    cummulative_difficulties.push_back(++cummulative_diff);
+    cumulative_difficulties.push_back(++cumulative_diff);
     blk_last = blk_curr;
   }
 
@@ -572,8 +572,8 @@ bool gen_block_invalid_binary_format::generate(std::vector<test_event_entry>& ev
   do
   {
     blk_last = boost::get<block>(events.back());
-    diffic = next_difficulty(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V1);
-    if (!lift_up_difficulty(events, timestamps, cummulative_difficulties, generator, 1, blk_last, miner_account))
+    diffic = next_difficulty(timestamps, cumulative_difficulties,DIFFICULTY_TARGET_V1);
+    if (!lift_up_difficulty(events, timestamps, cumulative_difficulties, generator, 1, blk_last, miner_account))
       return false;
     std::cout << "Block #" << events.size() << ", difficulty: " << diffic << std::endl;
   }
@@ -587,7 +587,7 @@ bool gen_block_invalid_binary_format::generate(std::vector<test_event_entry>& ev
   std::vector<crypto::hash> tx_hashes;
   tx_hashes.push_back(get_transaction_hash(tx_0));
   size_t txs_weight = get_transaction_weight(tx_0);
-  diffic = next_difficulty(timestamps, cummulative_difficulties,DIFFICULTY_TARGET_V1);
+  diffic = next_difficulty(timestamps, cumulative_difficulties,DIFFICULTY_TARGET_V1);
   if (!generator.construct_block_manually(blk_test, blk_last, miner_account,
     test_generator::bf_diffic | test_generator::bf_timestamp | test_generator::bf_tx_hashes, 0, 0, blk_last.timestamp,
     crypto::hash(), diffic, transaction(), tx_hashes, txs_weight))

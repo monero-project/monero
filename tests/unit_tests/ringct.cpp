@@ -993,7 +993,7 @@ TEST(ringct, d2b)
   }
 }
 
-TEST(ringct, prooveRange_is_non_deterministic)
+TEST(ringct, proveRange_is_non_deterministic)
 {
   key C[2], mask[2];
   for (int n = 0; n < 2; ++n)

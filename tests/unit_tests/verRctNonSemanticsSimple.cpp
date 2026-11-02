@@ -370,8 +370,8 @@ TEST(verRctNonSemanticsSimple, unserializable_sig_changes)
 
 TEST(verRctNonSemanticsSimple, serializable_mixring_changes)
 {
-    // Hello, future Monero devs! If this unit test fails, a huge concensus-related assumption has
-    // been broken and verRctNonSemanticsSimpleCached needs to be reevalulated for validity. If it
+    // Hello, future Monero devs! If this unit test fails, a huge consensus-related assumption has
+    // been broken and verRctNonSemanticsSimpleCached needs to be reevaluated for validity. If it
     // is not, there may be an exploit which allows for double-spending. See the implementation for
     // more comments on the uniqueness of the internal cache hash.
 

@@ -100,7 +100,7 @@ namespace cryptonote
     bool deinit();
     void set_p2p_endpoint(nodetool::i_p2p_endpoint<connection_context>* p2p);
     //bool process_handshake_data(const blobdata& data, cryptonote_connection_context& context);
-    bool process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_inital);
+    bool process_payload_sync_data(const CORE_SYNC_DATA& hshd, cryptonote_connection_context& context, bool is_initial);
     bool get_payload_sync_data(epee::byte_slice& data);
     bool get_payload_sync_data(CORE_SYNC_DATA& hshd);
     bool on_callback(cryptonote_connection_context& context);
@@ -176,7 +176,7 @@ namespace cryptonote
 
     nodetool::p2p_endpoint_stub<connection_context> m_p2p_stub;
     nodetool::i_p2p_endpoint<connection_context>* m_p2p;
-    std::atomic<uint32_t> m_syncronized_connections_count;
+    std::atomic<uint32_t> m_synchronized_connections_count;
     std::atomic<bool> m_synchronized;
     std::atomic<bool> m_stopping;
     std::atomic<bool> m_no_sync;

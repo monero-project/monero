@@ -890,7 +890,7 @@ TEST(wallet_keys_unlocker, simple_nonce)
     ASSERT_EQ(n_locks + 1, encrypted_spendkeys.size());
 }
 
-TEST(wallet_keys_unlocker, mutiple_attended)
+TEST(wallet_keys_unlocker, multiple_attended)
 {
     // Test that multiple non-unattended wallets can be decrypted at the same time.
 

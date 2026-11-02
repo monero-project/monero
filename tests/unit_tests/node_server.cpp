@@ -1660,7 +1660,7 @@ TEST(node_server, race_condition)
     void set_p2p_endpoint(p2p_endpoint_t *p2p_endpoint) {
       this->p2p_endpoint = p2p_endpoint;
     }
-    bool process_payload_sync_data(const payload_t &payload, contexts::p2p &context, bool is_inital) {
+    bool process_payload_sync_data(const payload_t &payload, contexts::p2p &context, bool is_initial) {
       context.m_state = context_t::state_normal;
       context.m_needed_objects.resize(512 * 1024);
       {

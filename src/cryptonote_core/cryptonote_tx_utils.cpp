@@ -373,7 +373,7 @@ namespace cryptonote
         return false;
       }
 
-      //check that derivated key is equal with real output key
+      //check that derived key is equal with real output key
       if(!(in_ephemeral.pub == src_entr.outputs[src_entr.real_output].second.dest) )
       {
         LOG_ERROR("derived public key mismatch with output public key at index " << idx << ", real out " << src_entr.real_output << "! "<< ENDL << "derived_key:"

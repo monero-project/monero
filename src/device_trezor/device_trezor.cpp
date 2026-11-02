@@ -526,7 +526,7 @@ namespace trezor {
       transaction_versions_check(unsigned_tx, aux_data);
 
       const size_t num_tx = unsigned_tx.txes.size();
-      m_num_transations_to_sign = num_tx;
+      m_num_transactions_to_sign = num_tx;
       signed_tx.key_images.clear();
       signed_tx.key_images.resize(std::get<2>(unsigned_tx.transfers).size());
 
@@ -596,7 +596,7 @@ namespace trezor {
       }
 
       if (m_callback){
-        m_callback->on_progress(device_cold::tx_progress(m_num_transations_to_sign, m_num_transations_to_sign, 1, 1, 1, 1));
+        m_callback->on_progress(device_cold::tx_progress(m_num_transactions_to_sign, m_num_transactions_to_sign, 1, 1, 1, 1));
       }
     }
 
@@ -607,7 +607,7 @@ namespace trezor {
                    std::shared_ptr<protocol::tx::Signer> & signer)
     {
 #define EVENT_PROGRESS(S, SUB, SUBMAX) do { if (m_callback) { \
-      (m_callback)->on_progress(device_cold::tx_progress(idx, m_num_transations_to_sign, S, 10, SUB, SUBMAX)); \
+      (m_callback)->on_progress(device_cold::tx_progress(idx, m_num_transactions_to_sign, S, 10, SUB, SUBMAX)); \
 } }while(0)
 
       require_connected();

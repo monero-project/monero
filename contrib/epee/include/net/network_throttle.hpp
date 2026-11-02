@@ -106,7 +106,7 @@ class network_throttle_manager {
 
 
 /***
-@brief interface for the throttle, see the derivated class
+@brief interface for the throttle, see the derived class
 */
 class i_network_throttle {
 	public:

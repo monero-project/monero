@@ -145,7 +145,7 @@ static CTHR_ONCE_DECLARE_CB(init_random) {
 
 void generate_random_bytes_not_thread_safe(size_t n, void *result) {
   /*
-   * This function assumes that the state is recently permutated. We permutate
+   * This function assumes that the state is recently permuted. We permute
    * *after* squeezing so that a memory leak of the state immediately after
    * leaving this function does not leak the previous squeezed values.
    */

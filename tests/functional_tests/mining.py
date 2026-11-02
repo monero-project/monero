@@ -86,9 +86,9 @@ class MiningTest():
 
         cores_init = multiprocessing.cpu_count() # RX init uses all cores
         cores_mine = 1                           # Mining uses a parametric number of cores
-        is_mining_measurent = 'MINING_NO_MEASUREMENT' not in os.environ
+        is_mining_measurement = 'MINING_NO_MEASUREMENT' not in os.environ
 
-        if is_mining_measurent: # A dynamic calculation of the CPU power requested
+        if is_mining_measurement: # A dynamic calculation of the CPU power requested
             time_pi_single_cpu = self.measure_cpu_power_get_time(cores_mine)
             time_pi_all_cores = self.measure_cpu_power_get_time(cores_init)
         # This is the last measurement, since it takes very little time and can be placed timewise-closer to the mining itself.
@@ -121,7 +121,7 @@ class MiningTest():
         target_height = initial_height + 5
         height = initial_height
         
-        if not is_mining_measurent:
+        if not is_mining_measurement:
             timeout_init = 600
             timeout_mine = 300
         else:
@@ -153,7 +153,7 @@ class MiningTest():
             timeout_init = calc_timeout(timeout_base_init, time_pi_all_cores,  cores_init)
             timeout_mine = calc_timeout(timeout_base_mine, time_pi_single_cpu, cores_mine)
         
-        msg_timeout_src = "adjusted for the currently available CPU power" if is_mining_measurent else "selected to have the default value"
+        msg_timeout_src = "adjusted for the currently available CPU power" if is_mining_measurement else "selected to have the default value"
         msg = "Timeout for {} {}, is {:.1f} s"
         self.print_mining_info(msg.format("init,  ", msg_timeout_src, timeout_init))
         self.print_mining_info(msg.format("mining,", msg_timeout_src, timeout_mine))
@@ -215,8 +215,8 @@ class MiningTest():
 
     def measure_cpu_power_get_time(self, cores):
         self.print_mining_info("Measuring the currently available CPU power...")
-        build_dir_funcional_tests = os.environ['FUNCTIONAL_TESTS_DIRECTORY']
-        time_pi = util_resources.get_time_pi_seconds(cores, build_dir_funcional_tests)
+        build_dir_functional_tests = os.environ['FUNCTIONAL_TESTS_DIRECTORY']
+        time_pi = util_resources.get_time_pi_seconds(cores, build_dir_functional_tests)
         self.print_mining_info("Time taken to calculate Pi on {} core(s) was {:.2f} s.".format(cores, time_pi))
         return time_pi
 

@@ -115,7 +115,7 @@ mock_daemon::~mock_daemon()
     }
   }
 
-  if (!m_deinitalized)
+  if (!m_deinitialized)
   {
     deinit();
   }
@@ -123,7 +123,7 @@ mock_daemon::~mock_daemon()
 
 void mock_daemon::init()
 {
-  m_deinitalized = false;
+  m_deinitialized = false;
   const auto main_rpc_port = command_line::get_arg(m_vm, cryptonote::core_rpc_server::arg_rpc_bind_port);
   m_rpc_server.nettype(m_network_type);
 
@@ -175,7 +175,7 @@ void mock_daemon::deinit()
     MERROR("Failed to stop cryptonote protocol!");
   }
 
-  m_deinitalized = true;
+  m_deinitialized = true;
 }
 
 void mock_daemon::init_and_run()

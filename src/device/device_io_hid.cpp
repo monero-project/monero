@@ -215,7 +215,7 @@ namespace hw {
       offset = MAX_BLOCK;
       //parse first response and get others if any
       for (;;) {
-        result = this->unwrapReponse(buffer, offset, response, max_resp_len);
+        result = this->unwrapResponse(buffer, offset, response, max_resp_len);
         if (result != 0) {
           break;
         }
@@ -295,7 +295,7 @@ namespace hw {
      * return  0 if more data are needed
     *         >0 if response is fully available
      */
-    unsigned int device_io_hid::unwrapReponse(const unsigned char *data, size_t data_len, unsigned char *out, size_t out_len) {
+    unsigned int device_io_hid::unwrapResponse(const unsigned char *data, size_t data_len, unsigned char *out, size_t out_len) {
       unsigned int sequence_idx = 0;
       unsigned int offset = 0;
       unsigned int offset_out = 0;

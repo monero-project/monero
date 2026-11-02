@@ -481,7 +481,7 @@ TEST_F(net_load_test_clt, a_lot_of_client_connections_and_connections_closed_by_
   ASSERT_EQ(RESERVED_CONN_CNT, m_tcp_server.get_config_object().get_connections_count());
 }
 
-TEST_F(net_load_test_clt, permament_open_and_close_and_connections_closed_by_client)
+TEST_F(net_load_test_clt, permanent_open_and_close_and_connections_closed_by_client)
 {
   static const size_t MAX_OPENED_CONN_COUNT = 100;
 
@@ -539,7 +539,7 @@ TEST_F(net_load_test_clt, permament_open_and_close_and_connections_closed_by_cli
   ASSERT_EQ(RESERVED_CONN_CNT, srv_stat.opened_connections_count);
 }
 
-TEST_F(net_load_test_clt, permament_open_and_close_and_connections_closed_by_server)
+TEST_F(net_load_test_clt, permanent_open_and_close_and_connections_closed_by_server)
 {
   static const size_t MAX_OPENED_CONN_COUNT = 100;
 

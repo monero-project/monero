@@ -402,7 +402,7 @@ namespace
   }
 }
 
-TEST(Serialization, serializes_transacion_signatures_correctly)
+TEST(Serialization, serializes_transaction_signatures_correctly)
 {
   using namespace cryptonote;
 
