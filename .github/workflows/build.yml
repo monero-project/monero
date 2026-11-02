@@ -15,6 +15,7 @@ env:
   REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
   # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
   BUILD_DEFAULT: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --target all'
+  BUILD_DEFAULT_WITH_FCMP_INTEGRATION_ENABLED: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release -D ENABLE_FCMP_INTEGRATION=ON && cmake --build build --target all'
   APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache curl git'
   APT_SET_CONF: |
     tee -a /etc/apt/apt.conf.d/80-custom << EOF
@@ -245,7 +246,7 @@ jobs:
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
         run: |
           ${{env.CCACHE_SETTINGS}}
-          ${{env.BUILD_DEFAULT}}
+          ${{env.BUILD_DEFAULT_WITH_FCMP_INTEGRATION_ENABLED}}
       - name: run tests except core_tests
         env:
           DNS_PUBLIC: tcp
@@ -256,7 +257,7 @@ jobs:
           CFLAGS: -DMONERO_CRYPTO_SLOW_HASH_ITER=20
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
         run: |
-          cmake -S . -B build --fresh -D ARCH="default" -D BUILD_TESTS=ON
+          cmake -S . -B build --fresh -D ARCH="default" -D BUILD_TESTS=ON -D ENABLE_FCMP_INTEGRATION=ON
           cmake --build build --target core_tests
       - name: run core_tests
         run: ctest --test-dir build --output-on-failure -R core_tests

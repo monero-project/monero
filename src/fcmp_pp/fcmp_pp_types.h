@@ -30,6 +30,7 @@
 
 #include <cstring>
 #include <type_traits>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -141,6 +142,10 @@ struct UnifiedOutput final
     }
 };
 
+#define SIZEOF_SERIALIZED_UNIFIED_OUTPUT 73 // 8+1+32+32
+
+using OutsByLastLockedBlock = std::unordered_map<uint64_t, std::vector<UnifiedOutput>>;
+
 // Contiguous leaves in the tree, starting at a specified start_idx in the leaf layer
 struct ContiguousLeaves final
 {
@@ -148,6 +153,25 @@ struct ContiguousLeaves final
     uint64_t                   start_idx{0};
     // Contiguous leaves in a tree that start at the start_idx
     std::vector<UnifiedOutput> tuples;
+};
+
+/* The "Compressed" prefix means all points contained in the struct are compressed points */
+
+// A layer of contiguous hashes starting from a specific start_idx in the tree
+struct CompressedLayerExtension final
+{
+    uint64_t                      start_idx{0};
+    bool                          update_existing_last_hash;
+    std::vector<crypto::ec_point> hashes;
+};
+
+// A struct useful to extend an existing tree
+// - layers alternate between C1 and C2
+// - layer_extensions[0] is C1 first layer after leaves, then layer_extensions[1] is C2, layer_extensions[2] is C1, etc.
+struct CompressedTreeExtension final
+{
+    ContiguousLeaves leaves;
+    std::vector<CompressedLayerExtension> layer_extensions;
 };
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------

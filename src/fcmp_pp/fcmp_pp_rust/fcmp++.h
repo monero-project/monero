@@ -135,6 +135,10 @@ void helios_point_to_bytes(const struct HeliosPoint *helios_point, uint8_t bytes
 
 void selene_point_to_bytes(const struct SelenePoint *selene_point, uint8_t bytes_out[32]);
 
+int helios_point_from_bytes(const uint8_t *helios_point_bytes, struct HeliosPoint *helios_point_out);
+
+int selene_point_from_bytes(const uint8_t *selene_point_bytes, struct SelenePoint *selene_point_out);
+
 int hash_grow_helios(struct HeliosPoint existing_hash,
                                              uintptr_t offset,
                                              struct HeliosScalar existing_child_at_offset,

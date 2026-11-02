@@ -35,6 +35,7 @@
 #include <map>
 
 #include <cryptonote_basic/cryptonote_format_utils.h>
+#include "fcmp_pp/fcmp_pp_types.h"
 
 #include "blockchain_db.h"
 
@@ -101,10 +102,11 @@ public:
   virtual uint64_t get_tx_count() const override { return 0; }
   virtual std::vector<cryptonote::transaction> get_tx_list(const std::vector<crypto::hash>& hlist) const override { return std::vector<cryptonote::transaction>(); }
   virtual uint64_t get_tx_block_height(const crypto::hash& h) const override { return 0; }
+  virtual uint64_t total_outputs() const override { return 1; }
   virtual uint64_t get_num_outputs(const uint64_t& amount) const override { return 1; }
   virtual uint64_t get_indexing_base() const override { return 0; }
   virtual cryptonote::output_data_t get_output_key(const uint64_t& amount, const uint64_t& index, bool include_commitmemt) const override { return cryptonote::output_data_t(); }
-  virtual cryptonote::tx_out_index get_output_tx_and_index_from_global(const uint64_t& index) const override { return cryptonote::tx_out_index(); }
+  virtual cryptonote::tx_out_index get_output_tx_and_index_from_unified(const uint64_t& index) const override { return cryptonote::tx_out_index(); }
   virtual cryptonote::tx_out_index get_output_tx_and_index(const uint64_t& amount, const uint64_t& index) const override { return cryptonote::tx_out_index(); }
   virtual void get_output_tx_and_index(const uint64_t& amount, const std::vector<uint64_t> &offsets, std::vector<cryptonote::tx_out_index> &indices) const override {}
   virtual void get_output_key(const epee::span<const uint64_t> &amounts, const std::vector<uint64_t> &offsets, std::vector<cryptonote::output_data_t> &outputs, bool allow_partial = false) const override {}
@@ -118,6 +120,20 @@ public:
   virtual void add_tx_amount_output_indices(const uint64_t tx_index, const std::vector<uint64_t>& amount_output_indices) override {}
   virtual void add_spent_key(const crypto::key_image& k_image) override {}
   virtual void remove_spent_key(const crypto::key_image& k_image) override {}
+
+  virtual std::vector<crypto::ec_point> grow_with_tree_extension(const fcmp_pp::CompressedTreeExtension &tree_extension) override { return std::vector<crypto::ec_point>{}; };
+  virtual uint64_t trim_leaves(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_idx) override { return 0; };
+  virtual void trim_layers(const uint64_t new_n_leaf_tuples, const std::vector<uint64_t> &new_n_elems_per_layer, const std::vector<crypto::ec_point> &new_tree_edge, const uint64_t new_root_layer_idx) override {};
+  virtual void add_locked_outs(const fcmp_pp::OutsByLastLockedBlock& outs_by_last_locked_block, const std::unordered_map<uint64_t/*unified_id*/, uint64_t/*last locked block_id*/>& timelocked_outputs) override {};
+  virtual std::vector<fcmp_pp::UnifiedOutput> get_outs_at_last_locked_block_idx(uint64_t block_id) const override { return std::vector<fcmp_pp::UnifiedOutput>{}; };
+  virtual void del_locked_outs_at_block_idx(uint64_t block_idx) override {};
+  virtual uint64_t get_n_leaf_tuples() const override { return 0; };
+  virtual uint64_t get_block_n_leaf_tuples(const uint64_t block_idx) const override { return 0; };
+  virtual uint8_t get_tree_root_at_blk_idx(const uint64_t blk_idx, crypto::ec_point &tree_root_out) const override { return {}; };
+  virtual uint64_t get_tree_block_idx() const override { return 0; };
+  virtual std::vector<crypto::ec_point> get_tree_edge(uint64_t block_id) const override { return {}; };
+  virtual void save_tree_meta(const uint64_t block_idx, const uint64_t n_leaf_tuples, const std::vector<crypto::ec_point> &tree_edge) override {};
+  virtual void del_tree_meta(const uint64_t block_idx) override {};
 
   virtual bool for_all_key_images(std::function<bool(const crypto::key_image&)>) const override { return true; }
   virtual bool for_blocks_range(const uint64_t&, const uint64_t&, std::function<bool(uint64_t, const crypto::hash&, const cryptonote::block&)>) const override { return true; }
@@ -146,7 +162,8 @@ public:
                         , const cryptonote::difficulty_type& cumulative_difficulty
                         , const uint64_t& coins_generated
                         , const std::vector<std::pair<cryptonote::transaction, cryptonote::blobdata>>& txs
-                        ) override { return cryptonote::BlockchainDB::add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs); }
+                        , const std::unordered_map<uint64_t, rct::key>& transparent_amount_commitments
+                        ) override { return cryptonote::BlockchainDB::add_block(blk, block_weight, long_term_block_weight, cumulative_difficulty, coins_generated, txs, transparent_amount_commitments); }
   virtual void add_block( const cryptonote::block& blk
                         , size_t block_weight
                         , uint64_t long_term_block_weight

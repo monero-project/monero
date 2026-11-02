@@ -149,6 +149,22 @@ crypto::ec_point Helios::to_bytes(const Helios::Point &point) const
     return res;
 }
 //----------------------------------------------------------------------------------------------------------------------
+Selene::Point Selene::from_bytes(const crypto::ec_point &bytes) const
+{
+    Selene::Point selene_point;
+    int r = ::selene_point_from_bytes(reinterpret_cast<const uint8_t*>(&bytes), &selene_point);
+    CHECK_FFI_RES;
+    return selene_point;
+}
+//----------------------------------------------------------------------------------------------------------------------
+Helios::Point Helios::from_bytes(const crypto::ec_point &bytes) const
+{
+    Helios::Point helios_point;
+    int r = ::helios_point_from_bytes(reinterpret_cast<const uint8_t*>(&bytes), &helios_point);
+    CHECK_FFI_RES;
+    return helios_point;
+}
+//----------------------------------------------------------------------------------------------------------------------
 std::string Selene::to_string(const typename Selene::Scalar &scalar) const
 {
     return epee::string_tools::pod_to_hex(this->to_bytes(scalar));

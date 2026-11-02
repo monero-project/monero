@@ -78,6 +78,12 @@ namespace
       crypto::hash hash;
     };
 
+    struct tree_meta_t
+    {
+      uint64_t block_idx;
+      uint64_t n_leaf_tuples;
+    };
+
   public:
     TestDB() { m_open = true; }
 
@@ -133,13 +139,17 @@ namespace
       return blocks[blocks.size()-1].bl;
     }
 
-    virtual void pop_block(cryptonote::block &, std::vector<cryptonote::transaction> *) override { if (!blocks.empty()) blocks.pop_back(); }
+    virtual void pop_block(cryptonote::block &, std::vector<cryptonote::transaction> *) override { if (!blocks.empty()) { blocks.pop_back(); } if (!tree_metas.empty()) { tree_metas.pop_back(); } }
     virtual void set_hard_fork_version(uint64_t height, uint8_t version) override { if (height >= hf.size()) hf.resize(height + 1); hf[height] = version; }
     virtual uint8_t get_hard_fork_version(uint64_t height) const override { if (height >= hf.size()) return 255; return hf[height]; }
+
+    virtual void save_tree_meta(const uint64_t block_idx, const uint64_t n_leaf_tuples, const std::vector<crypto::ec_point> &tree_edge) override { tree_metas.push_back(tree_meta_t{block_idx, n_leaf_tuples}); };
+    virtual uint64_t get_tree_block_idx() const override { return tree_metas.size() ? tree_metas.back().block_idx : 0; };
 
   private:
     std::vector<block_t> blocks;
     std::vector<uint8_t> hf;
+    std::vector<tree_meta_t> tree_metas;
   };
 
 }

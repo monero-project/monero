@@ -35,6 +35,8 @@
 #include "hardforks/hardforks.h"
 #include "ringct/rctSigs.h"
 
+#include <functional>
+
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "verify"
 
@@ -311,10 +313,45 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
     return true;
 }
 
+static void collect_transparent_amount_commitments_static(
+    const std::vector<std::reference_wrapper<const transaction>> &txs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout)
+{
+    // Note: we do not clear transparent_amount_commitments_inout because it may be a rolling cache
+
+    for (const auto &tx_ref : txs)
+    {
+        const auto &tx = tx_ref.get();
+
+        // We only need commitments for transparent amounts, which are tx version 1 || coinbase txs
+        if (tx.version > 1 && !tx.is_coinbase())
+            continue;
+        for (const auto &tx_out : tx.vout)
+        {
+            const uint64_t amount = tx_out.amount;
+            if (transparent_amount_commitments_inout.find(amount) == transparent_amount_commitments_inout.end())
+                transparent_amount_commitments_inout[amount] = rct::zeroCommitVartime(amount);
+        }
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace cryptonote
 {
+
+void collect_transparent_amount_commitments(
+    const transaction &miner_tx,
+    const std::vector<std::pair<transaction, blobdata>> &tx_pairs,
+    std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments_inout)
+{
+    std::vector<std::reference_wrapper<const transaction>> tx_refs;
+    tx_refs.reserve(1 + tx_pairs.size());
+    tx_refs.push_back(std::cref(miner_tx));
+    for (const auto &tx : tx_pairs)
+        tx_refs.push_back(std::cref(tx.first));
+    collect_transparent_amount_commitments_static(tx_refs, transparent_amount_commitments_inout);
+}
 
 uint64_t get_transaction_weight_limit(const uint8_t hf_version)
 {

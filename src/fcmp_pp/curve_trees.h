@@ -172,6 +172,11 @@ public:
     // Doesn't include the leaf layer.
     std::size_t n_layers(const uint64_t n_leaf_tuples) const;
 
+    // Decompress the compressed points from the provided tree edge
+    LastHashes tree_edge_to_last_hashes(const std::vector<crypto::ec_point> &tree_edge_to_last_hashes) const;
+
+    // Compress all the points in the tree extension
+    CompressedTreeExtension compress_tree_extension(TreeExtension &&tree_extension) const;
 private:
     // Multithreaded helper function to convert valid outputs to leaf tuples ready for insertion to the tree & db
     void outputs_to_leaves(std::vector<UnifiedOutput> &&new_outputs,
