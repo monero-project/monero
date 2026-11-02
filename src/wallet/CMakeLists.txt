@@ -56,6 +56,7 @@ target_link_libraries(wallet
     mnemonics
     device_trezor
     net
+    RapidJSON
     ${LMDB_LIBRARY}
     ${Boost_SERIALIZATION_LIBRARY}
     ${Boost_FILESYSTEM_LIBRARY}

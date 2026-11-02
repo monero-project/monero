@@ -474,8 +474,6 @@ elseif(CMAKE_SYSTEM_NAME MATCHES ".*BSDI.*")
   set(BSDI TRUE)
 endif()
 
-include_directories(external/rapidjson/include external/easylogging++ src contrib/epee/include external external/supercop/include external/polyseed/include external/utf8proc)
-
 option(STATIC "Link libraries statically" OFF)
 
 # This is a CMake built-in switch that concerns internal libraries
@@ -650,25 +648,6 @@ function (monero_add_library_with_deps)
 endfunction ()
 
 add_subdirectory(external)
-
-# Final setup for linenoise
-if(NOT WIN32)
-  include_directories(${CMAKE_CURRENT_SOURCE_DIR}/external/linenoise)
-endif()
-
-# Final setup for libunbound
-include_directories(${UNBOUND_INCLUDE_DIR})
-
-# Final setup for easylogging++
-include_directories(${EASYLOGGING_INCLUDE})
-link_directories(${EASYLOGGING_LIBRARY_DIRS})
-
-# Final setup for liblmdb
-include_directories(${LMDB_INCLUDE})
-
-# Final setup for libunwind
-include_directories(${LIBUNWIND_INCLUDE})
-link_directories(${LIBUNWIND_LIBRARY_DIRS})
 
 # Final setup for hid
 if (HIDAPI_FOUND) 

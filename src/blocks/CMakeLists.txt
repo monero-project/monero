@@ -58,3 +58,9 @@ foreach(BLOB_NAME checkpoints testnet_blocks stagenet_blocks)
 endforeach()
 
 monero_add_library(blocks blocks.cpp ${GENERATED_SOURCES})
+target_link_libraries(blocks
+  PUBLIC
+    epee)
+target_include_directories(blocks
+  PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/..")

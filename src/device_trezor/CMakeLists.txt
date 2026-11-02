@@ -94,6 +94,7 @@ if(DEVICE_TREZOR_READY)
             ringct_basic
             cryptonote_core
             common
+            RapidJSON
             ${sodium_LIBRARIES}
             ${Boost_CHRONO_LIBRARY}
             ${Protobuf_LIBRARY}
@@ -101,6 +102,12 @@ if(DEVICE_TREZOR_READY)
             PRIVATE
             ${EXTRA_LIBRARIES}
             ${TREZOR_EXTRA_LIBRARIES})
+
+    # Required since `wallet2.h` is included in some files for message
+    # definitions, but `device_trezor` doesn't need `wallet` as a build
+    # dependency. This shim can be removed once `wallet2.h` is factored out.
+    target_include_directories(device_trezor
+        PRIVATE $<TARGET_PROPERTY:polyseed_static,INTERFACE_INCLUDE_DIRECTORIES>)
 
 else()
     message(STATUS "Trezor: support disabled")
