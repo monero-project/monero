@@ -33,6 +33,9 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "misc_log_ex.h"
 #include "daemon/command_line_args.h"
+#include "common/download.h"
+#include "net/socks.h"
+#include "net/socks_connect.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "daemon"
@@ -74,6 +77,12 @@ public:
     }
 
     const bool allow_dns = command_line::is_arg_defaulted(vm, daemon_args::arg_proxy) || command_line::get_arg(vm, daemon_args::arg_proxy_allow_dns_leaks);
+    if (!command_line::is_arg_defaulted(vm, daemon_args::arg_proxy))
+    {
+      auto endpoint = net::socks::endpoint::get(command_line::get_arg(vm, daemon_args::arg_proxy));
+      if (endpoint)
+        tools::set_download_connector(net::socks::connector{std::make_shared<net::socks::endpoint>(std::move(*endpoint))});
+    }
     if (!m_core.init(m_vm_HACK, nullptr, get_checkpoints, allow_dns))
     {
       throw std::runtime_error("Failed to initialize core");
