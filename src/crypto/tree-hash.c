@@ -30,10 +30,22 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "hash-ops.h"
+
+static void local_abort(const char *msg)
+{
+  fprintf(stderr, "%s\n", msg);
+#ifdef NDEBUG
+  _exit(1);
+#else
+  abort();
+#endif
+}
 
 /*** 
 * Round to power of two, for count>=3 and for count being not too large (as reasonable for tree hash calculations)
@@ -51,8 +63,10 @@ size_t tree_hash_cnt(size_t count) {
 	// Problem space has been defined as 3 <= count <= 2^28. Of course quarter of a billion transactions
 	// is not a sane upper limit for a block, so there will be tighter limits in other parts of the code
 
-	assert( count >= 3 ); // cases for 0,1,2 are handled elsewhere
-	assert( count <= 0x10000000 ); // sanity limit to 2^28, MSB=1 will cause an inf loop
+	if (count < 3) // cases for 0,1,2 are handled elsewhere
+		local_abort("tree_hash_cnt: count too small");
+	if (count > 0x10000000) // sanity limit to 2^28, MSB=1 will cause an inf loop
+		local_abort("tree_hash_cnt: count too large");
 
 	size_t pow = 2;
 	while(pow < count) pow <<= 1;
@@ -73,7 +87,8 @@ void tree_hash(const char (*hashes)[HASH_SIZE], size_t count, char *root_hash) {
 // exploitation on normal platforms, how ever we strongly recommend the following fix because it removes
 // mistake in mathematical formula.
 
-  assert(count > 0);
+  if (count == 0)
+    local_abort("tree_hash: no hashes");
   if (count == 1) {
     memcpy(root_hash, hashes, HASH_SIZE);
   } else if (count == 2) {
@@ -84,7 +99,8 @@ void tree_hash(const char (*hashes)[HASH_SIZE], size_t count, char *root_hash) {
     size_t cnt = tree_hash_cnt( count );
 
     char *ints = calloc(cnt, HASH_SIZE);  // zero out as extra protection for using uninitialized mem
-    assert(ints);
+    if (!ints)
+      local_abort("tree_hash: out of memory");
 
     memcpy(ints, hashes, (2 * cnt - count) * HASH_SIZE);
 
@@ -178,7 +194,8 @@ bool tree_branch(const char (*hashes)[HASH_SIZE], size_t count, const char *hash
     size_t cnt = tree_hash_cnt( count );
 
     char *ints = calloc(cnt, HASH_SIZE);  // zero out as extra protection for using uninitialized mem
-    assert(ints);
+    if (!ints)
+      return false;
 
     memcpy(ints, hashes, (2 * cnt - count) * HASH_SIZE);
 
