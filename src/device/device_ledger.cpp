@@ -1510,10 +1510,8 @@ namespace hw {
 
     bool device_ledger::open_tx(crypto::secret_key &tx_key) {
         AUTO_LOCK_CMD();
-        this->lock();
         key_map.clear();
         hmac_map.clear();
-        this->tx_in_progress = true;
         int offset = set_command_header_noopt(INS_OPEN_TX, 0x01);
 
         //account
@@ -1526,6 +1524,7 @@ namespace hw {
         this->buffer_send[4] = offset-5;
         this->length_send = offset;
         this->exchange();
+        this->tx_in_progress = true;
 
         //skip R, receive: r, r_hmac, fake_a, a_hmac, fake_b, hmac_b
         unsigned char tmp[32];
@@ -1539,6 +1538,7 @@ namespace hw {
         log_hexbuffer("open_tx: [[OUT]] R ", (char*)&this->buffer_recv[0], 32);
         log_hexbuffer("open_tx: [[OUT]] r ", r_x.data, 32);
         #endif
+        this->lock();
         return true;
     }
 
@@ -2424,11 +2424,11 @@ namespace hw {
 
     bool device_ledger::close_tx() {
         AUTO_LOCK_CMD();
-        send_simple(INS_CLOSE_TX);
         key_map.clear();
         hmac_map.clear();
         this->tx_in_progress = false;
         this->unlock();
+        send_simple(INS_CLOSE_TX);
         return true;
     }
 
