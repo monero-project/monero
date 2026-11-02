@@ -34,6 +34,7 @@ extern "C"
 #include "crypto/crypto-ops.h"
 }
 #include "crypto/generators.h"
+#include "crypto/x25519.h"
 #include "misc_log_ex.h"
 #include "mx25519.h"
 #include "ringct/rctOps.h"
@@ -256,5 +257,13 @@ TEST(x25519, small_order_mul_eq_0)
 
       EXPECT_EQ(x_eq_0, Q);
     }
+  }
+}
+
+TEST(x25519, small_order_check)
+{
+  for (const mx25519_pubkey &P : x25519_small_order_points)
+  {
+    ASSERT_TRUE(crypto::x25519_is_small_order_point(reinterpret_cast<const crypto::x25519_pubkey&>(P)));
   }
 }

@@ -123,7 +123,6 @@ static void get_external_output_proposal_parts(const crypto::x25519_pubkey &s_se
     const crypto::public_key &destination_spend_pubkey,
     const payment_id_t payment_id,
     const xmr_amount amount,
-    const CarrotEnoteType enote_type,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     const input_context_t &input_context,
     const bool coinbase_amount_commitment,
@@ -340,7 +339,6 @@ void get_coinbase_enote_v1(const CarrotPaymentProposalV1 &proposal,
         proposal.destination.address_spend_pubkey,
         null_payment_id,
         proposal.amount,
-        CarrotEnoteType::PAYMENT,
         output_enote_out.enote_ephemeral_pubkey,
         input_context,
         /*coinbase_amount_commitment=*/true,
@@ -388,7 +386,6 @@ void get_output_proposal_normal_v1(const CarrotPaymentProposalV1 &proposal,
         proposal.destination.address_spend_pubkey,
         proposal.destination.payment_id,
         proposal.amount,
-        CarrotEnoteType::PAYMENT,
         output_enote_out.enote.enote_ephemeral_pubkey,
         input_context,
         false, // coinbase_amount_commitment
@@ -419,7 +416,9 @@ void get_output_proposal_internal_v1(const CarrotPaymentProposalSelfSendV1 &prop
     RCTOutputEnoteProposal &output_enote_out)
 {
     // 1. sanity checks
-    // @TODO
+    CARROT_CHECK_AND_THROW(proposal.enote_type == CarrotEnoteType::PAYMENT
+        || proposal.enote_type == CarrotEnoteType::CHANGE,
+        carrot_logic_error, "Unrecognized value of enote_type");
 
     // 2. input_context = "R" || KI_1
     const input_context_t input_context = make_carrot_input_context(tx_first_key_image);

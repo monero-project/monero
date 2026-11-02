@@ -2486,6 +2486,35 @@ TEST(carrot_core, get_additional_payment_proposal_change_unique)
         encrypted_payment_id));
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, construct_invalid_enote_type)
+{
+    const mock::mock_carrot_and_legacy_keys &keys = alice;
+
+    const CarrotEnoteType enote_type = static_cast<CarrotEnoteType>(3);
+
+    const CarrotDestinationV1 main_address = keys.cryptonote_address();
+
+    const CarrotPaymentProposalSelfSendV1 proposal = CarrotPaymentProposalSelfSendV1{
+        .destination_address_spend_pubkey = main_address.address_spend_pubkey,
+        .amount = crypto::rand<rct::xmr_amount>(),
+        .enote_type = enote_type,
+        .enote_ephemeral_privkey = mock::gen_secret_key(),
+        .internal_message = gen_janus_anchor()
+    };
+
+    const crypto::key_image tx_first_key_image = rct::rct2ki(rct::pkGen());
+
+    RCTOutputEnoteProposal enote_proposal;
+    EXPECT_THROW(
+        get_output_proposal_internal_v1(proposal,
+            keys.s_view_internal_dev,
+            tx_first_key_image,
+            nullptr,
+            nullptr,
+            enote_proposal),
+        carrot_logic_error);
+}
+//----------------------------------------------------------------------------------------------------------------------
 namespace
 {
 //----------------------------------------------------------------------------------------------------------------------

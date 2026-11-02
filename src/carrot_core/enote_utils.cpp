@@ -253,6 +253,9 @@ bool try_make_carrot_shared_key_receiver(const crypto::secret_key &k_view,
     const crypto::x25519_pubkey &enote_ephemeral_pubkey,
     crypto::x25519_pubkey &s_sender_receiver_out)
 {
+    if (crypto::x25519_is_small_order_point(enote_ephemeral_pubkey))
+        return false;
+
     // s_sr = k_v D_e
     crypto::x25519_scmul_key_unclamped(reinterpret_cast<const crypto::x25519_scalar&>(k_view),
         enote_ephemeral_pubkey,

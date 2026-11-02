@@ -391,6 +391,8 @@ bool try_scan_carrot_enote_internal_receiver(const CarrotEnoteV1 &enote,
                 amount_blinding_factor_out))
             continue;
 
+        memwipe(&s_sender_receiver_ctx, sizeof(s_sender_receiver_ctx));
+
         // derive m_anchor
         tools::scrubbed<encrypted_janus_anchor_t> anchor_encryption_mask;
         s_view_internal_dev.make_internal_anchor_encryption_mask(input_context, enote.onetime_address,
