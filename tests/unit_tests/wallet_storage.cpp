@@ -659,6 +659,7 @@ TEST(wallet_storage, change_export_format)
         {
             std::string key_file_contents;
             ASSERT_TRUE(w.unlock_keys_file());
+            ASSERT_FALSE(w.is_keys_file_locked());
             const bool loaded = epee::file_io_utils::load_file_to_string(target_wallet_file.string() + ".keys", key_file_contents);
             ASSERT_TRUE(w.lock_keys_file());
             ASSERT_TRUE(w.is_keys_file_locked());
