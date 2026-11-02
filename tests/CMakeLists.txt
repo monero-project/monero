@@ -40,8 +40,8 @@ endif ()
 
 set(BUILD_GMOCK OFF CACHE BOOL "Don't build GMock" FORCE)
 set(INSTALL_GTEST OFF CACHE BOOL "Don't install GTest" FORCE)
-add_subdirectory("${CMAKE_SOURCE_DIR}/external/gtest" ${CMAKE_BINARY_DIR}/googletest)
-include_directories(SYSTEM "${CMAKE_SOURCE_DIR}/external/gtest/googletest/include")
+add_subdirectory("${PROJECT_SOURCE_DIR}/external/gtest" ${CMAKE_CURRENT_BINARY_DIR}/googletest)
+include_directories(SYSTEM "${PROJECT_SOURCE_DIR}/external/gtest/googletest/include")
 set(GTEST_LIBRARIES gtest gtest_main)
 
 message(STATUS "Copying test data directory...")
