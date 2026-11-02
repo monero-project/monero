@@ -247,6 +247,7 @@ namespace cryptonote
 
 private:
     bool check_core_ready();
+    bool check_mining_ready();
     bool add_host_fail(const connection_context *ctx, unsigned int score = 1);
     
     //utils
