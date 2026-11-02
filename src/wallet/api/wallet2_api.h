@@ -618,6 +618,12 @@ struct Wallet
      * @return - true if connected
      */
     virtual ConnectionStatus connected() const = 0;
+    /**
+     * @brief daemonNettype - network type reported by the connected daemon
+     * @param nettype - set to the daemon's network type on success
+     * @return - false if unknown (not connected, or daemon doesn't report it)
+     */
+    virtual bool daemonNettype(NetworkType &nettype) const = 0;
     virtual void setTrustedDaemon(bool arg) = 0;
     virtual bool trustedDaemon() const = 0;
     virtual bool setProxy(const std::string &address) = 0;

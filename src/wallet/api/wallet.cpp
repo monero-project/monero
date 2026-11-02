@@ -2457,6 +2457,21 @@ Wallet::ConnectionStatus WalletImpl::connected() const
     return Wallet::ConnectionStatus_Connected;
 }
 
+bool WalletImpl::daemonNettype(NetworkType &nettype) const
+{
+    const cryptonote::network_type daemon_nettype = m_wallet->get_daemon_nettype();
+    switch (daemon_nettype)
+    {
+    case cryptonote::MAINNET:
+    case cryptonote::TESTNET:
+    case cryptonote::STAGENET:
+        nettype = static_cast<NetworkType>(daemon_nettype);
+        return true;
+    default:
+        return false;
+    }
+}
+
 void WalletImpl::setTrustedDaemon(bool arg)
 {
     m_wallet->set_trusted_daemon(arg);
