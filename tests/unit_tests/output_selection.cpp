@@ -31,6 +31,7 @@
 #include "gtest/gtest.h"
 
 #include "wallet/wallet2.h"
+#include <random>
 #include <string>
 
 static tools::wallet2::transfer_container make_transfers_container(size_t N)
@@ -109,6 +110,19 @@ TEST(select_outputs, order)
     offset = n_outs += (n); \
   }
 
+static std::vector<uint64_t> make_balanced_offsets(size_t n_blocks, size_t stride, size_t shift)
+{
+  std::vector<uint64_t> offsets(n_blocks);
+  uint64_t n_outs = 0;
+  for (size_t block = 0; block < n_blocks; ++block)
+  {
+    // the odd stride permutes densities 1..32 in each aligned 32-block group
+    const size_t density = 1 + ((stride * (block % 32) + shift * (block / 32)) % 32);
+    offsets[block] = n_outs += density;
+  }
+  return offsets;
+}
+
 TEST(select_outputs, gamma)
 {
   std::vector<uint64_t> offsets;
@@ -133,12 +147,12 @@ TEST(select_outputs, gamma)
   ASSERT_LE(median, 1.4 * 86400);
 }
 
-TEST(select_outputs, density)
+static void check_density(size_t stride, size_t shift)
 {
+  SCOPED_TRACE(::testing::Message() << "stride=" << stride << " shift=" << shift);
   static const size_t NPICKS = 1000000;
-  std::vector<uint64_t> offsets;
-
-  MKOFFSETS(300000, 1 + (crypto::rand<size_t>() & 0x1f));
+  const std::vector<uint64_t> offsets = make_balanced_offsets(300000, stride, shift);
+  const uint64_t n_outs = offsets.back();
   tools::gamma_picker picker(offsets);
 
   std::vector<int> picks(/*n_outs*/offsets.size(), 0);
@@ -154,7 +168,7 @@ TEST(select_outputs, density)
     ++i;
   }
 
-  for (int d = 1; d < 0x20; ++d)
+  for (int d = 1; d <= 0x20; ++d)
   {
     // count the number of times an output in a block of d outputs was selected
     // count how many outputs are in a block of d outputs
@@ -176,12 +190,19 @@ TEST(select_outputs, density)
   }
 }
 
+TEST(select_outputs, density)
+{
+  check_density(17, 7);
+  check_density(1, 13);
+}
+
 TEST(select_outputs, same_distribution)
 {
   static const size_t NPICKS = 1000000;
   std::vector<uint64_t> offsets;
+  std::mt19937 rng(0);
 
-  MKOFFSETS(300000, 1 + (crypto::rand<size_t>() & 0x1f));
+  MKOFFSETS(300000, 1 + (rng() & 0x1f));
   tools::gamma_picker picker(offsets);
 
   std::vector<int> chain_picks(offsets.size(), 0);
@@ -221,8 +242,8 @@ TEST(select_outputs, same_distribution)
 
 TEST(select_outputs, exact_unlock_block)
 {
-  std::vector<uint64_t> offsets;
-  MKOFFSETS(300000, 1 + (crypto::rand<size_t>() & 0x1f));
+  const std::vector<uint64_t> offsets = make_balanced_offsets(300000, 17, 7);
+  const uint64_t n_outs = offsets.back();
   tools::gamma_picker picker(offsets);
 
   // Calculate output offset ranges for the very first block that is spendable.
@@ -234,6 +255,8 @@ TEST(select_outputs, exact_unlock_block)
   const uint64_t* const first_block_too_young = offsets.data() + offsets.size() - (std::max(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE, 1) - 1);
   const uint64_t exact_block_offsets_start_inclusive = *(first_block_too_young - 2);
   const uint64_t exact_block_offsets_stop_exclusive = *(first_block_too_young - 1);
+  // The one-output boundary case is tracked in #10544.
+  ASSERT_GT(exact_block_offsets_stop_exclusive - exact_block_offsets_start_inclusive, 1);
 
   // if too low we may fail by not picking exact block
   // if too high test is not as sensitive as it could be
