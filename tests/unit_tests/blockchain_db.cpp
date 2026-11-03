@@ -577,4 +577,124 @@ TYPED_TEST(BlockchainDBTest, ResumeInterruptedPruning)
   ASSERT_NO_FATAL_FAILURE(test_resume(false));
 }
 
+TEST(BlockchainDBTest, FixedSizeComparatorsHandleShortValues)
+{
+  const char one = 1;
+  const char two = 2;
+  const char zeros[32] = {};
+  const char ones[32] = {1};
+  const char short_hash[31] = {};
+  const char other_short_hash[31] = {1};
+  uint64_t full_uint64 = 0;
+  const char prefixed_uint64[9] = {};
+  const char prefixed_hash[40] = {};
+  MDB_val short_one{sizeof(one), const_cast<char*>(&one)};
+  MDB_val short_two{sizeof(two), const_cast<char*>(&two)};
+  MDB_val hash_zero{sizeof(zeros), const_cast<char*>(zeros)};
+  MDB_val hash_one{sizeof(ones), const_cast<char*>(ones)};
+  MDB_val hash_short{sizeof(short_hash), const_cast<char*>(short_hash)};
+  MDB_val hash_short_other{sizeof(other_short_hash), const_cast<char*>(other_short_hash)};
+  MDB_val uint64_value{sizeof(full_uint64), &full_uint64};
+  MDB_val uint64_prefixed{sizeof(prefixed_uint64), const_cast<char*>(prefixed_uint64)};
+  MDB_val hash_prefixed{sizeof(prefixed_hash), const_cast<char*>(prefixed_hash)};
+
+  EXPECT_LT(BlockchainLMDB::compare_uint64(&short_one, &short_two), 0);
+  EXPECT_GT(BlockchainLMDB::compare_uint64(&short_two, &short_one), 0);
+  EXPECT_EQ(0, BlockchainLMDB::compare_uint64(&short_one, &short_one));
+
+  EXPECT_LT(BlockchainLMDB::compare_little_endian_uint64(&short_one, &short_two), 0);
+  EXPECT_GT(BlockchainLMDB::compare_little_endian_uint64(&short_two, &short_one), 0);
+  EXPECT_EQ(0, BlockchainLMDB::compare_little_endian_uint64(&short_one, &short_one));
+  EXPECT_LT(BlockchainLMDB::compare_little_endian_uint64(&short_one, &uint64_value), 0);
+  EXPECT_GT(BlockchainLMDB::compare_little_endian_uint64(&uint64_value, &short_one), 0);
+
+  EXPECT_LT(BlockchainLMDB::compare_hash32(&hash_zero, &hash_one), 0);
+  EXPECT_GT(BlockchainLMDB::compare_hash32(&hash_one, &hash_zero), 0);
+  EXPECT_EQ(0, BlockchainLMDB::compare_hash32(&hash_zero, &hash_zero));
+
+  // Exercise the fallback for values shorter than a hash.
+  EXPECT_LT(BlockchainLMDB::compare_hash32(&hash_short, &hash_short_other), 0);
+  EXPECT_GT(BlockchainLMDB::compare_hash32(&hash_short_other, &hash_short), 0);
+  EXPECT_EQ(0, BlockchainLMDB::compare_hash32(&hash_short, &hash_short));
+  EXPECT_LT(BlockchainLMDB::compare_hash32(&hash_short, &hash_zero), 0);
+  EXPECT_GT(BlockchainLMDB::compare_hash32(&hash_zero, &hash_short), 0);
+
+  // Records longer than the fixed element size are valid: several tables use
+  // a fixed-size prefix followed by extra fields, and lookups pass only the
+  // prefix. The comparator must keep comparing just that prefix.
+  EXPECT_EQ(0, BlockchainLMDB::compare_uint64(&uint64_value, &uint64_prefixed));
+  EXPECT_EQ(0, BlockchainLMDB::compare_hash32(&hash_zero, &hash_prefixed));
+}
+
+TEST(BlockchainDBTest, FixedSizeComparatorsAreTransitive)
+{
+  // With a bytewise fallback, these values produce the cycle
+  // A < short < B < A. Size-first ordering must keep the order total.
+  char short_data[] = {0x01};
+  uint64_t a_value = 256;
+  uint64_t b_value = 2;
+  MDB_val short_value{sizeof(short_data), short_data};
+  MDB_val a{sizeof(a_value), &a_value};
+  MDB_val b{sizeof(b_value), &b_value};
+
+  EXPECT_LT(BlockchainLMDB::compare_uint64(&short_value, &b), 0);
+  EXPECT_LT(BlockchainLMDB::compare_uint64(&b, &a), 0);
+  EXPECT_LT(BlockchainLMDB::compare_uint64(&short_value, &a), 0);
+  EXPECT_GT(BlockchainLMDB::compare_uint64(&a, &b), 0);
+  EXPECT_GT(BlockchainLMDB::compare_uint64(&b, &short_value), 0);
+  EXPECT_GT(BlockchainLMDB::compare_uint64(&a, &short_value), 0);
+}
+
+#ifdef ENABLE_FCMP_INTEGRATION
+TYPED_TEST(BlockchainDBTest, RejectsMalformedTreeEdge)
+{
+  const auto test_rejected = [&](std::size_t meta_size, std::size_t edge_size)
+  {
+    const boost::filesystem::path temp_path =
+        boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+    const std::string dir_path = temp_path.string();
+    this->set_prefix(dir_path);
+
+    ASSERT_NO_THROW(this->m_db->open(dir_path));
+    this->get_filenames();
+    ASSERT_NO_THROW(this->m_db->close());
+
+    {
+      test_lmdb_env env(dir_path);
+      mdb_txn_safe txn;
+      check_lmdb(mdb_txn_begin(env.get(), nullptr, 0, txn), "Failed to begin LMDB transaction");
+      const MDB_dbi tree_meta = open_test_table(txn, "tree_meta");
+      const MDB_dbi tree_edges = open_test_table(txn, "tree_edges");
+
+      const uint64_t key = 0;
+      MDB_val k{sizeof(key), const_cast<uint64_t*>(&key)};
+      std::vector<char> meta(meta_size, 0);
+      std::vector<char> edge(edge_size, 0);
+      MDB_val v_meta{meta.size(), meta.data()};
+      MDB_val v_edge{edge.size(), edge.data()};
+      check_lmdb(mdb_put(txn, tree_meta, &k, &v_meta, 0), "Failed to add tree meta");
+      check_lmdb(mdb_put(txn, tree_edges, &k, &v_edge, 0), "Failed to add tree edge");
+      txn.commit();
+    }
+
+    ASSERT_NO_THROW(this->m_db->open(dir_path));
+    crypto::ec_point root;
+    ASSERT_THROW(this->m_db->get_tree_root_at_blk_idx(0, root), DB_ERROR);
+    ASSERT_NO_THROW(this->m_db->close());
+
+    boost::filesystem::remove_all(dir_path);
+    this->m_filenames.clear();
+  };
+
+  // Short tree edge.
+  ASSERT_NO_FATAL_FAILURE(test_rejected(sizeof(uint64_t), 1));
+  // Short tree meta.
+  ASSERT_NO_FATAL_FAILURE(test_rejected(1, sizeof(crypto::ec_point)));
+  // Tree edge layer count does not match tree meta.
+  ASSERT_NO_FATAL_FAILURE(test_rejected(sizeof(uint64_t), sizeof(crypto::ec_point)));
+  // More tree edge members than the return type can represent.
+  ASSERT_NO_FATAL_FAILURE(test_rejected(sizeof(uint64_t), 256 * sizeof(crypto::ec_point)));
+}
+#endif
+
 }  // anonymous namespace

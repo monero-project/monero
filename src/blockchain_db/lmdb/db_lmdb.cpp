@@ -119,8 +119,33 @@ private:
 namespace cryptonote
 {
 
+namespace
+{
+
+int compare_short_mdb_vals(const MDB_val *a, const MDB_val *b)
+{
+  // Callers use this only when at least one record is shorter than the
+  // fixed-size element being compared. Order by size before contents so short
+  // records have a deterministic total order; ordering them by their leading
+  // bytes would create a cycle with full-size records ordered numerically.
+  if (a->mv_size < b->mv_size)
+    return -1;
+  if (a->mv_size > b->mv_size)
+    return 1;
+  if (a->mv_size == 0)
+    return 0;
+
+  const int cmp = memcmp(a->mv_data, b->mv_data, a->mv_size);
+  return cmp < 0 ? -1 : cmp > 0;
+}
+
+}  // anonymous namespace
+
 int BlockchainLMDB::compare_uint64(const MDB_val *a, const MDB_val *b)
 {
+  if (a->mv_size < sizeof(uint64_t) || b->mv_size < sizeof(uint64_t))
+    return compare_short_mdb_vals(a, b);
+
   uint64_t va, vb;
   memcpy(&va, a->mv_data, sizeof(va));
   memcpy(&vb, b->mv_data, sizeof(vb));
@@ -129,6 +154,9 @@ int BlockchainLMDB::compare_uint64(const MDB_val *a, const MDB_val *b)
 
 int BlockchainLMDB::compare_little_endian_uint64(const MDB_val *a, const MDB_val *b)
 {
+  if (a->mv_size < sizeof(uint64_t) || b->mv_size < sizeof(uint64_t))
+    return compare_short_mdb_vals(a, b);
+
   uint64_t va, vb;
   memcpy(&va, a->mv_data, sizeof(va));
   memcpy(&vb, b->mv_data, sizeof(vb));
@@ -139,6 +167,9 @@ int BlockchainLMDB::compare_little_endian_uint64(const MDB_val *a, const MDB_val
 
 int BlockchainLMDB::compare_hash32(const MDB_val *a, const MDB_val *b)
 {
+  if (a->mv_size < sizeof(crypto::hash) || b->mv_size < sizeof(crypto::hash))
+    return compare_short_mdb_vals(a, b);
+
   uint32_t *va = (uint32_t*) a->mv_data;
   uint32_t *vb = (uint32_t*) b->mv_data;
   for (int n = 7; n >= 0; n--)
@@ -1532,7 +1563,11 @@ uint64_t BlockchainLMDB::get_n_leaf_tuples() const
     if (result == MDB_NOTFOUND)
       n_leaf_tuples = 0;
     else if (result == MDB_SUCCESS)
+    {
+      if (v.mv_size != sizeof(mdb_leaf))
+        throw0(DB_ERROR("Unexpected leaf record size"));
       n_leaf_tuples = 1 + ((const mdb_leaf*)v.mv_data)->leaf_idx;
+    }
     else
       throw0(DB_ERROR(lmdb_error("Failed to get last leaf: ", result).c_str()));
   }
@@ -1558,6 +1593,8 @@ uint64_t BlockchainLMDB::get_block_n_leaf_tuples(const uint64_t block_idx) const
   if (result != MDB_SUCCESS)
     throw1(DB_ERROR(lmdb_error("Error getting tree meta n leaf tuples: ", result).c_str()));
 
+  if (v.mv_size != sizeof(mdb_tree_meta))
+    throw0(DB_ERROR("Unexpected tree meta record size"));
   uint64_t n_leaf_tuples = ((mdb_tree_meta *)v.mv_data)->n_leaf_tuples;
 
   TXN_POSTFIX_RDONLY();
@@ -1593,6 +1630,8 @@ uint64_t BlockchainLMDB::get_tree_block_idx() const
   if (result != MDB_SUCCESS)
     throw1(DB_ERROR(lmdb_error("Error finding last tree meta: ", result).c_str()));
 
+  if (k.mv_size != sizeof(uint64_t))
+    throw0(DB_ERROR("Unexpected tree meta key size"));
   uint64_t block_idx = *(uint64_t *)k.mv_data;
 
   TXN_POSTFIX_RDONLY();
@@ -1607,6 +1646,7 @@ std::vector<crypto::ec_point> BlockchainLMDB::get_tree_edge(uint64_t block_id) c
 
   TXN_PREFIX_RDONLY();
   RCURSOR(tree_edges)
+  RCURSOR(tree_meta)
 
   MDB_val_set(k_block_id, block_id);
   MDB_val v;
@@ -1614,8 +1654,28 @@ std::vector<crypto::ec_point> BlockchainLMDB::get_tree_edge(uint64_t block_id) c
   if (result != MDB_SUCCESS)
     throw1(DB_ERROR(lmdb_error("Error finding tree edge at block " + std::to_string(block_id) + ": ", result).c_str()));
 
-  crypto::ec_point* tree_edge = (crypto::ec_point*)v.mv_data;
+  if (v.mv_size % sizeof(crypto::ec_point) != 0)
+    throw0(DB_ERROR("Unexpected tree edge record size"));
   const std::size_t n_layers = v.mv_size / sizeof(crypto::ec_point);
+  if (n_layers > std::numeric_limits<uint8_t>::max())
+    throw0(DB_ERROR("Too many tree edge members"));
+
+  MDB_val v_meta;
+  result = mdb_cursor_get(m_cur_tree_meta, &k_block_id, &v_meta, MDB_SET);
+  if (result == MDB_NOTFOUND)
+    throw0(DB_ERROR("Tree meta not found for tree edge"));
+  if (result != MDB_SUCCESS)
+    throw1(DB_ERROR(lmdb_error("Error finding tree meta for tree edge: ", result).c_str()));
+  if (v_meta.mv_size != sizeof(mdb_tree_meta))
+    throw0(DB_ERROR("Unexpected tree meta record size"));
+
+  if (!m_curve_trees)
+    throw0(DB_ERROR("curve trees must be set"));
+  const uint64_t n_leaf_tuples = ((const mdb_tree_meta *)v_meta.mv_data)->n_leaf_tuples;
+  if (n_layers != m_curve_trees->n_layers(n_leaf_tuples))
+    throw0(DB_ERROR("Number of layers in the tree edge does not match tree meta"));
+
+  crypto::ec_point* tree_edge = (crypto::ec_point*)v.mv_data;
 
   std::vector<crypto::ec_point> res;
   res.reserve(n_layers);
@@ -1820,6 +1880,8 @@ uint64_t BlockchainLMDB::trim_leaves(const uint64_t new_n_leaf_tuples, const uin
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to get leaf: ", result).c_str()));
 
+    if (v.mv_size != sizeof(mdb_leaf))
+      throw0(DB_ERROR("Unexpected leaf record size"));
     const auto *o = (mdb_leaf *)v.mv_data;
     unified_ids.push_back(o->unified_id);
 
@@ -1913,6 +1975,8 @@ void BlockchainLMDB::trim_layers(const uint64_t new_n_leaf_tuples,
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to get last elem: ", result).c_str()));
 
+    if (k.mv_size != sizeof(uint64_t))
+      throw0(DB_ERROR("Unexpected layer key size"));
     const uint64_t last_layer_idx = *(uint64_t *)k.mv_data;
     if (last_layer_idx > new_root_layer_idx)
     {
@@ -1957,6 +2021,8 @@ void BlockchainLMDB::trim_layer(const uint64_t new_n_elems_in_layer, const uint6
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to get layer last elem on trim: ", result).c_str()));
 
+    if (v.mv_size != sizeof(layer_val))
+      throw0(DB_ERROR("Unexpected layer record size"));
     const auto *lv = (layer_val *)v.mv_data;
     old_n_elems_in_layer = (1 + lv->child_chunk_idx);
   }
