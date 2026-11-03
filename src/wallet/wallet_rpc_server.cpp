@@ -75,6 +75,18 @@
     } \
   } while(0)
 
+#define CHECK_MULTISIG_READY() \
+  do \
+  { \
+    const auto ms_status = m_wallet->get_multisig_status(); \
+    if (ms_status.multisig_is_active && !ms_status.is_ready) \
+    { \
+      er.code = WALLET_RPC_ERROR_CODE_NOT_MULTISIG; \
+      er.message = "This wallet is multisig, but not yet finalized"; \
+      return false; \
+    } \
+  } while(0)
+
 #define CHECK_IF_BACKGROUND_SYNCING() \
     CHECK_IF_RESTRICTED_BACKGROUND_SYNCING_BASE(false)
 
@@ -471,6 +483,12 @@ namespace tools
     // Background mining can be toggled from the main wallet
     if (m_wallet->is_background_wallet() || m_wallet->is_background_syncing())
       return;
+    const auto ms_status = m_wallet->get_multisig_status();
+    if (ms_status.multisig_is_active && !ms_status.is_ready)
+    {
+      MDEBUG("Multisig wallet is not yet finalized, skipping background mining check");
+      return;
+    }
 
     tools::wallet2::BackgroundMiningSetupType setup = m_wallet->setup_background_mining();
     if (setup == tools::wallet2::BackgroundMiningNo)
@@ -528,6 +546,14 @@ namespace tools
       return false;
   }
   //------------------------------------------------------------------------------------------------------------------------------
+  std::string wallet_rpc_server::get_address_if_ready(const cryptonote::subaddress_index &index) const
+  {
+    const auto ms_status = m_wallet->get_multisig_status();
+    if (ms_status.multisig_is_active && !ms_status.is_ready)
+      return "";
+    return m_wallet->get_subaddress_as_str(index);
+  }
+  //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::fill_transfer_entry(tools::wallet_rpc::transfer_entry &entry, const crypto::hash &txid, const crypto::hash &payment_id, const tools::wallet2::payment_details &pd) const
   {
     entry.txid = string_tools::pod_to_hex(pd.m_tx_hash);
@@ -545,7 +571,7 @@ namespace tools
     entry.type = pd.m_coinbase ? "block" : "in";
     entry.subaddr_index = pd.m_subaddr_index;
     entry.subaddr_indices.push_back(pd.m_subaddr_index);
-    entry.address = m_wallet->get_subaddress_as_str(pd.m_subaddr_index);
+    entry.address = get_address_if_ready(pd.m_subaddr_index);
     set_confirmations(entry, m_wallet->get_blockchain_current_height(), pd.m_unlock_time);
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -576,7 +602,7 @@ namespace tools
     entry.subaddr_index = { pd.m_subaddr_account, 0 };
     for (uint32_t i: pd.m_subaddr_indices)
       entry.subaddr_indices.push_back({pd.m_subaddr_account, i});
-    entry.address = m_wallet->get_subaddress_as_str({pd.m_subaddr_account, 0});
+    entry.address = get_address_if_ready({pd.m_subaddr_account, 0});
     set_confirmations(entry, m_wallet->get_blockchain_current_height(), pd.m_unlock_time);
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -607,7 +633,7 @@ namespace tools
     entry.subaddr_index = { pd.m_subaddr_account, 0 };
     for (uint32_t i: pd.m_subaddr_indices)
       entry.subaddr_indices.push_back({pd.m_subaddr_account, i});
-    entry.address = m_wallet->get_subaddress_as_str({pd.m_subaddr_account, 0});
+    entry.address = get_address_if_ready({pd.m_subaddr_account, 0});
     set_confirmations(entry, m_wallet->get_blockchain_current_height(), pd.m_tx.unlock_time);
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -630,7 +656,7 @@ namespace tools
     entry.type = "pool";
     entry.subaddr_index = pd.m_subaddr_index;
     entry.subaddr_indices.push_back(pd.m_subaddr_index);
-    entry.address = m_wallet->get_subaddress_as_str(pd.m_subaddr_index);
+    entry.address = get_address_if_ready(pd.m_subaddr_index);
     set_confirmations(entry, m_wallet->get_blockchain_current_height(), pd.m_unlock_time);
   }
   //------------------------------------------------------------------------------------------------------------------------------
@@ -645,7 +671,7 @@ namespace tools
     if (!m_wallet) return not_open(er);
     res.filename = m_wallet->get_wallet_file();
     res.description = m_wallet->get_description();
-    res.address = m_wallet->get_subaddress_as_str({0,0});
+    res.address = get_address_if_ready({0,0});
     const auto ms_status{m_wallet->get_multisig_status()};
     if (m_wallet->watch_only())
       res.wallet_type = "Watch only";
@@ -696,7 +722,8 @@ namespace tools
     {
       res.balance = req.all_accounts ? m_wallet->balance_all(req.strict) : m_wallet->balance(req.account_index, req.strict);
       res.unlocked_balance = req.all_accounts ? m_wallet->unlocked_balance_all(req.strict, &res.blocks_to_unlock, &res.time_to_unlock) : m_wallet->unlocked_balance(req.account_index, req.strict, &res.blocks_to_unlock, &res.time_to_unlock);
-      res.multisig_import_needed = m_wallet->get_multisig_status().multisig_is_active && m_wallet->has_multisig_partial_key_images();
+      const auto ms_status{m_wallet->get_multisig_status()};
+      res.multisig_import_needed = ms_status.multisig_is_active && m_wallet->has_multisig_partial_key_images();
       std::map<uint32_t, std::map<uint32_t, uint64_t>> balance_per_subaddress_per_account;
       std::map<uint32_t, std::map<uint32_t, std::pair<uint64_t, std::pair<uint64_t, uint64_t>>>> unlocked_balance_per_subaddress_per_account;
       if (req.all_accounts)
@@ -735,7 +762,7 @@ namespace tools
           info.account_index = account_index;
           info.address_index = i;
           cryptonote::subaddress_index index = {info.account_index, info.address_index};
-          info.address = m_wallet->get_subaddress_as_str(index);
+          info.address = get_address_if_ready(index);
           info.balance = balance_per_subaddress[i];
           info.unlocked_balance = unlocked_balance_per_subaddress[i].first;
           info.blocks_to_unlock = unlocked_balance_per_subaddress[i].second.first;
@@ -757,6 +784,7 @@ namespace tools
   bool wallet_rpc_server::on_getaddress(const wallet_rpc::COMMAND_RPC_GET_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_GET_ADDRESS::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     if (!m_wallet) return not_open(er);
+    CHECK_MULTISIG_READY();
     try
     {
       THROW_WALLET_EXCEPTION_IF(req.account_index >= m_wallet->get_num_subaddress_accounts(), error::account_index_outofbound);
@@ -842,6 +870,7 @@ namespace tools
   bool wallet_rpc_server::on_create_address(const wallet_rpc::COMMAND_RPC_CREATE_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_CREATE_ADDRESS::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     CHECK_IF_RESTRICTED_BACKGROUND_SYNCING();
+    CHECK_MULTISIG_READY();
     try
     {
       if (req.count < 1 || req.count > 65536) {
@@ -894,6 +923,7 @@ namespace tools
   bool wallet_rpc_server::on_get_accounts(const wallet_rpc::COMMAND_RPC_GET_ACCOUNTS::request& req, wallet_rpc::COMMAND_RPC_GET_ACCOUNTS::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     if (!m_wallet) return not_open(er);
+    CHECK_MULTISIG_READY();
     try
     {
       res.total_balance = 0;
@@ -949,6 +979,7 @@ namespace tools
   bool wallet_rpc_server::on_create_account(const wallet_rpc::COMMAND_RPC_CREATE_ACCOUNT::request& req, wallet_rpc::COMMAND_RPC_CREATE_ACCOUNT::response& res, epee::json_rpc::error& er, const connection_context *ctx)
   {
     CHECK_IF_RESTRICTED_BACKGROUND_SYNCING();
+    CHECK_MULTISIG_READY();
     try
     {
       m_wallet->add_subaddress_account(req.label);
@@ -2110,6 +2141,7 @@ namespace tools
 
       if (req.standard_address.empty())
       {
+        CHECK_MULTISIG_READY();
         res.integrated_address = m_wallet->get_integrated_address_as_str(payment_id);
       }
       else
@@ -2242,7 +2274,7 @@ namespace tools
       rpc_payment.unlock_time  = payment.m_unlock_time;
       rpc_payment.locked       = !m_wallet->is_transfer_unlocked(payment.m_unlock_time, payment.m_block_height);
       rpc_payment.subaddr_index = payment.m_subaddr_index;
-      rpc_payment.address      = m_wallet->get_subaddress_as_str(payment.m_subaddr_index);
+      rpc_payment.address      = get_address_if_ready(payment.m_subaddr_index);
       res.payments.push_back(rpc_payment);
     }
 
@@ -2269,7 +2301,7 @@ namespace tools
         rpc_payment.block_height = payment.second.m_block_height;
         rpc_payment.unlock_time  = payment.second.m_unlock_time;
         rpc_payment.subaddr_index = payment.second.m_subaddr_index;
-        rpc_payment.address      = m_wallet->get_subaddress_as_str(payment.second.m_subaddr_index);
+        rpc_payment.address      = get_address_if_ready(payment.second.m_subaddr_index);
         rpc_payment.locked       = !m_wallet->is_transfer_unlocked(payment.second.m_unlock_time, payment.second.m_block_height);
         res.payments.push_back(std::move(rpc_payment));
       }
@@ -2324,7 +2356,7 @@ namespace tools
         rpc_payment.block_height = payment.m_block_height;
         rpc_payment.unlock_time  = payment.m_unlock_time;
         rpc_payment.subaddr_index = payment.m_subaddr_index;
-        rpc_payment.address      = m_wallet->get_subaddress_as_str(payment.m_subaddr_index);
+        rpc_payment.address      = get_address_if_ready(payment.m_subaddr_index);
         rpc_payment.locked       = !m_wallet->is_transfer_unlocked(payment.m_unlock_time, payment.m_block_height);
         res.payments.push_back(std::move(rpc_payment));
       }
@@ -3693,6 +3725,7 @@ namespace tools
       return false;
     }
     if (!m_wallet) return not_open(er);
+    CHECK_MULTISIG_READY();
     if (!m_wallet->is_trusted_daemon())
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
@@ -4584,7 +4617,10 @@ namespace tools
     try
     {
       res.multisig_info = m_wallet->make_multisig(req.password, req.multisig_info, req.threshold);
-      res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+      if (m_wallet->get_multisig_status().is_ready)
+      {
+        res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+      }
     }
     catch (const std::exception &e)
     {

@@ -2279,6 +2279,9 @@ bool simple_wallet::cold_sign_tx(const std::vector<tools::wallet2::pending_tx>& 
 
 bool simple_wallet::show_qr_code(const std::vector<std::string> &args)
 {
+  if (!check_multisig_ready())
+    return true;
+
   uint32_t subaddress_index = 0;
   if (args.size() >= 1)
   {
@@ -5120,8 +5123,9 @@ boost::optional<epee::wipeable_string> simple_wallet::open_wallet(const boost::p
       prefix = tr("Opened background wallet");
     else
       prefix = tr("Opened wallet");
-    message_writer(console_color_white, true) <<
-      prefix << ": " << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+    if (!ms_status.multisig_is_active || ms_status.is_ready)
+      prefix += ": " + m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+    message_writer(console_color_white, true) << prefix;
     if (m_wallet->get_account().get_device()) {
        message_writer(console_color_white, true) << "Wallet is on device: " << m_wallet->get_account().get_device().get_name();
     }
@@ -5319,6 +5323,9 @@ bool simple_wallet::save_watch_only(const std::vector<std::string> &args/* = std
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::start_background_mining()
 {
+  if (!check_multisig_ready())
+    return;
+
   COMMAND_RPC_MINING_STATUS::request reqq;
   COMMAND_RPC_MINING_STATUS::response resq;
   bool r = m_wallet->invoke_http_json("/mining_status", reqq, resq);
@@ -5450,6 +5457,9 @@ bool simple_wallet::start_mining(const std::vector<std::string>& args)
     fail_msg_writer() << tr("wallet is null");
     return true;
   }
+
+  if (!check_multisig_ready())
+    return true;
 
   if (!m_wallet->is_trusted_daemon())
   {
@@ -9409,6 +9419,9 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
   //   account untag <account_index_1> [<account_index_2> ...]
   //   account tag_description <tag_name> <description>
 
+  if (!check_multisig_ready())
+    return true;
+
   if (args.empty())
   {
     // print all the existing accounts
@@ -9556,6 +9569,9 @@ bool simple_wallet::account(const std::vector<std::string> &args/* = std::vector
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::print_accounts()
 {
+  if (!check_multisig_ready())
+    return;
+
   const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& account_tags = m_wallet->get_account_tags();
   size_t num_untagged_accounts = m_wallet->get_num_subaddress_accounts();
   for (const std::pair<const std::string, std::string>& p : account_tags.first)
@@ -9575,6 +9591,9 @@ void simple_wallet::print_accounts()
 //----------------------------------------------------------------------------------------------------
 void simple_wallet::print_accounts(const std::string& tag)
 {
+  if (!check_multisig_ready())
+    return;
+
   const std::pair<std::map<std::string, std::string>, std::vector<std::string>>& account_tags = m_wallet->get_account_tags();
   if (tag.empty())
   {
@@ -9610,6 +9629,17 @@ void simple_wallet::print_accounts(const std::string& tag)
   success_msg_writer() << boost::format(tr("%15s   %21s %21s")) % "Total" % print_money(total_balance) % print_money(total_unlocked_balance);
 }
 //----------------------------------------------------------------------------------------------------
+bool simple_wallet::check_multisig_ready() const
+{
+  const multisig::multisig_account_status ms_status{m_wallet->get_multisig_status()};
+  if (ms_status.multisig_is_active && !ms_status.is_ready)
+  {
+    fail_msg_writer() << tr("This multisig wallet is not yet finalized");
+    return false;
+  }
+  return true;
+}
+//----------------------------------------------------------------------------------------------------
 bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::vector<std::string>()*/)
 {
   // Usage:
@@ -9621,6 +9651,9 @@ bool simple_wallet::print_address(const std::vector<std::string> &args/* = std::
   //  address device [<index>]
 
   LOCK_IDLE_SCOPE();
+  if (!check_multisig_ready())
+    return true;
+
   std::vector<std::string> local_args = args;
   tools::wallet2::transfer_container transfers;
   m_wallet->get_transfers(transfers);
@@ -9795,7 +9828,7 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
 
   auto device_show_integrated = [this, display_on_device](crypto::hash8 payment_id)
   {
-    if (display_on_device)
+    if (display_on_device && check_multisig_ready())
     {
       m_wallet->device_show_address(m_current_subaddress_account, 0, payment_id);
     }
@@ -9808,6 +9841,9 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
   }
   if (local_args.size() == 0)
   {
+    if (!check_multisig_ready())
+      return true;
+
     if (m_current_subaddress_account != 0)
     {
       fail_msg_writer() << tr("Integrated addresses can only be created for account 0");
@@ -9821,6 +9857,9 @@ bool simple_wallet::print_integrated_address(const std::vector<std::string> &arg
   }
   if(tools::wallet2::parse_short_payment_id(local_args.back(), payment_id))
   {
+    if (!check_multisig_ready())
+      return true;
+
     if (m_current_subaddress_account != 0)
     {
       fail_msg_writer() << tr("Integrated addresses can only be created for account 0");
@@ -10044,7 +10083,8 @@ bool simple_wallet::wallet_info(const std::vector<std::string> &args)
   }
   message_writer() << tr("Filename: ") << m_wallet->get_wallet_file();
   message_writer() << tr("Description: ") << description;
-  message_writer() << tr("Address: ") << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
+  if (!ms_status.multisig_is_active || ms_status.is_ready)
+    message_writer() << tr("Address: ") << m_wallet->get_account().get_public_address_str(m_wallet->nettype());
   std::string type;
   if (m_wallet->watch_only())
     type = tr("Watch only");

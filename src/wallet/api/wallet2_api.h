@@ -275,6 +275,7 @@ public:
 struct Subaddress
 {
     virtual ~Subaddress() = 0;
+    //! Returns an empty list if multisig setup is not ready. Refresh after setup completes.
     virtual std::vector<SubaddressRow*> getAll() const = 0;
     virtual void addRow(uint32_t accountIndex, const std::string &label) = 0;
     virtual void setLabel(uint32_t accountIndex, uint32_t addressIndex, const std::string &label) = 0;
@@ -308,6 +309,7 @@ public:
 struct SubaddressAccount
 {
     virtual ~SubaddressAccount() = 0;
+    //! Returns an empty list if multisig setup is not ready. Refresh after setup completes.
     virtual std::vector<SubaddressAccountRow*> getAll() const = 0;
     virtual void addRow(const std::string &label) = 0;
     virtual void setLabel(uint32_t accountIndex, const std::string &label) = 0;
@@ -472,6 +474,7 @@ struct Wallet
     virtual const std::string& getPassword() const = 0;
     virtual bool setDevicePin(const std::string &pin) { (void)pin; return false; };
     virtual bool setDevicePassphrase(const std::string &passphrase) { (void)passphrase; return false; };
+    //! Returns an empty string if multisig setup is not ready.
     virtual std::string address(uint32_t accountIndex = 0, uint32_t addressIndex = 0) const = 0;
     std::string mainAddress() const { return address(0, 0); }
     virtual std::string path() const = 0;
@@ -490,7 +493,7 @@ struct Wallet
      *
      * \param payment_id        - 16 characters hexadecimal string or empty string if new random payment id needs to be
      *                            generated
-     * \return                  - 106 characters string representing integrated address
+     * \return                  - 106 characters string representing integrated address, or empty if multisig setup is not ready
      */
     virtual std::string integratedAddress(const std::string &payment_id) const = 0;
     
@@ -807,17 +810,17 @@ struct Wallet
      */
     virtual std::string getMultisigInfo() const = 0;
     /**
-     * @brief makeMultisig - switches wallet in multisig state. The one and only creation phase for N / N wallets
-     * @param info - vector of multisig infos from other participants obtained with getMulitisInfo call
+     * @brief makeMultisig - starts multisig setup. All schemes, including N / N, require further key exchange.
+     * @param info - vector of multisig infos from all participants, including this wallet, obtained with getMultisigInfo
      * @param threshold - number of required signers to make valid transaction. Must be <= number of participants
-     * @return in case of N / N wallets returns empty string since no more key exchanges needed. For N - 1 / N wallets returns base58 encoded extra multisig info
+     * @return base58 encoded multisig info to share with other participants, or an empty string on error
      */
     virtual std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) = 0;
     /**
      * @brief exchange_multisig_keys - provides additional key exchange round for arbitrary multisig schemes (like N-1/N, M/N)
      * @param info - base58 encoded key derivations returned by makeMultisig or exchangeMultisigKeys function call
      * @param force_update_use_with_caution - force multisig account to update even if not all signers contribute round messages
-     * @return new info string if more rounds required or an empty string if wallet creation is done
+     * @return multisig info to share with other participants, or an empty string on error. Check multisig().isReady for completion.
      */
     virtual std::string exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution) = 0;
     /**
