@@ -28,7 +28,11 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <cstdint>
+#include <cstring>
 #include <gtest/gtest.h>
+#include <limits>
+#include <string>
+#include <type_traits>
 #include <vector>
 
 #include "serialization/keyvalue_serialization.h"
@@ -332,4 +336,275 @@ TEST(epee_json, unicode_escape_bad_surrogate)
   EXPECT_FALSE(epee::serialization::load_t_from_json(o, "{\"x\":\"\\uD83D\"}"));
   EXPECT_FALSE(epee::serialization::load_t_from_json(o, "{\"x\":\"\\uDE00\"}"));
   EXPECT_FALSE(epee::serialization::load_t_from_json(o, "{\"x\":\"\\uD83D\\u0041\"}"));
+}
+
+namespace
+{
+// The bytes every epee binary document starts with
+const std::string binary_header("\x01\x11\x01\x01\x01\x01\x02\x01\x01", 9);
+
+// Appends a number below 64 in epee's one byte length format
+void append_small_varint(std::string& out, const std::size_t value)
+{
+
+  out.push_back(static_cast<char>(value << 2));
+
+}
+
+// Appends an integer as little endian bytes
+template<typename T>
+void append_le(std::string& out, const T value)
+{
+
+  const auto bits = static_cast<std::make_unsigned_t<T>>(value);
+  for (std::size_t i = 0; i < sizeof(T); ++i)
+    out.push_back(static_cast<char>((bits >> (8 * i)) & 0xff));
+
+}
+
+// Appends a double as little endian bytes
+void append_le(std::string& out, const double value)
+{
+
+  static_assert(sizeof(double) == sizeof(std::uint64_t), "unexpected double size");
+  std::uint64_t bits = 0;
+  std::memcpy(std::addressof(bits), std::addressof(value), sizeof(bits));
+  append_le(out, bits);
+
+}
+
+// Builds an array field from a claimed length and raw element bytes
+std::string raw_array_field(const char name, const std::uint8_t type, const std::size_t count, const std::string& payload)
+{
+
+  std::string out;
+  out.push_back(1);
+  out.push_back(name);
+  out.push_back(static_cast<char>(type | SERIALIZE_FLAG_ARRAY));
+  append_small_varint(out, count);
+  out += payload;
+  return out;
+
+}
+
+// Builds an array field from a list of values
+template<typename T>
+std::string array_field(const char name, const std::uint8_t type, const std::vector<T>& values)
+{
+
+  std::string payload;
+  for (const T value : values)
+    append_le(payload, value);
+  return raw_array_field(name, type, values.size(), payload);
+
+}
+
+// Builds a full document from a header, field count and fields
+std::string make_document(const std::size_t field_count, const std::string& fields)
+{
+
+  std::string out = binary_header;
+  append_small_varint(out, field_count);
+  out += fields;
+  return out;
+
+}
+
+// Builds a document with a field wrapped in depth nested sections
+std::string make_nested_document(const std::string& field, const std::size_t depth)
+{
+
+  std::string body;
+  append_small_varint(body, 1);
+  body += field;
+  for (std::size_t i = 0; i < depth; ++i)
+  {
+    std::string outer;
+    append_small_varint(outer, 1);
+    outer.push_back(1); // name length
+    outer.push_back('x');
+    outer.push_back(static_cast<char>(SERIALIZE_TYPE_OBJECT));
+    outer += body;
+    body = std::move(outer);
+  }
+  return binary_header + body;
+
+}
+
+// Reads a parsed array back into a vector
+template<typename T>
+std::vector<T> read_array(epee::serialization::portable_storage& storage, const std::string& name)
+{
+
+  std::vector<T> out;
+  T value{};
+  const auto array = storage.get_first_value(name, value, nullptr);
+  if (!array)
+    return out;
+  do
+  {
+    out.push_back(value);
+  } while (storage.get_next_value(array, value));
+  return out;
+
+}
+
+// Checks that one number type's values parse back unchanged
+template<typename T>
+void check_numeric_array(const std::uint8_t type)
+{
+  const std::vector<T> expected{
+    std::numeric_limits<T>::lowest(),
+    std::numeric_limits<T>::max(),
+    static_cast<T>(0),
+    static_cast<T>(1),
+    static_cast<T>(0x12),
+    static_cast<T>(0x7a)
+  };
+
+  {
+    // decode from the wire format
+    epee::serialization::portable_storage storage{};
+    ASSERT_TRUE(storage.load_from_binary(make_document(1, array_field('x', type, expected))));
+    EXPECT_EQ(expected, read_array<T>(storage, "x"));
+  }
+  
+  {
+    // store and load back through portable_storage
+    epee::serialization::portable_storage out{};
+    const auto array = out.insert_first_value("x", T{expected.front()}, nullptr);
+    ASSERT_TRUE(array != nullptr);
+    for (std::size_t i = 1; i < expected.size(); ++i)
+      ASSERT_TRUE(out.insert_next_value(array, T{expected[i]}));
+
+    epee::byte_slice buffer;
+    ASSERT_TRUE(out.store_to_binary(buffer));
+
+    epee::serialization::portable_storage in{};
+    ASSERT_TRUE(in.load_from_binary(epee::span<const std::uint8_t>{buffer.data(), buffer.size()}));
+    EXPECT_EQ(expected, read_array<T>(in, "x"));
+  }
+}
+
+// Checks that one number type's empty array parses as empty
+template<typename T>
+void check_empty_numeric_array(const std::uint8_t type)
+{
+  epee::serialization::portable_storage storage{};
+  ASSERT_TRUE(storage.load_from_binary(make_document(1, array_field('x', type, std::vector<T>{}))));
+
+  epee::serialization::storage_entry entry;
+  ASSERT_TRUE(storage.get_value("x", entry, nullptr));
+  const auto* const array = boost::get<epee::serialization::array_entry>(std::addressof(entry));
+  ASSERT_TRUE(array != nullptr);
+  const auto* const typed = boost::get<epee::serialization::array_entry_t<T>>(array);
+  ASSERT_TRUE(typed != nullptr);
+  EXPECT_TRUE(typed->m_array.empty());
+}
+
+// Checks that one number type's truncated array is rejected
+template<typename T>
+void check_truncated_numeric_array(const std::uint8_t type)
+{
+  epee::serialization::portable_storage storage{};
+
+  // last element is one byte short
+  std::string document = make_document(1, array_field('x', type, std::vector<T>{T(1), T(2), T(3)}));
+  document.pop_back();
+  EXPECT_FALSE(storage.load_from_binary(document));
+
+  // count is larger than the remaining data
+  EXPECT_FALSE(storage.load_from_binary(make_document(1, raw_array_field('x', type, 63, std::string{}))));
+}
+}
+
+TEST(epee_binary, numeric_array_round_trip)
+{
+  // Every number type comes back with the same values in the same order
+  check_numeric_array<std::int64_t>(SERIALIZE_TYPE_INT64);
+  check_numeric_array<std::int32_t>(SERIALIZE_TYPE_INT32);
+  check_numeric_array<std::int16_t>(SERIALIZE_TYPE_INT16);
+  check_numeric_array<std::int8_t>(SERIALIZE_TYPE_INT8);
+  check_numeric_array<std::uint64_t>(SERIALIZE_TYPE_UINT64);
+  check_numeric_array<std::uint32_t>(SERIALIZE_TYPE_UINT32);
+  check_numeric_array<std::uint16_t>(SERIALIZE_TYPE_UINT16);
+  check_numeric_array<std::uint8_t>(SERIALIZE_TYPE_UINT8);
+  check_numeric_array<double>(SERIALIZE_TYPE_DOUBLE);
+}
+
+TEST(epee_binary, numeric_array_empty)
+{
+  // An array with no elements parses as an empty array of the right type
+  check_empty_numeric_array<std::int64_t>(SERIALIZE_TYPE_INT64);
+  check_empty_numeric_array<std::int32_t>(SERIALIZE_TYPE_INT32);
+  check_empty_numeric_array<std::int16_t>(SERIALIZE_TYPE_INT16);
+  check_empty_numeric_array<std::int8_t>(SERIALIZE_TYPE_INT8);
+  check_empty_numeric_array<std::uint64_t>(SERIALIZE_TYPE_UINT64);
+  check_empty_numeric_array<std::uint32_t>(SERIALIZE_TYPE_UINT32);
+  check_empty_numeric_array<std::uint16_t>(SERIALIZE_TYPE_UINT16);
+  check_empty_numeric_array<std::uint8_t>(SERIALIZE_TYPE_UINT8);
+  check_empty_numeric_array<double>(SERIALIZE_TYPE_DOUBLE);
+}
+
+TEST(epee_binary, numeric_array_truncated)
+{
+  // An array with fewer bytes than its length claims is rejected
+  check_truncated_numeric_array<std::int64_t>(SERIALIZE_TYPE_INT64);
+  check_truncated_numeric_array<std::int32_t>(SERIALIZE_TYPE_INT32);
+  check_truncated_numeric_array<std::int16_t>(SERIALIZE_TYPE_INT16);
+  check_truncated_numeric_array<std::int8_t>(SERIALIZE_TYPE_INT8);
+  check_truncated_numeric_array<std::uint64_t>(SERIALIZE_TYPE_UINT64);
+  check_truncated_numeric_array<std::uint32_t>(SERIALIZE_TYPE_UINT32);
+  check_truncated_numeric_array<std::uint16_t>(SERIALIZE_TYPE_UINT16);
+  check_truncated_numeric_array<std::uint8_t>(SERIALIZE_TYPE_UINT8);
+  check_truncated_numeric_array<double>(SERIALIZE_TYPE_DOUBLE);
+}
+
+TEST(epee_binary, numeric_array_read_position)
+{
+  // Fields after an array still parse, so the array read exactly its own bytes
+  const std::vector<std::uint16_t> a{0x0102, 0x0304};
+  const std::vector<std::uint64_t> b{0x0506070809101112, 0x1314151617181920};
+  const std::uint32_t c = 0xa1b2c3d4;
+
+  std::string fields = array_field('a', SERIALIZE_TYPE_UINT16, a) + array_field('b', SERIALIZE_TYPE_UINT64, b);
+  fields.push_back(1); // name length
+  fields.push_back('c');
+  fields.push_back(static_cast<char>(SERIALIZE_TYPE_UINT32));
+  append_le(fields, c);
+
+  epee::serialization::portable_storage storage{};
+  ASSERT_TRUE(storage.load_from_binary(make_document(3, fields)));
+  EXPECT_EQ(a, read_array<std::uint16_t>(storage, "a"));
+  EXPECT_EQ(b, read_array<std::uint64_t>(storage, "b"));
+
+  std::uint32_t c_out = 0;
+  ASSERT_TRUE(storage.get_value("c", c_out, nullptr));
+  EXPECT_EQ(c, c_out);
+}
+
+TEST(epee_binary, bool_array_validated)
+{
+  // A bool array accepts bytes of 0 or 1 and rejects anything else
+  epee::serialization::portable_storage storage{};
+
+  const std::string valid("\x00\x01\x01\x00", 4);
+  ASSERT_TRUE(storage.load_from_binary(make_document(1, raw_array_field('x', SERIALIZE_TYPE_BOOL, valid.size(), valid))));
+  EXPECT_EQ((std::vector<bool>{false, true, true, false}), read_array<bool>(storage, "x"));
+
+  const std::string invalid("\x00\x01\x02\x00", 4);
+  EXPECT_FALSE(storage.load_from_binary(make_document(1, raw_array_field('x', SERIALIZE_TYPE_BOOL, invalid.size(), invalid))));
+}
+
+TEST(epee_binary, numeric_array_recursion_limit)
+{
+  // Empty and non-empty arrays parse inside 30 nested sections and are rejected inside 31
+  const std::string non_empty = array_field('x', SERIALIZE_TYPE_UINT64, std::vector<std::uint64_t>{1, 2, 3});
+  const std::string empty = array_field('x', SERIALIZE_TYPE_UINT64, std::vector<std::uint64_t>{});
+
+  epee::serialization::portable_storage storage{};
+  EXPECT_TRUE(storage.load_from_binary(make_nested_document(non_empty, 30)));
+  EXPECT_TRUE(storage.load_from_binary(make_nested_document(empty, 30)));
+  EXPECT_FALSE(storage.load_from_binary(make_nested_document(non_empty, 31)));
+  EXPECT_FALSE(storage.load_from_binary(make_nested_document(empty, 31)));
 }
