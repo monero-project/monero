@@ -1179,6 +1179,9 @@ namespace nodetool
     network_zone& public_zone = m_network_zones.at(epee::net_utils::zone::public_);
     public_zone.m_net_server.add_idle_handler(boost::bind(&node_server<t_payload_net_handler>::idle_worker, this), std::chrono::seconds{1});
     public_zone.m_net_server.add_idle_handler(boost::bind(&t_payload_net_handler::on_idle, &m_payload_handler), std::chrono::seconds{1});
+    for (auto& zone : m_network_zones)
+      if (zone.first != epee::net_utils::zone::public_)
+        schedule_anonymous_peer_sync(zone.second);
 
     //here you can set worker threads count
     int thrds_count = 10;
@@ -2203,7 +2206,12 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::idle_worker()
   {
-    m_peer_handshake_idle_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::peer_sync_idle_maker, this));
+    if (m_stop_signal_sent_once)
+      return false;
+
+    m_peer_handshake_idle_maker_interval.do_call(boost::bind(
+      &node_server<t_payload_net_handler>::peer_sync_idle_maker, this,
+      std::ref(m_network_zones.at(epee::net_utils::zone::public_))));
     m_connections_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::connections_maker, this));
     m_gray_peerlist_housekeeping_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::gray_peerlist_housekeeping, this));
     m_peerlist_store_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::store_config, this));
@@ -2288,23 +2296,35 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::peer_sync_idle_maker()
+  void node_server<t_payload_net_handler>::schedule_anonymous_peer_sync(network_zone& zone)
+  {
+    constexpr std::chrono::milliseconds interval = std::chrono::seconds{P2P_DEFAULT_HANDSHAKE_INTERVAL};
+    const auto delay = crypto::rand_range(interval.count() / 2, interval.count() * 3 / 2);
+    zone.m_net_server.add_idle_handler([this, &zone] {
+      if (!m_stop_signal_sent_once)
+      {
+        peer_sync_idle_maker(zone);
+        schedule_anonymous_peer_sync(zone);
+      }
+      return false;
+    }, std::chrono::milliseconds{delay});
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::peer_sync_idle_maker(network_zone& zone)
   {
     MDEBUG("STARTED PEERLIST IDLE HANDSHAKE");
     typedef std::list<std::pair<epee::net_utils::connection_context_base, peerid_type> > local_connects_type;
     local_connects_type cncts;
-    for(auto& zone : m_network_zones)
+    zone.m_net_server.get_config_object().foreach_connection([&](p2p_connection_context& cntxt)
     {
-      zone.second.m_net_server.get_config_object().foreach_connection([&](p2p_connection_context& cntxt)
+      if(cntxt.peer_id && !cntxt.m_in_timedsync)
       {
-        if(cntxt.peer_id && !cntxt.m_in_timedsync)
-        {
-          cntxt.m_in_timedsync = true;
-          cncts.push_back(local_connects_type::value_type(cntxt, cntxt.peer_id));//do idle sync only with handshaked connections
-        }
-        return true;
-      });
-    }
+        cntxt.m_in_timedsync = true;
+        cncts.push_back(local_connects_type::value_type(cntxt, cntxt.peer_id));//do idle sync only with handshaked connections
+      }
+      return true;
+    });
 
     std::for_each(cncts.begin(), cncts.end(), [&](const typename local_connects_type::value_type& vl){do_peer_timed_sync(vl.first, vl.second);});
 
