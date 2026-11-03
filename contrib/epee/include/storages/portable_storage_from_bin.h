@@ -198,10 +198,20 @@ namespace epee
         m_strings += size;
       }
 
-      sa.reserve(size);
-      //TODO: add some optimization here later
-      while(size--)
-        sa.m_array.push_back(read<type_name>());
+      if constexpr (std::is_arithmetic<type_name>::value && !std::is_same<type_name, bool>::value)
+      {
+        sa.m_array.resize(size);
+        if (size != 0)
+          read(sa.m_array.data(), size * sizeof(type_name));
+        for (auto& element : sa.m_array)
+          element = CONVERT_POD(element); 
+      }
+      else
+      {
+        sa.reserve(size);
+        while(size--)
+          sa.m_array.push_back(read<type_name>());
+      }
       return storage_entry(array_entry(std::move(sa)));
     }
 
