@@ -185,6 +185,38 @@ TEST(wallet_balance, batched_account_balances_match_individual_balances)
     }
 }
 
+TEST(wallet_sign, requires_the_selected_private_key)
+{
+    const epee::wipeable_string password("test-password");
+    const std::string message("message to sign");
+    const cryptonote::subaddress_index subaddress{0, 1};
+
+    tools::wallet2 full(cryptonote::MAINNET, 1, true);
+    full.generate("", password);
+    tools::wallet2 view_only(cryptonote::MAINNET, 1, true);
+    view_only.generate("", password, full.get_address(), full.get_account().get_keys().m_view_secret_key);
+    ASSERT_TRUE(view_only.watch_only());
+
+    for (const auto index : {cryptonote::subaddress_index{0, 0}, subaddress})
+    {
+        for (const auto type : {tools::wallet2::sign_with_spend_key, tools::wallet2::sign_with_view_key})
+        {
+            const std::string signature = full.sign(message, type, index);
+            const auto result = full.verify(message, full.get_subaddress(index), signature);
+            EXPECT_TRUE(result.valid);
+            EXPECT_EQ(type, result.type);
+        }
+    }
+
+    const std::string view_signature = view_only.sign(message, tools::wallet2::sign_with_view_key);
+    const auto view_result = full.verify(message, full.get_address(), view_signature);
+    EXPECT_TRUE(view_result.valid);
+    EXPECT_EQ(tools::wallet2::sign_with_view_key, view_result.type);
+    EXPECT_THROW(view_only.sign(message, tools::wallet2::sign_with_spend_key), std::runtime_error);
+    EXPECT_THROW(view_only.sign(message, tools::wallet2::sign_with_spend_key, subaddress), std::runtime_error);
+    EXPECT_THROW(view_only.sign(message, tools::wallet2::sign_with_view_key, subaddress), std::runtime_error);
+}
+
 TEST(wallet_storage, upgrade_legacy_unencrypted_keys)
 {
     const path test_dir = temp_directory_path() / unique_path("monero-legacy-keys-%%%%-%%%%");

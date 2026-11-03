@@ -2689,7 +2689,15 @@ namespace tools
       er.message = "Invalid signature type requested";
       return false;
     }
-    res.signature = m_wallet->sign(req.data, signature_type, {req.account_index, req.address_index});
+    try
+    {
+      res.signature = m_wallet->sign(req.data, signature_type, {req.account_index, req.address_index});
+    }
+    catch (...)
+    {
+      handle_rpc_exception(std::current_exception(), er, WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR);
+      return false;
+    }
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------

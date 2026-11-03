@@ -2344,22 +2344,37 @@ std::string WalletImpl::signMessage(const std::string &message, const std::strin
     if (checkBackgroundSync("cannot sign message"))
         return "";
 
-    if (address.empty()) {
-        return m_wallet->sign(message, tools::wallet2::sign_with_spend_key);
-    }
+    try
+    {
+        clearStatus();
+        if (address.empty()) {
+            return m_wallet->sign(message, tools::wallet2::sign_with_spend_key);
+        }
 
-    cryptonote::address_parse_info info;
-    if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), address)) {
-        setStatusError(tr("Failed to parse address"));
+        cryptonote::address_parse_info info;
+        if (!cryptonote::get_account_address_from_str(info, m_wallet->nettype(), address)) {
+            setStatusError(tr("Failed to parse address"));
+            return "";
+        }
+        auto index = m_wallet->get_subaddress_index(info.address);
+        if (!index) {
+            setStatusError(tr("Address doesn't belong to the wallet"));
+            return "";
+        }
+        const cryptonote::account_public_address wallet_address = index->is_zero()
+            ? m_wallet->get_account().get_keys().m_account_address : m_wallet->get_subaddress(*index);
+        if (wallet_address != info.address) {
+            setStatusError(tr("Address doesn't belong to the wallet"));
+            return "";
+        }
+
+        return m_wallet->sign(message, tools::wallet2::sign_with_spend_key, *index);
+    }
+    catch (const std::exception &e)
+    {
+        setStatusError(e.what());
         return "";
     }
-    auto index = m_wallet->get_subaddress_index(info.address);
-    if (!index) {
-        setStatusError(tr("Address doesn't belong to the wallet"));
-        return "";
-    }
-
-    return m_wallet->sign(message, tools::wallet2::sign_with_spend_key, *index);
 }
 
 bool WalletImpl::verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const
