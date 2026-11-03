@@ -44,6 +44,7 @@
 #include "serialization/debug_archive.h"
 #include "serialization/variant.h"
 #include "serialization/containers.h"
+#include "fcmp_pp/fcmp_pp_serialization.h"
 #include "serialization/binary_utils.h"
 #include "wallet/wallet2.h"
 #include "wallet/wallet2_basic/wallet2_boost_serialization.h"
@@ -1037,6 +1038,57 @@ TEST(Serialization, tuple_3_4_backwards_compatibility)
   Tuple4 t4_recovered;
   EXPECT_TRUE(::serialization::parse_binary(serialized, t4_recovered));
   EXPECT_EQ(t4, t4_recovered);
+}
+
+TEST(Serialization, fcmp_pp_unified_output)
+{
+  const auto fill_pair = [](auto &pair, unsigned char pubkey_base, unsigned char commitment_base)
+  {
+    for (std::size_t i = 0; i < sizeof(pair.output_pubkey.data); ++i)
+      pair.output_pubkey.data[i] = static_cast<char>(pubkey_base + i);
+    for (std::size_t i = 0; i < sizeof(pair.commitment.data); ++i)
+      pair.commitment.data[i] = static_cast<char>(commitment_base + i);
+  };
+
+  const auto check_round_trip = [](fcmp_pp::UnifiedOutput out, char expected_tag)
+  {
+    std::string blob;
+    ASSERT_TRUE(::serialization::dump_binary(out, blob));
+    ASSERT_EQ(SIZEOF_SERIALIZED_UNIFIED_OUTPUT, blob.size());
+    ASSERT_EQ(expected_tag, blob[sizeof(uint64_t)]);
+
+    fcmp_pp::UnifiedOutput recovered;
+    ASSERT_TRUE(::serialization::parse_binary(blob, recovered));
+    ASSERT_EQ(out, recovered);
+
+    std::string truncated = blob.substr(0, blob.size() - 1);
+    ASSERT_FALSE(::serialization::parse_binary(truncated, recovered));
+
+    // The parser rejects a trailing byte for this fixed-size record.
+    std::string with_trailing_byte = blob + '\0';
+    ASSERT_FALSE(::serialization::parse_binary(with_trailing_byte, recovered));
+
+    for (const char tag : {static_cast<char>(0x00), static_cast<char>(0x72), static_cast<char>(0xff)})
+    {
+      std::string wrong_tag = blob;
+      wrong_tag[sizeof(uint64_t)] = tag;
+      ASSERT_FALSE(::serialization::parse_binary(wrong_tag, recovered));
+    }
+  };
+
+  fcmp_pp::LegacyOutputPair legacy_pair;
+  fill_pair(legacy_pair, 0x01, 0x41);
+  fcmp_pp::UnifiedOutput legacy;
+  legacy.unified_id = 123;
+  legacy.output_pair = legacy_pair;
+  check_round_trip(legacy, static_cast<char>(0x70));
+
+  fcmp_pp::CarrotOutputPairV1 carrot_pair;
+  fill_pair(carrot_pair, 0x81, 0xc1);
+  fcmp_pp::UnifiedOutput carrot;
+  carrot.unified_id = 456;
+  carrot.output_pair = carrot_pair;
+  check_round_trip(carrot, static_cast<char>(0x71));
 }
 
 TEST(Serialization, unsigned_tx_set_transfer_count_versions)
