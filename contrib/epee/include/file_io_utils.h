@@ -27,16 +27,34 @@
 #ifndef _FILE_IO_UTILS_H_
 #define _FILE_IO_UTILS_H_
 
+#include <functional>
+#include <iosfwd>
 #include <string>
 #include <ctime>
 #include <cstdint>
+#ifndef _WIN32
+#include <sys/types.h>
+#endif
 
 namespace epee
 {
 namespace file_io_utils
 {
+    #ifdef _WIN32
+    using file_mode = unsigned int;
+    #else
+    using file_mode = mode_t;
+    #endif
+
     bool is_file_exist(const std::string& path);
-    bool save_string_to_file(const std::string& path_to_file, const std::string& str);
+namespace detail
+{
+    // The callback receives a file descriptor managed by save_fd_to_file and must not close it.
+    // On Windows this is a CRT file descriptor wrapping a HANDLE.
+    bool save_fd_to_file(const std::string& path_to_file, const std::function<bool(int)>& writer, file_mode create_mode = 0666);
+}
+    bool save_stream_to_file(const std::string& path_to_file, const std::function<bool(std::ostream&)>& writer, file_mode create_mode = 0666);
+    bool save_string_to_file(const std::string& path_to_file, const std::string& str, file_mode create_mode = 0666);
     bool load_file_to_string(const std::string& path_to_file, std::string& target_str, size_t max_size = 1000000000);
 }
 }
