@@ -161,7 +161,7 @@ struct ContiguousLeaves final
 struct CompressedLayerExtension final
 {
     uint64_t                      start_idx{0};
-    bool                          update_existing_last_hash;
+    bool                          update_existing_last_hash{false};
     std::vector<crypto::ec_point> hashes;
 };
 
