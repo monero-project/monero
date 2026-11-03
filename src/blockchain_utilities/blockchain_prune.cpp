@@ -53,7 +53,14 @@ static std::string db_path;
 static uint64_t records_per_sync = 16 * 65536;
 static const size_t slack = 512 * 1024 * 1024;
 
+// The FCMP tree tables are only copied when FCMP integration is compiled in.
+// A build without it must not accept a version 7 database, or it would write a
+// version 7 database that is missing all of the tree state.
+#ifdef ENABLE_FCMP_INTEGRATION
 static constexpr uint32_t MAX_SUPPORTED_DB_VERSION = 7;
+#else
+static constexpr uint32_t MAX_SUPPORTED_DB_VERSION = 5;
+#endif
 
 static std::vector<bool> is_v1;
 
@@ -683,8 +690,12 @@ int main(int argc, char* argv[])
   MDEBUG("Blockchain DB has version " << db_version);
   if (db_version > MAX_SUPPORTED_DB_VERSION)
   {
-    MERROR("Source database has unrecognized blockchain DB version " << db_version
-      << ". Code for blockchain_prune may need to be updated.");
+    MERROR("Source database has blockchain DB version " << db_version
+      << ", but this build of blockchain_prune supports up to version "
+      << MAX_SUPPORTED_DB_VERSION << ".");
+#ifndef ENABLE_FCMP_INTEGRATION
+    MERROR("This build was compiled without FCMP integration; an FCMP-enabled build may be required.");
+#endif
     close(env0);
     return 1;
   }
