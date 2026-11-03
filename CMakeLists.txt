@@ -787,6 +787,8 @@ include(CheckTrezor)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-strict-aliasing")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-strict-aliasing")
 
+option(USE_HARDENING "Enable security hardening flags" ON)
+if(USE_HARDENING)
   # if those don't work for your compiler, single it out where appropriate
   if(CMAKE_BUILD_TYPE STREQUAL "Release" AND NOT OPENBSD)
     set(C_SECURITY_FLAGS "${C_SECURITY_FLAGS} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2")
@@ -873,17 +875,22 @@ include(CheckTrezor)
   message(STATUS "Using C security hardening flags: ${C_SECURITY_FLAGS}")
   message(STATUS "Using C++ security hardening flags: ${CXX_SECURITY_FLAGS}")
   message(STATUS "Using linker security hardening flags: ${LD_SECURITY_FLAGS}")
+else()
+  message(STATUS "Security hardening flags disabled")
+endif()
 
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GNU_SOURCE ${MINGW_FLAG} ${STATIC_ASSERT_FLAG} ${WARNINGS} ${C_WARNINGS} ${PIC_FLAG} ${C_SECURITY_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GNU_SOURCE ${MINGW_FLAG} ${WARNINGS} ${CXX_WARNINGS} ${PIC_FLAG} ${CXX_SECURITY_FLAGS}")
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${LD_SECURITY_FLAGS}")
 
+if(USE_HARDENING)
   # external/ is added before the hardening flags are computed
   # apply them to its input-facing C libraries
   set_property(TARGET polyseed_static utf8proc APPEND_STRING PROPERTY COMPILE_FLAGS " ${C_SECURITY_FLAGS}")
   if(TARGET linenoise)
     set_property(TARGET linenoise APPEND_STRING PROPERTY COMPILE_FLAGS " ${C_SECURITY_FLAGS}")
   endif()
+endif()
 
   # With GCC 6.1.1 the compiled binary malfunctions due to aliasing. Until that
   # is fixed in the code (Issue #847), force compiler to be conservative.
