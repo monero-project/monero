@@ -61,7 +61,7 @@ complete -c monerod -l p2p-bind-port-ipv6 -d "Port for p2p network protocol (IPv
 complete -c monerod -l p2p-use-ipv6 -d "Enable IPv6 for p2p"
 complete -c monerod -l p2p-ignore-ipv4 -d "Ignore unsuccessful IPv4 bind for p2p"
 complete -c monerod -l p2p-external-port -r -d "External port for p2p network protocol (if port forwarding used with NAT). Default: 0"
-complete -c monerod -l allow-local-ip -d "Allow local ip add to peer list, mostly in debug purposes"
+complete -c monerod -l allow-local-ip -d "Allow local ip add to peer list, mostly in debug purposes. Also exempts local IPv4/IPv6 addresses from blocking and banning"
 complete -c monerod -l add-peer -r -d "Manually add peer to local peerlist"
 complete -c monerod -l add-priority-node -r -d "Specify list of peers to connect to and attempt to keep the connection open"
 complete -c monerod -l add-exclusive-node -r -d "Specify list of peers to connect to only. If this option is given the options add-priority-node and seed-node are ignored"
