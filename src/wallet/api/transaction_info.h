@@ -63,6 +63,8 @@ public:
     virtual uint64_t confirmations() const override;
     virtual uint64_t unlockTime() const override;
 
+    bool isDoubleSpendSeen() const override;
+
 private:
     int         m_direction;
     bool        m_pending;
@@ -81,6 +83,8 @@ private:
     std::vector<Transfer> m_transfers;
     uint64_t    m_confirmations;
     uint64_t    m_unlock_time;
+    // is double spend seen
+    bool m_double_spend_seen;
 
     friend class TransactionHistoryImpl;
 
