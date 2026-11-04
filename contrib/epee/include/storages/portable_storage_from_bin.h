@@ -199,7 +199,6 @@ namespace epee
       }
 
       sa.reserve(size);
-      //TODO: add some optimization here later
       while(size--)
         sa.m_array.push_back(read<type_name>());
       return storage_entry(array_entry(std::move(sa)));

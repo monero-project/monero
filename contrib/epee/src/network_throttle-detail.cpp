@@ -47,7 +47,6 @@
 #include <boost/asio/basic_socket.hpp>
 #include <boost/asio/ip/unicast.hpp>
 
-// TODO:
 #include "net/network_throttle-detail.hpp"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
