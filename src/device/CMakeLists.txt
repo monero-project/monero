@@ -29,6 +29,7 @@
 set(device_sources
   device.cpp
   device_default.cpp
+  device_io_tcp.cpp
   log.cpp
   )
 
@@ -72,6 +73,7 @@ target_link_libraries(device
     ${HIDAPI_LIBRARIES}
     cncrypto
     cryptonote_format_utils_basic
+    epee
     ringct_basic
     wallet-crypto
     ${OPENSSL_CRYPTO_LIBRARIES}
