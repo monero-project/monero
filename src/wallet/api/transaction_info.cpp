@@ -149,4 +149,9 @@ uint64_t TransactionInfoImpl::unlockTime() const
     return m_unlock_time;
 }
 
+bool TransactionInfoImpl::isDoubleSpendSeen() const
+{
+    return m_double_spend_seen;
+}
+
 } // namespace
