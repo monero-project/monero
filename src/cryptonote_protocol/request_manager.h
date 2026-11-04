@@ -69,6 +69,7 @@ private:
     std::atomic<size_t> n_total_requests = 0;
     std::atomic<size_t> missed = 0;
     std::atomic<size_t> in_flight_requests = 0;
+    std::atomic<size_t> n_queued_requests = 0;
   };
   std::unordered_map<boost::uuids::uuid, connection_statistics> m_connection_stats;
 

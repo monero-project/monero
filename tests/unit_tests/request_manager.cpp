@@ -254,3 +254,36 @@ TEST(request_manager, dont_rm_processing_txs_enqueue_overage)
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
+TEST(request_manager, cap_queued_requests)
+{
+    const boost::uuids::uuid peer = uuid_from_char(1);
+
+    // 1 request in flight, at most 2 requests per peer. Removing a request frees a slot.
+    {
+        request_manager req_manager(1, 30000, 2);
+        const auto req = req_manager.enqueue_requests({crypto::hash{1}}, peer);
+        ASSERT_EQ(req.tx_hashes.size(), 1); // flies
+        ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{2}}, peer).tx_hashes.size(), 0); // queued
+        ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{3}}, peer).tx_hashes.size(), 0); // dropped
+        ASSERT_TRUE(req_manager.remove_request(crypto::hash{2}));
+        ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{3}}, peer).tx_hashes.size(), 0); // queued
+        req_manager.processing_txs(peer, req.nonce, {}); // empty reply frees hash 1
+        const auto tx_hashes = req_manager.fly_available_requests(peer).tx_hashes;
+        ASSERT_EQ(tx_hashes.size(), 1);
+        ASSERT_EQ(tx_hashes.front(), crypto::hash{3});
+    }
+
+    // Same with a 0 ms timeout: removing a stale request frees a slot.
+    {
+        request_manager req_manager(1, 0, 2);
+        ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{1}}, peer).tx_hashes.size(), 1); // flies
+        ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{2}}, peer).tx_hashes.size(), 0); // queued
+        req_manager.remove_stale_requests(); // removes hash 1
+        ASSERT_EQ(req_manager.fly_available_requests(peer).tx_hashes.size(), 1); // hash 2 flies
+        ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{3}}, peer).tx_hashes.size(), 0); // queued
+        req_manager.remove_stale_requests(); // removes hash 2
+        const auto tx_hashes = req_manager.fly_available_requests(peer).tx_hashes;
+        ASSERT_EQ(tx_hashes.size(), 1);
+        ASSERT_EQ(tx_hashes.front(), crypto::hash{3});
+    }
+}

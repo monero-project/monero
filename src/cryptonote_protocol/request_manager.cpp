@@ -111,6 +111,7 @@ std::unordered_set<boost::uuids::uuid> request_manager::remove_stale_requests() 
       drop_peers_out.insert(peer_id);
     }
 
+    --m_connection_stats[peer_id].n_queued_requests;
     it = m_requested_txs.erase(it);
     ++removed;
   }
@@ -123,7 +124,7 @@ request_manager::tx_request_t request_manager::enqueue_requests(const std::vecto
   std::lock_guard<std::recursive_mutex> lock(m_mutex);
 
   tx_request_t tx_req(*this, peer_id);
-  std::size_t n_peer_requests = get_requests_by_peer_id(m_requested_txs).count(peer_id);
+  auto &n_peer_requests = m_connection_stats[peer_id].n_queued_requests;
   for (const auto &tx_hash : tx_hashes)
   {
     MINFO("Requesting from peer: " << peer_id << " the transaction: " << tx_hash);
@@ -139,7 +140,7 @@ request_manager::tx_request_t request_manager::enqueue_requests(const std::vecto
       if (!in_queue) {
         if (n_peer_requests >= m_max_queued_per_peer) {
           MDEBUG("Not requesting tx " << tx_hash << " from peer "
-                << epee::string_tools::pod_to_hex(peer_id) << ", queue full");
+                << peer_id << ", queue full");
           continue;
         }
         // Add the new request! Nonce doesn't get set until it's in flight.
@@ -205,6 +206,7 @@ T request_manager::erase_tx_request(T &it, U &container) {
     --m_connection_stats[peer_id].in_flight_requests;
     MINFO("Decremented in_flight_requests count for peer: " << peer_id << ", current in_flight_requests: " << m_connection_stats[peer_id].in_flight_requests);
   }
+  --m_connection_stats[peer_id].n_queued_requests;
   return container.erase(it);
 }
 
