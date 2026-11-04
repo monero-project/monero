@@ -51,6 +51,7 @@ public:
 private:
   cryptonote::core_rpc_server m_server;
   const std::string m_description;
+  const std::size_t m_threads_count;
 public:
   t_rpc(
       boost::program_options::variables_map const & vm
@@ -61,6 +62,7 @@ public:
     , const std::string & description
     )
     : m_server{core.get(), p2p.get()}, m_description{description}
+    , m_threads_count{command_line::get_arg(vm, cryptonote::core_rpc_server::arg_rpc_threads)}
   {
     MGINFO("Initializing " << m_description << " RPC server...");
 
@@ -73,8 +75,8 @@ public:
 
   void run()
   {
-    MGINFO("Starting " << m_description << " RPC server...");
-    if (!m_server.run(2, false))
+    MGINFO("Starting " << m_description << " RPC server with " << m_threads_count << " threads...");
+    if (!m_server.run(m_threads_count, false))
     {
       throw std::runtime_error("Failed to start " + m_description + " RPC server.");
     }
