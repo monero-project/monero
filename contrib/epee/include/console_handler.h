@@ -109,20 +109,21 @@ namespace epee
 
     void stop()
     {
-      if (m_run)
+      // Both the console and the signal thread may call this.
+      if (m_run.exchange(false))
       {
-        m_run.store(false, std::memory_order_relaxed);
-
 #if defined(WIN32)
         ::CloseHandle(::GetStdHandle(STD_INPUT_HANDLE));
 #endif
 
         m_request_cv.notify_one();
         m_reader_thread.join();
-#ifdef HAVE_READLINE
-        m_readline_buffer.stop();
-#endif
       }
+#ifdef HAVE_READLINE
+      // Not inside the check above, as a suspended prompt can restart
+      // readline after the first stop.
+      m_readline_buffer.close();
+#endif
     }
 
     void cancel()

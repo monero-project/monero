@@ -12,8 +12,11 @@ namespace rdln
   {
   public:
     readline_buffer();
+    ~readline_buffer();
     void start();
     void stop();
+    // Stop, and make any later start() do nothing.
+    void close();
     bool is_running() const
     {
       return m_cout_buf != NULL;
@@ -31,6 +34,7 @@ namespace rdln
   private:
     std::streambuf* m_cout_buf;
     std::string m_pending;
+    bool m_closed;
     static std::vector<std::string>& completion_commands();
   };
   
