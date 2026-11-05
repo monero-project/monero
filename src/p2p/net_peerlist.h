@@ -235,10 +235,11 @@ namespace nodetool
     // See Cao, Tong et al. "Exploring the Monero Peer-to-Peer Network". https://eprint.iacr.org/2019/411
     //
     const uint32_t pick_depth = anonymize ? m_peers_white.size() : depth;
+    const int64_t stale_before = time(nullptr) - P2P_WHITE_PEER_STALE_SECONDS;
     bs_head.reserve(pick_depth);
     for(const peers_indexed::value_type& vl: boost::adaptors::reverse(by_time_index))
     {
-      if(cnt++ >= pick_depth)
+      if(cnt++ >= pick_depth || vl.last_seen < stale_before)
         break;
 
       bs_head.push_back(vl);
