@@ -263,7 +263,7 @@ bool message_transporter::post_request(const std::string &request, std::string &
   }
   else
   {
-    LOG_ERROR("POST request to Bitmessage failed: " << request.substr(0, 300));
+    LOG_ERROR("POST request to Bitmessage failed: " << get_str_between_tags(request, "<methodName>", "</methodName>"));
     THROW_WALLET_EXCEPTION(tools::error::no_connection_to_bitmessage, m_bitmessage_url);
   }
   m_http_client->disconnect();  // see comment above
