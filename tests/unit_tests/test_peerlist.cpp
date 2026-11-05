@@ -275,3 +275,149 @@ TEST(peerlist_storage, store)
   EXPECT_EQ(24u, types.anchor[1].id);
   EXPECT_EQ(22u, types.anchor[1].first_seen);
 }
+
+namespace
+{
+  std::vector<uint32_t> routable_first_octets(const uint32_t begin, const uint32_t end)
+  {
+    std::vector<uint32_t> octets;
+    for (uint32_t a = begin; a < end; ++a)
+      if (a != 10 && a != 127 && a != 172 && a != 192)
+        octets.push_back(a);
+    return octets;
+  }
+
+  const std::vector<uint32_t> honest_octets = routable_first_octets(1, 100);
+  const std::vector<uint32_t> flood_octets = routable_first_octets(128, 224);
+
+  epee::net_utils::network_address spread_address(const std::vector<uint32_t>& octets, const uint32_t n)
+  {
+    const uint32_t netgroups = octets.size() * 256;
+    const uint32_t netgroup = n % netgroups;
+    const uint32_t host = n / netgroups;
+    return epee::net_utils::ipv4_network_address{MAKE_IP(octets[netgroup / 256], netgroup % 256, host % 256, 1 + host / 256), 18080};
+  }
+
+  void add_white(nodetool::peerlist_manager& plm, const epee::net_utils::network_address& adr, const uint64_t id, const int64_t last_seen)
+  {
+    nodetool::peerlist_entry pe{};
+    pe.adr = adr;
+    pe.id = id;
+    pe.last_seen = last_seen;
+    plm.append_with_peer_white(pe);
+  }
+
+  template<typename F>
+  size_t count_white(nodetool::peerlist_manager& plm, const F& match)
+  {
+    size_t count = 0;
+    plm.foreach(true, [&](const nodetool::peerlist_entry& pe) {
+      if (match(pe.adr.as<epee::net_utils::ipv4_network_address>().ip()))
+        ++count;
+      return true;
+    });
+    return count;
+  }
+
+  bool is_honest(const uint32_t ip) { return (ip & 0xff) < 100; }
+  bool is_flood(const uint32_t ip) { return (ip & 0xff) >= 128; }
+
+  void fill_white(nodetool::peerlist_manager& plm, const int64_t newest)
+  {
+    for (uint32_t i = 0; i < P2P_LOCAL_WHITE_PEERLIST_LIMIT; ++i)
+      add_white(plm, spread_address(honest_octets, i), i + 1, newest - i);
+  }
+
+  constexpr int64_t hour = 60 * 60;
+  constexpr int64_t day = 24 * hour;
+}
+
+TEST(peer_list, white_flood_keeps_recently_seen_peers)
+{
+  nodetool::peerlist_manager plm;
+  plm.init(nodetool::peerlist_types{}, false);
+  const int64_t now = time(nullptr);
+  const uint32_t limit = P2P_LOCAL_WHITE_PEERLIST_LIMIT;
+
+  fill_white(plm, now - hour);
+  ASSERT_EQ(limit, plm.get_white_peers_count());
+
+  for (uint32_t i = 0; i < 2 * limit; ++i)
+    add_white(plm, spread_address(flood_octets, i), limit + i + 1, now);
+
+  EXPECT_EQ(limit, plm.get_white_peers_count());
+  EXPECT_EQ(limit, count_white(plm, is_honest));
+}
+
+TEST(peer_list, white_list_replaces_stale_peers)
+{
+  nodetool::peerlist_manager plm;
+  plm.init(nodetool::peerlist_types{}, false);
+  const int64_t now = time(nullptr);
+  const uint32_t limit = P2P_LOCAL_WHITE_PEERLIST_LIMIT;
+
+  fill_white(plm, now - 31 * day);
+  ASSERT_EQ(limit, plm.get_white_peers_count());
+
+  for (uint32_t i = 0; i < limit; ++i)
+    add_white(plm, spread_address(flood_octets, i), limit + i + 1, now);
+
+  EXPECT_EQ(limit, plm.get_white_peers_count());
+  EXPECT_EQ(limit, count_white(plm, is_flood));
+}
+
+TEST(peer_list, white_collision_tests_oldest_peer)
+{
+  nodetool::peerlist_manager plm;
+  plm.init(nodetool::peerlist_types{}, false);
+  const int64_t now = time(nullptr);
+  const uint32_t limit = P2P_LOCAL_WHITE_PEERLIST_LIMIT;
+
+  fill_white(plm, now - hour);
+  add_white(plm, spread_address(flood_octets, 0), limit + 1, now);
+  EXPECT_EQ(0, count_white(plm, is_flood));
+
+  nodetool::peerlist_entry oldest{}, newcomer{};
+  ASSERT_TRUE(plm.get_white_collision(oldest, newcomer));
+  EXPECT_TRUE(oldest.adr == spread_address(honest_octets, limit - 1));
+  EXPECT_TRUE(newcomer.adr == spread_address(flood_octets, 0));
+  EXPECT_FALSE(plm.get_white_collision(oldest, newcomer));
+}
+
+TEST(peer_list, white_collisions_are_capped)
+{
+  nodetool::peerlist_manager plm;
+  plm.init(nodetool::peerlist_types{}, false);
+  const int64_t now = time(nullptr);
+  const uint32_t limit = P2P_LOCAL_WHITE_PEERLIST_LIMIT;
+
+  fill_white(plm, now - hour);
+  for (uint32_t i = 0; i < 2 * P2P_LOCAL_WHITE_PEERLIST_COLLISIONS_MAX; ++i)
+    add_white(plm, spread_address(flood_octets, i), limit + i + 1, now);
+
+  size_t collisions = 0;
+  nodetool::peerlist_entry oldest{}, newcomer{};
+  while (plm.get_white_collision(oldest, newcomer))
+    ++collisions;
+  EXPECT_EQ(P2P_LOCAL_WHITE_PEERLIST_COLLISIONS_MAX, collisions);
+}
+
+TEST(peer_list, white_collision_takes_freed_slot)
+{
+  nodetool::peerlist_manager plm;
+  plm.init(nodetool::peerlist_types{}, false);
+  const int64_t now = time(nullptr);
+  const uint32_t limit = P2P_LOCAL_WHITE_PEERLIST_LIMIT;
+
+  fill_white(plm, now - hour);
+  add_white(plm, spread_address(flood_octets, 0), limit + 1, now);
+
+  nodetool::peerlist_entry gone{};
+  gone.adr = spread_address(honest_octets, 0);
+  plm.remove_from_peer_white(gone);
+
+  nodetool::peerlist_entry oldest{}, newcomer{};
+  EXPECT_FALSE(plm.get_white_collision(oldest, newcomer));
+  EXPECT_EQ(limit, plm.get_white_peers_count());
+  EXPECT_EQ(1, count_white(plm, is_flood));
+}
