@@ -1,5 +1,7 @@
 #include "readline_buffer.h"
+#include "memwipe.h"
 #include <linenoise.h>
+#include <algorithm>
 #include <iostream>
 #include <cerrno>
 #include <csignal>
@@ -38,9 +40,28 @@ namespace
     }
     return out;
   }
+
+  // Wipe old buffer storage when growing, as console output may contain private data
+  void append_wiped(std::string& buf, const char* s, size_t n)
+  {
+    if (buf.size() + n > buf.capacity())
+    {
+      std::string grown;
+      grown.reserve(std::max(buf.capacity() * 2, buf.size() + n));
+      grown.assign(buf);
+      memwipe(&buf[0], buf.size());
+      buf.swap(grown);
+    }
+    buf.append(s, n);
+  }
 }
 
-static const size_t LINE_BUFFER_MAX = 1024 * 1024;
+// Large enough for exchange_multisig_keys with 16 signers (~4.2 MB).
+static const size_t LINE_BUFFER_MAX = 16 * 1024 * 1024;
+// The line editor rescans the whole line on each key, so pasting into it is
+// quadratic. Keep its lines short until that is fixed. 64 KiB still fits
+// exchange_multisig_keys for 2-of-10 (~51 KB).
+static const size_t EDITOR_LINE_MAX = 64 * 1024;
 
 static boost::mutex sync_mutex;
 static linenoiseState line_state;
@@ -88,7 +109,7 @@ static void begin_edit()
   if (linenoiseEditStart(&line_state, -1, -1, buf, buflen, current_prompt.c_str()) == 0)
   {
     editing_active = true;
-    line_state.buflen_max = LINE_BUFFER_MAX;
+    line_state.buflen_max = tty_editing ? EDITOR_LINE_MAX : LINE_BUFFER_MAX;
   }
   else if (allocated)
   {
@@ -103,10 +124,10 @@ static void end_edit()
   editing_active = false;
 }
 
-static void reset_line()
+static void reset_line(bool newline = true)
 {
   // A non-tty session never drew a prompt, so skip the redraw.
-  if (editing_active && tty_editing && write(line_state.ofd, "\n", 1) == -1) {}
+  if (newline && editing_active && tty_editing && write(line_state.ofd, "\n", 1) == -1) {}
   line_state.in_completion = 0;
   line_state.completion_idx = 0;
   line_state.buf[0] = '\0';
@@ -117,9 +138,9 @@ static void reset_line()
   line_state.oldrpos = 1;
   line_state.history_index = 0;
   line_state.fold_count = 0;
+  line_state.overflowed = 0;
   if (editing_active && tty_editing)
   {
-    linenoiseHistoryAdd("");
     linenoiseShow(&line_state);
   }
 }
@@ -150,15 +171,25 @@ std::vector<std::string>& rdln::readline_buffer::completion_commands()
 }
 
 rdln::readline_buffer::readline_buffer()
-: std::stringbuf(), m_cout_buf(NULL)
+: std::streambuf(), m_cout_buf(NULL), m_closed(false)
 {
   current = this;
+}
+
+rdln::readline_buffer::~readline_buffer()
+{
+  // Leave std::cout on its own buffer, not on this one.
+  close();
+  boost::lock_guard<boost::mutex> lock(sync_mutex);
+  memwipe(&m_pending[0], m_pending.size());
+  if (current == this)
+    current = NULL;
 }
 
 void rdln::readline_buffer::start()
 {
   boost::lock_guard<boost::mutex> lock(sync_mutex);
-  if(m_cout_buf != NULL)
+  if(m_closed || m_cout_buf != NULL)
     return;
   static bool stdin_unbuffered = false;
   if (!stdin_unbuffered && !isatty(STDIN_FILENO))
@@ -166,8 +197,7 @@ void rdln::readline_buffer::start()
     setvbuf(stdin, NULL, _IONBF, 0);
     stdin_unbuffered = true;
   }
-  // Mirrors linenoiseEditStart()'s own no-tty check.
-  tty_editing = (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO)) || getenv("LINENOISE_ASSUME_TTY");
+  tty_editing = !linenoiseIsPlainInput(STDIN_FILENO, STDOUT_FILENO);
   m_cout_buf = std::cout.rdbuf();
   std::cout.rdbuf(this);
   linenoiseSetCompletionCallback(&completion_callback);
@@ -185,6 +215,15 @@ void rdln::readline_buffer::stop()
   if (editing_active && tty_editing)
     linenoiseHide(&line_state);
   end_edit();
+}
+
+void rdln::readline_buffer::close()
+{
+  {
+    boost::lock_guard<boost::mutex> lock(sync_mutex);
+    m_closed = true;
+  }
+  stop();
 }
 
 rdln::linestatus rdln::readline_buffer::get_line(std::string& line)
@@ -223,6 +262,18 @@ rdln::linestatus rdln::readline_buffer::get_line(std::string& line)
     return rdln::partial;
   }
 
+  // Don't run a line that was truncated.
+  if (result == NULL && errno == E2BIG)
+  {
+    static const char msg[] = "Error: input line too long, ignored\n";
+    if (editing_active && tty_editing)
+      linenoiseHide(&line_state);
+    m_cout_buf->sputn(msg, sizeof(msg) - 1);
+    m_cout_buf->pubsync();
+    reset_line(false);
+    return rdln::partial;
+  }
+
   const bool cancelled = (result == NULL && errno == EAGAIN);
 
   if (result == NULL)
@@ -253,18 +304,25 @@ void rdln::readline_buffer::set_prompt(const std::string& prompt)
   boost::lock_guard<boost::mutex> lock(sync_mutex);
   if(m_cout_buf == NULL)
     return;
+  if (editing_active && tty_editing)
+    linenoiseHide(&line_state);
+  current_prompt = tty_editing ? "\033[1;33m" + prompt + "\033[0m" : prompt;
   if (editing_active)
   {
-    if (tty_editing) linenoiseHide(&line_state);
-    current_prompt = prompt;
     line_state.prompt = current_prompt.c_str();
     line_state.plen = current_prompt.size();
     if (tty_editing) linenoiseShow(&line_state);
   }
   else
   {
-    current_prompt = prompt;
     begin_edit();
+  }
+
+  // linenoise draws no prompt on an unsupported terminal; print it here.
+  if (!tty_editing && isatty(STDIN_FILENO) && isatty(STDOUT_FILENO))
+  {
+    m_cout_buf->sputn(prompt.data(), prompt.size());
+    m_cout_buf->pubsync();
   }
 }
 
@@ -293,11 +351,9 @@ int rdln::readline_buffer::sync()
   if (editing_active && tty_editing)
     linenoiseHide(&line_state);
 
-  while ( this->sgetc() != EOF )
-  {
-    m_cout_buf->sputc( this->sgetc() );
-    this->snextc();
-  }
+  m_cout_buf->sputn(m_pending.data(), m_pending.size());
+  memwipe(&m_pending[0], m_pending.size());
+  m_pending.clear();
 
   m_cout_buf->pubsync();
 
@@ -305,6 +361,23 @@ int rdln::readline_buffer::sync()
     linenoiseShow(&line_state);
 
   return 0;
+}
+
+rdln::readline_buffer::int_type rdln::readline_buffer::overflow(int_type c)
+{
+  if (traits_type::eq_int_type(c, traits_type::eof()))
+    return traits_type::not_eof(c);
+  const char ch = traits_type::to_char_type(c);
+  boost::lock_guard<boost::mutex> lock(sync_mutex);
+  append_wiped(m_pending, &ch, 1);
+  return c;
+}
+
+std::streamsize rdln::readline_buffer::xsputn(const char* s, std::streamsize n)
+{
+  boost::lock_guard<boost::mutex> lock(sync_mutex);
+  append_wiped(m_pending, s, n);
+  return n;
 }
 
 void rdln::clear_screen()

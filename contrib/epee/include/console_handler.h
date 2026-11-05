@@ -109,20 +109,21 @@ namespace epee
 
     void stop()
     {
-      if (m_run)
+      // Both the console and the signal thread may call this.
+      if (m_run.exchange(false))
       {
-        m_run.store(false, std::memory_order_relaxed);
-
 #if defined(WIN32)
         ::CloseHandle(::GetStdHandle(STD_INPUT_HANDLE));
 #endif
 
         m_request_cv.notify_one();
         m_reader_thread.join();
-#ifdef HAVE_READLINE
-        m_readline_buffer.stop();
-#endif
       }
+#ifdef HAVE_READLINE
+      // Not inside the check above, as a suspended prompt can restart
+      // readline after the first stop.
+      m_readline_buffer.close();
+#endif
     }
 
     void cancel()
@@ -342,11 +343,9 @@ eof:
       if (!prompt.empty())
       {
 #ifdef HAVE_READLINE
-        std::string color_prompt = "\033[1;33m" + prompt;
         if (' ' != prompt.back())
-          color_prompt += " ";
-        color_prompt += "\033[0m";
-        m_stdin_reader.get_readline_buffer().set_prompt(color_prompt);
+          prompt += " ";
+        m_stdin_reader.get_readline_buffer().set_prompt(prompt);
 #else
         epee::set_console_color(epee::console_color_yellow, true);
         std::cout << prompt;
