@@ -171,15 +171,25 @@ std::vector<std::string>& rdln::readline_buffer::completion_commands()
 }
 
 rdln::readline_buffer::readline_buffer()
-: std::streambuf(), m_cout_buf(NULL)
+: std::streambuf(), m_cout_buf(NULL), m_closed(false)
 {
   current = this;
+}
+
+rdln::readline_buffer::~readline_buffer()
+{
+  // Leave std::cout on its own buffer, not on this one.
+  close();
+  boost::lock_guard<boost::mutex> lock(sync_mutex);
+  memwipe(&m_pending[0], m_pending.size());
+  if (current == this)
+    current = NULL;
 }
 
 void rdln::readline_buffer::start()
 {
   boost::lock_guard<boost::mutex> lock(sync_mutex);
-  if(m_cout_buf != NULL)
+  if(m_closed || m_cout_buf != NULL)
     return;
   static bool stdin_unbuffered = false;
   if (!stdin_unbuffered && !isatty(STDIN_FILENO))
@@ -205,6 +215,15 @@ void rdln::readline_buffer::stop()
   if (editing_active && tty_editing)
     linenoiseHide(&line_state);
   end_edit();
+}
+
+void rdln::readline_buffer::close()
+{
+  {
+    boost::lock_guard<boost::mutex> lock(sync_mutex);
+    m_closed = true;
+  }
+  stop();
 }
 
 rdln::linestatus rdln::readline_buffer::get_line(std::string& line)
