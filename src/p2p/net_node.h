@@ -353,7 +353,7 @@ namespace nodetool
 
     bool sanitize_peerlist(std::vector<peerlist_entry>& local_peerlist);
 
-    bool connections_maker();
+    bool connections_maker(epee::net_utils::zone zone);
     bool peer_sync_idle_maker();
     bool do_handshake_with_peer(peerid_type& pi, p2p_connection_context& context, bool just_take_peerlist = false);
     bool do_peer_timed_sync(const epee::net_utils::connection_context_base& context, peerid_type peer_id);
@@ -381,7 +381,7 @@ namespace nodetool
     bool connect_to_seed(epee::net_utils::zone);
 
     template <class Container>
-    bool connect_to_peerlist(const Container& peers);
+    bool connect_to_peerlist(const Container& peers, epee::net_utils::zone zone);
 
     template <class Container>
     bool parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container);
@@ -399,7 +399,7 @@ namespace nodetool
     size_t get_outgoing_connections_count(network_zone&);
 
     bool check_connection_and_handshake_with_peer(const epee::net_utils::network_address& na, uint64_t last_seen_stamp);
-    bool gray_peerlist_housekeeping();
+    bool gray_peerlist_housekeeping(epee::net_utils::zone zone);
     bool check_incoming_connections();
 
     void kill() { ///< will be called e.g. from deinit()
