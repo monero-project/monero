@@ -53,6 +53,43 @@ using namespace carrot::mock::people;
 
 namespace
 {
+//---------------------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------------------
+// https://github.com/jedisct1/libsodium/blob/master/src/libsodium/crypto_scalarmult/curve25519/ref10/x25519_ref10.c#L17
+static const crypto::x25519_pubkey x25519_small_order_points[7] = {
+    /* 0 (order 4) */
+    {{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }},
+    /* 1 (order 1) */
+    {{ 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }},
+    /* 325606250916557431795983626356110631294008115727848805560023387167927233504
+        (order 8) */
+    {{ 0xe0, 0xeb, 0x7a, 0x7c, 0x3b, 0x41, 0xb8, 0xae, 0x16, 0x56, 0xe3,
+        0xfa, 0xf1, 0x9f, 0xc4, 0x6a, 0xda, 0x09, 0x8d, 0xeb, 0x9c, 0x32,
+        0xb1, 0xfd, 0x86, 0x62, 0x05, 0x16, 0x5f, 0x49, 0xb8, 0x00 }},
+    /* 39382357235489614581723060781553021112529911719440698176882885853963445705823
+        (order 8) */
+    {{ 0x5f, 0x9c, 0x95, 0xbc, 0xa3, 0x50, 0x8c, 0x24, 0xb1, 0xd0, 0xb1,
+        0x55, 0x9c, 0x83, 0xef, 0x5b, 0x04, 0x44, 0x5c, 0xc4, 0x58, 0x1c,
+        0x8e, 0x86, 0xd8, 0x22, 0x4e, 0xdd, 0xd0, 0x9f, 0x11, 0x57 }},
+    /* p-1 (order 2) */
+    {{ 0xec, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f }},
+    /* p (=0, order 4) */
+    {{ 0xed, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f }},
+    /* p+1 (=1, order 1) */
+    {{ 0xee, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f }}
+};
+//---------------------------------------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------------------------------------
 static bool verify_carrot_normal_janus_protection_to_mock_keys(const input_context_t &input_context,
     const crypto::public_key &nominal_address_spend_pubkey,
     const mock::mock_carrot_and_legacy_keys &keys,
@@ -74,6 +111,7 @@ static bool verify_carrot_normal_janus_protection_to_mock_keys(const input_conte
         enote_ephemeral_pubkey);
 }
 } //anonymous namespace
+//---------------------------------------------------------------------------------------------------------------------
 //---------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, ECDH_cryptonote_completeness)
 {
@@ -2254,6 +2292,87 @@ TEST(carrot_core, tx_inout_proof_normal_subaddr)
         s_sender_receiver_ed25519, sig, /*version=*/2));
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, tx_out_proof_internal_3out_main)
+{
+    // input_context
+    const crypto::key_image tx_first_key_image = mock::gen_key_image();
+
+    for (int enote_type = 0; enote_type < 2; ++enote_type)
+    {
+        const CarrotPaymentProposalSelfSendV1 selfsend_payment_proposal{
+            .destination_address_spend_pubkey = alice.cryptonote_address().address_spend_pubkey,
+            .is_subaddress = false,
+            .amount = rct::randXmrAmount(9001 * COIN),
+            .enote_type = enote_type ? CarrotEnoteType::CHANGE : CarrotEnoteType::PAYMENT,
+            .enote_ephemeral_privkey = mock::gen_secret_key(),
+            .internal_message = {}
+        };
+
+        // D_e / K_e
+        const crypto::secret_key enote_ephemeral_privkey = get_enote_ephemeral_privkey(selfsend_payment_proposal,
+            nullptr, nullptr, tx_first_key_image);
+        const crypto::public_key enote_ephemeral_pubkey_ed25519 = rct::rct2pk(rct::scalarmultBase(rct::sk2rct(enote_ephemeral_privkey)));
+        const crypto::x25519_pubkey enote_ephemeral_pubkey = get_enote_ephemeral_pubkey(selfsend_payment_proposal,
+            nullptr, nullptr, tx_first_key_image);
+        crypto::x25519_pubkey enote_ephemeral_pubkey_conv;
+        ASSERT_EQ(selfsend_payment_proposal.enote_ephemeral_privkey.value(), enote_ephemeral_privkey);
+        ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(enote_ephemeral_pubkey_conv.data, to_bytes(enote_ephemeral_pubkey_ed25519)));
+        ASSERT_EQ(0, memcmp(&enote_ephemeral_pubkey, &enote_ephemeral_pubkey_conv, sizeof(crypto::x25519_pubkey)));
+
+        // s_sr [edwards]
+        const crypto::public_key s_sender_receiver_ed25519 = rct::rct2pk(rct::scalarmultKey(
+            rct::pk2rct(alice.legacy_acb.get_keys().m_account_address.m_view_public_key), rct::sk2rct(enote_ephemeral_privkey)));
+        {
+            RCTOutputEnoteProposal output_enote;
+            get_output_proposal_internal_v1(selfsend_payment_proposal,
+                alice.s_view_internal_dev,
+                tx_first_key_image,
+                /*other_normal_payment_proposal=*/nullptr,
+                /*other_self_send_proposal=*/nullptr,
+                output_enote);
+
+            // test scannability for fun
+            crypto::x25519_pubkey s_sender_receiver;
+            ASSERT_EQ(0, edwards_bytes_to_x25519_vartime(s_sender_receiver.data, to_bytes(s_sender_receiver_ed25519)));
+            crypto::secret_key k_g_o, k_t_o, k_a;
+            crypto::public_key K_j_s;
+            xmr_amount a;
+            CarrotEnoteType enote_type;
+            janus_anchor_t internal_message;
+            ASSERT_TRUE(try_scan_carrot_enote_internal_receiver(output_enote.enote,
+                alice.s_view_internal_dev,
+                k_g_o, k_t_o, K_j_s, a, k_a, enote_type, internal_message));
+            ASSERT_EQ(a, selfsend_payment_proposal.amount);
+            ASSERT_EQ(K_j_s, selfsend_payment_proposal.destination_address_spend_pubkey);
+            ASSERT_EQ(enote_type, selfsend_payment_proposal.enote_type);
+        }
+
+        // prove tx outproof
+        const crypto::hash prefix_hash = crypto::rand<crypto::hash>();
+        crypto::signature sig;
+        crypto::generate_tx_proof(prefix_hash, enote_ephemeral_pubkey_ed25519,
+            alice.legacy_acb.get_keys().m_account_address.m_view_public_key, boost::none,
+            s_sender_receiver_ed25519, enote_ephemeral_privkey, sig);
+
+        // verify tx outproof
+        EXPECT_TRUE(crypto::check_tx_proof(prefix_hash, enote_ephemeral_pubkey_ed25519,
+            alice.legacy_acb.get_keys().m_account_address.m_view_public_key, boost::none,
+            s_sender_receiver_ed25519, sig, /*version=*/2));
+
+        // prove tx inproof
+        /*
+        crypto::generate_tx_proof(prefix_hash, normal_payment_proposal.destination.address_view_pubkey,
+            enote_ephemeral_pubkey_ed25519, boost::none, s_sender_receiver_ed25519,
+            bob.legacy_acb.get_keys().m_view_secret_key, sig);
+
+        // verify tx inproof
+        EXPECT_TRUE(crypto::check_tx_proof(prefix_hash,
+            normal_payment_proposal.destination.address_view_pubkey, enote_ephemeral_pubkey_ed25519,
+            boost::none, s_sender_receiver_ed25519, sig, 2));
+        */
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
 TEST(carrot_core, scan_binding_identity_De_identity_Kjs)
 {
     // An enote with an "identity" D_e and identity K^j_s shouldn't scan for a rando account,
@@ -2344,6 +2463,18 @@ TEST(carrot_core, scan_binding_identity_De_identity_Kjs)
             recovered_amount,
             recovered_amount_blinding_factor,
             recovered_payment_id));
+    }
+}
+//----------------------------------------------------------------------------------------------------------------------
+TEST(carrot_core, sender_receiver_secret_reject_small_order_De)
+{
+    // An enote with a known small-order (<= 8) D_e should be rejected at the ECDH level,
+    // otherwise DoS on view tag matches is possible.
+    for (const crypto::x25519_pubkey &small_order_point : x25519_small_order_points)
+    {
+        crypto::x25519_pubkey s_sender_receiver;
+        EXPECT_FALSE(try_make_carrot_shared_key_receiver(bob.k_view_incoming_dev, small_order_point,
+            s_sender_receiver));
     }
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -2517,9 +2648,6 @@ TEST(carrot_core, construct_invalid_enote_type)
 //----------------------------------------------------------------------------------------------------------------------
 namespace
 {
-//----------------------------------------------------------------------------------------------------------------------
-
-constexpr unsigned char SOME_CATS_RANDOMNESS_DOMAIN_SEP[] = "somecats sender-view memo anchor";
 //----------------------------------------------------------------------------------------------------------------------
 constexpr unsigned char SOME_CATS_CIPHER_DOMAIN_SEP[] = "somecats cipher secret";
 //----------------------------------------------------------------------------------------------------------------------

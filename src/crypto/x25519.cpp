@@ -145,7 +145,10 @@ bool x25519_is_small_order_point(const x25519_pubkey &point)
     size_t h = ((static_cast<std::uint32_t>(point.data[0]) * 703) >> 9) & 7;
     h -= (h + 1) >> 3; // map 7 -> 6
     assert(h < sizeof(x25519_small_order_points)/sizeof(x25519_small_order_points[0]));
-    return 0 == memcmp(point.data, x25519_small_order_points[h].data, sizeof(point));
+    // match small point at hash index, insensitive of the MSB
+    if (memcmp(point.data, x25519_small_order_points[h].data, sizeof(point) - 1))
+        return false;
+    return 0 == ((point.data[31] ^ x25519_small_order_points[h].data[31]) & 0x7f);
 }
 //-------------------------------------------------------------------------------------------------------------------
 } //namespace crypto

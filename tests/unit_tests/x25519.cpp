@@ -267,3 +267,15 @@ TEST(x25519, small_order_check)
     ASSERT_TRUE(crypto::x25519_is_small_order_point(reinterpret_cast<const crypto::x25519_pubkey&>(P)));
   }
 }
+
+TEST(x25519, small_order_check_msb)
+{
+  for (const mx25519_pubkey &p : x25519_small_order_points)
+  {
+    crypto::x25519_pubkey p_msb;
+    memcpy(&p_msb, &p, sizeof(p_msb));
+    p_msb.data[31] |= 0x80;
+    ASSERT_GT(0, memcmp(&p, &p_msb, sizeof(p)));
+    ASSERT_TRUE(crypto::x25519_is_small_order_point(p_msb));
+  }
+}
