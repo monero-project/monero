@@ -1509,7 +1509,7 @@ namespace nodetool
       bool is_priority = is_priority_node(na);
       LOG_PRINT_CC_PRIORITY_NODE(is_priority, p2p_connection_context{}, "Connect failed to " << na.str()
         /*<< ", try " << try_count*/);
-      record_addr_failed(na);
+      record_addr_failed(zone, na);
       return false;
     }
 
@@ -1523,10 +1523,16 @@ namespace nodetool
       LOG_PRINT_CC_PRIORITY_NODE(is_priority, *con, "Failed to HANDSHAKE with peer "
         << na.str()
         /*<< ", try " << try_count*/);
-      record_addr_failed(na);
+      record_addr_failed(zone, na);
       return false;
     }
 
+    {
+      CRITICAL_REGION_LOCAL(m_conn_fails_cache_lock);
+      m_conn_fails_cache.erase(na.host_str());
+      m_conn_fail_counts.erase(na.str());
+      zone.m_last_handshake_success = time(NULL);
+    }
     return true;
   }
 
@@ -1614,10 +1620,27 @@ namespace nodetool
 
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  void node_server<t_payload_net_handler>::record_addr_failed(const epee::net_utils::network_address& addr)
+  void node_server<t_payload_net_handler>::record_addr_failed(network_zone& zone, const epee::net_utils::network_address& addr)
   {
-    CRITICAL_REGION_LOCAL(m_conn_fails_cache_lock);
-    m_conn_fails_cache[addr.host_str()] = time(NULL);
+    size_t failures;
+    {
+      CRITICAL_REGION_LOCAL(m_conn_fails_cache_lock);
+      const time_t now = time(NULL);
+      m_conn_fails_cache[addr.host_str()] = now;
+      addr_failures& f = m_conn_fail_counts[addr.str()];
+      if (f.last < zone.m_last_handshake_success)
+        ++f.count;
+      f.last = now;
+      failures = f.count;
+      if (failures >= P2P_FAILED_ADDR_ATTEMPTS_BEFORE_FORGET)
+        m_conn_fail_counts.erase(addr.str());
+    }
+    if (failures < P2P_FAILED_ADDR_ATTEMPTS_BEFORE_FORGET)
+      return;
+
+    peerlist_entry pe{};
+    pe.adr = addr;
+    zone.m_peerlist.remove_from_peer_gray(pe);
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -1632,6 +1655,28 @@ namespace nodetool
       return false;
     else
       return true;
+  }
+  //-----------------------------------------------------------------------------------
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::prune_conn_fails()
+  {
+    const time_t now = time(NULL);
+    CRITICAL_REGION_LOCAL(m_conn_fails_cache_lock);
+    for (auto it = m_conn_fails_cache.begin(); it != m_conn_fails_cache.end(); )
+    {
+      if (now - it->second > P2P_FAILED_ADDR_FORGET_SECONDS)
+        it = m_conn_fails_cache.erase(it);
+      else
+        ++it;
+    }
+    for (auto it = m_conn_fail_counts.begin(); it != m_conn_fail_counts.end(); )
+    {
+      if (now - it->second.last > P2P_FAILED_ADDR_ATTEMPTS_FORGET_SECONDS)
+        it = m_conn_fail_counts.erase(it);
+      else
+        ++it;
+    }
+    return true;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -2169,6 +2214,7 @@ namespace nodetool
     m_peerlist_store_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::store_config, this));
     m_incoming_connections_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::check_incoming_connections, this));
     m_dns_blocklist_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::update_dns_blocklist, this));
+    m_conn_fails_prune_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::prune_conn_fails, this));
     return true;
   }
   //-----------------------------------------------------------------------------------
