@@ -219,6 +219,7 @@ namespace nodetool
       boost::shared_mutex m_seed_nodes_lock;
       bool m_can_pingback;
       bool m_seed_nodes_initialized;
+      time_t m_last_handshake_success = 0; // guarded by m_conn_fails_cache_lock
 
     private:
       void set_config_defaults() noexcept
@@ -372,8 +373,9 @@ namespace nodetool
     bool try_ping(basic_node_data& node_data, p2p_connection_context& context, t_callback &&cb);
     bool try_get_support_flags(const p2p_connection_context& context, std::function<void(p2p_connection_context&, const uint32_t&)> f);
     bool make_expected_connections_count(network_zone& zone, PeerType peer_type, size_t expected_connections);
-    void record_addr_failed(const epee::net_utils::network_address& addr);
+    void record_addr_failed(network_zone& zone, const epee::net_utils::network_address& addr);
     bool is_addr_recently_failed(const epee::net_utils::network_address& addr, time_t forget_seconds = P2P_FAILED_ADDR_FORGET_SECONDS);
+    bool prune_conn_fails();
     bool is_priority_node(const epee::net_utils::network_address& na);
     std::set<std::string> get_ip_seed_nodes() const;
     std::set<std::string> get_dns_seed_nodes();
@@ -446,6 +448,7 @@ namespace nodetool
     epee::math_helper::once_a_time_seconds<60> m_gray_peerlist_housekeeping_interval;
     epee::math_helper::once_a_time_seconds<3600, false> m_incoming_connections_interval;
     epee::math_helper::once_a_time_seconds<7000> m_dns_blocklist_interval;
+    epee::math_helper::once_a_time_seconds<60*60, false> m_conn_fails_prune_interval;
 
     std::list<epee::net_utils::network_address>   m_priority_peers;
     std::vector<epee::net_utils::network_address> m_exclusive_peers;
@@ -466,7 +469,13 @@ namespace nodetool
     std::map<epee::net_utils::zone, network_zone> m_network_zones;
 
 
-    std::map<std::string, time_t> m_conn_fails_cache;
+    struct addr_failures
+    {
+      time_t last;
+      size_t count;
+    };
+    std::map<std::string, time_t> m_conn_fails_cache; // by host
+    std::map<std::string, addr_failures> m_conn_fail_counts; // by address
     epee::critical_section m_conn_fails_cache_lock;
 
     epee::critical_section m_blocked_hosts_lock; // for both hosts and subnets
