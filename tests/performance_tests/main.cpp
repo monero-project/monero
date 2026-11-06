@@ -67,6 +67,7 @@
 #include "multiexp.h"
 #include "sig_mlsag.h"
 #include "sig_clsag.h"
+#include "x25519_is_small_order.h"
 #include "zero_commit.h"
 
 namespace po = boost::program_options;
@@ -597,6 +598,16 @@ int main(int argc, char** argv)
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 4096, 8);
   TEST_PERFORMANCE3(filter, p, test_multiexp, multiexp_pippenger, 4096, 9);
 #endif
+
+  TEST_PERFORMANCE1(filter, p, test_x25519_is_small_order_point, 0);
+  TEST_PERFORMANCE1(filter, p, test_x25519_is_small_order_point, 1);
+  TEST_PERFORMANCE1(filter, p, test_x25519_is_small_order_point, 2);
+  TEST_PERFORMANCE1(filter, p, test_x25519_is_small_order_point, 3);
+  TEST_PERFORMANCE1(filter, p, test_x25519_is_small_order_point, 4);
+  TEST_PERFORMANCE1(filter, p, test_x25519_is_small_order_point, 5);
+  TEST_PERFORMANCE1(filter, p, test_x25519_is_small_order_point, 6);
+  TEST_PERFORMANCE1(filter, p, test_x25519_is_small_order_point, 7);
+  TEST_PERFORMANCE1(filter, p, test_x25519_is_small_order_point, (size_t)-1);
 
   TEST_PERFORMANCE1(filter, p, test_zero_commit, true); // fast
   TEST_PERFORMANCE1(filter, p, test_zero_commit, false);
