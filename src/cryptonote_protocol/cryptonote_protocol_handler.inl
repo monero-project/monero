@@ -1938,8 +1938,11 @@ skip:
       MDEBUG(context << "This peer has needed stripe " << peer_stripe << ", not dropping");
       return false;
     }
+    const uint64_t next_available_block_height = context.m_needed_objects.empty()
+      ? m_block_queue.get_next_needed_height(m_core.get_current_blockchain_height())
+      : context.m_last_response_height - context.m_needed_objects.size() + 1;
     const uint32_t local_stripe = tools::get_pruning_stripe(m_core.get_blockchain_pruning_seed());
-    if (m_sync_pruned_blocks && local_stripe && next_stripe != local_stripe)
+    if (next_stripe != local_stripe && should_ask_for_pruned_data(context, next_available_block_height, 1, true))
     {
       MDEBUG(context << "We can sync pruned blocks off this peer, not dropping");
       return false;
@@ -1947,7 +1950,6 @@ skip:
 
     if (!context.m_needed_objects.empty())
     {
-      const uint64_t next_available_block_height = context.m_last_response_height - context.m_needed_objects.size() + 1;
       if (tools::has_unpruned_block(next_available_block_height, context.m_remote_blockchain_height, context.m_pruning_seed))
       {
         MDEBUG(context << "This peer has unpruned next block at height " << next_available_block_height << ", not dropping");
@@ -2002,27 +2004,32 @@ skip:
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
-  bool t_cryptonote_protocol_handler<t_core>::should_ask_for_pruned_data(cryptonote_connection_context& context, uint64_t first_block_height, uint64_t nblocks, bool check_block_weights) const
+  bool t_cryptonote_protocol_handler<t_core>::can_sync_pruned_blocks(uint64_t first_block_height, uint64_t nblocks, bool check_block_weights) const
   {
-    if (!m_sync_pruned_blocks)
+    if (!m_sync_pruned_blocks || nblocks == 0 || nblocks - 1 > std::numeric_limits<uint64_t>::max() - first_block_height)
       return false;
     if (!m_core.is_within_compiled_block_hash_area(first_block_height + nblocks - 1))
       return false;
-    const uint32_t local_stripe = tools::get_pruning_stripe(m_core.get_blockchain_pruning_seed());
-    if (local_stripe == 0)
+    if (m_core.get_blockchain_pruning_seed() == 0)
       return false;
     // don't request pre-bulletproof pruned blocks, we can't reconstruct their weight (yet)
-    static const uint64_t bp_fork_height = m_core.get_earliest_ideal_height_for_version(HF_VERSION_SMALLER_BP + 1);
+    const uint64_t bp_fork_height = m_core.get_earliest_ideal_height_for_version(HF_VERSION_SMALLER_BP + 1);
     if (first_block_height < bp_fork_height)
-      return false;
-    // assumes the span size is less or equal to the stripe size
-    bool full_data_needed = tools::get_pruning_stripe(first_block_height, context.m_remote_blockchain_height, CRYPTONOTE_PRUNING_LOG_STRIPES) == local_stripe
-        || tools::get_pruning_stripe(first_block_height + nblocks - 1, context.m_remote_blockchain_height, CRYPTONOTE_PRUNING_LOG_STRIPES) == local_stripe;
-    if (full_data_needed)
       return false;
     if (check_block_weights && !m_core.has_block_weights(first_block_height, nblocks))
       return false;
     return true;
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
+  bool t_cryptonote_protocol_handler<t_core>::should_ask_for_pruned_data(cryptonote_connection_context& context, uint64_t first_block_height, uint64_t nblocks, bool check_block_weights) const
+  {
+    if (!can_sync_pruned_blocks(first_block_height, nblocks, check_block_weights))
+      return false;
+    const uint32_t local_pruning_seed = m_core.get_blockchain_pruning_seed();
+    // Pruned requests must exclude our retained stripe and the unpruned tip.
+    return tools::get_next_unpruned_block_height(first_block_height, context.m_remote_blockchain_height,
+        local_pruning_seed) > first_block_height + nblocks - 1;
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
@@ -2035,6 +2042,19 @@ skip:
       return true;
     });
     m_block_queue.flush_stale_spans(live_connections);
+
+    const auto peer_can_serve_span = [this, &context](uint64_t start_height, uint64_t nblocks) {
+      if (nblocks == 0 || start_height >= context.m_remote_blockchain_height
+          || nblocks > context.m_remote_blockchain_height - start_height)
+        return false;
+      if (should_ask_for_pruned_data(context, start_height, nblocks, true))
+        return true;
+      const uint64_t next_pruned_height = tools::get_next_pruned_block_height(start_height,
+          context.m_remote_blockchain_height, context.m_pruning_seed);
+      // The helper may return the start of the always-unpruned tip.
+      return next_pruned_height >= start_height + nblocks
+          || context.m_remote_blockchain_height - next_pruned_height <= CRYPTONOTE_PRUNING_TIP_BLOCKS;
+    };
 
     enum class span_match { matches, missing_history, different_chain };
     const auto match_span = [&context](uint64_t start_height, const std::vector<crypto::hash>& hashes) {
@@ -2123,7 +2143,8 @@ skip:
           ? next_needed_height
           : context.m_last_response_height - context.m_needed_objects.size() + 1;
         const bool next_height_proceed = next_needed_height < std::max(next_block_height, bc_height + 1);
-        const bool stripe_proceed_main = next_height_proceed && ((m_sync_pruned_blocks && local_stripe && add_stripe != local_stripe) || add_stripe == 0 || peer_stripe == 0 || add_stripe == peer_stripe);
+        const bool stripe_proceed_main = next_height_proceed && (should_ask_for_pruned_data(context, bc_height, 1, true)
+            || add_stripe == 0 || peer_stripe == 0 || add_stripe == peer_stripe);
         const bool stripe_proceed_secondary = tools::has_unpruned_block(next_block_height, context.m_remote_blockchain_height, context.m_pruning_seed);
         // override queue_proceed_init if we need the immediate block(s)
         const bool queue_proceed = (next_needed_height == bc_height) ? stripe_proceed_main : queue_proceed_init;
@@ -2246,18 +2267,16 @@ skip:
           span = m_block_queue.get_next_span_if_scheduled(hashes, span_connection_id, time);
           if (span.second > 0)
           {
+            if (!peer_can_serve_span(span.first, span.second))
+            {
+              MDEBUG(context << "Peer cannot serve span " << span.first << " - "
+                  << (span.first + span.second - 1) << ", going to standby");
+              context.m_state = cryptonote_connection_context::state_standby;
+              return true;
+            }
             const auto match = match_span(span.first, hashes);
             if (match == span_match::missing_history)
             {
-              if (context.m_remote_blockchain_height < span.first + span.second
-                  || (!m_sync_pruned_blocks && tools::get_next_pruned_block_height(span.first,
-                      context.m_remote_blockchain_height, context.m_pruning_seed) < span.first + span.second))
-              {
-                MDEBUG(context << "Peer cannot serve the full span " << span.first << " - "
-                    << (span.first + span.second - 1) << ", going to standby");
-                context.m_state = cryptonote_connection_context::state_standby;
-                return true;
-              }
               MDEBUG(context << "Missing peer history for span " << span.first << " - " << (span.first + span.second - 1) << ", refreshing chain");
               return request_chain(true);
             }
@@ -2303,8 +2322,8 @@ skip:
         }
 
         const uint64_t first_block_height = context.m_last_response_height - context.m_needed_objects.size() + 1;
-        static const uint64_t bp_fork_height = m_core.get_earliest_ideal_height_for_version(8);
-        bool sync_pruned_blocks = m_sync_pruned_blocks && first_block_height >= bp_fork_height && m_core.get_blockchain_pruning_seed();
+        // Check every candidate: reserve_span may skip an already-requested prefix.
+        const bool sync_pruned_blocks = can_sync_pruned_blocks(first_block_height, context.m_needed_objects.size());
         span = m_block_queue.reserve_span(first_block_height, context.m_last_response_height, l_m_bss, context.m_connection_id, context.m_remote_address, sync_pruned_blocks, m_core.get_blockchain_pruning_seed(), context.m_pruning_seed, context.m_remote_blockchain_height, context.m_needed_objects);
         MDEBUG(context << " span from " << first_block_height << ": " << span.first << "/" << span.second);
         if (span.second > 0)
@@ -2324,22 +2343,13 @@ skip:
         boost::uuids::uuid span_connection_id;
         boost::posix_time::ptime time;
         span = m_block_queue.get_next_span_if_scheduled(hashes, span_connection_id, time);
-        if (span.second > 0 && !tools::has_unpruned_block(span.first, context.m_remote_blockchain_height, context.m_pruning_seed))
+        if (span.second > 0 && !peer_can_serve_span(span.first, span.second))
           span = std::make_pair(0, 0);
         if (span.second > 0)
         {
           const auto match = match_span(span.first, hashes);
           if (match == span_match::missing_history)
           {
-            if (context.m_remote_blockchain_height < span.first + span.second
-                || (!m_sync_pruned_blocks && tools::get_next_pruned_block_height(span.first,
-                    context.m_remote_blockchain_height, context.m_pruning_seed) < span.first + span.second))
-            {
-              MDEBUG(context << "Peer cannot serve the full span " << span.first << " - "
-                  << (span.first + span.second - 1) << ", going to standby");
-              context.m_state = cryptonote_connection_context::state_standby;
-              return true;
-            }
             MDEBUG(context << "Missing peer history for span " << span.first << " - " << (span.first + span.second - 1) << ", refreshing chain");
             return request_chain(true);
           }
@@ -2367,6 +2377,7 @@ skip:
       MDEBUG(context << " span: " << span.first << "/" << span.second << " (" << span.first << " - " << (span.first + span.second - 1) << ")");
       if (span.second > 0)
       {
+        CHECK_AND_ASSERT_MES(peer_can_serve_span(span.first, span.second), false, "Peer cannot serve selected span");
         if (!is_next)
         {
           const uint64_t first_context_block_height = context.m_last_response_height - context.m_needed_objects.size() + 1;
@@ -2396,18 +2407,6 @@ skip:
 
         req.prune = should_ask_for_pruned_data(context, span.first, span.second, true);
 
-        // if we need to ask for full data and that peer does not have the right stripe, we can't ask it
-        if (!req.prune && context.m_pruning_seed)
-        {
-          const uint32_t peer_stripe = tools::get_pruning_stripe(context.m_pruning_seed);
-          const uint32_t first_stripe = tools::get_pruning_stripe(span.first, context.m_remote_blockchain_height, CRYPTONOTE_PRUNING_LOG_STRIPES);
-          const uint32_t last_stripe = tools::get_pruning_stripe(span.first + span.second - 1, context.m_remote_blockchain_height, CRYPTONOTE_PRUNING_LOG_STRIPES);
-          if (((first_stripe && peer_stripe != first_stripe) || (last_stripe && peer_stripe != last_stripe)) && !m_sync_pruned_blocks)
-          {
-            MDEBUG(context << "We need full data, but the peer does not have it, dropping peer");
-            return false;
-          }
-        }
         context.m_last_request_time = boost::posix_time::microsec_clock::universal_time();
         context.m_expect_height = span.first;
         context.m_expect_response = NOTIFY_RESPONSE_GET_OBJECTS::ID;

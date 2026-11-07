@@ -266,9 +266,8 @@ std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_hei
     ++span_start_height;
   }
 
-  if (!sync_pruned_blocks)
+  if (!sync_pruned_blocks || tools::has_unpruned_block(span_start_height, blockchain_height, local_pruning_seed))
   {
-    // if the peer's pruned for the starting block and its unpruned stripe comes next, start downloading from there
     const uint32_t next_unpruned_height = tools::get_next_unpruned_block_height(span_start_height, blockchain_height, pruning_seed);
     MDEBUG("reserve_span: next_unpruned_height " << next_unpruned_height << " from " << span_start_height << " and seed "
         << epee::string_tools::to_string_hex(pruning_seed) << ", limit " << span_start_height + CRYPTONOTE_PRUNING_STRIPE_SIZE);
@@ -296,9 +295,9 @@ std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_hei
 
   uint64_t span_length = 0;
   std::vector<crypto::hash> hashes;
-  bool first_is_pruned = sync_pruned_blocks && !tools::has_unpruned_block(span_start_height + span_length, blockchain_height, local_pruning_seed);
+  const bool first_is_pruned = sync_pruned_blocks && !tools::has_unpruned_block(span_start_height, blockchain_height, local_pruning_seed);
   while (i != block_hashes.end() && span_length < max_blocks && !requested_internal((*i).first) &&
-      (sync_pruned_blocks || tools::has_unpruned_block(span_start_height + span_length, blockchain_height, pruning_seed)))
+      (first_is_pruned || tools::has_unpruned_block(span_start_height + span_length, blockchain_height, pruning_seed)))
   {
     // if we want to sync pruned blocks, stop at the first block for which we need full data
     if (sync_pruned_blocks && first_is_pruned == tools::has_unpruned_block(span_start_height + span_length, blockchain_height, local_pruning_seed))
