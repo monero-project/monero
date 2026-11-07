@@ -1082,7 +1082,11 @@ namespace nodetool
 
     for (auto& zone : m_network_zones)
     {
-      res = zone.second.m_peerlist.init(m_peerlist_storage.take_zone(zone.first), m_allow_local_ip);
+      peerlist_types peers = m_peerlist_storage.take_zone(zone.first);
+      const auto is_blocked = [this](const peerlist_entry& pe) { return !is_remote_host_allowed(pe.adr); };
+      peers.white.erase(std::remove_if(peers.white.begin(), peers.white.end(), is_blocked), peers.white.end());
+      peers.gray.erase(std::remove_if(peers.gray.begin(), peers.gray.end(), is_blocked), peers.gray.end());
+      res = zone.second.m_peerlist.init(std::move(peers), m_allow_local_ip);
       CHECK_AND_ASSERT_MES(res, false, "Failed to init peerlist.");
     }
 
