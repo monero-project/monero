@@ -44,6 +44,7 @@ class ProofsTest():
         self.check_tx_proof(txid, amount)
         self.check_spend_proof(txid)
         self.check_reserve_proof()
+        self.check_tx_proof_sent_tx()
 
     def reset(self):
         print('Resetting blockchain')
@@ -127,41 +128,13 @@ class ProofsTest():
 
         sending_address = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
         receiving_address = '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW'
-        res = self.wallet[0].get_tx_proof(txid, sending_address, 'foo');
-        assert res.signature.startswith('InProofV2');
-        signature0i = res.signature
+        self.check_inproof_refused(self.wallet[0], txid, sending_address)
         res = self.wallet[0].get_tx_proof(txid, receiving_address, 'bar');
         assert res.signature.startswith('OutProofV2');
         signature0o = res.signature
         res = self.wallet[1].get_tx_proof(txid, receiving_address, 'baz');
         assert res.signature.startswith('InProofV2');
         signature1 = res.signature
-
-        res = self.wallet[0].check_tx_proof(txid, sending_address, 'foo', signature0i);
-        assert res.good
-        assert res.received > 0 # likely change
-        assert not res.in_pool
-        assert res.confirmations == 1
-
-        ok = False
-        try: res = self.wallet[0].check_tx_proof('0' * 64, sending_address, 'foo', signature0i);
-        except: ok = True
-        assert ok or not res.good
-
-        ok = False
-        try: res = self.wallet[0].check_tx_proof(txid, receiving_address, 'foo', signature0i);
-        except: ok = True
-        assert ok or not res.good
-
-        ok = False
-        try: res = self.wallet[0].check_tx_proof(txid, sending_address, '', signature0i);
-        except: ok = True
-        assert ok or not res.good
-
-        ok = False
-        try: res = self.wallet[0].check_tx_proof(txid, sending_address, 'foo', signature1);
-        except: ok = True
-        assert ok or not res.good
 
 
         res = self.wallet[0].check_tx_proof(txid, receiving_address, 'bar', signature0o);
@@ -182,11 +155,6 @@ class ProofsTest():
 
         ok = False
         try: res = self.wallet[0].check_tx_proof(txid, receiving_address, '', signature0o);
-        except: ok = True
-        assert ok or not res.good
-
-        ok = False
-        try: res = self.wallet[0].check_tx_proof(txid, receiving_address, 'bar', signature0i);
         except: ok = True
         assert ok or not res.good
 
@@ -220,11 +188,6 @@ class ProofsTest():
         
         # Test bad cross-version verification
         ok = False
-        try: res = self.wallet[0].check_tx_proof(txid, sending_address, 'foo', signature0i.replace('ProofV2','ProofV1'));
-        except: ok = True
-        assert ok or not res.good
-
-        ok = False
         try: res = self.wallet[0].check_tx_proof(txid, receiving_address, 'bar', signature0o.replace('ProofV2','ProofV1'));
         except: ok = True
         assert ok or not res.good
@@ -233,6 +196,46 @@ class ProofsTest():
         try: res = self.wallet[1].check_tx_proof(txid, receiving_address, 'baz', signature1.replace('ProofV2','ProofV1'));
         except: ok = True
         assert ok or not res.good
+
+    def check_tx_proof_sent_tx(self):
+        daemon = Daemon()
+
+        print('Checking tx proof refusal for our own addresses in our own transactions')
+
+        # wallet 0's subaddress (0, 1), and the standard address with wallet 0's main view key and the spend key of (0, 1)
+        addresses = [
+          '84QRUYawRNrU3NN1VpFRndSukeyEb3Xpv8qZjjsoJZnTYpDYceuUTpog13D7qPxpviS7J29bSgSkR11hFFoXWk2yNdsR9WF',
+          '43aH9Aw6pxSU3NN1VpFRndSukeyEb3Xpv8qZjjsoJZnTYoZyi8rAUC9PbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJGNYTi4',
+        ]
+        txids = []
+        for address in addresses:
+            res = self.wallet[0].transfer([{'address': address, 'amount': 1000000000}])
+            txids.append(res.tx_hash)
+            self.check_inproof_refused(self.wallet[0], res.tx_hash, address)
+
+        sending_address ='42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+        txid = daemon.getblockheaderbyheight(1).block_header.miner_tx_hash
+        res = self.wallet[0].get_tx_proof(txid, sending_address, 'foo')
+        assert res.signature.startswith('InProofV2')
+        res = self.wallet[0].check_tx_proof(txid, sending_address, 'foo', res.signature)
+        assert res.good
+        assert res.received > 0
+
+        view_key =self.wallet[0].query_key('view_key').key
+        key_images = self.wallet[0].export_key_images(True)
+        self.wallet[1].close_wallet()
+        self.wallet[1].generate_from_keys(viewkey = view_key, address = sending_address)
+        self.wallet[1].refresh()
+        self.wallet[1].import_key_images(key_images.signed_key_images, offset = key_images.offset)
+        self.check_inproof_refused(self.wallet[1], txids[0], addresses[0])
+
+    def check_inproof_refused(self, wallet, txid, address):
+        ok = False
+        try: wallet.get_tx_proof(txid, address, 'foo')
+        except Exception as e:
+            assert 'an InProof for it could reveal' in str(e)
+            ok = True
+        assert ok
 
     def check_spend_proof(self, txid):
         daemon = Daemon()
