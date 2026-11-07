@@ -321,6 +321,9 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::is_host_limit(const epee::net_utils::network_address &address)
   {
+    if (waits_for_sync(address.get_zone()))
+      return true;
+
     const network_zone& zone = m_network_zones.at(address.get_zone());
     if (zone.m_current_number_of_in_peers >= zone.m_config.m_net_config.max_in_connection_count) // in peers limit
     {
@@ -1100,6 +1103,9 @@ namespace nodetool
     // from here onwards, it's online stuff
     if (m_offline)
       return res;
+
+    if (std::any_of(m_network_zones.begin(), m_network_zones.end(), [this](const auto& zone) { return waits_for_sync(zone.first); }))
+      MGINFO("Tor/I2P connections wait until the node is synchronized");
 
     //try to bind
     m_ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_disabled;
@@ -1979,7 +1985,7 @@ namespace nodetool
         pe_seed.adr = server.m_seed_nodes[current_index];
         if (is_peer_used(pe_seed))
           is_connected_to_at_least_one_seed_node = true;
-        else if (!is_addr_recently_failed(pe_seed.adr, P2P_FAILED_SEED_ADDR_FORGET_SECONDS) && try_to_connect_and_handshake_with_new_peer(pe_seed.adr, true))
+        else if (!waits_for_sync(pe_seed.adr.get_zone()) && !is_addr_recently_failed(pe_seed.adr, P2P_FAILED_SEED_ADDR_FORGET_SECONDS) && try_to_connect_and_handshake_with_new_peer(pe_seed.adr, true))
           break;
         if(++try_count > server.m_seed_nodes.size())
         {
@@ -2030,6 +2036,9 @@ namespace nodetool
     bool one_succeeded = false;
     for(auto& zone : m_network_zones)
     {
+      if (waits_for_sync(zone.first))
+        continue;
+
       size_t start_conn_count = get_outgoing_connections_count(zone.second);
       if(!zone.second.m_peerlist.get_white_peers_count() && !connect_to_seed(zone.first))
       {
@@ -2459,8 +2468,8 @@ namespace nodetool
     if (origin != enet::zone::invalid)
       return send(*m_network_zones.begin()); // send all txs received via p2p over public network
 
-    if (m_network_zones.size() <= 2)
-      return send(*m_network_zones.rbegin()); // see static asserts below; sends over anonymity network iff enabled
+    if (m_network_zones.size() == 1)
+      return send(*m_network_zones.begin());
 
     /* These checks are to ensure that i2p is highest priority if multiple
        zones are selected. Make sure to update logic if the values cannot be
@@ -2493,7 +2502,7 @@ namespace nodetool
         return send(*network);
     }
 
-    MWARNING("Unable to send " << txs.size() << " transaction(s): anonymity networks had no outgoing connections");
+    MCWARNING("net.p2p.tx", "Unable to send " << txs.size() << " transaction(s): anonymity networks had no outgoing connections");
     return enet::zone::invalid;
   }
   //-----------------------------------------------------------------------------------
@@ -2868,6 +2877,15 @@ namespace nodetool
     return (std::find(m_priority_peers.begin(), m_priority_peers.end(), na) != m_priority_peers.end()) || (std::find(m_exclusive_peers.begin(), m_exclusive_peers.end(), na) != m_exclusive_peers.end());
   }
 
+  template<class t_payload_net_handler>
+  bool node_server<t_payload_net_handler>::waits_for_sync(epee::net_utils::zone zone) const
+  {
+    return zone != epee::net_utils::zone::public_ && !m_payload_handler.is_synchronized() &&
+      (m_exclusive_peers.empty() || std::any_of(m_exclusive_peers.begin(), m_exclusive_peers.end(), [](const epee::net_utils::network_address& peer) {
+        return peer.get_zone() == epee::net_utils::zone::public_;
+      }));
+  }
+
   template<class t_payload_net_handler> template <class Container>
   bool node_server<t_payload_net_handler>::connect_to_peerlist(const Container& peers)
   {
@@ -2877,7 +2895,7 @@ namespace nodetool
       if(public_zone.m_net_server.is_stop_signal_sent())
         return false;
 
-      if(is_addr_connected(na))
+      if(is_addr_connected(na) || waits_for_sync(na.get_zone()))
         continue;
 
       try_to_connect_and_handshake_with_new_peer(na);
@@ -3075,6 +3093,9 @@ namespace nodetool
     for (auto& zone : m_network_zones)
     {
       if (m_payload_handler.needs_new_sync_connections(zone.first))
+        continue;
+
+      if (waits_for_sync(zone.first))
         continue;
 
       if (zone.second.m_net_server.is_stop_signal_sent())

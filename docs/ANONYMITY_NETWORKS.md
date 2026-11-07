@@ -39,6 +39,14 @@ is specified, then no syncing will take place and only transaction broadcasting
 can occur. It is therefore recommended that `--add-exclusive-node` be combined
 with additional exclusive IPv4 address(es).
 
+Each time `monerod` starts, it doesn't make or accept anonymity network
+connections until it is synchronized, even to `--add-priority-node`,
+`--add-exclusive-node` or `--seed-node` addresses. With `--no-sync` it never
+counts as synchronized, so the wait lasts for the whole run. If
+`--add-exclusive-node` is only given anonymity network addresses, `monerod`
+can't sync from them, so it doesn't wait at all, and its anonymity network
+peers see its height along with the transactions it sends them.
+
 
 ## Usage
 
@@ -270,6 +278,31 @@ the future a random offset might be applied to anonymity networks so that if
 the system clock is noticeably off (and therefore more fingerprintable),
 linking the public IPv4/IPv6 connections with the anonymity networks will be
 more difficult.
+
+### Blockchain Height
+
+Peers learn the height of a node from its handshakes and timed syncs. While
+`monerod` is behind, its height is rare enough to link its anonymity network
+connections to the IPv4/IPv6 address syncing at the same height, which is why
+`monerod` waits until it is synchronized before using anonymity networks (see
+[P2P Commands](#p2p-commands)). The wait only covers P2P connections, so an
+RPC hidden service still reports the height. It also only covers the first
+sync after each start: if `monerod` falls behind later, for example after the
+computer resumes from sleep, its anonymity network peers see its height until
+it catches up. Once `monerod` is past the block hashes compiled into it, it
+counts as synchronized as soon as it reaches the highest height its IPv4/IPv6
+peers report, so peers that are behind, or claim to be, can end the wait
+early, for example by echoing back in a handshake the height and top block
+`monerod` sent them. Testnet, stagenet and regtest have no compiled block
+hashes, and `--fast-block-sync 0` doesn't load them, so there this applies
+from the first block. Lastly, its first anonymity network connection attempts,
+and the switch to accepting `--anonymous-inbound` connections, follow the sync
+within seconds, which shows when it synchronized.
+
+#### Mitigation
+
+Stop `monerod` before the computer sleeps or goes offline for a while, start it
+again afterwards, and keep it running so that it rarely falls behind.
 
 ### Intermittent Monero Syncing
 
