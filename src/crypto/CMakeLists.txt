@@ -90,6 +90,12 @@ if (ARM)
   endif()
 endif()
 
+# crypto-ops.c left-shifts negative values (e.g. `carry0 << 26`)
+check_c_compiler_flag(-fno-sanitize=shift-base CC_SUPPORTS_NO_SANITIZE_SHIFT_BASE)
+if(CC_SUPPORTS_NO_SANITIZE_SHIFT_BASE)
+  set_property(SOURCE crypto-ops.c APPEND PROPERTY COMPILE_OPTIONS -fno-sanitize=shift-base)
+endif()
+
 # Because of the way Qt works on android with JNI, the code does not live in the main android thread
 # So this code runs with a 1 MB default stack size. 
 # This will force the use of the heap for the allocation of the scratchpad
