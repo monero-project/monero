@@ -254,7 +254,7 @@ TEST(mnemonics, explicit_language_after_failed_inference)
     ASSERT_TRUE(crypto::ElectrumWords::words_to_bytes(seed, expected_key, language_name, "French"));
     ASSERT_EQ("Français", language_name);
 
-    for (const std::string &hint: {"French", "french", "français"})
+    for (const std::string hint: {"French", "french", "français"})
     {
         bool is_polyseed = false;
         polyseed::data decoded(POLYSEED_MONERO);
