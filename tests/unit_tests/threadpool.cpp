@@ -108,16 +108,6 @@ static uint64_t fibonacci(std::shared_ptr<tools::threadpool> tpool, uint64_t n)
   return f1 + f2;
 }
 
-TEST(threadpool, reentrency)
-{
-  std::shared_ptr<tools::threadpool> tpool(tools::threadpool::getNewForUnitTests(4));
-  tools::threadpool::waiter waiter(*tpool);
-
-  uint64_t f = fibonacci(tpool, 13);
-  waiter.wait();
-  ASSERT_EQ(f, 233);
-}
-
 TEST(threadpool, reentrancy)
 {
   std::shared_ptr<tools::threadpool> tpool(tools::threadpool::getNewForUnitTests(4));
