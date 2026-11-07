@@ -28,7 +28,9 @@
 
 #include <boost/uuid/uuid.hpp>
 #include "gtest/gtest.h"
+#include "common/pruning.h"
 #include "crypto/crypto.h"
+#include "cryptonote_config.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
 #include "cryptonote_protocol/block_queue.h"
 
@@ -161,6 +163,31 @@ TEST(block_queue, reserve_span_skips_requested_prefix)
   bq.flush_spans(uuid1());
   ASSERT_FALSE(bq.requested(hashes[0].first));
   ASSERT_FALSE(bq.requested(hashes[1].first));
+  ASSERT_TRUE(bq.requested(hashes[2].first));
+  ASSERT_TRUE(bq.requested(hashes[3].first));
+}
+
+TEST(block_queue, pruned_sync_rechecks_local_stripe_after_requested_prefix)
+{
+  const std::vector<std::pair<crypto::hash, uint64_t>> hashes{
+    {crypto::rand<crypto::hash>(), 0}, {crypto::rand<crypto::hash>(), 0},
+    {crypto::rand<crypto::hash>(), 0}, {crypto::rand<crypto::hash>(), 0}};
+  const uint64_t boundary = CRYPTONOTE_PRUNING_STRIPE_SIZE;
+  const uint64_t blockchain_height = 10 * CRYPTONOTE_PRUNING_STRIPE_SIZE;
+  const uint32_t local_seed = tools::make_pruning_seed(2, CRYPTONOTE_PRUNING_LOG_STRIPES);
+  const uint32_t peer_seed = tools::make_pruning_seed(3, CRYPTONOTE_PRUNING_LOG_STRIPES);
+  cryptonote::block_queue bq;
+  epee::net_utils::network_address na;
+
+  ASSERT_EQ(bq.reserve_span(boundary - 2, boundary + 1, 4, uuid1(), na, true, local_seed, peer_seed, blockchain_height, hashes),
+      std::make_pair(boundary - 2, uint64_t(2)));
+  ASSERT_EQ(bq.reserve_span(boundary - 2, boundary + 1, 2, uuid2(), na, true, local_seed, peer_seed, blockchain_height, hashes),
+      std::make_pair(uint64_t(0), uint64_t(0)));
+  ASSERT_FALSE(bq.requested(hashes[2].first));
+  ASSERT_FALSE(bq.requested(hashes[3].first));
+
+  ASSERT_EQ(bq.reserve_span(boundary - 2, boundary + 1, 2, uuid2(), na, true, local_seed, local_seed, blockchain_height, hashes),
+      std::make_pair(boundary, uint64_t(2)));
   ASSERT_TRUE(bq.requested(hashes[2].first));
   ASSERT_TRUE(bq.requested(hashes[3].first));
 }

@@ -40,6 +40,7 @@
 #include "unit_tests_utils.h"
 #include <algorithm>
 #include <condition_variable>
+#include <cstring>
 #include <thread>
 
 #define MAKE_IPV4_ADDRESS(a,b,c,d) epee::net_utils::ipv4_network_address{MAKE_IP(a,b,c,d),0}
@@ -68,10 +69,11 @@ namespace cryptonote {
 class test_core : public cryptonote::i_core_events
 {
 public:
+  uint64_t blockchain_height = 1;
   virtual bool is_synchronized() const final { return true; }
   void on_synchronized(){}
   void safesyncmode(const bool){}
-  virtual uint64_t get_current_blockchain_height() const final {return 1;}
+  virtual uint64_t get_current_blockchain_height() const final {return blockchain_height;}
   void set_target_blockchain_height(uint64_t) {}
   bool init(const boost::program_options::variables_map& vm) {return true ;}
   bool deinit(){return true;}
@@ -2091,6 +2093,273 @@ TEST(cryptonote_protocol_handler, public_sync_below_hidden_target_keeps_safe_mod
   EXPECT_EQ(public_peer.m_state, cryptonote::cryptonote_connection_context::state_synchronizing);
   EXPECT_EQ(core.target_height, 101u);
   EXPECT_TRUE(core.safe_sync);
+}
+
+namespace
+{
+  crypto::hash pruning_test_hash(uint64_t height)
+  {
+    crypto::hash hash{};
+    std::memcpy(hash.data, &height, sizeof(height));
+    return hash;
+  }
+
+  class pruning_test_core : public test_core
+  {
+  public:
+    uint64_t target_height = 3000000;
+    uint64_t checkpoint_end = 3000000;
+    uint64_t weights_end = 3000000;
+    uint32_t pruning_seed = tools::make_pruning_seed(1, CRYPTONOTE_PRUNING_LOG_STRIPES);
+
+    uint64_t get_target_blockchain_height() const { return target_height; }
+    uint32_t get_blockchain_pruning_seed() const { return pruning_seed; }
+    uint64_t get_earliest_ideal_height_for_version(uint8_t) const { return 1000000; }
+    bool is_within_compiled_block_hash_area(uint64_t height) const { return height < checkpoint_end; }
+    bool has_block_weights(uint64_t height, uint64_t count) const
+    {
+      return height < weights_end && count <= weights_end - height;
+    }
+    bool have_block(const crypto::hash& hash, int* where = nullptr) const
+    {
+      if (hash != pruning_test_hash(blockchain_height - 1))
+        return false;
+      if (where)
+        *where = HAVE_BLOCK_MAIN_CHAIN;
+      return true;
+    }
+    bool have_block_unlocked(const crypto::hash& hash, int* where = nullptr) const
+    {
+      return have_block(hash, where);
+    }
+    crypto::hash get_block_id_by_height(uint64_t height) const { return pruning_test_hash(height); }
+    uint64_t prevalidate_block_hashes(uint64_t, const std::vector<crypto::hash>& hashes, const std::vector<uint64_t>&)
+    {
+      return hashes.size();
+    }
+    bool get_short_chain_history(std::list<crypto::hash>& hashes, uint64_t& height) const
+    {
+      height = blockchain_height;
+      hashes.push_back(pruning_test_hash(blockchain_height - 1));
+      return true;
+    }
+  };
+
+  struct pruning_test_p2p : nodetool::p2p_endpoint_stub<cryptonote::cryptonote_connection_context>
+  {
+    using context_t = cryptonote::cryptonote_connection_context;
+    std::vector<context_t*> connections;
+    std::vector<std::pair<boost::uuids::uuid, cryptonote::NOTIFY_REQUEST_GET_OBJECTS::request>> requests;
+    std::vector<cryptonote::NOTIFY_REQUEST_CHAIN::request> chain_requests;
+    bool decoded = true;
+    unsigned int drops = 0;
+
+    void for_each_connection(std::function<bool(context_t&, nodetool::peerid_type, uint32_t)> f) override
+    {
+      for (auto* connection : connections)
+        if (!f(*connection, 0, 0))
+          break;
+    }
+    bool for_connection(const boost::uuids::uuid& id,
+      std::function<bool(context_t&, nodetool::peerid_type, uint32_t)> f) override
+    {
+      for (auto* connection : connections)
+        if (connection->m_connection_id == id)
+          return f(*connection, 0, 0);
+      return false;
+    }
+    bool invoke_notify_to_peer(int command, epee::levin::message_writer message,
+      const epee::net_utils::connection_context_base& context) override
+    {
+      if (command == cryptonote::NOTIFY_REQUEST_GET_OBJECTS::ID)
+      {
+        auto bytes = message.finalize_notify(command);
+        bytes.remove_prefix(sizeof(epee::levin::bucket_head2));
+        cryptonote::NOTIFY_REQUEST_GET_OBJECTS::request request{};
+        decoded &= epee::serialization::load_t_from_binary(request,
+          epee::span<const uint8_t>{bytes.data(), bytes.size()});
+        requests.emplace_back(context.m_connection_id, std::move(request));
+      }
+      else if (command == cryptonote::NOTIFY_REQUEST_CHAIN::ID)
+      {
+        auto bytes = message.finalize_notify(command);
+        bytes.remove_prefix(sizeof(epee::levin::bucket_head2));
+        cryptonote::NOTIFY_REQUEST_CHAIN::request request{};
+        decoded &= epee::serialization::load_t_from_binary(request,
+          epee::span<const uint8_t>{bytes.data(), bytes.size()});
+        chain_requests.push_back(std::move(request));
+      }
+      return true;
+    }
+    bool drop_connection(const epee::net_utils::connection_context_base&) override
+    {
+      ++drops;
+      return true;
+    }
+  };
+
+  struct pruning_test_fixture
+  {
+    pruning_test_core core;
+    pruning_test_p2p p2p;
+    cryptonote::t_cryptonote_protocol_handler<pruning_test_core> handler{core, &p2p};
+    cryptonote::cryptonote_connection_context peer, second_peer;
+
+    pruning_test_fixture()
+    {
+      // Next needed block is on stripe 6; peers retain stripe 7.
+      core.blockchain_height = 2020000;
+      init_peer(peer, 1, 7);
+      init_peer(second_peer, 2, 7);
+      p2p.connections = {&peer, &second_peer};
+    }
+
+    void init_peer(cryptonote::cryptonote_connection_context& context, uint8_t id, uint32_t stripe)
+    {
+      boost::uuids::uuid uuid{};
+      uuid.data[0] = id;
+      set_test_address(context, uuid, MAKE_IPV4_ADDRESS_PORT(203, 0, 113, id, 18080));
+      context.m_state = cryptonote::cryptonote_connection_context::state_synchronizing;
+      context.m_remote_blockchain_height = core.get_target_blockchain_height();
+      context.m_pruning_seed = tools::make_pruning_seed(stripe, CRYPTONOTE_PRUNING_LOG_STRIPES);
+    }
+
+    bool init()
+    {
+      auto vm = make_regtest_options(".");
+      vm.find(cryptonote::arg_sync_pruned_blocks.name)->second = boost::program_options::variable_value(true, false);
+      handler.set_max_out_peers(epee::net_utils::zone::public_, P2P_DEFAULT_CONNECTIONS_COUNT);
+      return handler.init(vm);
+    }
+
+    bool receive_chain(cryptonote::cryptonote_connection_context& context, uint64_t blocks = 100)
+    {
+      cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::request response{};
+      response.start_height = core.blockchain_height - 1;
+      response.total_height = core.get_target_blockchain_height();
+      for (uint64_t height = response.start_height; height <= response.start_height + blocks; ++height)
+        response.m_block_ids.push_back(pruning_test_hash(height));
+      response.m_block_weights.resize(response.m_block_ids.size(), 1000);
+      context.m_expect_height = core.blockchain_height;
+      context.m_expect_response = cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::ID;
+
+      epee::byte_slice blob;
+      if (!epee::serialization::store_t_to_binary(response, blob))
+        return false;
+      epee::byte_stream out;
+      bool handled = false;
+      const int result = handler.handle_invoke_map(true, cryptonote::NOTIFY_RESPONSE_CHAIN_ENTRY::ID,
+        epee::span<const uint8_t>{blob.data(), blob.size()}, out, context, handled);
+      return handled && result > 0 && p2p.decoded;
+    }
+  };
+}
+
+TEST(cryptonote_protocol_handler, pruned_sync_chain_requests_include_pruned_hashes)
+{
+  for (const bool has_checkpoints : {false, true})
+  {
+    SCOPED_TRACE(has_checkpoints);
+    pruning_test_fixture fixture;
+    fixture.core.weights_end = 0;
+    if (!has_checkpoints)
+      fixture.core.checkpoint_end = 0;
+    ASSERT_TRUE(fixture.init());
+    fixture.peer.m_callback_request_count = 1;
+    fixture.peer.m_last_request_time = boost::posix_time::not_a_date_time;
+    ASSERT_TRUE(fixture.handler.on_callback(fixture.peer));
+    ASSERT_TRUE(fixture.p2p.decoded);
+    ASSERT_EQ(fixture.p2p.chain_requests.size(), 1u);
+    // Clipping hashes can hide a pruned predecessor of the next full block.
+    EXPECT_TRUE(fixture.p2p.chain_requests.front().prune);
+  }
+}
+
+TEST(cryptonote_protocol_handler, pruned_sync_falls_back_to_available_full_data)
+{
+  for (const bool missing_checkpoints : {false, true})
+  {
+    SCOPED_TRACE(missing_checkpoints);
+    pruning_test_fixture fixture;
+    if (missing_checkpoints)
+      fixture.core.checkpoint_end = 0;
+    else
+      fixture.core.weights_end = 0;
+    ASSERT_TRUE(fixture.init());
+    ASSERT_TRUE(fixture.receive_chain(fixture.peer));
+    EXPECT_TRUE(fixture.p2p.requests.empty());
+    EXPECT_EQ(fixture.peer.m_state, cryptonote::cryptonote_connection_context::state_standby);
+    EXPECT_FALSE(fixture.handler.get_block_queue().requested(pruning_test_hash(fixture.core.blockchain_height)));
+
+    fixture.second_peer.m_pruning_seed = tools::make_pruning_seed(6, CRYPTONOTE_PRUNING_LOG_STRIPES);
+    ASSERT_TRUE(fixture.receive_chain(fixture.second_peer));
+    ASSERT_EQ(fixture.p2p.requests.size(), 1u);
+    const auto& request = fixture.p2p.requests.front().second;
+    EXPECT_FALSE(request.prune);
+    ASSERT_FALSE(request.blocks.empty());
+    EXPECT_EQ(request.blocks.front(), pruning_test_hash(fixture.core.blockchain_height));
+    EXPECT_EQ(fixture.p2p.drops, 0u);
+  }
+}
+
+TEST(cryptonote_protocol_handler, pruned_sync_full_span_can_enter_unpruned_tip)
+{
+  pruning_test_fixture fixture;
+  fixture.core.target_height = 106500;
+  fixture.core.blockchain_height = 100999;
+  fixture.peer.m_remote_blockchain_height = fixture.core.target_height;
+  fixture.peer.m_pruning_seed = tools::make_pruning_seed(1, CRYPTONOTE_PRUNING_LOG_STRIPES);
+  ASSERT_TRUE(fixture.init());
+  ASSERT_TRUE(fixture.receive_chain(fixture.peer, 2));
+  ASSERT_EQ(fixture.p2p.requests.size(), 1u);
+  const auto& request = fixture.p2p.requests.front().second;
+  EXPECT_FALSE(request.prune);
+  ASSERT_EQ(request.blocks.size(), 2u);
+  EXPECT_EQ(request.blocks.front(), pruning_test_hash(100999));
+  EXPECT_EQ(request.blocks.back(), pruning_test_hash(101000));
+  EXPECT_EQ(fixture.p2p.drops, 0u);
+}
+
+TEST(cryptonote_protocol_handler, pruned_sync_requests_eligible_pruned_span)
+{
+  pruning_test_fixture fixture;
+  ASSERT_TRUE(fixture.init());
+  ASSERT_TRUE(fixture.receive_chain(fixture.peer));
+  ASSERT_EQ(fixture.p2p.requests.size(), 1u);
+  const auto& request = fixture.p2p.requests.front().second;
+  EXPECT_TRUE(request.prune);
+  ASSERT_FALSE(request.blocks.empty());
+  EXPECT_EQ(request.blocks.front(), pruning_test_hash(fixture.core.blockchain_height));
+  EXPECT_EQ(fixture.p2p.drops, 0u);
+}
+
+TEST(cryptonote_protocol_handler, pruned_sync_rechecks_after_requested_prefix)
+{
+  const uint64_t boundary = 2023424; // First block on stripe 7.
+  for (const bool limit_checkpoints : {false, true})
+  {
+    SCOPED_TRACE(limit_checkpoints);
+    pruning_test_fixture fixture;
+    fixture.core.blockchain_height = boundary - BLOCKS_SYNCHRONIZING_DEFAULT_COUNT;
+    if (limit_checkpoints)
+      fixture.core.checkpoint_end = boundary;
+    else
+      fixture.core.weights_end = boundary;
+    fixture.peer.m_pruning_seed = fixture.second_peer.m_pruning_seed =
+      tools::make_pruning_seed(6, CRYPTONOTE_PRUNING_LOG_STRIPES);
+    ASSERT_TRUE(fixture.init());
+
+    // Skipping reserved blocks must not bypass the checkpoint/weight boundary.
+    ASSERT_TRUE(fixture.receive_chain(fixture.peer, BLOCKS_SYNCHRONIZING_DEFAULT_COUNT));
+    ASSERT_EQ(fixture.p2p.requests.size(), 1u);
+    ASSERT_TRUE(fixture.handler.get_block_queue().requested(pruning_test_hash(boundary - 1)));
+    ASSERT_TRUE(fixture.receive_chain(fixture.second_peer, 2 * BLOCKS_SYNCHRONIZING_DEFAULT_COUNT));
+
+    EXPECT_FALSE(fixture.handler.get_block_queue().requested(pruning_test_hash(boundary)));
+    for (const auto& entry : fixture.p2p.requests)
+      for (const auto& hash : entry.second.blocks)
+        EXPECT_NE(hash, pruning_test_hash(boundary));
+  }
 }
 
 namespace nodetool { template class node_server<cryptonote::t_cryptonote_protocol_handler<test_core>>; }

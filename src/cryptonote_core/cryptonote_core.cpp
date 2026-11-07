@@ -461,6 +461,8 @@ namespace cryptonote
     std::string db_sync_mode = command_line::get_arg(vm, cryptonote::arg_db_sync_mode);
     bool db_salvage = command_line::get_arg(vm, cryptonote::arg_db_salvage) != 0;
     bool fast_sync = command_line::get_arg(vm, arg_fast_block_sync) != 0;
+    CHECK_AND_ASSERT_MES(fast_sync || !command_line::get_arg(vm, arg_sync_pruned_blocks),
+        false, "--sync-pruned-blocks requires --fast-block-sync to be enabled");
     uint64_t blocks_threads = command_line::get_arg(vm, arg_prep_blocks_threads);
     std::string check_updates_string = command_line::get_arg(vm, arg_check_updates);
     size_t max_txpool_weight = command_line::get_arg(vm, arg_max_txpool_weight);
