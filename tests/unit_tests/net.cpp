@@ -1939,6 +1939,7 @@ TEST(socks_endpoint, get)
         {
             EXPECT_EQ(actual->address.address(), address);
             EXPECT_EQ(actual->address.port(), port);
+            EXPECT_TRUE(actual->resolved_addresses.empty());
             EXPECT_EQ(actual->userinfo.user, user);
             EXPECT_EQ(actual->userinfo.pass, pass);
             EXPECT_EQ(actual->ver, ver);
@@ -1962,7 +1963,7 @@ TEST(socks_endpoint, get)
     check(net::socks::endpoint::get("192.168.0.1/path"));
     check(net::socks::endpoint::get("::ffff"));
 
-    // invalid for socks - hostnames not allowed
+    // hostnames are rejected unless explicitly requested
     check(net::socks::endpoint::get("socks://host:/path"));
     check(net::socks::endpoint::get("socks://host:1"));
     check(net::socks::endpoint::get("socks://@host:1"));
@@ -1990,6 +1991,41 @@ TEST(socks_endpoint, get)
 
     // user+pass requires socks5
     check(net::socks::endpoint::get("socks://user:pass@[::ffff]:8080"));
+}
+
+TEST(socks_endpoint, resolve_proxy_hostname)
+{
+    const auto proxy = net::socks::endpoint::get("socks5://user:pass@localhost:9050", true);
+    ASSERT_TRUE(proxy) << proxy.error().message();
+    ASSERT_FALSE(proxy->resolved_addresses.empty());
+    EXPECT_EQ(proxy->address, proxy->resolved_addresses.front());
+    EXPECT_EQ(proxy->userinfo.user, "user");
+    EXPECT_EQ(proxy->userinfo.pass, "pass");
+    EXPECT_EQ(proxy->ver, net::socks::version::v5);
+    for (const auto& address : proxy->resolved_addresses)
+    {
+        EXPECT_TRUE(address.address().is_loopback());
+        EXPECT_EQ(address.port(), 9050);
+    }
+
+    EXPECT_FALSE(net::socks::endpoint::get("localhost:9050"));
+    EXPECT_FALSE(net::socks::endpoint::get("localhost:0", true));
+    EXPECT_FALSE(net::socks::endpoint::get("localhost:bad", true));
+    EXPECT_FALSE(net::socks::endpoint::get("example.onion:9050", true));
+    EXPECT_FALSE(net::socks::endpoint::get("example.onion.:9050", true));
+    EXPECT_FALSE(net::socks::endpoint::get("example.i2p:9050", true));
+    EXPECT_FALSE(net::socks::endpoint::get("example.i2p.:9050", true));
+
+    const auto check_repeated_dot = [](const boost::string_ref host)
+    {
+        const auto endpoint = net::socks::endpoint::get(host, true);
+        ASSERT_FALSE(endpoint);
+        EXPECT_EQ(endpoint.error(), make_error_code(net::error::invalid_host));
+    };
+    check_repeated_dot("localhost..:9050");
+    check_repeated_dot("example.onion..:9050");
+    check_repeated_dot("example.i2p..:9050");
+    check_repeated_dot("example..com:9050");
 }
 
 namespace
