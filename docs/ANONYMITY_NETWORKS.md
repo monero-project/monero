@@ -45,7 +45,7 @@ with additional exclusive IPv4 address(es).
 ### Blockchain sync
 
 Monerod does not support synchronizing the blockchain over onion or I2P hidden services.
-You may sync the blockchain using a SOCKS4 proxy. Monerod will connect to IPv4
+You may sync the blockchain using a SOCKS4/5 proxy. Monerod will connect to IPv4
 nodes using this proxy to sync the blockchain.
 
 ```bash
@@ -53,6 +53,24 @@ monerod --proxy 127.0.0.1:9050 --p2p-bind-ip 127.0.0.1
 ```
 
 You can also combine `--proxy` with `--tx-proxy` (see below).
+
+To prevent `--proxy` from sharing Tor circuits with other traffic, use
+`--tor-stream-isolation` and explicitly select SOCKS5 with the `socks5://`
+prefix. Tor `--tx-proxy` traffic always has stream isolation enabled, so a Tor
+`--tx-proxy` accepts only an explicit, unauthenticated SOCKS5 endpoint:
+
+```
+monerod \
+    --tor-stream-isolation \
+    --proxy socks5://127.0.0.1:9050 \
+    --tx-proxy tor,socks5://127.0.0.1:9050,10
+```
+
+The flag creates a SOCKS authentication isolation token for normal proxy
+traffic. It does not create a new identity for every peer connection.
+User-provided SOCKS5 credentials and SOCKS4 proxies are incompatible with this
+option. An incompatible proxy configuration causes `monerod` to fail at
+startup. The flag does not affect I2P `--tx-proxy` traffic.
 
 ### Hidden Services
 
@@ -67,7 +85,7 @@ separate process. On most systems the configuration will look like:
 
 ```bash
 monerod \
-    --tx-proxy tor,127.0.0.1:9050,10 \
+    --tx-proxy tor,socks5://127.0.0.1:9050,10 \
     --tx-proxy i2p,127.0.0.1:4447
 ```
 
@@ -202,7 +220,7 @@ Tor.
 ```bash
 sudo apt install tor # Or install Tor some other way
 systemctl start tor # Or start Tor manually
-monerod --tx-proxy tor,127.0.0.1:9050,10
+monerod --tx-proxy tor,socks5://127.0.0.1:9050,10
 ```
 
 ### Connect To IPv4 Nodes Over Tor Only
@@ -225,7 +243,7 @@ connections (including from Tor and I2P).
 ```bash
 monerod --proxy 127.0.0.1:9050 \
     --p2p-bind-ip 127.0.0.1 \
-    --tx-proxy tor,127.0.0.1:9050,10 \
+    --tx-proxy tor,socks5://127.0.0.1:9050,10 \
     --tx-proxy i2p,127.0.0.1:4447,10
 ```
 
@@ -236,7 +254,7 @@ You will need to configure [hidden services manually for Tor and I2P](https://do
 ```bash
 monerod --proxy 127.0.0.1:9050 \
     --p2p-bind-ip 127.0.0.1 \
-    --tx-proxy tor,127.0.0.1:9050,10 \
+    --tx-proxy tor,socks5://127.0.0.1:9050,10 \
     --tx-proxy i2p,127.0.0.1:4447,10 \
     --anonymous-inbound=yourlongv3onionaddress.onion:18084,127.0.0.1:18084 \
     --anonymous-inbound=yourlongb32i2paddress.b32.i2p,127.0.0.1:18085
