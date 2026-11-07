@@ -30,7 +30,13 @@
 
 from framework.daemon import Daemon
 from framework.wallet import Wallet
+import requests
+from requests.auth import HTTPDigestAuth
 
+import os
+import socket
+import subprocess
+import tempfile
 import time
 
 
@@ -46,6 +52,8 @@ WALLET_SEED = "velvet lymph giddy number token physics poetry unquoted nibs usef
 class HttpDigestAuthTest():
     def run_test(self):
         self.test_daemon_login_required()
+        self.test_restricted_no_login_requires_port()
+        self.test_restricted_daemon_login()
         self.test_wallet_login_required()
 
         self.make_daemon_conn()
@@ -62,6 +70,90 @@ class HttpDigestAuthTest():
         except:
             rejected = True
         assert(rejected)
+
+    def test_restricted_daemon_login(self):
+        monerod = os.path.join(os.environ['FUNCTIONAL_TESTS_DIRECTORY'],
+                               '..', '..', 'bin', 'monerod')
+        processes = []
+        with tempfile.TemporaryDirectory() as data_dir:
+            try:
+                for idx in (5, 6):
+                    cmd = [monerod, '--regtest', '--offline', '--non-interactive',
+                           '--rpc-bind-port', str(18180 + idx),
+                           '--rpc-restricted-bind-port', str(18190 + idx),
+                           '--rpc-restricted-no-login', '--p2p-bind-port', str(18280 + idx),
+                           '--zmq-rpc-bind-port', str(18380 + idx), '--rpc-ssl', 'disabled',
+                           '--data-dir', os.path.join(data_dir, str(idx))]
+                    env = os.environ.copy()
+                    env.pop('RPC_LOGIN', None)
+                    if idx == 5:
+                        env['RPC_LOGIN'] = 'env_lover:Z1ON0101'
+                    else:
+                        cmd += ['--rpc-login', 'md5_lover:Z1ON0101', '--restricted-rpc']
+                    log_path = os.path.join(os.environ['FUNCTIONAL_TESTS_DIRECTORY'],
+                                            'monerod_rpc_auth_{}.log'.format(idx))
+                    with open(log_path, 'a') as log:
+                        processes.append(subprocess.Popen(cmd, stdout=log, stderr=log, env=env))
+
+                deadline = time.monotonic() + 20
+                for port in (18185, 18195, 18186, 18196):
+                    while True:
+                        try:
+                            with socket.create_connection(('127.0.0.1', port), timeout=1):
+                                break
+                        except OSError:
+                            assert all(p.poll() is None for p in processes)
+                            assert time.monotonic() < deadline
+                            time.sleep(.1)
+
+                self.check_restricted_daemon_login()
+            finally:
+                for p in processes:
+                    if p.poll() is None:
+                        p.terminate()
+                for p in processes:
+                    try:
+                        p.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        p.kill()
+                        p.wait()
+
+    def check_restricted_daemon_login(self):
+        payload = {'jsonrpc': '2.0', 'id': '0', 'method': 'get_block_count'}
+
+        def status(port, auth=None):
+            url = 'http://127.0.0.1:{}/json_rpc'.format(port)
+            return requests.post(url, json=payload, auth=auth, timeout=5).status_code
+
+        for port in (18184, 18194, 18185, 18186):
+            assert status(port) == 401
+
+        for port in (18184, 18194, 18186):
+            assert status(port, HTTPDigestAuth(DAEMON_USER, DAEMON_PASS)) == 200
+
+        assert status(18185, HTTPDigestAuth('env_lover', DAEMON_PASS)) == 200
+        assert status(18195) == 200
+        assert status(18196) == 200
+
+        payload['method'] = 'get_connections'
+        main = requests.post('http://127.0.0.1:18185/json_rpc', json=payload,
+                             auth=HTTPDigestAuth('env_lover', DAEMON_PASS), timeout=5)
+        assert main.status_code == 200 and 'result' in main.json()
+        restricted = requests.post('http://127.0.0.1:18195/json_rpc', json=payload, timeout=5)
+        assert restricted.status_code != 200 or 'error' in restricted.json()
+
+    def test_restricted_no_login_requires_port(self):
+        monerod = os.path.join(os.environ['FUNCTIONAL_TESTS_DIRECTORY'],
+                               '..', '..', 'bin', 'monerod')
+        with tempfile.TemporaryDirectory() as data_dir:
+            result = subprocess.run([monerod, '--regtest', '--offline', '--non-interactive',
+                                     '--rpc-restricted-no-login', '--rpc-bind-port', '18187',
+                                     '--p2p-bind-port', '18287', '--zmq-rpc-bind-port', '18387',
+                                     '--rpc-ssl', 'disabled', '--data-dir', data_dir],
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                    universal_newlines=True, timeout=30)
+        assert result.returncode != 0
+        assert '--rpc-restricted-no-login requires --rpc-restricted-bind-port' in result.stdout
 
     def test_wallet_login_required(self):
         print('Attempting to connect to wallet server loginless with RPC digest authentication required...')

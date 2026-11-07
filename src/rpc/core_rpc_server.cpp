@@ -109,6 +109,7 @@ namespace cryptonote
   {
     command_line::add_arg(desc, arg_rpc_bind_port);
     command_line::add_arg(desc, arg_rpc_restricted_bind_port);
+    command_line::add_arg(desc, arg_rpc_restricted_no_login);
     command_line::add_arg(desc, arg_restricted_rpc);
     cryptonote::rpc_args::init_options(desc, true);
     command_line::add_arg(desc, arg_rpc_max_connections_per_public_ip);
@@ -137,13 +138,14 @@ namespace cryptonote
       , const bool restricted
       , const std::string& port
       , const std::string& proxy
+      , const bool disable_login
     )
   {
     m_restricted = restricted;
     m_net_server.set_threads_prefix("RPC");
     m_net_server.set_connection_filter(&m_p2p);
 
-    auto rpc_config = cryptonote::rpc_args::process(vm, true);
+    auto rpc_config = cryptonote::rpc_args::process(vm, true, !disable_login);
     if (!rpc_config)
       return false;
 
@@ -3126,6 +3128,12 @@ namespace cryptonote
       "rpc-restricted-bind-port"
     , "Port for restricted RPC server"
     , ""
+    };
+
+  const command_line::arg_descriptor<bool> core_rpc_server::arg_rpc_restricted_no_login = {
+      "rpc-restricted-no-login"
+    , "Do not require --rpc-login on the separate restricted RPC port"
+    , false
     };
 
   const command_line::arg_descriptor<bool> core_rpc_server::arg_restricted_rpc = {
