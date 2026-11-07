@@ -169,6 +169,7 @@ namespace nodetool
           m_notifier(),
           m_our_address(),
           m_peerlist(),
+          m_saved_anchors(),
           m_config{},
           m_proxy_address(),
           m_current_number_of_out_peers(0),
@@ -191,6 +192,7 @@ namespace nodetool
           m_notifier(),
           m_our_address(),
           m_peerlist(),
+          m_saved_anchors(),
           m_config{},
           m_proxy_address(),
           m_current_number_of_out_peers(0),
@@ -212,6 +214,7 @@ namespace nodetool
       cryptonote::levin::notify m_notifier;
       epee::net_utils::network_address m_our_address; // in anonymity networks
       peerlist_manager m_peerlist;
+      std::vector<anchor_peerlist_entry> m_saved_anchors;
       config m_config;
       net::socks::endpoint m_proxy_address;
       std::atomic<unsigned int> m_current_number_of_out_peers;
@@ -359,7 +362,7 @@ namespace nodetool
     bool do_peer_timed_sync(const epee::net_utils::connection_context_base& context, peerid_type peer_id);
     bool update_dns_blocklist();
 
-    bool make_new_connection_from_anchor_peerlist(const std::vector<anchor_peerlist_entry>& anchor_peerlist);
+    bool make_new_connection_from_anchor_peerlist(network_zone& zone);
     bool make_new_connection_from_peerlist(network_zone& zone, bool use_white_list);
     bool connect_and_handshake_with_peer(network_zone& zone, const epee::net_utils::network_address& na, uint64_t last_seen_stamp, PeerType peer_type, bool just_take_peerlist, peerid_type& pi, boost::optional<p2p_connection_context>& con);
     bool try_to_connect_and_handshake_with_new_peer(const epee::net_utils::network_address& na, bool just_take_peerlist = false, uint64_t last_seen_stamp = 0, PeerType peer_type = white, uint64_t first_seen_stamp = 0);
