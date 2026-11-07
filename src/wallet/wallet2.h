@@ -738,6 +738,19 @@ private:
       const std::vector<std::string> &kex_messages,
       const bool force_update_use_with_caution = false);
     /*!
+     * \brief Creates and finalizes an N-of-N multisig wallet in one step, without waiting for the post-KEX verification round
+     *        - Calls make_multisig() with threshold = number of signers, then force-updates the post-KEX verification
+     *          round using only the local signer's post-KEX message.
+     *        - WARNING: This skips the interactive post-KEX round, which acts as a liveness check on other signers. A
+     *          completed wallet does NOT prove that other signers are alive or have completed their accounts. If any other
+     *          signer can't complete their account, then funds sent to the multisig address will be inaccessible.
+     * \param password - wallet password
+     * \param initial_kex_msgs - first round KEX msgs from all signers (including the local signer)
+     * \return post-KEX verification message (other signers that do the normal setup can use it to finalize their accounts)
+     */
+    std::string multisig_nofn_fast_noninteractive_setup(const epee::wipeable_string &password,
+      const std::vector<std::string> &initial_kex_msgs);
+    /*!
      * \brief Get initial message to start multisig key exchange (before 'make_multisig()' is called)
      * \return string to send to other participants
      */

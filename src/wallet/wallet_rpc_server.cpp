@@ -4620,7 +4620,18 @@ namespace tools
 
     try
     {
-      res.multisig_info = m_wallet->make_multisig(req.password, req.multisig_info, req.threshold);
+      if (req.nofn_fast_noninteractive_setup)
+      {
+        if (req.threshold != req.multisig_info.size())
+        {
+          er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
+          er.message = "N-of-N fast setup requires the threshold to equal the number of signers";
+          return false;
+        }
+        res.multisig_info = m_wallet->multisig_nofn_fast_noninteractive_setup(req.password, req.multisig_info);
+      }
+      else
+        res.multisig_info = m_wallet->make_multisig(req.password, req.multisig_info, req.threshold);
       res.address = m_wallet->get_account().get_public_address_str(m_wallet->nettype());
     }
     catch (const std::exception &e)

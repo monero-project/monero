@@ -814,6 +814,15 @@ struct Wallet
      */
     virtual std::string makeMultisig(const std::vector<std::string>& info, uint32_t threshold) = 0;
     /**
+     * @brief makeMultisigNofNFastNoninteractive - creates and finalizes an N / N multisig wallet in one step, skipping the
+     *        post-KEX verification round
+     *        WARNING: the post-KEX round acts as a liveness check on other signers. Without it, there is no guarantee that
+     *        other signers are alive or have completed their wallets; if any can't, funds sent to the address are inaccessible.
+     * @param info - vector of multisig infos from all participants (including this wallet) obtained with getMultisigInfo call
+     * @return post-KEX verification message (other participants doing the normal setup need it to finalize their wallets)
+     */
+    virtual std::string makeMultisigNofNFastNoninteractive(const std::vector<std::string>& info) = 0;
+    /**
      * @brief exchange_multisig_keys - provides additional key exchange round for arbitrary multisig schemes (like N-1/N, M/N)
      * @param info - base58 encoded key derivations returned by makeMultisig or exchangeMultisigKeys function call
      * @param force_update_use_with_caution - force multisig account to update even if not all signers contribute round messages

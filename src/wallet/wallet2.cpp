@@ -6423,6 +6423,34 @@ std::string wallet2::exchange_multisig_keys(const epee::wipeable_string &passwor
   return multisig_account.get_next_kex_round_msg();
 }
 //----------------------------------------------------------------------------------------------------
+std::string wallet2::multisig_nofn_fast_noninteractive_setup(const epee::wipeable_string &password,
+  const std::vector<std::string> &initial_kex_msgs)
+{
+  // N-of-N: the threshold equals the number of signers (initial KEX msgs include the local signer)
+  const std::uint32_t num_signers{static_cast<std::uint32_t>(initial_kex_msgs.size())};
+  CHECK_AND_ASSERT_THROW_MES(!this->get_multisig_status().multisig_is_active,
+    "N-of-N multisig fast setup: the wallet is already multisig.");
+  CHECK_AND_ASSERT_THROW_MES(num_signers >= 2, "N-of-N multisig fast setup: at least two signers are required.");
+  CHECK_AND_ASSERT_THROW_MES(multisig::multisig_kex_rounds_required(num_signers, num_signers) == 1,
+    "N-of-N multisig fast setup: unexpected number of KEX rounds required.");
+
+  // main KEX round (for N-of-N this completes all main KEX rounds and returns the post-KEX verification message)
+  const std::string post_kex_msg{this->make_multisig(password, initial_kex_msgs, num_signers)};
+
+  const multisig::multisig_account_status ms_status{this->get_multisig_status()};
+  CHECK_AND_ASSERT_THROW_MES(ms_status.multisig_is_active && !ms_status.is_ready,
+    "N-of-N multisig fast setup: unexpected multisig status after the main KEX round.");
+
+  // force-update the post-KEX verification round with only the local signer's message
+  // - the post-KEX round is not needed to derive the N-of-N address; skipping it only removes the liveness check on
+  //   other signers
+  const std::string final_msg{this->exchange_multisig_keys(password, {post_kex_msg}, true)};
+  CHECK_AND_ASSERT_THROW_MES(this->get_multisig_status().is_ready,
+    "N-of-N multisig fast setup: wallet is not ready after force-updating the post-KEX round.");
+
+  return final_msg;
+}
+//----------------------------------------------------------------------------------------------------
 std::string wallet2::get_multisig_first_kex_msg() const
 {
   // create multisig account
