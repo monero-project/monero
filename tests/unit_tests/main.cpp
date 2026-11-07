@@ -42,6 +42,7 @@
 #include "string_tools.h"
 #include "common/command_line.h"
 #include "common/util.h"
+#include "tests_common/fcmp_pp_helpers.h"
 #include "unit_tests_utils.h"
 
 namespace po = boost::program_options;
@@ -82,6 +83,7 @@ int main(int argc, char** argv)
 
   // set the test data directory
   unit_test::data_dir = command_line::get_arg(vm, arg_data_dir).c_str();
+  tests_common::data_dir = unit_test::data_dir;
 
   // set the log level
   if (!command_line::is_arg_defaulted(vm, arg_log_level))

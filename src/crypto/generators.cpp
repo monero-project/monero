@@ -69,15 +69,15 @@ constexpr public_key G = bytes_to<public_key>({ 0x58, 0x66, 0x66, 0x66, 0x66, 0x
 constexpr public_key H = bytes_to<public_key>({ 0x8b, 0x65, 0x59, 0x70, 0x15, 0x37, 0x99, 0xaf, 0x2a, 0xea, 0xdc, 0x9f, 0xf1,
     0xad, 0xd0, 0xea, 0x6c, 0x72, 0x51, 0xd5, 0x41, 0x54, 0xcf, 0xa9, 0x2c, 0x17, 0x3a, 0x0d, 0xd3, 0x9c, 0x1f, 0x94 });
 //FCMP++ generator T: unbiased_hash_to_ec(Keccak256("Monero Generator T"))
-//Source: https://github.com/monero-oxide/monero-oxide/blob/31c26d96eaadbba910ffe3613ad8b4cf9c598a93/monero-oxide/ed25519/src/compressed_point.rs#L74-L79
+//Source: https://github.com/monero-oxide/monero-oxide/blob/77788c368145127f2dde2ac3e2ddce919f3ddd01/monero-oxide/ed25519/src/compressed_point.rs#L74-L79
 constexpr public_key T = bytes_to<public_key>({ 220, 66, 225, 211, 48, 123, 45, 75, 59, 2, 114, 154, 190, 87, 126, 35,
     29, 121, 71, 129, 65, 203, 91, 49, 12, 169, 250, 110, 18, 118, 22, 163});
 //FCMP++ generator U: unbiased_hash_to_ec(Keccak256("Monero FCMP++ Generator U"))
-//Source: https://github.com/monero-oxide/monero-oxide/blob/31c26d96eaadbba910ffe3613ad8b4cf9c598a93/monero-oxide/ringct/fcmp%2B%2B/generators/src/lib.rs#L16-L24
+//Source: https://github.com/monero-oxide/monero-oxide/blob/77788c368145127f2dde2ac3e2ddce919f3ddd01/monero-oxide/ringct/fcmp%2B%2B/generators/src/lib.rs#L16-L24
 constexpr public_key U = bytes_to<public_key>({ 138, 148, 142, 40, 84, 7, 58, 160, 188, 184, 47, 134, 60, 128, 134, 91,
     92, 201, 190, 23, 151, 35, 252, 28, 191, 28, 37, 184, 133, 89, 126, 84});
 //FCMP++ generator V: unbiased_hash_to_ec(Keccak256("Monero FCMP++ Generator V"))
-//Source: https://github.com/monero-oxide/monero-oxide/blob/31c26d96eaadbba910ffe3613ad8b4cf9c598a93/monero-oxide/ringct/fcmp%2B%2B/generators/src/lib.rs#L26-L34
+//Source: https://github.com/monero-oxide/monero-oxide/blob/77788c368145127f2dde2ac3e2ddce919f3ddd01/monero-oxide/ringct/fcmp%2B%2B/generators/src/lib.rs#L26-L34
 constexpr public_key V = bytes_to<public_key>({26, 66, 53, 9, 247, 103, 94, 145, 32, 17, 209, 75, 86, 16, 168, 87, 221,
     213, 136, 115, 52, 19, 181, 21, 224, 3, 188, 64, 85, 133, 91, 241,});
 static ge_p3 G_p3;
