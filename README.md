@@ -161,8 +161,10 @@ The following table summarizes the tools and libraries required to build. A few 
 Install all dependencies at once on Debian/Ubuntu:
 
 ```
-sudo apt update && sudo apt install build-essential cmake pkg-config libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler libboost-chrono-dev libboost-date-time-dev libboost-filesystem-dev libboost-locale-dev libboost-program-options-dev libboost-regex-dev libboost-serialization-dev libboost-system-dev libboost-thread-dev python3 ccache doxygen graphviz git curl
+sudo apt update && sudo apt install build-essential cmake pkg-config libssl-dev libzmq3-dev libunbound-dev libsodium-dev libunwind-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler libboost-chrono-dev libboost-date-time-dev libboost-filesystem-dev libboost-locale-dev libboost-program-options-dev libboost-regex-dev libboost-serialization-dev libboost-system-dev libboost-thread-dev python3 ccache doxygen graphviz git curl rustc cargo
 ```
+
+Ensure Rust meets the minimum version in the table above. If your distribution's packages are too old, install a newer toolchain with [rustup](https://rust-lang.github.io/rustup/installation/index.html).
 
 Install all dependencies at once on Arch:
 ```
@@ -321,7 +323,7 @@ Binaries for Windows can be built on Windows using the MinGW toolchain within [M
 * Install dependencies:
 
     ```bash
-    pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-unbound
+    pacman -S mingw-w64-x86_64-toolchain make mingw-w64-x86_64-cmake mingw-w64-x86_64-boost mingw-w64-x86_64-openssl mingw-w64-x86_64-zeromq mingw-w64-x86_64-libsodium mingw-w64-x86_64-hidapi mingw-w64-x86_64-unbound mingw-w64-x86_64-rust
     ```
 
 * Open the MingW shell via `MSYS2 MINGW64` shortcut.
@@ -372,7 +374,7 @@ Monero is also available as a port or package as `monero-cli`.
 
 ### On OpenBSD:
 
-You will need to add a few packages to your system. `pkg_add cmake gmake zeromq libiconv boost libunbound`.
+You will need to add a few packages to your system. `pkg_add cmake gmake zeromq libiconv boost libunbound rust`.
 
 The `doxygen` and `graphviz` packages are optional and require the xbase set. Running the test suite also requires `py3-requests` package.
 
@@ -389,7 +391,7 @@ Then you need to increase the data ulimit size to 2GB and try again: `ulimit -d 
 
 ### On NetBSD:
 
-Check that the dependencies are present: `pkg_info -c libexecinfo boost-headers boost-libs protobuf libusb1 zeromq git-base pkgconf gmake cmake | more`, and install any that are reported missing, using `pkg_add` or from your pkgsrc tree.
+Check that the dependencies are present: `pkg_info -c libexecinfo boost-headers boost-libs protobuf libusb1 zeromq git-base pkgconf gmake cmake rust | more`, and install any that are reported missing, using `pkg_add` or from your pkgsrc tree.
 
 Third-party dependencies are usually under `/usr/pkg/`, but if you have a custom setup, adjust the "/usr/pkg" (below) accordingly.
 
@@ -411,6 +413,8 @@ Then you can run make as usual.
 ### Cross Compiling
 
 You can also cross-compile static binaries on Linux for Windows and macOS with the `depends` system.
+
+Install Rust and Cargo separately, including the standard library for the corresponding Rust target. `depends` does not provide them. With [rustup](https://rust-lang.github.io/rustup/cross-compilation.html), use `rustup target add <rust-target>`, for example `rustup target add x86_64-pc-windows-gnu` for 64-bit Windows.
 
 * `make depends target=x86_64-linux-gnu` for 64-bit linux binaries.
 * `make depends target=x86_64-w64-mingw32` for 64-bit windows binaries.
