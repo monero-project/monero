@@ -27,9 +27,11 @@
 # THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 add_library(tests_common
+  src/fcmp_pp_helpers.cpp
   src/tx_construction_helpers.cpp)
 target_link_libraries(tests_common
   PUBLIC
     cncrypto
-    cryptonote_core)
+    cryptonote_core
+    fcmp_pp)
 target_include_directories(tests_common PUBLIC include)
