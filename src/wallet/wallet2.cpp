@@ -12487,26 +12487,8 @@ std::string wallet2::get_spend_proof(const crypto::hash &txid, const std::string
   THROW_WALLET_EXCEPTION_IF(m_watch_only, error::wallet_internal_error,
     "get_spend_proof requires spend secret key and is not available for a watch-only wallet");
 
-  // fetch tx from daemon
-  COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
-  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
-  req.decode_as_json = false;
-  req.prune = true;
-  COMMAND_RPC_GET_TRANSACTIONS::response res = AUTO_VAL_INIT(res);
-  bool r;
-  {
-    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-    r = epee::net_utils::invoke_http_json("/gettransactions", req, res, *m_http_client, rpc_timeout);
-    THROW_ON_RPC_RESPONSE_ERROR(r, {}, res, "gettransactions", error::wallet_generic_rpc_error, "gettransactions", get_rpc_status(m_trusted_daemon, res.status));
-    THROW_WALLET_EXCEPTION_IF(res.txs.size() != 1, error::wallet_internal_error,
-      "daemon returned wrong response for gettransactions, wrong txs count = " +
-      std::to_string(res.txs.size()) + ", expected 1");
-  }
-
   cryptonote::transaction tx;
-  crypto::hash tx_hash;
-  THROW_WALLET_EXCEPTION_IF(!get_pruned_tx(res.txs[0], tx, tx_hash), error::wallet_internal_error, "Failed to get tx from daemon");
-  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
+  get_tx_for_proof(txid, tx, rpc_timeout);
   THROW_WALLET_EXCEPTION_IF(tx.is_coinbase(), error::wallet_internal_error, "Cannot generate spend proof for a coinbase transaction");
 
   std::vector<std::vector<crypto::signature>> signatures;
@@ -12605,26 +12587,8 @@ bool wallet2::check_spend_proof(const crypto::hash &txid, const std::string &mes
   THROW_WALLET_EXCEPTION_IF(sig_str.size() < header_len || sig_str.substr(0, header_len) != header, error::wallet_internal_error,
     "Signature header check error");
 
-  // fetch tx from daemon
-  COMMAND_RPC_GET_TRANSACTIONS::request req = AUTO_VAL_INIT(req);
-  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
-  req.decode_as_json = false;
-  req.prune = true;
-  COMMAND_RPC_GET_TRANSACTIONS::response res = AUTO_VAL_INIT(res);
-  bool r;
-  {
-    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-    r = epee::net_utils::invoke_http_json("/gettransactions", req, res, *m_http_client, rpc_timeout);
-    THROW_ON_RPC_RESPONSE_ERROR(r, {}, res, "gettransactions", error::wallet_generic_rpc_error, "gettransactions", get_rpc_status(m_trusted_daemon, res.status));
-    THROW_WALLET_EXCEPTION_IF(res.txs.size() != 1, error::wallet_internal_error,
-      "daemon returned wrong response for gettransactions, wrong txs count = " +
-      std::to_string(res.txs.size()) + ", expected 1");
-  }
-
   cryptonote::transaction tx;
-  crypto::hash tx_hash;
-  THROW_WALLET_EXCEPTION_IF(!get_pruned_tx(res.txs[0], tx, tx_hash), error::wallet_internal_error, "failed to get tx from daemon");
-  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
+  get_tx_for_proof(txid, tx, rpc_timeout);
 
   // check signature size
   size_t num_sigs = 0;
@@ -12844,7 +12808,7 @@ bool wallet2::is_out_to_acc(const cryptonote::account_public_address &address, c
   return found;
 }
 
-COMMAND_RPC_GET_TRANSACTIONS::entry wallet2::get_tx_for_proof(const crypto::hash &txid, cryptonote::transaction &tx)
+COMMAND_RPC_GET_TRANSACTIONS::entry wallet2::get_tx_for_proof(const crypto::hash &txid, cryptonote::transaction &tx, std::chrono::milliseconds timeout)
 {
   COMMAND_RPC_GET_TRANSACTIONS::request req;
   req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
@@ -12857,8 +12821,10 @@ COMMAND_RPC_GET_TRANSACTIONS::entry wallet2::get_tx_for_proof(const crypto::hash
     bool ok;
     {
       const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-      ok = net_utils::invoke_http_json("/gettransactions", req, res, *m_http_client);
-      THROW_WALLET_EXCEPTION_IF(!ok || res.txs.size() != 1,
+      ok = net_utils::invoke_http_json("/gettransactions", req, res, *m_http_client, timeout);
+      THROW_ON_RPC_RESPONSE_ERROR(ok, {}, res, "gettransactions", error::wallet_generic_rpc_error,
+        "gettransactions", get_rpc_status(m_trusted_daemon, res.status));
+      THROW_WALLET_EXCEPTION_IF(res.txs.size() != 1,
         error::wallet_internal_error, "Failed to get transaction from daemon");
     }
 
