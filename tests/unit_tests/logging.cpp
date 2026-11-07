@@ -36,6 +36,7 @@
 #include "gtest/gtest.h"
 #include "file_io_utils.h"
 #include "misc_log_ex.h"
+#include "common/scoped_message_writer.h"
 
 static std::string log_filename;
 
@@ -121,6 +122,25 @@ TEST(logging, default)
   ASSERT_TRUE(str.find("error") != std::string::npos);
   ASSERT_TRUE(str.find("debug") == std::string::npos);
   ASSERT_TRUE(str.find("trace") == std::string::npos);
+  cleanup();
+}
+
+TEST(logging, unlogged_message_writer)
+{
+  init();
+  mlog_set_categories("msgwriter:INFO");
+
+  testing::internal::CaptureStdout();
+  tools::success_msg_writer(false) << "ordinary message marker";
+  tools::unlogged_success_msg_writer(false) << "unlogged message marker";
+  const std::string output = testing::internal::GetCapturedStdout();
+
+  std::string str;
+  ASSERT_TRUE(load_log_to_string(log_filename, str));
+  EXPECT_NE(std::string::npos, output.find("ordinary message marker"));
+  EXPECT_NE(std::string::npos, output.find("unlogged message marker"));
+  EXPECT_NE(std::string::npos, str.find("ordinary message marker"));
+  EXPECT_EQ(std::string::npos, str.find("unlogged message marker"));
   cleanup();
 }
 

@@ -1202,7 +1202,7 @@ bool simple_wallet::prepare_multisig_main(const std::vector<std::string> &args, 
   SCOPED_WALLET_UNLOCK_ON_BAD_PASSWORD(return false;);
 
   std::string multisig_info = m_wallet->get_multisig_first_kex_msg();
-  success_msg_writer() << multisig_info;
+  tools::unlogged_success_msg_writer(false) << multisig_info;
   success_msg_writer() << tr("Send this multisig info to all other participants, then use make_multisig <threshold> <info1> [<info2>...] with others' multisig info");
   success_msg_writer() << tr("This includes the PRIVATE view key, so needs to be disclosed only to that multisig wallet's participants ");
 
@@ -8085,7 +8085,7 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
   if (found_tx_key)
   {
     std::string stream = get_tx_key_stream(tx_key, additional_tx_keys);
-    success_msg_writer() << tr("Tx key: ") << stream;
+    tools::unlogged_success_msg_writer(false) << tr("Tx key: ") << stream;
     return true;
   }
   else
@@ -10896,7 +10896,10 @@ void simple_wallet::list_signers(const std::vector<mms::authorized_signer> &sign
     }
     std::string transport_address = signer.transport_address.empty() ? tr("<not set>") : signer.transport_address;
     message_writer() << boost::format("%2s %-20s %-s") % (i + 1) % label % transport_address;
-    message_writer() << boost::format("%2s %-20s %-s") % "" % signer.auto_config_token % monero_address;
+    {
+      auto writer = signer.auto_config_token.empty() ? message_writer() : tools::unlogged_success_msg_writer(false);
+      writer << boost::format("%2s %-20s %-s") % "" % signer.auto_config_token % monero_address;
+    }
     message_writer() << "";
   }
 }
@@ -10951,7 +10954,10 @@ void simple_wallet::show_message(const mms::message &m)
   }
   message_writer() << tr("Authorized signer: ") << ms.signer_to_string(signer, 100);
   message_writer() << tr("Content size: ") << m.content.length() << tr(" bytes");
-  message_writer() << tr("Content: ") << (display_content ? sanitized_text : tr("(binary data)"));
+  if (m.type == mms::message_type::key_set)
+    tools::unlogged_success_msg_writer(false) << tr("Content: ") << sanitized_text;
+  else
+    message_writer() << tr("Content: ") << (display_content ? sanitized_text : tr("(binary data)"));
 
   if (m.type == mms::message_type::note)
   {
