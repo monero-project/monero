@@ -37,6 +37,7 @@
 #include <chrono>
 #include <cstring>
 #include <thread>
+#include <unordered_set>
 
 #include "version.h"
 #include "wallet_rpc_server.h"
@@ -759,32 +760,44 @@ namespace tools
     if (!m_wallet) return not_open(er);
     try
     {
-      THROW_WALLET_EXCEPTION_IF(req.account_index >= m_wallet->get_num_subaddress_accounts(), error::account_index_outofbound);
+      const size_t account_count = m_wallet->get_num_subaddress_accounts();
+      THROW_WALLET_EXCEPTION_IF(!req.all_accounts && req.account_index >= account_count, error::account_index_outofbound);
       res.addresses.clear();
-      std::vector<uint32_t> req_address_index;
-      if (req.address_index.empty())
-      {
-        for (uint32_t i = 0; i < m_wallet->get_num_subaddresses(req.account_index); ++i)
-          req_address_index.push_back(i);
-      }
-      else
-      {
-        req_address_index = req.address_index;
-      }
       tools::wallet2::transfer_container transfers;
       m_wallet->get_transfers(transfers);
-      for (uint32_t i : req_address_index)
+      std::unordered_set<cryptonote::subaddress_index> used_addresses;
+      if (req.all_accounts)
+        for (const auto& td : transfers)
+          used_addresses.insert(td.m_subaddr_index);
+
+      const size_t first_account = req.all_accounts ? 0 : req.account_index;
+      const size_t last_account = req.all_accounts ? account_count : first_account + 1;
+      for (size_t account = first_account; account < last_account; ++account)
       {
-        THROW_WALLET_EXCEPTION_IF(i >= m_wallet->get_num_subaddresses(req.account_index), error::address_index_outofbound);
-        res.addresses.resize(res.addresses.size() + 1);
-        auto& info = res.addresses.back();
-        const cryptonote::subaddress_index index = {req.account_index, i};
-        info.address = m_wallet->get_subaddress_as_str(index);
-        info.label = m_wallet->get_subaddress_label(index);
-        info.address_index = index.minor;
-        info.used = std::find_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) { return td.m_subaddr_index == index; }) != transfers.end();
+        std::vector<uint32_t> address_indices;
+        if (req.all_accounts || req.address_index.empty())
+        {
+          for (uint32_t i = 0; i < m_wallet->get_num_subaddresses(account); ++i)
+            address_indices.push_back(i);
+        }
+        else
+          address_indices = req.address_index;
+
+        for (uint32_t i : address_indices)
+        {
+          THROW_WALLET_EXCEPTION_IF(i >= m_wallet->get_num_subaddresses(account), error::address_index_outofbound);
+          res.addresses.resize(res.addresses.size() + 1);
+          auto& info = res.addresses.back();
+          const cryptonote::subaddress_index index = {static_cast<uint32_t>(account), i};
+          info.address = m_wallet->get_subaddress_as_str(index);
+          info.label = m_wallet->get_subaddress_label(index);
+          info.account_index = index.major;
+          info.address_index = index.minor;
+          info.used = req.all_accounts ? used_addresses.count(index) != 0 :
+            std::find_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) { return td.m_subaddr_index == index; }) != transfers.end();
+        }
       }
-      res.address = m_wallet->get_subaddress_as_str({req.account_index, 0});
+      res.address = m_wallet->get_subaddress_as_str({req.all_accounts ? 0 : req.account_index, 0});
     }
     catch (const std::exception& e)
     {
@@ -2363,7 +2376,7 @@ namespace tools
     {
       if (!filter || available != td.m_spent)
       {
-        if (req.account_index != td.m_subaddr_index.major || (!req.subaddr_indices.empty() && req.subaddr_indices.count(td.m_subaddr_index.minor) == 0))
+        if (!req.all_accounts && (req.account_index != td.m_subaddr_index.major || (!req.subaddr_indices.empty() && req.subaddr_indices.count(td.m_subaddr_index.minor) == 0)))
           continue;
 
         // wallet2::is_transfer_unlocked() needs a daemon connection to work. if it fails, assume locked

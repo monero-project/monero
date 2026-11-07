@@ -1711,5 +1711,18 @@ class TransferTest():
         assert account_0.transfers[0] in all_accounts.transfers
         assert account_1.transfers[0] in all_accounts.transfers
 
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        self.wallet[1].refresh()
+        account_0 = self.wallet[1].incoming_transfers()
+        account_1 = self.wallet[1].incoming_transfers(account_index = 1)
+        all_accounts = self.wallet[1].incoming_transfers(account_index = 99, subaddr_indices = [999], all_accounts = True)
+        def output_key(transfer):
+            return (transfer.tx_hash, transfer.pubkey, transfer.subaddr_index.major, transfer.subaddr_index.minor)
+        assert {output_key(t) for t in all_accounts.transfers} == {output_key(t) for t in account_0.transfers + account_1.transfers}
+        assert any(t.tx_hash == txid and t.subaddr_index.major == 0 for t in all_accounts.transfers)
+        assert any(t.tx_hash == txid and t.subaddr_index.major == 1 for t in all_accounts.transfers)
+        addresses = self.wallet[1].get_address(all_accounts = True).addresses
+        assert all(any(a.account_index == major and a.address_index == 0 and a.used for a in addresses) for major in (0, 1))
+
 if __name__ == '__main__':
     TransferTest().run_test()
