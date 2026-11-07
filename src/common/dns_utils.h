@@ -40,7 +40,7 @@ namespace tools
 constexpr const int DNS_CLASS_IN  = 1;
 constexpr const int DNS_TYPE_A    = 1;
 constexpr const int DNS_TYPE_TXT  = 16;
-constexpr const int DNS_TYPE_AAAA = 8;
+constexpr const int DNS_TYPE_AAAA = 28;
 constexpr const int DNS_TYPE_TLSA = 52;
 
 struct DNSResolverData;

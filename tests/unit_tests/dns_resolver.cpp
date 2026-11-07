@@ -94,8 +94,7 @@ TEST(DNSResolver, DNSSECFailure)
   ASSERT_FALSE(valid);
 }
 
-// It would be great to include an IPv6 test and assume it'll pass, but not every ISP / resolver plays nicely with IPv6;)
-/*TEST(DNSResolver, IPv6Success)
+TEST(DNSResolver, IPv6Success)
 {
   tools::DNSResolver resolver = tools::DNSResolver::create();
 
@@ -103,16 +102,12 @@ TEST(DNSResolver, DNSSECFailure)
 
   auto ips = resolver.get_ipv6("example.com", avail, valid);
 
-  ASSERT_EQ(1, ips.size());
-
-  ASSERT_STREQ("2606:2800:220:6d:26bf:1447:1097:aa7", ips[0].c_str());
+  ASSERT_LE(1, ips.size());
 
   ips = tools::DNSResolver::instance().get_ipv6("example.com", avail, valid);
 
-  ASSERT_EQ(1, ips.size());
-
-  ASSERT_STREQ("2606:2800:220:6d:26bf:1447:1097:aa7", ips[0].c_str());
-}*/
+  ASSERT_LE(1, ips.size());
+}
 
 TEST(DNSResolver, IPv6Failure)
 {
