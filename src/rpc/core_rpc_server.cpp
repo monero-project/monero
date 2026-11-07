@@ -2727,6 +2727,11 @@ namespace cryptonote
       res.status = std::string("unknown command: '") + req.command + "'";
       return true;
     }
+    if (!m_core.is_dns_allowed())
+    {
+      res.status = "DNS update checks are disabled when using --proxy without --proxy-allow-dns-leaks";
+      return true;
+    }
 
     std::string version, hash;
     if (!tools::check_updates(software, buildtag, version, hash))

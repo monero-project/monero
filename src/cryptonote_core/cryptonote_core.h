@@ -439,6 +439,7 @@ namespace cryptonote
       * @param disable whether to disable DNS checkpoints
       */
      void disable_dns_checkpoints(bool disable = true) { m_disable_dns_checkpoints = disable; }
+     bool is_dns_allowed() const { return m_allow_dns; }
 
      /**
       * @copydoc tx_memory_pool::have_tx
@@ -1067,6 +1068,7 @@ namespace cryptonote
 
      std::atomic_flag m_checkpoints_updating; //!< set if checkpoints are currently updating to avoid multiple threads attempting to update at once
      bool m_disable_dns_checkpoints;
+     bool m_allow_dns;
 
      size_t block_sync_size;
      std::uint64_t batch_max_weight;

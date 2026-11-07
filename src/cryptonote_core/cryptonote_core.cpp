@@ -228,6 +228,7 @@ namespace cryptonote
               m_last_dns_checkpoints_update(0),
               m_last_json_checkpoints_update(0),
               m_disable_dns_checkpoints(false),
+              m_allow_dns(true),
               m_update_download(0),
               m_nettype(UNDEFINED),
               m_update_available(false)
@@ -455,6 +456,7 @@ namespace cryptonote
     bool r = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(r, false, "Failed to handle command line");
     m_disable_dns_checkpoints |= not allow_dns;
+    m_allow_dns = allow_dns;
 
     std::string db_sync_mode = command_line::get_arg(vm, cryptonote::arg_db_sync_mode);
     bool db_salvage = command_line::get_arg(vm, cryptonote::arg_db_salvage) != 0;
