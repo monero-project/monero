@@ -53,6 +53,7 @@
 #include "common/util.h"
 #include "misc_log_ex.h"
 #include "scope_guard.h"
+#include "time_helper.h"
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.cn"
@@ -1611,12 +1612,21 @@ namespace cryptonote
                 completion_percent = 99;
               progress_message = " (" + std::to_string(completion_percent) + "%, "
                   + std::to_string(target_blockchain_height - current_blockchain_height) + " left";
+              const time_t top_block_time = m_core.get_blockchain_storage().get_db().get_top_block_timestamp();
+              struct tm top_block_tm = {};
+              char top_block_date[32];
+              epee::misc_utils::get_gmt_time(top_block_time, top_block_tm);
+              if (strftime(top_block_date, sizeof(top_block_date), "%Y-%m-%dT%H:%M:%SZ", &top_block_tm))
+                progress_message += std::string(", date=") + top_block_date;
+              progress_message += ", hf=" + std::to_string(m_core.get_blockchain_storage().get_current_hard_fork_version());
               std::string time_message = get_periodic_sync_estimate(current_blockchain_height, target_blockchain_height);
               if (!time_message.empty())
               {
-                uint64_t total_blocks_to_sync = target_blockchain_height - m_sync_start_height;
-                uint64_t total_blocks_synced = current_blockchain_height - m_sync_start_height;
-                progress_message += ", " + std::to_string(total_blocks_synced * 100 / total_blocks_to_sync) + "% of total synced";
+                uint64_t session_blocks_to_sync = target_blockchain_height - m_sync_start_height;
+                uint64_t session_blocks_synced = current_blockchain_height - m_sync_start_height;
+                uint64_t session_percent = session_blocks_synced * 100 / session_blocks_to_sync;
+                if (session_percent != completion_percent) // e.g. a sync from genesis, where both are the same
+                  progress_message += ", " + std::to_string(session_percent) + "% of this session";
                 progress_message += ", estimated " + time_message + " left";
               }
               progress_message += ")";
