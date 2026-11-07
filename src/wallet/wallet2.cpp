@@ -9610,7 +9610,7 @@ bool wallet2::is_keys_file_locked() const
 {
   if (m_wallet_file.empty())
     return false;
-  return m_keys_file_locker->locked();
+  return m_keys_file_locker && m_keys_file_locker->locked();
 }
 
 bool wallet2::lock_background_keys_file(const std::string &background_keys_file)
