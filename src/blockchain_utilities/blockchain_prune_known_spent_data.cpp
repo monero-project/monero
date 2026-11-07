@@ -229,8 +229,8 @@ int main(int argc, char* argv[])
 
   LOG_PRINT_L0("Pruning known spent data...");
 
-  bool stop_requested = false;
-  tools::signal_handler::install([&stop_requested](int type) {
+  std::atomic<bool> stop_requested{false};
+  const auto signal_registration = tools::signal_handler::install([&stop_requested](int type) {
     stop_requested = true;
   });
 
