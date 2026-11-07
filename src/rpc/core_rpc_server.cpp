@@ -2776,6 +2776,13 @@ namespace cryptonote
     crypto::hash file_hash;
     if (!tools::sha256sum(path.string(), file_hash) || (hash != epee::string_tools::pod_to_hex(file_hash)))
     {
+      if (boost::filesystem::exists(boost::filesystem::symlink_status(path)))
+      {
+        MERROR("Refusing to overwrite existing update destination " << path);
+        res.status = "Update destination already exists and is not the expected update";
+        return true;
+      }
+
       MDEBUG("We don't have that file already, downloading");
       if (!tools::download(path.string(), res.auto_uri))
       {
