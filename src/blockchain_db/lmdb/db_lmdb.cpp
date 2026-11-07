@@ -327,6 +327,7 @@ typedef struct outtx {
 } outtx;
 
 std::atomic<uint64_t> mdb_txn_safe::num_active_txns{0};
+thread_local uint64_t mdb_txn_safe::num_active_txns_per_thread = 0;
 std::atomic_flag mdb_txn_safe::creation_gate = ATOMIC_FLAG_INIT;
 
 mdb_threadinfo::~mdb_threadinfo()
@@ -344,9 +345,12 @@ mdb_txn_safe::mdb_txn_safe(const bool check) : m_txn(NULL), m_tinfo(NULL), m_che
 {
   if (check)
   {
-    while (creation_gate.test_and_set());
-    num_active_txns++;
-    creation_gate.clear();
+    const bool nested = num_active_txns_per_thread != 0;
+    if (!nested)
+      while (creation_gate.test_and_set());
+    increment_txns(1);
+    if (!nested)
+      creation_gate.clear();
   }
 }
 
@@ -377,12 +381,12 @@ mdb_txn_safe::~mdb_txn_safe()
     }
     mdb_txn_abort(m_txn);
   }
-  num_active_txns--;
+  increment_txns(-1);
 }
 
 void mdb_txn_safe::uncheck()
 {
-  num_active_txns--;
+  increment_txns(-1);
   m_check = false;
 }
 
@@ -437,7 +441,8 @@ void mdb_txn_safe::allow_new_txns()
 
 void mdb_txn_safe::increment_txns(int i)
 {
-	num_active_txns += i;
+  num_active_txns_per_thread += i;
+  num_active_txns += i;
 }
 
 #define TXN_PREFIX(flags); \
@@ -562,7 +567,9 @@ void BlockchainLMDB::do_resize(uint64_t increase_size)
   if (increase_size > 0)
     new_mapsize = mei.me_mapsize + increase_size;
 
-  new_mapsize += (new_mapsize % mst.ms_psize);
+  const uint64_t remainder = new_mapsize % mst.ms_psize;
+  if (remainder)
+    new_mapsize += mst.ms_psize - remainder;
 
   mdb_txn_safe::prevent_new_txns();
 
@@ -615,18 +622,13 @@ bool BlockchainLMDB::need_resize(uint64_t threshold_size) const
   float resize_percent = RESIZE_PERCENT;
   MDEBUG(boost::format("Percent used: %.04f  Percent threshold: %.04f") % (100.*size_used/mei.me_mapsize) % (100.*resize_percent));
 
-  if (threshold_size > 0)
+  if (threshold_size > 0 && mei.me_mapsize - size_used <= threshold_size)
   {
-    if (mei.me_mapsize - size_used < threshold_size)
-    {
-      MINFO("Threshold met (size-based)");
-      return true;
-    }
-    else
-      return false;
+    MINFO("Threshold met (size-based)");
+    return true;
   }
 
-  if ((double)size_used / mei.me_mapsize  > resize_percent)
+  if ((double)size_used / mei.me_mapsize >= resize_percent)
   {
     MINFO("Threshold met (percent-based)");
     return true;
@@ -641,7 +643,7 @@ void BlockchainLMDB::check_and_resize_for_batch(uint64_t batch_num_blocks, uint6
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   MTRACE("[" << __func__ << "] " << "checking DB size");
-  const uint64_t min_increase_size = 512 * (1 << 20);
+  const uint64_t min_increase_size = 1ULL << 30;
   uint64_t threshold_size = 0;
   uint64_t increase_size = 0;
   if (batch_num_blocks > 0)
@@ -737,7 +739,7 @@ estim:
   MDEBUG("estimated average block size for batch: " << avg_block_size);
 
   // bigger safety margin on smaller block sizes
-  if (batch_fudge_factor < 5000.0)
+  if (!batch_bytes && batch_fudge_factor < 5000.0)
     batch_fudge_factor = 5000.0;
   threshold_size = avg_block_size * db_expand_factor * batch_fudge_factor;
   return threshold_size;
@@ -3237,7 +3239,7 @@ bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_cou
         throw0(DB_ERROR(lmdb_error("Error attempting to retrieve transaction data from the db: ", result).c_str()));
       if (!pruned)
       {
-        result = mdb_cursor_get(m_cur_txs_prunable, &val_tx_id, &v, op);
+        result = mdb_cursor_get(m_cur_txs_prunable, &val_tx_id, &v, MDB_SET);
         if (result)
           throw0(DB_ERROR(lmdb_error("Error attempting to retrieve transaction data from the db: ", result).c_str()));
       }
@@ -3273,7 +3275,7 @@ bool BlockchainLMDB::get_blocks_from(uint64_t start_height, size_t min_block_cou
       else
       {
         // get the prunable data
-        result = mdb_cursor_get(m_cur_txs_prunable, &val_tx_id, &v, op);
+        result = mdb_cursor_get(m_cur_txs_prunable, &val_tx_id, &v, MDB_SET);
         if (result)
           throw0(DB_ERROR(lmdb_error("Error attempting to retrieve transaction data from the db: ", result).c_str()));
         tx_blob.append(reinterpret_cast<const char*>(v.mv_data), v.mv_size);
@@ -3519,9 +3521,11 @@ std::vector<std::vector<uint64_t>> BlockchainLMDB::get_tx_amount_output_indices(
   {
     int result = mdb_cursor_get(m_cur_tx_outputs, &k_tx_id, &v, op);
     if (result == MDB_NOTFOUND)
-      LOG_PRINT_L0("WARNING: Unexpected: tx has no amount indices stored in "
-          "tx_outputs, but it should have an empty entry even if it's a tx without "
-          "outputs");
+    {
+      if (op == MDB_SET)
+        throw0(DB_ERROR(("Unexpected: no tx_outputs entry for tx id " + std::to_string(tx_id) + ", but every tx should have one even if it has no outputs").c_str()));
+      throw1(TX_DNE(("no tx_outputs entry for expected tx id " + std::to_string(tx_id + amount_output_indices_set.size())).c_str()));
+    }
     else if (result)
       throw0(DB_ERROR(lmdb_error("DB error attempting to get data for tx_outputs[tx_index]", result).c_str()));
 

@@ -106,6 +106,7 @@ namespace cryptonote
      , rpc_ssl_allow_chained({"rpc-ssl-allow-chained", rpc_args::tr("Allow user (via --rpc-ssl-certificates) chain certificates"), false})
      , rpc_ssl_allow_any_cert({"rpc-ssl-allow-any-cert", rpc_args::tr("Allow any peer certificate"), false})
      , disable_rpc_ban({"disable-rpc-ban", rpc_args::tr("Do not ban hosts on RPC errors"), false, false})
+     , disable_md5({"disable-md5", rpc_args::tr("Disable MD5 algorithm for HTTP Digest authentication (only SHA-256 will be offered and accepted)"), false})
   {}
 
   const char* rpc_args::tr(const char* str) { return i18n_translate(str, "cryptonote::rpc_args"); }
@@ -129,11 +130,12 @@ namespace cryptonote
     command_line::add_arg(desc, arg.rpc_ssl_allowed_fingerprints);
     command_line::add_arg(desc, arg.rpc_ssl_allow_chained);
     command_line::add_arg(desc, arg.disable_rpc_ban);
+    command_line::add_arg(desc, arg.disable_md5);
     if (any_cert_option)
       command_line::add_arg(desc, arg.rpc_ssl_allow_any_cert);
   }
 
-  boost::optional<rpc_args> rpc_args::process(const boost::program_options::variables_map& vm, const bool any_cert_option)
+  boost::optional<rpc_args> rpc_args::process(const boost::program_options::variables_map& vm, const bool any_cert_option, const bool parse_login)
   {
     const descriptors arg{};
     rpc_args config{};
@@ -145,6 +147,7 @@ namespace cryptonote
     config.use_ipv6 = command_line::get_arg(vm, arg.rpc_use_ipv6);
     config.require_ipv4 = !command_line::get_arg(vm, arg.rpc_ignore_ipv4);
     config.disable_rpc_ban = command_line::get_arg(vm, arg.disable_rpc_ban);
+    config.disable_md5 = command_line::get_arg(vm, arg.disable_md5);
     if (!config.bind_ip.empty())
     {
       // always parse IP here for error consistency
@@ -227,7 +230,7 @@ namespace cryptonote
     const bool has_rpc_arg = command_line::has_arg(vm, arg.rpc_login);
     const bool use_rpc_env = !has_rpc_arg && (env_rpc_login = getenv("RPC_LOGIN")) != nullptr && strlen(env_rpc_login) > 0;
     boost::optional<tools::login> login{};
-    if (has_rpc_arg || use_rpc_env)
+    if (parse_login && (has_rpc_arg || use_rpc_env))
     {
       config.login = tools::login::parse(
           has_rpc_arg ? command_line::get_arg(vm, arg.rpc_login) : std::string(env_rpc_login), true, [](bool verify) {

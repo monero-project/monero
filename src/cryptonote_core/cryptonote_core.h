@@ -69,7 +69,7 @@ namespace cryptonote
   extern const command_line::arg_descriptor<difficulty_type> arg_fixed_difficulty;
   extern const command_line::arg_descriptor<bool> arg_offline;
   extern const command_line::arg_descriptor<size_t> arg_block_download_max_size;
-  extern const command_line::arg_descriptor<size_t> arg_span_limit;
+  extern const command_line::arg_descriptor<size_t> arg_block_sync_queue_time;
   extern const command_line::arg_descriptor<bool> arg_sync_pruned_blocks;
 
   /************************************************************************/
@@ -236,7 +236,7 @@ namespace cryptonote
       * @note see Blockchain::create_block_template
       */
      bool get_block_template(block& b, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash) final;
-     bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+     bool get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t &cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive = true);
 
      /**
       * @copydoc Blockchain::get_miner_data
@@ -453,6 +453,7 @@ namespace cryptonote
       * @param disable whether to disable DNS checkpoints
       */
      void disable_dns_checkpoints(bool disable = true) { m_disable_dns_checkpoints = disable; }
+     bool is_dns_allowed() const { return m_allow_dns; }
 
      /**
       * @copydoc tx_memory_pool::have_tx
@@ -519,19 +520,15 @@ namespace cryptonote
 
      /**
       * @copydoc tx_memory_pool::get_pool_transactions_and_spent_keys_info
-      * @param include_sensitive_txes include private transactions
-      *
       * @note see tx_memory_pool::get_pool_transactions_and_spent_keys_info
       */
-     bool get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_txes = false) const;
+     bool get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const;
 
      /**
       * @copydoc tx_memory_pool::get_pool_for_rpc
-      * @param include_sensitive include node-private fields (timing)
-      *
       * @note see tx_memory_pool::get_pool_for_rpc
       */
-     bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos, bool include_sensitive) const;
+     bool get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const;
 
      /**
       * @copydoc tx_memory_pool::get_transactions_count
@@ -783,6 +780,7 @@ namespace cryptonote
       * @return the number of blocks to sync in one go
       */
      size_t get_block_sync_size(uint64_t height, const uint64_t max_average_of_blocksize_in_queue = 0) const;
+     bool is_block_sync_size_adaptive() const { return block_sync_size == 0; }
 
      /**
       * @brief get the sum of coinbase tx amounts between blocks
@@ -870,6 +868,14 @@ namespace cryptonote
       * @brief checks whether block weights are known for the given range
       */
      bool has_block_weights(uint64_t height, uint64_t nblocks) const;
+
+     /**
+      * @brief checks pruned block weights against prevalidated chain data
+      * @param height the height of the first block
+      * @param blocks consecutive blocks; full blocks are ignored
+      * @return false if a pruned block has a zero, unavailable, or mismatched weight
+      */
+     bool check_block_weights(uint64_t height, const std::vector<block_complete_entry> &blocks) const;
 
      /**
       * @brief flushes the invalid block cache
@@ -1078,6 +1084,7 @@ namespace cryptonote
 
      std::atomic_flag m_checkpoints_updating; //!< set if checkpoints are currently updating to avoid multiple threads attempting to update at once
      bool m_disable_dns_checkpoints;
+     bool m_allow_dns;
 
      size_t block_sync_size;
      std::uint64_t batch_max_weight;

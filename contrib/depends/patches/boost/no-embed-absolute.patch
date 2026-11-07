@@ -1,0 +1,30 @@
+diff --git a/tools/boost_install/boost-install.jam b/tools/boost_install/boost-install.jam
+index 5e6bfa69..6425141f 100644
+--- a/tools/boost_install/boost-install.jam
++++ b/tools/boost_install/boost-install.jam
+@@ -797,25 +797,6 @@ rule make-cmake-config ( target : sources * : properties * )
+         "get_filename_component(_BOOST_CMAKEDIR \"${CMAKE_CURRENT_LIST_DIR}/../\" REALPATH)"
+         : true ;
+ 
+-    if [ path.is-rooted $(cmakedir) ]
+-    {
+-        local cmakedir-native = [ path-native-fwd $(cmakedir) ] ;
+-
+-        print.text
+-
+-            ""
+-            "# If the computed and the original directories are symlink-equivalent, use original"
+-            "if(EXISTS \"$(cmakedir-native)\")"
+-            "  get_filename_component(_BOOST_CMAKEDIR_ORIGINAL \"$(cmakedir-native)\" REALPATH)"
+-            "  if(_BOOST_CMAKEDIR STREQUAL _BOOST_CMAKEDIR_ORIGINAL)"
+-            "    set(_BOOST_CMAKEDIR \"$(cmakedir-native)\")"
+-            "  endif()"
+-            "  unset(_BOOST_CMAKEDIR_ORIGINAL)"
+-            "endif()"
+-            ""
+-            : true ;
+-    }
+-
+     get-dir "_BOOST_INCLUDEDIR" : $(includedir) ;
+ 
+     if $(library-type) = INTERFACE

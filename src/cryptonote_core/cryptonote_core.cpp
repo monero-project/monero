@@ -124,9 +124,9 @@ namespace cryptonote
   , "Set maximum size of block download queue in bytes (0 for default)"
   , 0
   };
-  const command_line::arg_descriptor<size_t> arg_span_limit  = {
-    "span-limit"
-  , "Defines how many minutes of block synchronization data to request at a time (default is 2 minutes)"
+  const command_line::arg_descriptor<size_t> arg_block_sync_queue_time  = {
+    "block-sync-queue-time"
+  , "Target duration of block synchronization data to keep queued, in minutes (default is 2 minutes)"
   , 2
   };
   const command_line::arg_descriptor<bool> arg_sync_pruned_blocks  = {
@@ -228,6 +228,7 @@ namespace cryptonote
               m_last_dns_checkpoints_update(0),
               m_last_json_checkpoints_update(0),
               m_disable_dns_checkpoints(false),
+              m_allow_dns(true),
               m_update_download(0),
               m_nettype(UNDEFINED),
               m_update_available(false)
@@ -326,7 +327,7 @@ namespace cryptonote
     command_line::add_arg(desc, arg_offline);
     command_line::add_arg(desc, arg_disable_dns_checkpoints);
     command_line::add_arg(desc, arg_block_download_max_size);
-    command_line::add_arg(desc, arg_span_limit);
+    command_line::add_arg(desc, arg_block_sync_queue_time);
     command_line::add_arg(desc, arg_sync_pruned_blocks);
     command_line::add_arg(desc, arg_max_txpool_weight);
     command_line::add_arg(desc, arg_block_notify);
@@ -381,6 +382,13 @@ namespace cryptonote
     m_disable_dns_checkpoints = get_arg(vm, arg_disable_dns_checkpoints);
 
     epee::debug::g_test_dbg_lock_sleep() = command_line::get_arg(vm, arg_test_dbg_lock_sleep);
+
+    block_sync_size = command_line::get_arg(vm, arg_block_sync_size);
+    if (block_sync_size > CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT)
+    {
+      MERROR("Error --block-sync-size cannot be greater than " << CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT);
+      return false;
+    }
 
     return true;
   }
@@ -458,6 +466,7 @@ namespace cryptonote
     bool r = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(r, false, "Failed to handle command line");
     m_disable_dns_checkpoints |= not allow_dns;
+    m_allow_dns = allow_dns;
 
     std::string db_sync_mode = command_line::get_arg(vm, cryptonote::arg_db_sync_mode);
     bool db_salvage = command_line::get_arg(vm, cryptonote::arg_db_salvage) != 0;
@@ -691,10 +700,6 @@ namespace cryptonote
     m_blockchain_storage.set_show_time_stats(show_time_stats);
     CHECK_AND_ASSERT_MES(r, false, "Failed to initialize blockchain storage");
 
-    block_sync_size = command_line::get_arg(vm, arg_block_sync_size);
-    if (block_sync_size > BLOCKS_SYNCHRONIZING_MAX_COUNT)
-      MERROR("Error --block-sync-size cannot be greater than " << BLOCKS_SYNCHRONIZING_MAX_COUNT);
-
     if(block_sync_size)
       MWARNING("When --block-sync-size defined, the --batch-max-weight is not going to have any effect.");
 
@@ -794,7 +799,7 @@ namespace cryptonote
 
     transaction tx;
     crypto::hash txid;
-    if (!parse_and_validate_tx_from_blob(tx_blob, tx, txid))
+    if (!parse_and_validate_tx_from_blob(tx_blob, tx, txid, true))
     {
       LOG_PRINT_L1("Incoming transactions failed to parse, rejected");
       tvc.m_verifivation_failed = true;
@@ -951,7 +956,8 @@ namespace cryptonote
              << " bytes and the max average blocksize in the queue is " << max_average_of_blocksize_in_queue << " bytes");
       uint64_t projected_blocksize = std::max(max_average_of_blocksize_in_queue, max_weight);
       uint64_t blocks_huge_threshold = (batch_max_weight / 2);
-      if ((projected_blocksize * BLOCKS_MAX_WINDOW) < batch_max_weight)
+      // batch_max_weight is positive; compare without overflowing the projected batch weight.
+      if (projected_blocksize <= (batch_max_weight - 1) / BLOCKS_MAX_WINDOW)
       {
         res = BLOCKS_MAX_WINDOW;
         MINFO("blocks are tiny, " << projected_blocksize << " bytes, sync " << res << " blocks in next batch");
@@ -1207,7 +1213,7 @@ namespace cryptonote
 
     for (std::size_t i = 0; i < tx_blobs.size(); ++i)
     {
-      if (!parse_and_validate_tx_from_blob(tx_blobs[i], txs[i], tx_hashes[i]))
+      if (!parse_and_validate_tx_from_blob(tx_blobs[i], txs[i], tx_hashes[i], true))
       {
         LOG_ERROR("Failed to parse relayed transaction");
         return;
@@ -1228,9 +1234,9 @@ namespace cryptonote
     return m_blockchain_storage.create_block_template(b, adr, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash)
+  bool core::get_block_template(block& b, const crypto::hash *prev_block, const account_public_address& adr, difficulty_type& diffic, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive)
   {
-    return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash);
+    return m_blockchain_storage.create_block_template(b, prev_block, adr, diffic, height, expected_reward, cumulative_weight, ex_nonce, seed_height, seed_hash, include_sensitive);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_miner_data(uint8_t& major_version, uint64_t& height, crypto::hash& prev_id, crypto::hash& seed_hash, difficulty_type& difficulty, uint64_t& median_weight, uint64_t& already_generated_coins, std::vector<tx_block_template_backlog_entry>& tx_backlog)
@@ -1280,6 +1286,9 @@ namespace cryptonote
   //-----------------------------------------------------------------------------------------------
   block_complete_entry get_block_complete_entry(block& b, tx_memory_pool &pool)
   {
+    const std::unordered_set<crypto::hash> tx_hashes(b.tx_hashes.cbegin(), b.tx_hashes.cend());
+    CHECK_AND_ASSERT_THROW_MES(tx_hashes.size() == b.tx_hashes.size(), "Duplicate transaction hashes in block");
+
     block_complete_entry bce;
     bce.block = cryptonote::block_to_blob(b);
     bce.block_weight = 0; // we can leave it to 0, those txes aren't pruned
@@ -1326,26 +1335,8 @@ namespace cryptonote
     {
       cryptonote_connection_context exclude_context = {};
       NOTIFY_NEW_FLUFFY_BLOCK::request arg{};
-      arg.current_blockchain_height = m_blockchain_storage.get_current_blockchain_height();
-      std::vector<crypto::hash> missed_txs;
-      for (const auto &tx_hash : b.tx_hashes)
-      {
-        if (m_blockchain_storage.have_tx(tx_hash))
-          continue;
-        missed_txs.push_back(tx_hash);
-      }
-      if(missed_txs.size() &&  m_blockchain_storage.get_block_id_by_height(get_block_height(b)) != get_block_hash(b))
-      {
-        LOG_PRINT_L1("Block found but, seems that reorganize just happened after that, do not relay this block");
-        return true;
-      }
-      CHECK_AND_ASSERT_MES(!missed_txs.size(), false, "can't find some transactions in found block:" << get_block_hash(b)
-        << " b.tx_hashes.size()=" << b.tx_hashes.size() << ", missed_txs.size()" << missed_txs.size());
-
+      arg.current_blockchain_height = get_block_height(b) + 1;
       block_to_blob(b, arg.b.block);
-      // Relay an empty fluffy block
-      arg.b.txs.clear();
-
       m_pprotocol->relay_block(arg, exclude_context);
     }
     return true;
@@ -1556,14 +1547,14 @@ namespace cryptonote
     return m_mempool.have_tx(id, relay_category::legacy);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos, bool include_sensitive_data) const
+  bool core::get_pool_transactions_and_spent_keys_info(std::vector<tx_info>& tx_infos, std::vector<spent_key_image_info>& key_image_infos) const
   {
-    return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos, include_sensitive_data);
+    return m_mempool.get_transactions_and_spent_keys_info(tx_infos, key_image_infos);
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos, bool include_sensitive) const
+  bool core::get_pool_for_rpc(std::vector<cryptonote::rpc::tx_in_pool>& tx_infos, cryptonote::rpc::key_images_with_tx_hashes& key_image_infos) const
   {
-    return m_mempool.get_pool_for_rpc(tx_infos, key_image_infos, include_sensitive);
+    return m_mempool.get_pool_for_rpc(tx_infos, key_image_infos);
   }
   //-----------------------------------------------------------------------------------------------
   bool core::get_short_chain_history(std::list<crypto::hash>& ids, uint64_t& current_height) const
@@ -1928,6 +1919,11 @@ namespace cryptonote
   bool core::has_block_weights(uint64_t height, uint64_t nblocks) const
   {
     return get_blockchain_storage().has_block_weights(height, nblocks);
+  }
+  //-----------------------------------------------------------------------------------------------
+  bool core::check_block_weights(uint64_t height, const std::vector<block_complete_entry> &blocks) const
+  {
+    return get_blockchain_storage().check_block_weights(height, blocks);
   }
   //-----------------------------------------------------------------------------------------------
   std::time_t core::get_start_time() const

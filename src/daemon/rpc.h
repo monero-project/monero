@@ -59,12 +59,13 @@ public:
     , const bool restricted
     , const std::string & port
     , const std::string & description
+    , const bool disable_login
     )
     : m_server{core.get(), p2p.get()}, m_description{description}
   {
     MGINFO("Initializing " << m_description << " RPC server...");
 
-    if (!m_server.init(vm, restricted, port, command_line::get_arg(vm, daemon_args::arg_proxy)))
+    if (!m_server.init(vm, restricted, port, command_line::get_arg(vm, daemon_args::arg_proxy), disable_login))
     {
       throw std::runtime_error("Failed to initialize " + m_description + " RPC server.");
     }

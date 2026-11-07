@@ -33,6 +33,7 @@
 #include <chrono>
 #include <cstring>
 #include <stdexcept>
+#include <unordered_set>
 
 #include <boost/uuid/nil_generator.hpp>
 #include <boost/utility/string_ref.hpp>
@@ -281,25 +282,41 @@ namespace rpc
     // if any missing from blockchain, check in tx pool
     if (!missed_vec.empty())
     {
-      std::vector<cryptonote::transaction> pool_txs;
+      std::unordered_set<crypto::hash> missed_set(missed_vec.begin(), missed_vec.end());
+      missed_vec.assign(missed_set.begin(), missed_set.end());
+      std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> pool_details;
 
-      m_core.get_pool_transactions(pool_txs);
+      m_core.get_pool_transactions_info(missed_vec, pool_details, false);
 
-      for (const auto& tx : pool_txs)
+      for (const auto& entry : pool_details)
       {
-        crypto::hash h = get_transaction_hash(tx);
+        const crypto::hash& h = entry.first;
+        const tx_memory_pool::tx_details& details = entry.second;
+        unprunable_summary_t tx_desc;
+        if (!get_transaction_unprunable_summary(details.tx_blob, tx_desc))
+        {
+          MERROR("Failed to parse tx from txpool");
+          continue;
+        }
+        // coinbase txes do not have signatures to prune, so they appear to be pruned if looking just at prunable data being empty
+        const bool pruned = tx_desc.unprunable_size == details.tx_blob.size() && !tx_desc.is_coinbase;
+        cryptonote::transaction tx;
+        if (!(pruned ? parse_and_validate_tx_base_from_blob(details.tx_blob, tx) : parse_and_validate_tx_from_blob(details.tx_blob, tx)))
+        {
+          MERROR("Failed to parse tx from txpool");
+          continue;
+        }
+        tx.set_hash(h);
 
-        auto itr = std::find(missed_vec.begin(), missed_vec.end(), h);
-
-        if (itr != missed_vec.end())
+        if (missed_set.erase(h))
         {
           found_hashes.push_back(h);
-          found_txs_vec.push_back(tx);
+          found_txs_vec.push_back(std::move(tx));
           heights.push_back(std::numeric_limits<uint64_t>::max());
           in_pool.push_back(true);
-          missed_vec.erase(itr);
         }
       }
+      missed_vec.assign(missed_set.begin(), missed_set.end());
     }
 
     for (size_t i=0; i < found_hashes.size(); i++)
@@ -378,7 +395,7 @@ namespace rpc
     std::string tx_blob;
     if(!epee::string_tools::parse_hexstr_to_binbuff(req.tx_as_hex, tx_blob))
     {
-      MERROR("[SendRawTxHex]: Failed to parse tx from hexbuff: " << req.tx_as_hex);
+      MERROR("[SendRawTxHex]: Failed to parse tx from hexbuff, input size: " << req.tx_as_hex.size());
       res.status = Message::STATUS_FAILED;
       res.error_details = "Invalid hex";
       return;
@@ -756,7 +773,7 @@ namespace rpc
 
   void DaemonHandler::handle(const GetTransactionPool::Request& req, GetTransactionPool::Response& res)
   {
-    bool r = m_core.get_pool_for_rpc(res.transactions, res.key_images, !m_restricted);
+    bool r = m_core.get_pool_for_rpc(res.transactions, res.key_images);
 
     if (!r) res.status = Message::STATUS_FAILED;
     else res.status = Message::STATUS_OK;
@@ -831,8 +848,9 @@ namespace rpc
     }
 
     using clock = std::chrono::system_clock;
-    const clock::time_point cutoff{std::chrono::seconds{req.recent_cutoff}};
-    if (m_restricted && clock::now() - cutoff > restricted_histogram_cutoff)
+    const auto now = std::chrono::duration_cast<std::chrono::seconds>(clock::now().time_since_epoch());
+    const std::uint64_t oldest_cutoff = std::chrono::seconds{now - restricted_histogram_cutoff}.count();
+    if (m_restricted && req.recent_cutoff > 0 && req.recent_cutoff < oldest_cutoff)
     {
       res.status = Message::STATUS_FAILED;
       res.error_details = "Recent cutoff is too old";

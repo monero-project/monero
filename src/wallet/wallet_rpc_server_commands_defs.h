@@ -47,7 +47,7 @@
 // advance which version they will stop working with
 // Don't go over 32767 for any of these
 #define WALLET_RPC_VERSION_MAJOR 1
-#define WALLET_RPC_VERSION_MINOR 31
+#define WALLET_RPC_VERSION_MINOR 38
 #define MAKE_WALLET_RPC_VERSION(major,minor) (((major)<<16)|(minor))
 #define WALLET_RPC_VERSION MAKE_WALLET_RPC_VERSION(WALLET_RPC_VERSION_MAJOR, WALLET_RPC_VERSION_MINOR)
 namespace tools
@@ -56,6 +56,48 @@ namespace wallet_rpc
 {
 #define WALLET_RPC_STATUS_OK      "OK"
 #define WALLET_RPC_STATUS_BUSY    "BUSY"
+
+  struct COMMAND_RPC_GET_WALLET_INFO
+  {
+    struct request_t
+    {
+      BEGIN_KV_SERIALIZE_MAP()
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<request_t> request;
+
+    struct response_t
+    {
+      std::string filename;
+      std::string description;
+      std::string address;
+      std::string wallet_type;           // Normal | Multisig | Watch-Only | Background
+      std::string seed_type;             // Legacy | Multisig | Polyseed
+      std::string network_type;
+      std::string daemon_address;
+      std::string daemon_proxy;
+      std::uint64_t wallet_block_height;
+      std::uint64_t daemon_block_height;
+      std::uint32_t daemon_rpc_version;
+      bool daemon_ssl;
+
+      BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE(filename)
+        KV_SERIALIZE(description)
+        KV_SERIALIZE(address)
+        KV_SERIALIZE(wallet_type)
+        KV_SERIALIZE(seed_type)
+        KV_SERIALIZE(network_type)
+        KV_SERIALIZE(daemon_address)
+        KV_SERIALIZE(daemon_proxy)
+        KV_SERIALIZE(wallet_block_height)
+        KV_SERIALIZE(daemon_block_height)
+        KV_SERIALIZE(daemon_rpc_version)
+        KV_SERIALIZE(daemon_ssl)
+      END_KV_SERIALIZE_MAP()
+    };
+    typedef epee::misc_utils::struct_init<response_t> response;
+  };
 
   struct COMMAND_RPC_GET_BALANCE
   {
@@ -126,9 +168,11 @@ namespace wallet_rpc
     {
       uint32_t account_index;
       std::vector<uint32_t> address_index;
+      bool all_accounts;
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(account_index)
         KV_SERIALIZE(address_index)
+        KV_SERIALIZE_OPT(all_accounts, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -137,12 +181,14 @@ namespace wallet_rpc
     {
       std::string address;
       std::string label;
+      uint32_t account_index;
       uint32_t address_index;
       bool used;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(address)
         KV_SERIALIZE(label)
+        KV_SERIALIZE(account_index)
         KV_SERIALIZE(address_index)
         KV_SERIALIZE(used)
       END_KV_SERIALIZE_MAP()
@@ -736,6 +782,7 @@ namespace wallet_rpc
       uint64_t change_amount;
       std::string change_address;
       uint64_t fee;
+      uint64_t weight;
       uint32_t dummy_outputs;
       std::string extra;
 
@@ -750,6 +797,7 @@ namespace wallet_rpc
         KV_SERIALIZE(change_amount)
         KV_SERIALIZE(change_address)
         KV_SERIALIZE(fee)
+        KV_SERIALIZE_OPT(weight, (uint64_t)0)
         KV_SERIALIZE(dummy_outputs)
         KV_SERIALIZE(extra)
       END_KV_SERIALIZE_MAP()
@@ -1100,11 +1148,13 @@ namespace wallet_rpc
       std::string transfer_type;
       uint32_t account_index;
       std::set<uint32_t> subaddr_indices;
+      bool all_accounts;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(transfer_type)
         KV_SERIALIZE(account_index)
         KV_SERIALIZE(subaddr_indices)
+        KV_SERIALIZE_OPT(all_accounts, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -1136,9 +1186,13 @@ namespace wallet_rpc
     struct response_t
     {
       std::string key;
+      uint64_t polyseed_birthday;
+      bool polyseed_is_encrypted;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(key)
+        KV_SERIALIZE(polyseed_birthday)
+        KV_SERIALIZE(polyseed_is_encrypted)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<response_t> response;
@@ -1609,6 +1663,8 @@ namespace wallet_rpc
       bool pending;
       bool failed;
       bool pool;
+      // if pool is requested, false returns the wallet's potentially stale cache without querying the daemon
+      bool refresh_pool;
 
       bool filter_by_height;
       uint64_t min_height;
@@ -1623,6 +1679,7 @@ namespace wallet_rpc
         KV_SERIALIZE(pending)
         KV_SERIALIZE(failed)
         KV_SERIALIZE(pool)
+        KV_SERIALIZE_OPT(refresh_pool, true)
         KV_SERIALIZE(filter_by_height)
         KV_SERIALIZE(min_height)
         KV_SERIALIZE_OPT(max_height, (uint64_t)CRYPTONOTE_MAX_BLOCK_NUMBER)
@@ -1658,10 +1715,12 @@ namespace wallet_rpc
     {
       std::string txid;
       uint32_t account_index;
+      bool all_accounts;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(txid)
         KV_SERIALIZE_OPT(account_index, (uint32_t)0)
+        KV_SERIALIZE_OPT(all_accounts, false)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2165,7 +2224,12 @@ namespace wallet_rpc
   {
     struct request_t
     {
+      bool polyseed;
+
       BEGIN_KV_SERIALIZE_MAP()
+        KV_SERIALIZE_OPT(polyseed, true)
+        // The "aggressive" / forward looking default of true instead of conservative false is deliberate,
+        // callers who still want legacy languages have to adapt
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;
@@ -2190,11 +2254,13 @@ namespace wallet_rpc
       std::string filename;
       std::string password;
       std::string language;
+      bool polyseed;
 
       BEGIN_KV_SERIALIZE_MAP()
         KV_SERIALIZE(filename)
         KV_SERIALIZE(password)
         KV_SERIALIZE(language)
+        KV_SERIALIZE_OPT(polyseed, true)
       END_KV_SERIALIZE_MAP()
     };
     typedef epee::misc_utils::struct_init<request_t> request;

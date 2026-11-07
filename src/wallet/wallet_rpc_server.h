@@ -59,6 +59,7 @@ namespace tools
 
     bool init(const boost::program_options::variables_map *vm);
     bool run();
+    void stop_refresh();
     void stop();
     void set_wallet(wallet2 *cr);
 
@@ -68,6 +69,7 @@ namespace tools
 
     BEGIN_URI_MAP2()
       BEGIN_JSON_RPC_MAP("/json_rpc")
+        MAP_JON_RPC_WE("get_wallet_info",    on_get_wallet_info,    wallet_rpc::COMMAND_RPC_GET_WALLET_INFO)
         MAP_JON_RPC_WE("get_balance",        on_getbalance,         wallet_rpc::COMMAND_RPC_GET_BALANCE)
         MAP_JON_RPC_WE("get_address",        on_getaddress,         wallet_rpc::COMMAND_RPC_GET_ADDRESS)
         MAP_JON_RPC_WE("get_address_index",  on_getaddress_index,   wallet_rpc::COMMAND_RPC_GET_ADDRESS_INDEX)
@@ -169,6 +171,7 @@ namespace tools
     END_URI_MAP2()
 
       //json_rpc
+      bool on_get_wallet_info(const wallet_rpc::COMMAND_RPC_GET_WALLET_INFO::request& req, wallet_rpc::COMMAND_RPC_GET_WALLET_INFO::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_getbalance(const wallet_rpc::COMMAND_RPC_GET_BALANCE::request& req, wallet_rpc::COMMAND_RPC_GET_BALANCE::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_getaddress(const wallet_rpc::COMMAND_RPC_GET_ADDRESS::request& req, wallet_rpc::COMMAND_RPC_GET_ADDRESS::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
       bool on_getaddress_index(const wallet_rpc::COMMAND_RPC_GET_ADDRESS_INDEX::request& req, wallet_rpc::COMMAND_RPC_GET_ADDRESS_INDEX::response& res, epee::json_rpc::error& er, const connection_context *ctx = NULL);
@@ -283,9 +286,14 @@ namespace tools
       void check_background_mining();
 
       wallet2 *m_wallet;
+      // set_daemon settings reused for wallets opened/created later
+      boost::optional<wallet2::daemon_config> m_pending_daemon;
       std::string m_wallet_dir;
       tools::private_file rpc_login_file;
       std::atomic<bool> m_stop;
+      std::atomic<bool> m_teardown;
+      std::atomic<unsigned> m_stop_refresh_active;
+      std::atomic<bool> m_wallet_swap_active;
       bool m_restricted;
       const boost::program_options::variables_map *m_vm;
       std::atomic<uint32_t> m_auto_refresh_period;

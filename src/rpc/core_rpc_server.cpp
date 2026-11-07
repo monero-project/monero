@@ -143,7 +143,7 @@ namespace
   {
     store_128(difficulty, sdiff, swdiff, stop64);
   }
-}
+} //anonymous namespace
 
 namespace cryptonote
 {
@@ -153,6 +153,7 @@ namespace cryptonote
   {
     command_line::add_arg(desc, arg_rpc_bind_port);
     command_line::add_arg(desc, arg_rpc_restricted_bind_port);
+    command_line::add_arg(desc, arg_rpc_restricted_no_login);
     command_line::add_arg(desc, arg_restricted_rpc);
     cryptonote::rpc_args::init_options(desc, true);
     command_line::add_arg(desc, arg_rpc_max_connections_per_public_ip);
@@ -179,13 +180,14 @@ namespace cryptonote
       , const bool restricted
       , const std::string& port
       , const std::string& proxy
+      , const bool disable_login
     )
   {
     m_restricted = restricted;
     m_net_server.set_threads_prefix("RPC");
     m_net_server.set_connection_filter(&m_p2p);
 
-    auto rpc_config = cryptonote::rpc_args::process(vm, true);
+    auto rpc_config = cryptonote::rpc_args::process(vm, true, !disable_login);
     if (!rpc_config)
       return false;
 
@@ -278,7 +280,8 @@ namespace cryptonote
       std::move(bind_ipv6_str), std::move(rpc_config->use_ipv6), std::move(rpc_config->require_ipv4),
       std::move(rpc_config->access_control_origins), std::move(http_login), std::move(rpc_config->ssl_options),
       max_connections_public, max_connections_private, max_connections,
-      command_line::get_arg(vm, arg_rpc_response_soft_limit)
+      command_line::get_arg(vm, arg_rpc_response_soft_limit),
+      rpc_config->disable_md5
     );
 
     m_net_server.get_config_object().m_max_content_length = MAX_RPC_CONTENT_LENGTH;
@@ -362,7 +365,7 @@ namespace cryptonote
     res.mainnet = net_type == MAINNET;
     res.testnet = net_type == TESTNET;
     res.stagenet = net_type == STAGENET;
-    res.nettype = net_type == MAINNET ? "mainnet" : net_type == TESTNET ? "testnet" : net_type == STAGENET ? "stagenet" : "fakechain";
+    res.nettype = get_network_type_name(net_type);
     store_difficulty(m_core.get_blockchain_storage().get_db().get_block_cumulative_difficulty(res.height - 1),
         res.cumulative_difficulty, res.wide_cumulative_difficulty, res.cumulative_difficulty_top64);
     res.block_size_limit = res.block_weight_limit = m_core.get_blockchain_storage().get_current_cumulative_block_weight_limit();
@@ -477,16 +480,6 @@ namespace cryptonote
     return true;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  class pruned_transaction {
-    transaction& tx;
-  public:
-    pruned_transaction(transaction& tx) : tx(tx) {}
-    BEGIN_SERIALIZE_OBJECT()
-      bool r = tx.serialize_base(ar);
-      if (!r) return false;
-    END_SERIALIZE()
-  };
-  //------------------------------------------------------------------------------------------------------------------------------
   bool core_rpc_server::on_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res, const connection_context *ctx)
   {
     RPC_TRACKER(get_blocks);
@@ -549,23 +542,19 @@ namespace cryptonote
       }
 
       res.added_pool_txs.clear();
-      for (const auto &added_pool_tx: added_pool_txs)
+      res.added_pool_txs.reserve(added_pool_txs.size());
+      for (auto &added_pool_tx: added_pool_txs)
       {
-        COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info info;
+        COMMAND_RPC_GET_BLOCKS_FAST::pool_tx_info &info = res.added_pool_txs.emplace_back();
         info.tx_hash = added_pool_tx.first;
-        std::stringstream oss;
-        binary_archive<true> ar(oss);
-        bool r = req.prune
-          ? const_cast<cryptonote::transaction&>(added_pool_tx.second.tx).serialize_base(ar)
-          : ::serialization::serialize(ar, const_cast<cryptonote::transaction&>(added_pool_tx.second.tx));
-        if (!r)
+        tx_memory_pool::tx_details &tx_details = added_pool_tx.second;
+        info.tx_blob = std::move(tx_details.tx_blob);
+        if (req.prune && !prune_transaction_blob(info.tx_blob))
         {
-          res.status = "Failed to serialize transaction";
+          res.status = "Failed to prune pool transaction";
           return true;
         }
-        info.tx_blob = oss.str();
-        info.double_spend_seen = added_pool_tx.second.double_spend_seen;
-        res.added_pool_txs.push_back(std::move(info));
+        info.double_spend_seen = tx_details.double_spend_seen;
       }
 
       res.pool_info_extent = incremental
@@ -741,7 +730,6 @@ namespace cryptonote
     RPC_TRACKER(get_transactions);
 
     const bool restricted = m_restricted && ctx;
-    const bool request_has_rpc_origin = ctx != NULL;
 
     if (restricted && req.txs_hashes.size() > RESTRICTED_TRANSACTIONS_COUNT)
     {
@@ -775,61 +763,97 @@ namespace cryptonote
     }
     LOG_PRINT_L2("Found " << txs.size() << "/" << vh.size() << " transactions on the blockchain");
 
-    // try the pool for any missing txes
-    size_t found_in_pool = 0;
-    std::unordered_set<crypto::hash> pool_tx_hashes;
+    /**
+     * @brief maps TXID -> mempol tx details
+     * @note: `per_tx_pool_tx_details` *will* be missing blobs
+     */
     std::unordered_map<crypto::hash, tx_memory_pool::tx_details> per_tx_pool_tx_details;
+
+    // try the pool for any missing txes
     if (!missed_txs.empty())
     {
       std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>> pool_txs;
-      bool r = m_core.get_pool_transactions_info(missed_txs, pool_txs, !request_has_rpc_origin || !restricted);
+      bool r = m_core.get_pool_transactions_info(missed_txs, pool_txs, !restricted);
       if(r)
       {
-        // sort to match original request
+        // merge blockchain and pool txs into original request order
         std::vector<std::tuple<crypto::hash, cryptonote::blobdata, crypto::hash, cryptonote::blobdata>> sorted_txs;
-        std::vector<std::pair<crypto::hash, tx_memory_pool::tx_details>>::const_iterator i;
+        sorted_txs.reserve(txs.size() + pool_txs.size());
         unsigned txs_processed = 0;
+        unsigned pool_txs_processed = 0;
+        unsigned missed_txs_counted = 0;
         for (const crypto::hash &h: vh)
         {
-          if (std::find(missed_txs.begin(), missed_txs.end(), h) == missed_txs.end())
+          // The below logic assumes that both blockchain and mempool responses are returned in the
+          // same order that they requested, minus txs which were missed. Also, `missed_txs` at this
+          // point is a superset of `pool_txs`
+          if (txs_processed < txs.size() && std::get<0>(txs[txs_processed]) == h)
           {
-            if (txs.size() == txs_processed)
-            {
-              res.status = "Failed: internal error - txs is empty";
-              return true;
-            }
-            // core returns the ones it finds in the right order
-            if (std::get<0>(txs[txs_processed]) != h)
-            {
-              res.status = "Failed: tx hash mismatch";
-              return true;
-            }
             sorted_txs.push_back(std::move(txs[txs_processed]));
             ++txs_processed;
           }
-          else if ((i = std::find_if(pool_txs.begin(), pool_txs.end(), [h](const std::pair<crypto::hash, tx_memory_pool::tx_details> &pt) { return h == pt.first; })) != pool_txs.end())
+          else if (pool_txs_processed < pool_txs.size() && pool_txs[pool_txs_processed].first == h)
           {
-            const tx_memory_pool::tx_details &td = i->second;
-            std::stringstream ss;
-            binary_archive<true> ba(ss);
-            bool r = const_cast<cryptonote::transaction&>(td.tx).serialize_base(ba);
-            if (!r)
+            tx_memory_pool::tx_details &td = pool_txs[pool_txs_processed].second;
+
+            // split pruned/prunable tx blobs
+            blobdata pruned_tx_blob = td.tx_blob;
+            blobdata &prunable_tx_blob = td.tx_blob;
+            if (!prune_transaction_blob(pruned_tx_blob))
             {
-              res.status = "Failed to serialize transaction base";
+              res.status = "Failed to prune transaction blob";
               return true;
             }
-            const cryptonote::blobdata pruned = ss.str();
-            const crypto::hash prunable_hash = td.tx.version == 1 ? crypto::null_hash : get_transaction_prunable_hash(td.tx);
-            sorted_txs.push_back(std::make_tuple(h, pruned, prunable_hash, std::string(td.tx_blob, pruned.size())));
-            missed_txs.erase(std::find(missed_txs.begin(), missed_txs.end(), h));
-            pool_tx_hashes.insert(h);
-            per_tx_pool_tx_details.insert(std::make_pair(h, td));
-            ++found_in_pool;
+            assert(pruned_tx_blob.size() <= prunable_tx_blob.size());
+            prunable_tx_blob.erase(prunable_tx_blob.cbegin(), prunable_tx_blob.cbegin() + pruned_tx_blob.size());
+
+            // Use the cached prunable hash if available, otherwise, fall back to calculating it here
+            crypto::hash prunable_hash = crypto::null_hash;
+            if (td.prunable_hash_valid)
+            {
+              prunable_hash = td.prunable_hash;
+            }
+            else
+            {
+              const std::size_t tx_version = get_tx_version(pruned_tx_blob);
+              if (1 != tx_version && !calculate_transaction_prunable_hash(tx_version, prunable_tx_blob, prunable_hash))
+              {
+                res.status = "Failed to calculate transaction prunable hash";
+                return true;
+              }
+            }
+
+            sorted_txs.emplace_back(h, std::move(pruned_tx_blob), prunable_hash, std::move(prunable_tx_blob));
+            per_tx_pool_tx_details.emplace(h, std::move(td));
+            ++pool_txs_processed;
+            ++missed_txs_counted;
+          }
+          else if (missed_txs_counted < missed_txs.size() && missed_txs[missed_txs_counted] == h)
+          {
+            ++missed_txs_counted;
+          }
+          else
+          {
+            res.status = "Business logic error in on_get_transactions() while trying to merge sorted tx list";
+            return true;
           }
         }
-        txs = sorted_txs;
+        txs = std::move(sorted_txs);
+        LOG_PRINT_L2("Found " << pool_txs_processed << "/" << vh.size() << " transactions in the pool");
+
+        // now erase missed_txs which are present in the mempool response
+        size_t erase_head = 0;
+        for (size_t erase_tail = 0; erase_tail < missed_txs.size(); ++erase_tail)
+        {
+          const bool erase = per_tx_pool_tx_details.count(missed_txs[erase_tail]);
+          if (!erase)
+          {
+            missed_txs[erase_head] = missed_txs[erase_tail];
+            ++erase_head;
+          }
+        }
+        missed_txs.resize(erase_head);
       }
-      LOG_PRINT_L2("Found " << found_in_pool << "/" << vh.size() << " transactions in the pool");
     }
 
     CHECK_AND_ASSERT_MES(txs.size() + missed_txs.size() == vh.size(), false, "mismatched number of txs");
@@ -838,6 +862,10 @@ namespace cryptonote
     auto vhi = vh.cbegin();
     auto missedi = missed_txs.cbegin();
 
+    res.txs.reserve(txs.size());
+    res.txs_as_hex.reserve(txs.size());
+    if (req.decode_as_json)
+      res.txs_as_json.reserve(txs.size());
     for(auto& tx: txs)
     {
       res.txs.push_back(COMMAND_RPC_GET_TRANSACTIONS::entry());
@@ -859,8 +887,8 @@ namespace cryptonote
       bool pruned = std::get<3>(tx).empty();
       if (pruned)
       {
-        cryptonote::transaction t;
-        if (cryptonote::parse_and_validate_tx_base_from_blob(std::get<1>(tx), t) && is_coinbase(t))
+        unprunable_summary_t tx_desc;
+        if (get_transaction_unprunable_summary(std::get<1>(tx), tx_desc) && tx_desc.is_coinbase)
           pruned = false;
       }
 
@@ -880,8 +908,8 @@ namespace cryptonote
             tx_data = std::get<1>(tx);
             if (cryptonote::parse_and_validate_tx_base_from_blob(tx_data, t))
             {
-              pruned_transaction pruned_tx{t};
-              e.as_json = obj_to_json_str(pruned_tx);
+              assert(t.pruned);
+              e.as_json = obj_to_json_str(t);
             }
             else
             {
@@ -924,25 +952,15 @@ namespace cryptonote
           }
         }
       }
-      e.in_pool = pool_tx_hashes.find(tx_hash) != pool_tx_hashes.end();
+      const auto pool_it = per_tx_pool_tx_details.find(tx_hash);
+      e.in_pool = pool_it != per_tx_pool_tx_details.cend();
       if (e.in_pool)
       {
         e.block_height = e.block_timestamp = std::numeric_limits<uint64_t>::max();
         e.confirmations = 0;
-        auto it = per_tx_pool_tx_details.find(tx_hash);
-        if (it != per_tx_pool_tx_details.end())
-        {
-          e.double_spend_seen = it->second.double_spend_seen;
-          e.relayed = it->second.relayed;
-          e.received_timestamp = it->second.receive_time;
-        }
-        else
-        {
-          MERROR("Failed to determine pool info for " << tx_hash);
-          e.double_spend_seen = false;
-          e.relayed = false;
-          e.received_timestamp = 0;
-        }
+        e.double_spend_seen = pool_it->second.double_spend_seen;
+        e.relayed = pool_it->second.relayed;
+        e.received_timestamp = pool_it->second.receive_time;
       }
       else
       {
@@ -960,7 +978,7 @@ namespace cryptonote
         res.txs_as_json.push_back(e.as_json);
 
       // output indices too if not in pool
-      if (pool_tx_hashes.find(tx_hash) == pool_tx_hashes.end())
+      if (!e.in_pool)
       {
         bool r = m_core.get_tx_outputs_gindexs(tx_hash, e.output_indices);
         if (!r)
@@ -971,6 +989,7 @@ namespace cryptonote
       }
     }
 
+    res.missed_tx.reserve(missed_txs.size());
     for(const auto& miss_tx: missed_txs)
     {
       res.missed_tx.push_back(string_tools::pod_to_hex(miss_tx));
@@ -1073,7 +1092,7 @@ namespace cryptonote
     std::string tx_blob;
     if(!string_tools::parse_hexstr_to_binbuff(req.tx_as_hex, tx_blob))
     {
-      LOG_PRINT_L0("[on_send_raw_tx]: Failed to parse tx from hexbuff: " << req.tx_as_hex);
+      LOG_PRINT_L0("[on_send_raw_tx]: Failed to parse tx from hexbuff, input size: " << req.tx_as_hex.size());
       res.status = "Failed";
       res.reason = "Hex decoding failed";
       return true;
@@ -1319,6 +1338,7 @@ namespace cryptonote
 
     COMMAND_RPC_GET_PEER_LIST::request peer_list_req;
     COMMAND_RPC_GET_PEER_LIST::response peer_list_res;
+    peer_list_req.public_only = true;
     peer_list_req.include_blocked = req.include_blocked;
     const bool success = on_get_peer_list(peer_list_req, peer_list_res, ctx);
     res.status = peer_list_res.status;
@@ -1396,14 +1416,10 @@ namespace cryptonote
   {
     RPC_TRACKER(get_transaction_pool);
 
-    const bool restricted = m_restricted && ctx;
-    const bool request_has_rpc_origin = ctx != NULL;
-    const bool allow_sensitive = !request_has_rpc_origin || !restricted;
-
-    size_t n_txes = m_core.get_pool_transactions_count(allow_sensitive);
+    size_t n_txes = m_core.get_pool_transactions_count(true);
     if (n_txes > 0)
     {
-      m_core.get_pool_transactions_and_spent_keys_info(res.transactions, res.spent_key_images, allow_sensitive);
+      m_core.get_pool_transactions_and_spent_keys_info(res.transactions, res.spent_key_images);
       for (tx_info& txi : res.transactions)
         txi.tx_blob = epee::string_tools::buff_to_hex_nodelimer(txi.tx_blob);
     }
@@ -1521,10 +1537,10 @@ namespace cryptonote
     return 0;
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  bool core_rpc_server::get_block_template(const account_public_address &address, const crypto::hash *prev_block, const cryptonote::blobdata &extra_nonce, size_t &reserved_offset, cryptonote::difficulty_type  &difficulty, uint64_t &height, uint64_t &expected_reward, uint64_t& cumulative_weight, block &b, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, epee::json_rpc::error &error_resp)
+  bool core_rpc_server::get_block_template(const account_public_address &address, const crypto::hash *prev_block, const cryptonote::blobdata &extra_nonce, size_t &reserved_offset, cryptonote::difficulty_type  &difficulty, uint64_t &height, uint64_t &expected_reward, uint64_t& cumulative_weight, block &b, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, epee::json_rpc::error &error_resp, bool include_sensitive)
   {
     b = boost::value_initialized<cryptonote::block>();
-    if(!m_core.get_block_template(b, prev_block, address, difficulty, height, expected_reward, cumulative_weight, extra_nonce, seed_height, seed_hash))
+    if(!m_core.get_block_template(b, prev_block, address, difficulty, height, expected_reward, cumulative_weight, extra_nonce, seed_height, seed_hash, include_sensitive))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Internal error: failed to create block template";
@@ -1646,7 +1662,8 @@ namespace cryptonote
       }
     }
     crypto::hash seed_hash, next_seed_hash;
-    if (!get_block_template(info.address, req.prev_block.empty() ? NULL : &prev_block, blob_reserve, reserved_offset, wdiff, res.height, res.expected_reward, res.cumulative_weight, b, res.seed_height, seed_hash, next_seed_hash, error_resp))
+    const bool include_sensitive = !m_restricted || !ctx;
+    if (!get_block_template(info.address, req.prev_block.empty() ? NULL : &prev_block, blob_reserve, reserved_offset, wdiff, res.height, res.expected_reward, res.cumulative_weight, b, res.seed_height, seed_hash, next_seed_hash, error_resp, include_sensitive))
       return false;
     if (b.major_version >= RX_BLOCK_VERSION)
     {
@@ -1944,6 +1961,25 @@ namespace cryptonote
       error_resp.code = CORE_RPC_ERROR_CODE_WRONG_BLOCKBLOB_SIZE;
       error_resp.message = "Block blob size is too big, rejecting block";
       return false;
+    }
+
+    if (m_restricted && ctx)
+    {
+      block parent;
+      if (!m_core.get_block_by_hash(b.prev_id, parent))
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_BLOCK_NOT_ACCEPTED;
+        error_resp.message = "Unknown parent block";
+        return false;
+      }
+      const uint64_t block_height = get_block_height(parent) + 1;
+      const uint64_t chain_height = m_core.get_current_blockchain_height();
+      if (crypto::rx_seedheight(block_height) != crypto::rx_seedheight(chain_height))
+      {
+        error_resp.code = CORE_RPC_ERROR_CODE_BLOCK_NOT_ACCEPTED;
+        error_resp.message = "Block is too old for restricted RPC";
+        return false;
+      }
     }
 
     block_verification_context bvc;
@@ -2564,6 +2600,7 @@ namespace cryptonote
     res.target_height = m_p2p.get_payload_object().is_synchronized() ? 0 : m_core.get_target_blockchain_height();
     for (const auto &hf : m_core.get_blockchain_storage().get_hardforks())
        res.hard_forks.push_back({hf.version, hf.height});
+    res.nettype = get_network_type_name(nettype());
     res.status = CORE_RPC_STATUS_OK;
     return true;
   }
@@ -2723,6 +2760,11 @@ namespace cryptonote
     if (req.command != "check" && req.command != "download" && req.command != "update")
     {
       res.status = std::string("unknown command: '") + req.command + "'";
+      return true;
+    }
+    if (!m_core.is_dns_allowed())
+    {
+      res.status = "DNS update checks are disabled when using --proxy without --proxy-allow-dns-leaks";
       return true;
     }
 
@@ -2895,12 +2937,17 @@ namespace cryptonote
   {
     RPC_TRACKER(get_txpool_backlog);
 
+    const bool restricted = m_restricted && ctx;
     if (!m_core.get_txpool_backlog(res.backlog))
     {
       error_resp.code = CORE_RPC_ERROR_CODE_INTERNAL_ERROR;
       error_resp.message = "Failed to get txpool backlog";
       return false;
     }
+
+    if (restricted)
+      for (tx_backlog_entry& entry : res.backlog)
+        entry.time_in_pool = 0;
 
     res.status = CORE_RPC_STATUS_OK;
     return true;
@@ -3123,6 +3170,12 @@ namespace cryptonote
     , ""
     };
 
+  const command_line::arg_descriptor<bool> core_rpc_server::arg_rpc_restricted_no_login = {
+      "rpc-restricted-no-login"
+    , "Do not require --rpc-login on the separate restricted RPC port"
+    , false
+    };
+
   const command_line::arg_descriptor<bool> core_rpc_server::arg_restricted_rpc = {
       "restricted-rpc"
     , "Restrict RPC to view only commands and do not return privacy sensitive data in RPC calls"
@@ -3131,7 +3184,7 @@ namespace cryptonote
 
   const command_line::arg_descriptor<std::size_t> core_rpc_server::arg_rpc_max_connections_per_public_ip = {
       "rpc-max-connections-per-public-ip"
-    , "Max RPC connections per public IP permitted"
+    , "Max RPC connections permitted per public IPv4 address or shared across a public IPv6 /64 subnet"
     , DEFAULT_RPC_MAX_CONNECTIONS_PER_PUBLIC_IP
   };
 

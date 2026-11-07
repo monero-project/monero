@@ -229,7 +229,6 @@ namespace cryptonote
     /**
      * @brief returns the size of the voting window in blocks
      */
-    uint64_t get_window_size() const { return window_size; }
 
     /**
      * @brief returns info for all known hard forks

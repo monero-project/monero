@@ -461,9 +461,7 @@ TEST(Serialization, serializes_transacion_signatures_correctly)
   tx.invalidate_hashes();
   ASSERT_TRUE(serialization::dump_binary(tx, blob));
   ASSERT_EQ(9, blob.size()); // 5 bytes + 2 * 2 bytes vins + 0 bytes extra + 0 bytes signatures
-  ASSERT_TRUE(serialization::parse_binary(blob, tx1));
-  ASSERT_EQ(tx, tx1);
-  ASSERT_EQ(linearize_vector2(tx.signatures), linearize_vector2(tx1.signatures));
+  ASSERT_FALSE(serialization::parse_binary(blob, tx1));
 
   // Two txin_gen, signatures vector contains only one empty element
   tx.signatures.resize(1);
@@ -475,9 +473,7 @@ TEST(Serialization, serializes_transacion_signatures_correctly)
   tx.invalidate_hashes();
   ASSERT_TRUE(serialization::dump_binary(tx, blob));
   ASSERT_EQ(9, blob.size()); // 5 bytes + 2 * 2 bytes vins + 0 bytes extra + 0 bytes signatures
-  ASSERT_TRUE(serialization::parse_binary(blob, tx1));
-  ASSERT_EQ(tx, tx1);
-  ASSERT_EQ(linearize_vector2(tx.signatures), linearize_vector2(tx1.signatures));
+  ASSERT_FALSE(serialization::parse_binary(blob, tx1));
 
   // Two txin_gen, signatures vector contains three empty elements
   tx.signatures.resize(3);
@@ -1041,6 +1037,41 @@ TEST(Serialization, tuple_3_4_backwards_compatibility)
   Tuple4 t4_recovered;
   EXPECT_TRUE(::serialization::parse_binary(serialized, t4_recovered));
   EXPECT_EQ(t4, t4_recovered);
+}
+
+TEST(Serialization, unsigned_tx_set_transfer_count_versions)
+{
+  for (uint32_t version = 0; version <= 2; ++version)
+  {
+    std::ostringstream oss;
+    binary_archive<true> ar(oss);
+    ar.serialize_varint(version);
+    std::vector<tools::wallet2::tx_construction_data> txes;
+    ASSERT_TRUE(::serialization::serialize(ar, txes));
+    if (version == 0)
+    {
+      std::pair<size_t, tools::wallet2::transfer_container> transfers{3, {}};
+      ASSERT_TRUE(::serialization::serialize(ar, transfers));
+    }
+    else if (version == 1)
+    {
+      std::pair<size_t, std::vector<tools::wallet2::exported_transfer_details>> transfers{3, {}};
+      ASSERT_TRUE(::serialization::serialize(ar, transfers));
+    }
+    else
+    {
+      std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_details>> transfers{3, 3, {}};
+      ASSERT_TRUE(::serialization::serialize(ar, transfers));
+    }
+
+    tools::wallet2::unsigned_tx_set recovered;
+    ASSERT_TRUE(::serialization::parse_binary(oss.str(), recovered));
+    EXPECT_EQ(version == 2, recovered.has_new_transfers_total);
+    if (version == 0)
+      EXPECT_EQ(3, std::get<1>(recovered.transfers));
+    else
+      EXPECT_EQ(3, std::get<1>(recovered.new_transfers));
+  }
 }
 
 struct Tupler

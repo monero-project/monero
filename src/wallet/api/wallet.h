@@ -80,9 +80,16 @@ public:
     bool recoverFromDevice(const std::string &path,
                            const std::string &password,
                            const std::string &device_name);
+    bool createFromPolyseed(const std::string &path,
+                             const std::string &password,
+                             const std::string &seed,
+                             const std::string &passphrase = "",
+                             bool newWallet = true,
+                             uint64_t restoreHeight = 0);
     Device getDeviceType() const override;
     bool close(bool store = true);
     std::string seed(const std::string& seed_offset = "") const override;
+    bool getPolyseed(std::string &seed_words, uint64_t& birthday, bool& is_encrypted) const override;
     std::string getSeedLanguage() const override;
     void setSeedLanguage(const std::string &arg) override;
     // void setListener(Listener *) {}
@@ -211,6 +218,7 @@ public:
     virtual bool checkReserveProof(const std::string &address, const std::string &message, const std::string &signature, bool &good, uint64_t &total, uint64_t &spent) const override;
     virtual std::string signMessage(const std::string &message, const std::string &address) override;
     virtual bool verifySignedMessage(const std::string &message, const std::string &address, const std::string &signature) const override;
+    virtual MessageSignatureResult verifySignedMessageWithDetails(const std::string &message, const std::string &address, const std::string &signature) const override;
     virtual std::string signMultisigParticipant(const std::string &message) const override;
     virtual bool verifyMessageWithPublicKey(const std::string &message, const std::string &publicKey, const std::string &signature) const override;
     virtual void startRefresh() override;

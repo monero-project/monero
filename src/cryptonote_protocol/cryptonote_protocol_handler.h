@@ -55,9 +55,6 @@
 PUSH_WARNINGS
 DISABLE_VS_WARNINGS(4355)
 
-#define CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT 100
-static_assert(CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT >= BLOCKS_SYNCHRONIZING_DEFAULT_COUNT_PRE_V4, "Invalid CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT");
-
 namespace cryptonote
 {
 
@@ -114,14 +111,9 @@ namespace cryptonote
     const block_queue &get_block_queue() const { return m_block_queue; }
     std::uint64_t max_average_of_blocksize_in_queue()
     {
-      std::vector<std::uint64_t> average_blocksize{0};
-      m_block_queue.foreach([&](const cryptonote::block_queue::span &span)
-      {
-        average_blocksize.push_back(span.size / span.nblocks);
-        return true; // we don't care about the return value
-      });
-      MINFO("Maximum average of blocksize for current batches : " << *std::max_element(average_blocksize.begin(), average_blocksize.end()));
-      return *std::max_element(average_blocksize.begin(), average_blocksize.end());
+      const uint64_t max_average = m_block_queue.get_max_block_size_average();
+      MINFO("Maximum average of blocksize for current batches : " << max_average);
+      return max_average;
     }
     void stop();
     void on_connection_close(cryptonote_connection_context &context);
@@ -178,7 +170,7 @@ namespace cryptonote
     size_t skip_unneeded_hashes(cryptonote_connection_context& context, bool check_block_queue) const;
     bool request_txpool_complement(cryptonote_connection_context &context);
     void hit_score(cryptonote_connection_context &context, int32_t score);
-    void calculate_dynamic_span(const double blocks_per_seconds);
+    void calculate_block_queue_limit(double blocks_per_second);
 
     t_core& m_core;
 
@@ -191,6 +183,7 @@ namespace cryptonote
     std::atomic<bool> m_ask_for_txpool_complement;
     boost::mutex m_sync_lock;
     block_queue m_block_queue;
+    boost::mutex m_check_span_queue_mutex;
     epee::math_helper::once_a_time_seconds<8> m_idle_peer_kicker;
     epee::math_helper::once_a_time_milliseconds<100> m_standby_checker;
     epee::math_helper::once_a_time_seconds<101> m_sync_search_checker;
@@ -198,14 +191,13 @@ namespace cryptonote
     std::unordered_map<epee::net_utils::zone, unsigned int> m_max_out_peers;
     mutable epee::critical_section m_max_out_peers_lock;
     tools::PerformanceTimer m_sync_timer, m_add_timer;
-    uint64_t m_last_add_end_time;
-    uint64_t m_sync_spans_downloaded, m_sync_old_spans_downloaded, m_sync_bad_spans_downloaded;
-    uint64_t m_sync_download_chain_size, m_sync_download_objects_size;
+    uint64_t m_last_add_end_time = 0;
+    uint64_t m_sync_spans_downloaded = 0, m_sync_old_spans_downloaded = 0, m_sync_bad_spans_downloaded = 0;
+    uint64_t m_sync_download_chain_size = 0, m_sync_download_objects_size = 0;
     size_t m_block_download_max_size;
     bool m_sync_pruned_blocks;
-    size_t m_span_time;
-    std::atomic<size_t> m_span_limit;
-    std::atomic<size_t> m_bss;
+    size_t m_block_sync_queue_time;
+    std::atomic<uint64_t> m_block_queue_limit;
 
     // Values for sync time estimates
     boost::posix_time::ptime m_sync_start_time;

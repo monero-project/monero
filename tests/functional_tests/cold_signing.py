@@ -37,18 +37,28 @@ import random
 
 SEED = 'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted'
 STANDARD_ADDRESS = '42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm'
+OTHER_ADDRESS = '44Kbx4sJ7JDRDV5aAhLJzQCjDz2ViLRduE3ijDZu3osWKBjMGkV1XPk4pfDUMqt1Aiezvephdqm6YD19GKFD9ZcXVUTp6BW'
 SUBADDRESS = '84QRUYawRNrU3NN1VpFRndSukeyEb3Xpv8qZjjsoJZnTYpDYceuUTpog13D7qPxpviS7J29bSgSkR11hFFoXWk2yNdsR9WF'
+SUBADDRESS2 = '85M4M1RVRcoEeC8sdSxN1ef6GhQYChSfKPWkB4FLKYJiSWuMXXT4Ewv8BHCRzSJB4ZYvXUcFxN4DPcVu6uwoPNRvQ1QwaXB'
 
 class ColdSigningTest():
     def run_test(self):
         self.reset()
         self.create(0)
+        self.empty_export_after_reorg()
         self.mine()
+        self.recover_from_empty_incremental_export()
         for piecemeal_output_export in [False, True]:
             self.transfer(piecemeal_output_export)
         for piecemeal_output_export in [False, True]:
             self.self_transfer_to_subaddress(piecemeal_output_export)
         self.transfer_after_empty_export_import()
+        self.transfer_to_multi_subaddresses()
+        self.sweep()
+        self.failed_output_import_keeps_complete_transfers()
+        self.sign_with_refreshed_full_wallet()
+        self.sign_with_refreshed_full_wallet_behind_watch_only()
+        self.sign_after_reorg_with_empty_output_export()
 
     def reset(self):
         print('Resetting blockchain')
@@ -84,16 +94,65 @@ class ColdSigningTest():
         except: ok = True
         assert ok
         assert self.cold_wallet.query_key("view_key").key == view_key
+        assert self.hot_wallet.query_key("public_view_key").key == self.cold_wallet.query_key("public_view_key").key
+        assert self.cold_wallet.query_key("public_spend_key").key == '1b3bd040020d3712ab84992b773d0a965134eb2df0392fb84af95de8a17be2ab'
+        assert self.hot_wallet.query_key("public_spend_key").key == self.cold_wallet.query_key("public_spend_key").key
         assert self.cold_wallet.get_address().address == self.hot_wallet.get_address().address
         assert self.cold_wallet.get_address().address == STANDARD_ADDRESS
 
-    def mine(self):
+    def mine(self, n_blocks = 80):
         print("Mining some blocks")
         daemon = Daemon()
         wallet = Wallet()
 
-        daemon.generateblocks(STANDARD_ADDRESS, 80)
+        daemon.generateblocks(STANDARD_ADDRESS, n_blocks)
         wallet.refresh()
+
+    def empty_export_after_reorg(self):
+        print("Importing an empty output export after a reorg")
+        daemon = Daemon()
+        daemon.generateblocks(STANDARD_ADDRESS, 1)
+        self.hot_wallet.refresh()
+        assert len(self.hot_wallet.incoming_transfers().get('transfers', [])) == 1
+
+        outputs = self.hot_wallet.export_outputs()
+        self.cold_wallet.import_outputs(outputs.outputs_data_hex)
+        assert len(self.cold_wallet.incoming_transfers().get('transfers', [])) == 1
+
+        daemon.pop_blocks(1)
+        daemon.generateblocks(OTHER_ADDRESS, 1)
+        self.hot_wallet.refresh()
+        assert not self.hot_wallet.incoming_transfers().get('transfers', [])
+
+        outputs = self.hot_wallet.export_outputs()
+        self.cold_wallet.import_outputs(outputs.outputs_data_hex)
+        assert not self.cold_wallet.incoming_transfers().get('transfers', [])
+
+    def recover_from_empty_incremental_export(self):
+        print("Recovering a recreated cold wallet from an empty incremental export")
+        self.hot_wallet.refresh()
+        full_export = self.hot_wallet.export_outputs(all = True)
+        self.cold_wallet.import_outputs(full_export.outputs_data_hex)
+        key_images = self.cold_wallet.export_key_images(True)
+        self.hot_wallet.import_key_images(key_images.signed_key_images, offset = key_images.offset)
+
+        incremental_export = self.hot_wallet.export_outputs()
+        self.cold_wallet.close_wallet()
+        self.cold_wallet.restore_deterministic_wallet(seed = SEED)
+        assert not self.cold_wallet.incoming_transfers().get('transfers', [])
+
+        try:
+            self.cold_wallet.import_outputs(incremental_export.outputs_data_hex)
+        except Exception as e:
+            assert 'Imported outputs omit more outputs that we know of' in str(e), str(e)
+        else:
+            assert False, "empty incremental export should not restore a cold wallet"
+        assert not self.cold_wallet.incoming_transfers().get('transfers', [])
+
+        self.cold_wallet.import_outputs(full_export.outputs_data_hex)
+        assert len(self.cold_wallet.incoming_transfers().get('transfers', [])) == len(self.hot_wallet.incoming_transfers().get('transfers', []))
+        tx = self.hot_wallet.transfer([{'address': STANDARD_ADDRESS, 'amount': 1000000000000}])
+        self.sign_and_submit(tx.unsigned_txset)
 
     def export_import(self, piecemeal_output_export):
         self.hot_wallet.refresh()
@@ -145,6 +204,9 @@ class ColdSigningTest():
             if do_check_key_images:
                 attributes_to_cmp.append("key_image")
             for i in range(len(hot_transfers_list)):
+                assert len(hot_transfers_list[i]['tx_hash']) == 64
+                assert hot_transfers_list[i]['tx_hash'] != '0' * 64
+                assert cold_transfers_list[i]['tx_hash'] == '', cold_transfers_list[i]['tx_hash']
                 for attr in attributes_to_cmp:
                     hot_val = hot_transfers_list[i][attr]
                     cold_val = cold_transfers_list[i][attr]
@@ -190,6 +252,7 @@ class ColdSigningTest():
         assert desc.change_amount == desc.amount_in - 1000000000000 - fee
         assert desc.change_address == STANDARD_ADDRESS
         assert desc.fee == fee
+        assert 'weight' not in desc
         assert len(desc.recipients) == 1
         rec = desc.recipients[0]
         assert rec.address == destination_addr
@@ -264,6 +327,159 @@ class ColdSigningTest():
         assert start_len == len(self.hot_wallet.get_transfers()['in'])
         self.create_tx(STANDARD_ADDRESS, False)
         assert start_len == len(self.hot_wallet.get_transfers()['in']) - 1
+
+    def sign_and_submit(self, unsigned_txset):
+        print("Signing transaction with cold wallet")
+        res = self.cold_wallet.sign_transfer(unsigned_txset)
+
+        print("Submitting transaction with hot wallet")
+        res = self.hot_wallet.submit_transfer(res.signed_txset)
+        assert len(res.tx_hash_list) > 0
+        tx_hash_list = res.tx_hash_list
+
+        # Make sure it ends up in the chain
+        daemon = Daemon()
+        daemon.generateblocks(STANDARD_ADDRESS, 1)
+        self.hot_wallet.refresh()
+
+        res = self.hot_wallet.get_transfers()
+        def in_hash_list(txid, tx_hash_list):
+            return len([x for x in tx_hash_list if x == txid]) > 0
+        assert len([x for x in (res['pending'] if 'pending' in res else []) if in_hash_list(x.txid, tx_hash_list)]) == 0
+        assert len([x for x in (res['out'] if 'out' in res else []) if in_hash_list(x.txid, tx_hash_list)]) > 0
+
+    def transfer_to_multi_subaddresses(self):
+        # This test triggers the non-standard additional keys case
+        # const bool need_additional_txkeys = num_subaddresses > 0 && (num_stdaddresses > 0 || num_subaddresses > 1);
+        print("Transfer to 2 subaddresses in 1 tx")
+        dst1 = {'address': SUBADDRESS, 'amount': 1000000000000}
+        dst2 = {'address': SUBADDRESS2, 'amount': 1000000000000}
+
+        self.export_import(False)
+        res = self.hot_wallet.transfer([dst1, dst2])
+
+        self.sign_and_submit(res.unsigned_txset)
+
+    def sweep(self):
+        print("Mine 10 blocks so all non-coinbase outs from prior txs unlock")
+        self.mine(10)
+
+        print("Sweeping the wallet")
+        self.export_import(False)
+        res = self.hot_wallet.sweep_all(STANDARD_ADDRESS)
+
+        self.sign_and_submit(res.unsigned_txset)
+
+    def failed_output_import_keeps_complete_transfers(self):
+        print("Checking failed output import leaves no incomplete transfer")
+        self.mine(10)
+        self.export_import(False)
+        for _ in range(4):
+            self.hot_wallet.create_address(count = 64)
+        address = self.hot_wallet.get_address(subaddresses = [220]).addresses[0].address
+        tx = self.hot_wallet.sweep_all(address)
+        self.sign_and_submit(tx.unsigned_txset)
+
+        outputs = self.hot_wallet.export_outputs(all = True)
+        hot_transfers = self.hot_wallet.incoming_transfers().transfers
+        high_subaddress_output = next(t for t in hot_transfers if t.subaddr_index.minor == 220)
+        before_count = len(self.cold_wallet.incoming_transfers().get('transfers', []))
+        try:
+            self.cold_wallet.import_outputs(outputs.outputs_data_hex)
+            assert False, "import unexpectedly succeeded without the subaddress"
+        except Exception as e:
+            assert 'Failed to generate key image' in str(e), str(e)
+        after_failure = self.cold_wallet.incoming_transfers().get('transfers', [])
+        assert all(t.key_image for t in after_failure[before_count:])
+        assert len(after_failure) < len(hot_transfers)
+
+        for _ in range(4):
+            self.cold_wallet.create_address(count = 64)
+        self.cold_wallet.import_outputs(outputs.outputs_data_hex)
+        cold_transfers = self.cold_wallet.incoming_transfers().transfers
+        assert len(cold_transfers) == len(hot_transfers)
+        imported_output = next(t for t in cold_transfers if t.pubkey == high_subaddress_output.pubkey)
+        assert imported_output.subaddr_index.minor == 220
+        assert imported_output.key_image
+
+    def sign_with_refreshed_full_wallet(self):
+        print("Signing with a refreshed full wallet after an empty output export")
+        self.reset()
+        self.create(0)
+        self.mine()
+        self.hot_wallet.refresh()
+
+        full_wallet = Wallet(idx = 1)
+        try: full_wallet.close_wallet()
+        except: pass
+        full_wallet.restore_deterministic_wallet(seed = SEED)
+        full_wallet.refresh()
+        original_count = len(self.hot_wallet.incoming_transfers()['transfers'])
+        assert len(full_wallet.incoming_transfers()['transfers']) == original_count
+
+        key_images = full_wallet.export_key_images(True)
+        self.hot_wallet.import_key_images(key_images.signed_key_images, offset = key_images.offset)
+
+        unsigned_txset = self.hot_wallet.transfer([{'address': OTHER_ADDRESS, 'amount': 1000000000000}]).unsigned_txset
+        signed_txset = full_wallet.sign_transfer(unsigned_txset).signed_txset
+        assert len(full_wallet.incoming_transfers()['transfers']) == original_count
+        assert len(self.hot_wallet.submit_transfer(signed_txset).tx_hash_list) == 1
+        full_wallet.close_wallet()
+
+    def sign_with_refreshed_full_wallet_behind_watch_only(self):
+        print("Signing with a refreshed full wallet behind the watch-only wallet")
+        self.reset()
+        self.create(0)
+        self.mine()
+
+        full_wallet = Wallet(idx = 1)
+        try: full_wallet.close_wallet()
+        except: pass
+        full_wallet.restore_deterministic_wallet(seed = SEED)
+        full_wallet.refresh()
+        signer_count = len(full_wallet.incoming_transfers()['transfers'])
+
+        daemon = Daemon()
+        daemon.generateblocks(STANDARD_ADDRESS, 1)
+        self.hot_wallet.refresh()
+        assert len(self.hot_wallet.incoming_transfers()['transfers']) == signer_count + 1
+
+        self.cold_wallet.import_outputs(self.hot_wallet.export_outputs().outputs_data_hex)
+        key_images = self.cold_wallet.export_key_images(True)
+        self.hot_wallet.import_key_images(key_images.signed_key_images, offset = key_images.offset)
+
+        unsigned_txset = self.hot_wallet.transfer([{'address': OTHER_ADDRESS, 'amount': 1000000000000}]).unsigned_txset
+        signed_txset = full_wallet.sign_transfer(unsigned_txset).signed_txset
+        assert len(full_wallet.incoming_transfers()['transfers']) == signer_count
+        assert len(self.hot_wallet.submit_transfer(signed_txset).tx_hash_list) == 1
+        full_wallet.close_wallet()
+
+    def sign_after_reorg_with_empty_output_export(self):
+        print("Signing after a reorg removes an output known to the cold wallet")
+        self.reset()
+        self.create(0)
+        self.mine()
+        self.export_import(False)
+
+        daemon = Daemon()
+        original_count = len(self.hot_wallet.incoming_transfers()['transfers'])
+        daemon.generateblocks(STANDARD_ADDRESS, 1)
+        self.hot_wallet.refresh()
+        assert len(self.hot_wallet.incoming_transfers()['transfers']) == original_count + 1
+        self.cold_wallet.import_outputs(self.hot_wallet.export_outputs().outputs_data_hex)
+        key_images = self.cold_wallet.export_key_images(True)
+        self.hot_wallet.import_key_images(key_images.signed_key_images, offset = key_images.offset)
+
+        daemon.pop_blocks(1)
+        daemon.generateblocks(OTHER_ADDRESS, 1)
+        self.hot_wallet.refresh()
+        assert len(self.hot_wallet.incoming_transfers()['transfers']) == original_count
+        assert len(self.cold_wallet.incoming_transfers()['transfers']) == original_count + 1
+
+        unsigned_txset = self.hot_wallet.transfer([{'address': OTHER_ADDRESS, 'amount': 1000000000000}]).unsigned_txset
+        signed_txset = self.cold_wallet.sign_transfer(unsigned_txset).signed_txset
+        assert len(self.cold_wallet.incoming_transfers()['transfers']) == original_count
+        assert len(self.hot_wallet.submit_transfer(signed_txset).tx_hash_list) == 1
 
 class Guard:
     def __enter__(self):

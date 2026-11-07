@@ -30,6 +30,7 @@
 #define _NET_SSL_H
 
 #include <chrono>
+#include <functional>
 #include <stdint.h>
 #include <string>
 #include <vector>
@@ -124,17 +125,21 @@ namespace net_utils
           assumption is that a re-connect will be attempted, so a warning is
           logged instead of failure.
 
-        \note It is strongly encouraged that clients using `system_ca`
-          verification provide a non-empty `host` for rfc2818 verification.
+        \note It is strongly encouraged that clients using system or user CA
+          verification provide a non-empty `host` for hostname verification.
 
         \param io_context associated with `socket`.
         \param socket Used in SSL handshake and verification
         \param type Client or server
-        \param host This parameter is only used when
-          `type == client && !host.empty()`. The value is sent to the server for
-          situations where multiple hostnames are being handled by a server. If
-          `verification == system_ca` the client also does a rfc2818 check to
-          ensure that the server certificate is to the provided hostname.
+        \param host Expected server hostname or IP address for certificate
+          verification. Clients also send a non-empty value to the server for
+          situations where multiple hostnames are being handled by a server.
+          System and user CA verification check the certificate against a
+          non-empty `host`. A matching whitelisted fingerprint is accepted even
+          if hostname verification fails. Servers should leave this empty when
+          verifying client certificates.
+        \param abort_requested Polled while waiting; when it returns true the
+          handshake is cancelled and fails instead of running to `timeout`.
 
         \return True if the SSL handshake completes with peer verification
           settings. */
@@ -144,7 +149,8 @@ namespace net_utils
       boost::asio::ssl::stream_base::handshake_type type,
       boost::asio::const_buffer buffer = {},
       const std::string& host = {},
-      std::chrono::milliseconds timeout = std::chrono::seconds(15)) const;
+      std::chrono::milliseconds timeout = std::chrono::seconds(15),
+      const std::function<bool()>& abort_requested = nullptr) const;
   };
 
         // https://security.stackexchange.com/questions/34780/checking-client-hello-for-https-classification

@@ -18,13 +18,7 @@ Otherwise, you may choose from one of the following options to install Guix:
    - Works on nearly all Linux distributions
    - Installs any release
    - Binary installation only, requires high level of trust
-3. Using a **distribution-maintained package** [⤓ skip to section][install-distro-pkg]
-   - Maintained by distribution's Guix package maintainer
-   - Normal difficulty (manual setup required)
-   - Works only on distributions with Guix packaged, see: https://repology.org/project/guix/versions
-   - Installs a release decided on by package maintainer
-   - Source or binary installation depending on the distribution
-4. Building **from source** [⤓ skip to section][install-source]
+3. Building **from source** [⤓ skip to section][install-source]
    - Maintained by you
    - Hard, but rewarding
    - Can be made to work on most Linux distributions
@@ -51,48 +45,7 @@ Regardless of which installation option you chose, the changes to
 `/etc/profile.d` will not take effect until the next shell or desktop session,
 so you should log out and log back in.
 
-## Option 3: Using a distribution-maintained package
-
-Note that this section is based on the distro packaging situation at the time of
-writing (July 2021). Guix is expected to be more widely packaged over time. For
-an up-to-date view on Guix's package status/version across distros, please see:
-https://repology.org/project/guix/versions
-
-### Debian / Ubuntu
-
-Guix is available as a distribution package in [Debian
-](https://packages.debian.org/search?keywords=guix) and [Ubuntu
-](https://packages.ubuntu.com/search?keywords=guix).
-
-To install:
-```sh
-sudo apt install guix
-```
-
-### Arch Linux
-
-Guix is available in the AUR as
-[`guix`](https://aur.archlinux.org/packages/guix/), please follow the
-installation instructions in the Arch Linux Wiki ([live
-link](https://wiki.archlinux.org/index.php/Guix#AUR_Package_Installation),
-[2021/03/30
-permalink](https://wiki.archlinux.org/index.php?title=Guix&oldid=637559#AUR_Package_Installation))
-to install Guix.
-
-At the time of writing (2021/03/30), the `check` phase will fail if the path to
-guix's build directory is longer than 36 characters due to an anachronistic
-character limit on the shebang line. Since the `check` phase happens after the
-`build` phase, which may take quite a long time, it is recommended that users
-either:
-
-1. Skip the `check` phase
-   - For `makepkg`: `makepkg --nocheck ...`
-   - For `yay`: `yay --mflags="--nocheck" ...`
-   - For `paru`: `paru --nocheck ...`
-2. Or, check their build directory's length beforehand
-   - For those building with `makepkg`: `pwd | wc -c`
-
-## Option 4: Building from source
+## Option 3: Building from source
 
 Building Guix from source is a rather involved process but a rewarding one for
 those looking to minimize trust and maximize customizability (e.g. building a
@@ -538,41 +491,6 @@ systemctl start guix-daemon
 
 Remember to set `--no-substitutes` in `$libdir/systemd/system/guix-daemon.service` and other customizations if you used them for `guix-daemon-original.service`.
 
-##### If you installed Guix via the Debian/Ubuntu distribution packages
-
-You will need to create a `guix-daemon-latest` service which points to the new
-`guix` rather than a pinned one.
-
-```sh
-# Create guix-daemon-latest.service by modifying guix-daemon.service
-sed -E -e "s|/usr/bin/guix-daemon|/var/guix/profiles/per-user/root/current-guix/bin/guix-daemon|" /etc/systemd/system/guix-daemon.service > /lib/systemd/system/guix-daemon-latest.service
-chmod 664 /lib/systemd/system/guix-daemon-latest.service
-
-# Make systemd recognize the new service
-systemctl daemon-reload
-
-# Make sure that the old guix-daemon.service is stopped and disabled
-systemctl stop guix-daemon
-systemctl disable guix-daemon
-
-# Make sure that the new guix-daemon-latest.service is started and enabled
-systemctl enable guix-daemon-latest
-systemctl start guix-daemon-latest
-```
-
-##### If you installed Guix via lantw44's Arch Linux AUR package
-
-At the time of writing (July 5th, 2021) the systemd unit for "updated Guix" is
-`guix-daemon-latest.service`, therefore, you should do the following:
-
-```sh
-systemctl stop guix-daemon
-systemctl disable guix-daemon
-
-systemctl enable guix-daemon-latest
-systemctl start guix-daemon-latest
-```
-
 ##### Otherwise...
 
 Simply do:
@@ -751,8 +669,7 @@ Please see the following links for more details:
 
 [install-script]: #options-1-and-2-using-the-official-shell-installer-script-or-binary-tarball
 [install-bin-tarball]: #options-1-and-2-using-the-official-shell-installer-script-or-binary-tarball
-[install-distro-pkg]: #option-4-using-a-distribution-maintained-package
-[install-source]: #option-5-building-from-source
+[install-source]: #option-3-building-from-source
 
 [fix-argv0]: #creating-and-starting-a-guix-daemon-original-service-with-a-fixed-argv0
 [security-model]: ./README.md#choosing-your-security-model

@@ -46,6 +46,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <iterator>
 #include <cstring>
 #include <vector>
 #include <atomic>
@@ -476,6 +477,38 @@ TEST_F(WalletManagerTest, WalletManagerStoresPasswordOfWalletRecoveredFromKeys)
     ASSERT_TRUE(wallet3->status() == Monero::Wallet::Status_Ok);
     ASSERT_TRUE(wallet3->mainAddress() == address1);
     ASSERT_TRUE(wmgr->closeWallet(wallet3));
+}
+
+TEST_F(WalletManagerTest, FailedKeyRecoveryDoesNotOverwriteExistingWallet)
+{
+    Monero::Wallet *wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    ASSERT_EQ(wallet->status(), Monero::Wallet::Status_Ok);
+    const std::string address = wallet->mainAddress();
+    const std::string view_key = wallet->secretViewKey();
+    const std::string spend_key = wallet->secretSpendKey();
+    ASSERT_TRUE(wmgr->closeWallet(wallet));
+
+    std::ifstream before_file(WALLET_NAME, std::ios::binary);
+    ASSERT_TRUE(before_file.good());
+    const std::string before((std::istreambuf_iterator<char>(before_file)), std::istreambuf_iterator<char>());
+    before_file.close();
+    ASSERT_FALSE(before.empty());
+
+    wallet = wmgr->createWalletFromKeys(WALLET_NAME, WALLET_PASS, WALLET_LANG,
+        Monero::NetworkType::MAINNET, 0, address, view_key, spend_key);
+    ASSERT_EQ(wallet->status(), Monero::Wallet::Status_Critical);
+    ASSERT_TRUE(wmgr->closeWallet(wallet));
+
+    std::ifstream after_file(WALLET_NAME, std::ios::binary);
+    ASSERT_TRUE(after_file.good());
+    const std::string after((std::istreambuf_iterator<char>(after_file)), std::istreambuf_iterator<char>());
+    after_file.close();
+    EXPECT_TRUE(after == before);
+
+    wallet = wmgr->openWallet(WALLET_NAME, WALLET_PASS, Monero::NetworkType::MAINNET);
+    ASSERT_EQ(wallet->status(), Monero::Wallet::Status_Ok);
+    EXPECT_EQ(wallet->mainAddress(), address);
+    ASSERT_TRUE(wmgr->closeWallet(wallet));
 }
 
 
@@ -1124,6 +1157,8 @@ TEST_F(WalletTest2, WalletCallBackRefreshedAsync)
     ASSERT_TRUE(wallet_src_listener->refresh_triggered);
     ASSERT_TRUE(wallet_src->connected());
     std::cerr << "TEST: closing wallet...\n";
+    wallet_src->pauseRefresh();
+    wallet_src->stop();
     wmgr->closeWallet(wallet_src);
 }
 
@@ -1165,6 +1200,10 @@ TEST_F(WalletTest2, WalletCallbackSent)
     ASSERT_TRUE(wallet_src_listener->update_triggered);
     std::cout << "** Balance: " << wallet_src->displayAmount(wallet_src->balance(0)) <<  std::endl;
     ASSERT_TRUE(wallet_src->balance(0) < balance);
+    wallet_src->pauseRefresh();
+    wallet_src->stop();
+    ASSERT_TRUE(wallet_src_listener->cv_refresh.wait_for(lock, wait_for,
+        [wallet_src_listener] { return wallet_src_listener->refresh_triggered; }));
     wmgr->closeWallet(wallet_src);
     wmgr->closeWallet(wallet_dst);
 }
@@ -1212,6 +1251,10 @@ TEST_F(WalletTest2, WalletCallbackReceived)
 
     ASSERT_TRUE(wallet_dst->balance(0) > balance);
 
+    wallet_dst->pauseRefresh();
+    wallet_dst->stop();
+    ASSERT_TRUE(wallet_dst_listener->cv_refresh.wait_for(lock, wait_for,
+        [&wallet_dst_listener] { return wallet_dst_listener->refresh_triggered; }));
     wmgr->closeWallet(wallet_src);
     wmgr->closeWallet(wallet_dst);
 }
@@ -1241,6 +1284,10 @@ TEST_F(WalletTest2, WalletCallbackNewBlock)
     uint64_t bc2 = wallet_src->blockChainHeight();
     std::cout << "** Block height: " << bc2 << std::endl;
     ASSERT_TRUE(bc2 > bc1);
+    wallet_src->pauseRefresh();
+    wallet_src->stop();
+    ASSERT_TRUE(wallet_listener->cv_refresh.wait_for(lock, wait_for,
+        [&wallet_listener] { return wallet_listener->refresh_triggered; }));
     wmgr->closeWallet(wallet_src);
 
 }

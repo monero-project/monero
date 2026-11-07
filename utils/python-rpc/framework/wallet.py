@@ -39,6 +39,14 @@ class Wallet(object):
         self.rpc = JSONRPC('{protocol}://{host}:{port}'.format(protocol=protocol, host=host,
             port=port if port else 18090+idx), username, password)
 
+    def get_wallet_info(self):
+        get_wallet_info = {
+            'method': 'get_wallet_info',
+            'jsonrpc': '2.0',
+            'id': '0'
+        }
+        return self.rpc.send_json_rpc_request(get_wallet_info)
+
     def transfer(self, destinations, account_index = 0, subaddr_indices = [], priority = 0, ring_size = 0, unlock_time = 0, payment_id = '', get_tx_key = True, do_not_relay = False, get_tx_hex = False, get_tx_metadata = False, subtract_fee_from_outputs = []):
         transfer = {
             'method': 'transfer',
@@ -82,12 +90,13 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(transfer)   
 
-    def get_transfer_by_txid(self, txid, account_index = 0):
+    def get_transfer_by_txid(self, txid, account_index = 0, all_accounts = False):
         get_transfer_by_txid = {
             'method': 'get_transfer_by_txid',
             'params': {
                 'txid': txid,
                 'account_index': account_index,
+                'all_accounts': all_accounts,
             },
             'jsonrpc': '2.0', 
             'id': '0'
@@ -216,16 +225,18 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(sweep_single)
 
-    def get_address(self, account_index = 0, subaddresses = []):
+    def get_address(self, account_index = 0, subaddresses = [], all_accounts = False):
         get_address = {
             'method': 'get_address',
             'params' : {
                 'account_index' : account_index,
-                'address_index': subaddresses
+                'address_index': subaddresses,
             },
             'jsonrpc': '2.0', 
             'id': '0'
         }
+        if all_accounts:
+            get_address['params']['all_accounts'] = True
         return self.rpc.send_json_rpc_request(get_address)
     getaddress = get_address
 
@@ -317,7 +328,7 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(restore_deterministic_wallet)
 
-    def generate_from_keys(self, restore_height = 0, filename = "", password = "", address = "", spendkey = "", viewkey = "", autosave_current = True):
+    def generate_from_keys(self, restore_height = 0, filename = "", password = "", address = "", spendkey = "", viewkey = "", autosave_current = True, language = ""):
         generate_from_keys = {
             'method': 'generate_from_keys',
             'params' : {
@@ -328,6 +339,7 @@ class Wallet(object):
                 'viewkey': viewkey,
                 'password': password,
                 'autosave_current': autosave_current,
+                'language': language,
             },
             'jsonrpc': '2.0', 
             'id': '0'
@@ -409,7 +421,7 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(refresh)
 
-    def incoming_transfers(self, transfer_type='all', account_index = 0, subaddr_indices = []):
+    def incoming_transfers(self, transfer_type='all', account_index = 0, subaddr_indices = [], all_accounts = False):
         incoming_transfers = {
             'method': 'incoming_transfers',
             'params' : {
@@ -420,9 +432,11 @@ class Wallet(object):
             'jsonrpc': '2.0', 
             'id': '0'
         }
+        if all_accounts:
+            incoming_transfers['params']['all_accounts'] = True
         return self.rpc.send_json_rpc_request(incoming_transfers)
 
-    def get_transfers(self, in_ = True, out = True, pending = True, failed = True, pool = True, min_height = None, max_height = None, account_index = 0, subaddr_indices = [], all_accounts = False):
+    def get_transfers(self, in_ = True, out = True, pending = True, failed = True, pool = True, min_height = None, max_height = None, account_index = 0, subaddr_indices = [], all_accounts = False, refresh_pool = True):
         get_transfers = {
             'method': 'get_transfers',
             'params' : {
@@ -441,6 +455,8 @@ class Wallet(object):
             'jsonrpc': '2.0', 
             'id': '0'
         }
+        if not refresh_pool:
+            get_transfers['params']['refresh_pool'] = False
         return self.rpc.send_json_rpc_request(get_transfers)
 
     def make_integrated_address(self, standard_address = '', payment_id = ''):
@@ -478,7 +494,7 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(auto_refresh)
 
-    def set_daemon(self, address, trusted = False, ssl_support = "autodetect", ssl_private_key_path = "", ssl_certificate_path = "", ssl_allowed_certificates = [], ssl_allowed_fingerprints = [], ssl_allow_any_cert = False):
+    def set_daemon(self, address, trusted = False, ssl_support = "autodetect", ssl_private_key_path = "", ssl_certificate_path = "", ssl_allowed_certificates = [], ssl_allowed_fingerprints = [], ssl_allow_any_cert = False, proxy = ""):
         set_daemon = {
             'method': 'set_daemon',
             'params' : {
@@ -490,6 +506,7 @@ class Wallet(object):
                 'ssl_allowed_certificates': ssl_allowed_certificates,
                 'ssl_allowed_fingerprints': ssl_allowed_fingerprints,
                 'ssl_allow_any_cert': ssl_allow_any_cert,
+                'proxy': proxy,
             },
             'jsonrpc': '2.0', 
             'id': '0'
@@ -774,10 +791,11 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(relay_tx)
 
-    def get_languages(self):
+    def get_languages(self, polyseed = True):
         get_languages = {
             'method': 'get_languages',
             'params': {
+                'polyseed': polyseed,
             },
             'jsonrpc': '2.0', 
             'id': '0'

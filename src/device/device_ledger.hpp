@@ -86,6 +86,9 @@ namespace hw {
     #define SW_PROTOCOL_NOT_SUPPORTED               0x6e00
     #define SW_UNKNOWN                              0x6f00
 
+    // Origin: https://github.com/LedgerHQ/ledger-live/blob/68b9451b5456ae6cd452d00aa5007a875bdf4c6f/libs/ledgerjs/packages/errors/src/index.ts#L337
+    #define SW_LOCKED_DEVICE                        0x5515
+
     void set_apdu_verbose(bool verbose);
 
     class ABPkeys {
@@ -224,6 +227,7 @@ namespace hw {
         /* ======================================================================= */
         bool  get_public_address(cryptonote::account_public_address &pubkey) override;
         bool  get_secret_keys(crypto::secret_key &viewkey , crypto::secret_key &spendkey) override;
+        bool  get_cached_view_key(crypto::secret_key &viewkey_out) override;
         bool  generate_chacha_key(const cryptonote::account_keys &keys, crypto::chacha_key &key, uint64_t kdf_rounds) override;
         void  display_address(const cryptonote::subaddress_index& index, const boost::optional<crypto::hash8> &payment_id) override;
 

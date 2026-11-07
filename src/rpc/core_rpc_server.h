@@ -56,6 +56,7 @@ namespace cryptonote
 
     static const command_line::arg_descriptor<std::string, false, true, 2> arg_rpc_bind_port;
     static const command_line::arg_descriptor<std::string> arg_rpc_restricted_bind_port;
+    static const command_line::arg_descriptor<bool> arg_rpc_restricted_no_login;
     static const command_line::arg_descriptor<bool> arg_restricted_rpc;
     static const command_line::arg_descriptor<std::string> arg_rpc_ssl;
     static const command_line::arg_descriptor<std::string> arg_rpc_ssl_private_key;
@@ -81,7 +82,8 @@ namespace cryptonote
         const boost::program_options::variables_map& vm,
         const bool restricted,
         const std::string& port,
-        const std::string& proxy = {}
+        const std::string& proxy = {},
+        const bool disable_login = false
       );
     network_type nettype() const { return m_core.get_nettype(); }
 
@@ -252,7 +254,7 @@ private:
     //utils
     uint64_t get_block_reward(const block& blk);
     bool fill_block_header_response(const block& blk, bool orphan_status, uint64_t height, const crypto::hash& hash, block_header_response& response, bool fill_pow_hash);
-    bool get_block_template(const account_public_address &address, const crypto::hash *prev_block, const cryptonote::blobdata &extra_nonce, size_t &reserved_offset, cryptonote::difficulty_type &difficulty, uint64_t &height, uint64_t &expected_reward, uint64_t& cumulative_weight, block &b, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, epee::json_rpc::error &error_resp);
+    bool get_block_template(const account_public_address &address, const crypto::hash *prev_block, const cryptonote::blobdata &extra_nonce, size_t &reserved_offset, cryptonote::difficulty_type &difficulty, uint64_t &height, uint64_t &expected_reward, uint64_t& cumulative_weight, block &b, uint64_t &seed_height, crypto::hash &seed_hash, crypto::hash &next_seed_hash, epee::json_rpc::error &error_resp, bool include_sensitive = true);
     bool handle_get_blocks(const COMMAND_RPC_GET_BLOCKS_FAST::request& req, COMMAND_RPC_GET_BLOCKS_FAST::response& res, const connection_context *ctx);
 
     core& m_core;

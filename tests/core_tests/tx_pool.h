@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <array>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -44,13 +45,11 @@ enum class relay_test
 
 class txpool_base : public test_chain_unit_base
 {
-  size_t m_broadcasted_tx_count;
   size_t m_all_tx_count;
 
 public:
   txpool_base();
 
-  bool increase_broadcasted_tx_count(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& events);
   bool increase_all_tx_count(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& events);
   bool check_txpool_spent_keys(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& events);
 };
@@ -69,6 +68,19 @@ struct txpool_spend_key_all : txpool_base
   {}
 
   bool generate(std::vector<test_event_entry>& events);
+};
+
+class txpool_future_receive_time : public test_chain_unit_base
+{
+  std::array<crypto::hash, 2> m_future_txids;
+  crypto::hash m_expired_txid;
+
+public:
+  txpool_future_receive_time();
+
+  bool generate(std::vector<test_event_entry>& events);
+  bool set_future_receive_time(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
+  bool check_txpool(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
 };
 
 class txpool_double_spend_base : public txpool_base

@@ -91,6 +91,7 @@ class TransferTest():
         self.check_background_sync_reorg_recovery()
         self.check_subaddress_lookahead()
         self.check_pool_scanner()
+        self.check_transfer_by_txid_all_accounts()
 
     def reset(self):
         print('Resetting blockchain')
@@ -973,6 +974,14 @@ class TransferTest():
             assert tx.fee == fee
             assert receiver_wallet.get_balance().balance == expected_receiver_balance
 
+        print('Checking cached pool transfers without daemon access')
+        receiver_wallet.set_daemon('127.0.0.1:0', trusted = True)
+        try:
+            res = receiver_wallet.get_transfers(pool = True, refresh_pool = False)
+            assert len(res.pool) == 1 and res.pool[0].txid == txid
+        finally:
+            receiver_wallet.set_daemon('127.0.0.1:18180', trusted = True)
+
         # mine the tx
         height = daemon.generateblocks(dst['address'], 1).height
         block_header = daemon.getblockheaderbyheight(height = height).block_header
@@ -1636,6 +1645,75 @@ class TransferTest():
         restore_wallet(self.wallet[1], seeds[1])
         self.wallet[1].refresh()
         self.wallet[0].refresh()
+
+    def check_transfer_by_txid_all_accounts(self):
+        print('Checking transfer lookup across accounts')
+
+        daemon = Daemon()
+        account = self.wallet[1].create_account('second account')
+        assert account.account_index == 1
+        dst = {'address': account.address, 'amount': 100000000000}
+        incoming_txid = self.wallet[0].transfer([dst]).tx_hash
+        self.wallet[1].refresh()
+
+        def check_transfer(txid, expected_type):
+            try:
+                self.wallet[1].get_transfer_by_txid(txid)
+            except AssertionError as e:
+                assert e.args[0]['error']['code'] == -8
+            else:
+                assert False, 'default lookup found a transfer in another account'
+
+            indexed = self.wallet[1].get_transfer_by_txid(txid, account_index = 1)
+            all_accounts = self.wallet[1].get_transfer_by_txid(txid, all_accounts = True)
+            assert len(indexed.transfers) > 0
+            assert indexed.transfers == all_accounts.transfers
+            assert all_accounts.transfer == all_accounts.transfers[0]
+            assert any(transfer.type == expected_type for transfer in all_accounts.transfers)
+            assert all(transfer.subaddr_index.major == 1 for transfer in all_accounts.transfers)
+
+        check_transfer(incoming_txid, 'pool')
+
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 10)
+        self.wallet[1].refresh()
+        check_transfer(incoming_txid, 'in')
+
+        assert self.wallet[1].get_balance(account_index = 1).unlocked_balance >= 50000000000
+        dst = {'address': self.wallet[0].get_address().address, 'amount': 50000000000}
+        outgoing_txid = self.wallet[1].transfer([dst], account_index = 1).tx_hash
+        check_transfer(outgoing_txid, 'pending')
+
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        self.wallet[1].refresh()
+        check_transfer(outgoing_txid, 'out')
+
+        destinations = [
+            {'address': self.wallet[1].get_address(account_index = 0).address, 'amount': 50000000000},
+            {'address': account.address, 'amount': 50000000000},
+        ]
+        txid = self.wallet[0].transfer(destinations).tx_hash
+        self.wallet[1].refresh()
+        account_0 = self.wallet[1].get_transfer_by_txid(txid)
+        account_1 = self.wallet[1].get_transfer_by_txid(txid, account_index = 1)
+        all_accounts = self.wallet[1].get_transfer_by_txid(txid, all_accounts = True)
+        assert len(account_0.transfers) == len(account_1.transfers) == 1
+        assert len(all_accounts.transfers) == 2
+        assert set(transfer.subaddr_index.major for transfer in all_accounts.transfers) == {0, 1}
+        assert account_0.transfers[0] in all_accounts.transfers
+        assert account_1.transfers[0] in all_accounts.transfers
+
+        daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
+        self.wallet[1].refresh()
+        account_0 = self.wallet[1].incoming_transfers()
+        account_1 = self.wallet[1].incoming_transfers(account_index = 1)
+        all_accounts = self.wallet[1].incoming_transfers(account_index = 99, subaddr_indices = [999], all_accounts = True)
+        def output_key(transfer):
+            return (transfer.tx_hash, transfer.pubkey, transfer.subaddr_index.major, transfer.subaddr_index.minor)
+        assert {output_key(t) for t in all_accounts.transfers} == {output_key(t) for t in account_0.transfers + account_1.transfers}
+        assert any(t.tx_hash == txid and t.subaddr_index.major == 0 for t in all_accounts.transfers)
+        assert any(t.tx_hash == txid and t.subaddr_index.major == 1 for t in all_accounts.transfers)
+        addresses = self.wallet[1].get_address(all_accounts = True).addresses
+        assert all(any(a.account_index == major and a.address_index == 0 and a.used for a in addresses) for major in (0, 1))
 
 if __name__ == '__main__':
     TransferTest().run_test()

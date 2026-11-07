@@ -261,4 +261,12 @@ wipeable_string &wipeable_string::operator=(const wipeable_string &other)
   return *this;
 }
 
+char& wipeable_string::at(size_t idx) {
+  return buffer.at(idx);
+}
+
+const char& wipeable_string::at(size_t idx) const {
+  return buffer.at(idx);
+}
+
 }

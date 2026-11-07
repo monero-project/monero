@@ -101,7 +101,7 @@ namespace net_utils
 					entry.m_etc_header_fields.push_back(std::pair<std::string, std::string>(result[field_etc_name], result[field_val]));
 				else
 				{
-					LOG_ERROR("simple_http_connection_handler::parse_header() not matched last entry in:"<<std::string(it_current_bound, it_end));
+					LOG_ERROR("simple_http_connection_handler::parse_header() not matched last entry (" << std::distance(it_current_bound, it_end) << " bytes)");
 				}
 
 				it_current_bound = result[(int)result.size()-1].first;
@@ -122,7 +122,7 @@ namespace net_utils
 
 			if(!parse_header(it_begin, end_header_it+4, entry))
 			{
-				LOG_ERROR("Failed to parse header:" << std::string(it_begin, end_header_it+2));
+				LOG_ERROR("Failed to parse header (" << std::distance(it_begin, end_header_it + 2) << " bytes)");
 				return false;
 			}
 		
@@ -139,7 +139,7 @@ namespace net_utils
 			std::string boundary;
 			if(!match_boundary(content_type, boundary))
 			{
-				MERROR("Failed to match boundary in content type: " << content_type);
+				MERROR("Failed to match boundary in content type (" << content_type.size() << " bytes)");
 				return false;
 			}
 			
@@ -225,7 +225,7 @@ namespace net_utils
 	      CRITICAL_REGION_LOCAL(m_config.m_lock);
 	      if (m_config.m_connection_count)
 	        --m_config.m_connection_count;
-	      auto elem = m_config.m_connections.find(m_conn_context.m_remote_address.host_str());
+	      auto elem = m_config.m_connections.find(get_rpc_connection_limit_key(m_conn_context.m_remote_address));
 	      if (elem != m_config.m_connections.end())
 	      {
 	        if (elem->second == 1 || elem->second == 0)
@@ -243,7 +243,7 @@ namespace net_utils
 	bool simple_http_connection_handler<t_connection_context>::after_init_connection()
 	{
 	  CRITICAL_REGION_LOCAL(m_config.m_lock);
-	  ++m_config.m_connections[m_conn_context.m_remote_address.host_str()];
+	  ++m_config.m_connections[get_rpc_connection_limit_key(m_conn_context.m_remote_address)];
 	  ++m_config.m_connection_count;
 	  m_initialized = true;
 	  return true;
@@ -258,7 +258,8 @@ namespace net_utils
 		m_query_info.clear();
 		m_len_summary = 0;
 		m_newlines = 0;
-		m_bytes_read = 0;
+		// data already buffered for a pipelined request still counts toward m_max_content_length
+		m_bytes_read = m_cache.size();
 		return true;
 	}
 	//--------------------------------------------------------------------------------------------
@@ -430,7 +431,7 @@ namespace net_utils
 		}else
 		{
 			m_state = http_state_error;
-			LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::handle_invoke_query_line(): Failed to match first line: " << m_cache);
+			LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::handle_invoke_query_line(): Failed to match first line (" << m_cache.size() << " bytes)");
 			return false;
 		}
 
@@ -440,28 +441,34 @@ namespace net_utils
   template<class t_connection_context>
 	std::string::size_type simple_http_connection_handler<t_connection_context>::match_end_of_header(const std::string& buf)
 	{
+		// The request line has already been removed. Match the first empty line,
+		// using the same LF/CRLF rules as parse_cached_header.
+		size_t cur = 0;
+		while(cur < buf.size())
+		{
+			const size_t line_end = buf.find('\n', cur);
+			if(line_end == std::string::npos)
+				return std::string::npos;
 
-    //Here we returning head size, including terminating sequence (\r\n\r\n or \n\n)
-		std::string::size_type res = buf.find("\r\n\r\n");
-		if(std::string::npos != res)
-			return res+4;
-		res = buf.find("\n\n");
-		if(std::string::npos != res)
-			return res+2;
-		return res;
+			boost::string_view line(buf.data() + cur, line_end - cur);
+			cur = line_end + 1;
+			if(line == "\r" || line.empty())
+				return cur;
+		}
+		return std::string::npos;
 	}
 	//--------------------------------------------------------------------------------------------
   template<class t_connection_context>
 	bool simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(size_t pos)
 	{ 
-		LOG_PRINT_L3("HTTP HEAD:\r\n" << m_cache.substr(0, pos));
+		LOG_PRINT_L3("HTTP HEAD: " << pos << " bytes");
 
 		m_query_info.m_full_request_buf_size = pos;
     m_query_info.m_request_head.assign(m_cache.begin(), m_cache.begin()+pos); 
 
 		if(!parse_cached_header(m_query_info.m_header_info, m_cache, pos))
 		{
-			LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): failed to anilize request header: " << m_cache);
+			LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): failed to anilize request header (" << pos << " bytes)");
 			m_state = http_state_error;
 			return false;
 		}
@@ -477,7 +484,7 @@ namespace net_utils
 			m_body_transfer_type = http_body_transfer_measure;
 			if(!get_len_from_content_lenght(m_query_info.m_header_info.m_content_length, m_len_summary))
 			{
-				LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): Failed to get_len_from_content_lenght();, m_query_info.m_content_length="<<m_query_info.m_header_info.m_content_length);
+				LOG_ERROR_CC(m_conn_context, "simple_http_connection_handler<t_connection_context>::analize_cached_request_header_and_invoke_state(): Failed to get_len_from_content_lenght() (" << m_query_info.m_header_info.m_content_length.size() << " bytes)");
 				m_state = http_state_error;
 				return false;
 			}
@@ -486,12 +493,19 @@ namespace net_utils
 				if(handle_request_and_send_response(m_query_info))
 					set_ready_state();
 				else
+				{
 					m_state = http_state_error;
+					return false;
+				}
 			}
 			m_len_remain = m_len_summary;
 		}else
 		{//current query finished, next will be next query
-			handle_request_and_send_response(m_query_info);
+			if(!handle_request_and_send_response(m_query_info))
+			{
+				m_state = http_state_error;
+				return false;
+			}
 			set_ready_state();
 		}
 
@@ -539,7 +553,10 @@ namespace net_utils
 			if(handle_request_and_send_response(m_query_info))
 				set_ready_state();
 			else
+			{
 				m_state = http_state_error;
+				return false;
+			}
 		}
 		return true;
 	}
@@ -557,14 +574,14 @@ namespace net_utils
 		{
 			const size_t line_end = m_cache_to_process.find('\n', cur);
 			if(line_end == std::string::npos || line_end >= pos)
-				break;
+				return false;
 
 			boost::string_view line(m_cache_to_process.data() + cur, line_end - cur);
 			cur = line_end + 1;
 
-			// End of header block.
+			// The parsed header block must end exactly at the matched boundary.
 			if(line == "\r" || line.empty())
-				break;
+				return cur == pos;
 
 			boost::string_view name;
 			boost::string_view value;
@@ -594,7 +611,7 @@ namespace net_utils
 			else
 				body_info.m_etc_fields.push_back(std::make_pair(std::string(name.data(), name.size()), std::string(value.data(), value.size())));
 		}
-		return  true;
+		return false;
 	}
 	//-----------------------------------------------------------------------------------
   template<class t_connection_context>
@@ -636,7 +653,8 @@ namespace net_utils
 		if ((response.m_body.size() && (query_info.m_http_method != http::http_method_head)) || (query_info.m_http_method == http::http_method_options))
 			response_data += response.m_body;
 
-		m_psnd_hndlr->do_send(byte_slice{std::move(response_data)});
+		if(!m_psnd_hndlr->do_send(byte_slice{std::move(response_data)}))
+			return false;
 		m_psnd_hndlr->send_done();
 		return res;
 	}
@@ -650,9 +668,11 @@ namespace net_utils
 			uri_to_path = "/index.html";
 
 		//slash_to_back_slash(uri_to_path);
-		m_config.m_lock.lock();
-		std::string destination_file_path = m_config.m_folder + uri_to_path;
-		m_config.m_lock.unlock();
+		std::string destination_file_path;
+		{
+			CRITICAL_REGION_LOCAL(m_config.m_lock);
+			destination_file_path = m_config.m_folder + uri_to_path;
+		}
 		if(!file_io_utils::load_file_to_string(destination_file_path.c_str(), response.m_body))
 		{
 			MWARNING("URI \""<< query_info.m_full_request_str.substr(0, query_info.m_full_request_str.size()-2) << "\" [" << destination_file_path << "] Not Found (404 )");

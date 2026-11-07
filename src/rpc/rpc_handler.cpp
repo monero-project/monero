@@ -59,10 +59,10 @@ namespace rpc
           crypto::hash hash10 = get_hash(d.cached_to - 10);
           if (hash10 == d.cached_m10_hash)
           {
+            CHECK_AND_ASSERT_MES(d.cached_distribution.size() >= 10, boost::none, "Cached distribution size does not match cached bounds");
             d.cached_to -= 10;
             d.cached_top_hash = hash10;
             d.cached_m10_hash = crypto::null_hash;
-            CHECK_AND_ASSERT_MES(d.cached_distribution.size() >= 10, boost::none, "Cached distribution size does not match cached bounds");
             for (int p = 0; p < 10; ++p)
               d.cached_distribution.pop_back();
             can_extend = true;

@@ -396,8 +396,8 @@ namespace cryptonote
      *
      * @return true if block template filled in successfully, else false
      */
-    bool create_block_template(block& b, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
-    bool create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash);
+    bool create_block_template(block& b, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive = true);
+    bool create_block_template(block& b, const crypto::hash *from_block, const account_public_address& miner_address, difficulty_type& di, uint64_t& height, uint64_t& expected_reward, uint64_t& cumulative_weight, const blobdata& ex_nonce, uint64_t &seed_height, crypto::hash &seed_hash, bool include_sensitive = true);
 
     /**
      * @brief gets data required to create a block template and start mining on it
@@ -1151,6 +1151,14 @@ namespace cryptonote
     bool has_block_weights(uint64_t height, uint64_t nblocks) const;
 
     /**
+     * @brief checks pruned block weights against prevalidated chain data under one lock
+     * @param height the height of the first block
+     * @param blocks consecutive blocks; full blocks are ignored
+     * @return false if a pruned block has a zero, unavailable, or mismatched weight
+     */
+    bool check_block_weights(uint64_t height, const std::vector<block_complete_entry> &blocks) const;
+
+    /**
      * @brief flush the invalid blocks set
      */
     void flush_invalid_blocks();
@@ -1254,6 +1262,7 @@ namespace cryptonote
     uint64_t m_btc_cumulative_weight;
     crypto::hash m_btc_seed_hash;
     uint64_t m_btc_seed_height;
+    bool m_btc_include_sensitive;
     bool m_btc_valid;
 
 
@@ -1466,7 +1475,7 @@ namespace cryptonote
      *
      * @return false if anything is found wrong with the miner transaction, otherwise true
      */
-    bool prevalidate_miner_transaction(const block& b, uint64_t height, uint8_t hf_version);
+    static bool prevalidate_miner_transaction(const block& b, uint64_t height, uint8_t hf_version);
 
     /**
      * @brief validates a miner (coinbase) transaction
@@ -1566,7 +1575,7 @@ namespace cryptonote
     bool add_block_as_invalid(const block_extended_info& bei, const crypto::hash& h);
 
     /**
-     * @brief checks a block's timestamp
+     * @brief checks a block's timestamp on top of the main chain
      *
      * This function grabs the timestamps from the most recent <n> blocks,
      * where n = BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW.  If there are not those many
@@ -1577,26 +1586,27 @@ namespace cryptonote
      *   false otherwise
      *
      * @param b the block to be checked
-     * @param median_ts return-by-reference the median of timestamps
+     * @param[out] median_ts_out the median of timestamps (optional)
      *
      * @return true if the block's timestamp is valid, otherwise false
      */
-    bool check_block_timestamp(const block& b, uint64_t& median_ts) const;
-    bool check_block_timestamp(const block& b) const { uint64_t median_ts; return check_block_timestamp(b, median_ts); }
+    bool check_block_timestamp_main_chain(const block& b, uint64_t* median_ts_out = nullptr) const;
 
     /**
      * @brief checks a block's timestamp
      *
      * If the block is not more recent than the median of the recent
-     * timestamps passed here, it is considered invalid.
+     * timestamps passed here, it is considered invalid. If the block is too
+     * recent, according to the local system clock, it is considered invalid.
      *
-     * @param timestamps a list of the most recent timestamps to check against
+     * @param[inout] timestamps a list of the most recent timestamps to check against
      * @param b the block to be checked
+     * @param[out] median_ts_out the median of `timestamps` (optional)
      *
      * @return true if the block's timestamp is valid, otherwise false
      */
-    bool check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b, uint64_t& median_ts) const;
-    bool check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b) const { uint64_t median_ts; return check_block_timestamp(timestamps, b, median_ts); }
+    static bool check_block_timestamp(std::vector<uint64_t>& timestamps, const block& b,
+      uint64_t* median_ts_out = nullptr);
 
     /**
      * @brief finish an alternate chain's timestamp window from the main chain
@@ -1651,7 +1661,7 @@ namespace cryptonote
      *
      * At some point, may be used to push an update to miners
      */
-    void cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t cumulative_weight, uint64_t seed_height, const crypto::hash &seed_hash, uint64_t pool_cookie);
+    void cache_block_template(const block &b, const cryptonote::account_public_address &address, const blobdata &nonce, const difficulty_type &diff, uint64_t height, uint64_t expected_reward, uint64_t cumulative_weight, uint64_t seed_height, const crypto::hash &seed_hash, uint64_t pool_cookie, bool include_sensitive);
 
     /**
      * @brief sends new block notifications to ZMQ `miner_data` subscribers

@@ -72,7 +72,7 @@
       bool parse_res = epee::serialization::load_t_from_json(static_cast<command_type::request&>(req), query_info.m_body); \
       if (!parse_res) \
       { \
-         MERROR("Failed to parse json: \r\n" << query_info.m_body); \
+         MERROR("Failed to parse JSON request"); \
          response_info.m_response_code = 400; \
          response_info.m_response_comment = "Bad request"; \
          return true; \

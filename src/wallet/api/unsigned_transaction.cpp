@@ -76,6 +76,12 @@ bool UnsignedTransactionImpl::sign(const std::string &signedFileName)
      m_status = Status_Error;
      return false;
   }
+  if(m_wallet.m_wallet->key_on_device())
+  {
+     m_errorString = tr("Command not supported by hardware wallet");
+     m_status = Status_Error;
+     return false;
+  }
   std::vector<tools::wallet2::pending_tx> ptx;
   try
   {
@@ -212,7 +218,8 @@ bool UnsignedTransactionImpl::checkLoadedTx(const std::function<size_t()> get_nu
   std::string change_string;
   if (change > 0)
   {
-    std::string address = get_account_address_as_str(m_wallet.m_wallet->nettype(), get_tx(0).subaddr_account > 0, get_tx(0).change_dts.addr);
+    const tools::wallet2::tx_construction_data &cd = get_tx(first_known_non_zero_change_index);
+    std::string address = get_account_address_as_str(m_wallet.m_wallet->nettype(), cd.subaddr_account > 0, cd.change_dts.addr);
     change_string += (boost::format(tr("%s change to %s")) % cryptonote::print_money(change) % address).str();
   }
   else

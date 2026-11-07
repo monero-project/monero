@@ -56,6 +56,7 @@
 #include <boost/optional.hpp>
 #include "byte_slice.h"
 #include "net_utils_base.h"
+#include "scope_guard.h"
 #include "syncobj.h"
 #include "connection_basic.hpp"
 #include "network_throttle-detail.hpp"
@@ -92,10 +93,10 @@ namespace net_utils
   /// Represents a single connection from a client.
   template<class t_protocol_handler>
   class connection
-    : public boost::enable_shared_from_this<connection<t_protocol_handler> >,
-    private boost::noncopyable, 
-    public i_service_endpoint,
-    public connection_basic
+    : public std::enable_shared_from_this<connection<t_protocol_handler>>,
+    private boost::noncopyable,
+    public connection_basic, // shared_state shared_ptr must be destroyed after service_endpoint
+    public service_endpoint<t_protocol_handler>
   {
   public:
     typedef typename t_protocol_handler::connection_context t_connection_context;
@@ -173,7 +174,8 @@ namespace net_utils
         struct {
           std::deque<epee::byte_slice> queue;
           std::size_t total_bytes;
-          bool wait_consume;
+          bool timeout_extended;
+          bool reply_extended;
         } write;
       };
 
@@ -260,14 +262,13 @@ namespace net_utils
 
     io_context_t &m_io_context;
     t_connection_type m_connection_type;
-    t_connection_context m_conn_context{};
     strand_t m_strand;
     timers_t m_timers;
     connection_ptr self{};
     bool m_local{};
     std::string m_host{};
     state_t m_state{};
-    t_protocol_handler m_handler;
+
   public:
     struct shared_state : connection_basic_shared_state, t_protocol_handler::config_type
     {
@@ -310,7 +311,7 @@ namespace net_utils
     // `real_remote` is the actual endpoint (if connection is to proxy, etc.)
     bool start(bool is_income, bool is_multithreaded, network_address real_remote);
 
-    void get_context(t_connection_context& context_){context_ = m_conn_context;}
+    void get_context(t_connection_context& context_){context_ = get_context();}
 
     void call_back_starter();
     
@@ -331,9 +332,12 @@ namespace net_utils
     virtual bool call_run_once_service_io();
     virtual bool request_callback();
     virtual io_context_t& get_io_context();
-    virtual bool add_ref();
-    virtual bool release();
     //------------------------------------------------------
+    const t_connection_context& get_context() const noexcept { return this->context; }
+    t_connection_context& get_context() noexcept { return this->context; }
+
+    const t_protocol_handler& get_protocol_handler() const noexcept { return this->m_protocol_handler; }
+    t_protocol_handler& get_protocol_handler() noexcept { return this->m_protocol_handler; }
 	public:
 			void setRpcStation();
   };
@@ -354,7 +358,7 @@ namespace net_utils
     };
 
   public:
-    typedef boost::shared_ptr<connection<t_protocol_handler> > connection_ptr;
+    typedef std::shared_ptr<connection<t_protocol_handler>> connection_ptr;
     typedef typename t_protocol_handler::connection_context t_connection_context;
     /// Construct the server to listen on the specified TCP address and port, and
     /// serve up files from the given directory.
@@ -439,7 +443,12 @@ namespace net_utils
     }
 
     int get_binded_port(){return m_port;}
-    int get_binded_port_ipv6(){return m_port_ipv6;}
+    int get_binded_port_ipv6() const
+    {
+      boost::system::error_code ec;
+      const auto endpoint = acceptor_ipv6.local_endpoint(ec);
+      return ec ? 0 : endpoint.port();
+    }
 
     long get_connections_count() const
     {
@@ -493,10 +502,16 @@ namespace net_utils
     bool global_timer_handler(/*const boost::system::error_code& err, */std::shared_ptr<idle_callback_conext<t_handler>> ptr)
     {
       //if handler return false - he don't want to be called anymore
+      epee::unique_scope_guard rearm_timer = [this, &ptr]() {
+        ptr->m_timer.expires_after(ptr->m_period);
+        ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler<t_handler>, this, ptr));
+      };
       if(!ptr->call_handler())
+      {
+        rearm_timer.release();
         return true;
-      ptr->m_timer.expires_after(ptr->m_period);
-      ptr->m_timer.async_wait(boost::bind(&boosted_tcp_server<t_protocol_handler>::global_timer_handler<t_handler>, this, ptr));
+      }
+      rearm_timer.reset();
       return true;
     }
 

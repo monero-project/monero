@@ -68,6 +68,7 @@ namespace cryptonote
       const command_line::arg_descriptor<bool> rpc_ssl_allow_chained;
       const command_line::arg_descriptor<bool> rpc_ssl_allow_any_cert;
       const command_line::arg_descriptor<bool> disable_rpc_ban;
+      const command_line::arg_descriptor<bool> disable_md5;
     };
 
     // `allow_any_cert` bool toggles `--rpc-ssl-allow-any-cert` configuration
@@ -76,7 +77,7 @@ namespace cryptonote
     static void init_options(boost::program_options::options_description& desc, const bool any_cert_option = false);
 
     //! \return Arguments specified by user, or `boost::none` if error
-    static boost::optional<rpc_args> process(const boost::program_options::variables_map& vm, const bool any_cert_option = false);
+    static boost::optional<rpc_args> process(const boost::program_options::variables_map& vm, const bool any_cert_option = false, const bool parse_login = true);
 
     //! \return SSL arguments specified by user, or `boost::none` if error
     static boost::optional<epee::net_utils::ssl_options_t> process_ssl(const boost::program_options::variables_map& vm, const bool any_cert_option = false);
@@ -91,5 +92,6 @@ namespace cryptonote
     boost::optional<tools::login> login; // currently `boost::none` if unspecified by user
     epee::net_utils::ssl_options_t ssl_options = epee::net_utils::ssl_support_t::e_ssl_support_enabled;
     bool disable_rpc_ban = false;
+    bool disable_md5 = false;
   };
 }
