@@ -13,7 +13,7 @@ USAGE = 'usage: functional_tests_rpc.py <python> <srcdir> <builddir> [<tests-to-
 DEFAULT_TESTS = [
   'address_book', 'bans', 'blockchain', 'cold_signing', 'daemon_info', 'get_output_distribution',
   'http_digest_auth', 'integrated_address', 'k_anonymity', 'mining', 'multisig', 'p2p', 'proofs',
-  'sign_message', 'transfer', 'txpool', 'uri', 'validate_address', 'wallet'
+  'rpc_args', 'sign_message', 'transfer', 'txpool', 'uri', 'validate_address', 'wallet'
 ]
 try:
   python = sys.argv[1]
