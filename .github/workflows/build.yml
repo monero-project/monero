@@ -34,7 +34,7 @@ env:
     cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release
     cmake --build build --target all
   BUILD_DEFAULT_WITH_FCMP_INTEGRATION_ENABLED: |
-    cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release -D ENABLE_FCMP_INTEGRATION=ON
+    cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release -D ENABLE_FCMP_INTEGRATION=ON -D EXPECT_FUNCTIONAL_TESTS=ON -D BUILD_DEBUG_UTILITIES=ON
     cmake --build build --target all
   APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev libunbound-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache curl git'
   APT_SET_CONF: |
@@ -52,7 +52,7 @@ env:
     ccache --show-stats --verbose
   CTEST_EXCLUDE_SLOW: |
     cd build
-    env GTEST_FILTER="-DNSResolver.*:AddressFromURL.*:select_outputs.*" ctest --output-on-failure -E "functional_tests_rpc|core_tests|cnv4-jit|hash-variant2-int-sqrt|wide_difficulty"
+    env GTEST_FILTER="-DNSResolver.*:AddressFromURL.*:select_outputs.*" ctest --output-on-failure --timeout 3600 -E "functional_tests_rpc|core_tests|cnv4-jit|hash-variant2-int-sqrt|wide_difficulty"
   USE_DEVICE_TREZOR_MANDATORY: ON
   CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_OPT_LEVEL: 3
   INSTALL_RUST: |
@@ -267,10 +267,8 @@ jobs:
         run: ${{env.APT_INSTALL_LINUX}}
       - name: install rust
         run: ${{env.INSTALL_RUST}}
-      - name: install pip
-        run: apt install -y python3-pip
       - name: install Python dependencies
-        run: python3 -m pip install --break-system-packages requests psutil monotonic zmq deepdiff
+        run: apt -y install --no-install-recommends python3-requests python3-zmq python3-deepdiff
       - name: configure git
         run: git config --global --add safe.directory '*'
       - uses: actions/checkout@v7
@@ -300,20 +298,27 @@ jobs:
         with:
           path: ~/.cache/ccache
           key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
-      - name: run tests except core_tests
-        env:
-          DNS_PUBLIC: tcp
-        run: ctest --test-dir build --output-on-failure -E core_tests
       - name: use reduced slow-hash iterations for core_tests
         if: github.event_name == 'pull_request'
         env:
-          CFLAGS: -DMONERO_CRYPTO_SLOW_HASH_ITER=20
           CMAKE_BUILD_PARALLEL_LEVEL: ${{env.MAKE_JOB_COUNT}}
         run: |
-          cmake -S . -B build --fresh -D ARCH="default" -D BUILD_TESTS=ON -D ENABLE_FCMP_INTEGRATION=ON
+          cmake -S . -B build -D CMAKE_C_FLAGS=-DMONERO_CRYPTO_SLOW_HASH_ITER=20
           cmake --build build --target core_tests
-      - name: run core_tests
-        run: ctest --test-dir build --output-on-failure -R core_tests
+      - name: run tests
+        timeout-minutes: 120
+        env:
+          DNS_PUBLIC: tcp
+        run: ctest --test-dir build --output-on-failure --parallel 2 --timeout 4500
+      - name: upload test logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-logs
+          path: |
+            build/tests/functional_tests/*.log
+            build/tests/libwallet_api_tests/*.log
+          if-no-files-found: ignore
 
   build-docker:
     name: 'Docker'
