@@ -3,12 +3,25 @@ name: ci/gh-actions/cli
 on:
   push:
     paths-ignore:
+      - '**/*.md'
       - 'docs/**'
-      - '**/README.md'
+      - 'utils/conf/**'
+      - 'utils/fish/**'
+      - 'utils/gpg_keys/**'
+      - 'utils/openrc/**'
+      - 'utils/systemd/**'
   pull_request:
     paths-ignore:
+      - '**/*.md'
       - 'docs/**'
-      - '**/README.md'
+      - 'utils/conf/**'
+      - 'utils/fish/**'
+      - 'utils/gpg_keys/**'
+      - 'utils/openrc/**'
+      - 'utils/systemd/**'
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
@@ -16,11 +29,10 @@ concurrency:
 
 # The below variables reduce repetitions across similar targets
 env:
-  REMOVE_BUNDLED_PACKAGES : sudo rm -rf /usr/local
   # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
   BUILD_DEFAULT: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --target all'
   BUILD_DEFAULT_WITH_FCMP_INTEGRATION_ENABLED: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release -D ENABLE_FCMP_INTEGRATION=ON && cmake --build build --target all'
-  APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev libunbound-dev graphviz doxygen libunwind8-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache curl git'
+  APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev libunbound-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache curl git'
   APT_SET_CONF: |
     tee -a /etc/apt/apt.conf.d/80-custom << EOF
     Acquire::Retries "3";
@@ -34,22 +46,24 @@ env:
     env GTEST_FILTER="-DNSResolver.*:AddressFromURL.*:select_outputs.*" ctest --output-on-failure -E "functional_tests_rpc|core_tests|cnv4-jit|hash-variant2-int-sqrt|wide_difficulty"
   USE_DEVICE_TREZOR_MANDATORY: ON
   INSTALL_RUST: |
-    curl -O https://static.rust-lang.org/rustup/archive/1.29.0/x86_64-unknown-linux-gnu/rustup-init
-    echo "4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10 rustup-init" | sha256sum -c
+    curl -O https://static.rust-lang.org/rustup/archive/1.29.3/x86_64-unknown-linux-gnu/rustup-init
+    echo "b1c8cb14e30889e7e2999e6b69e62d9e9b9ffc0f4df8180564d306d9680e6c55 rustup-init" | sha256sum -c
     chmod +x rustup-init
-    ./rustup-init -y --default-toolchain 1.93
+    ./rustup-init -y --profile minimal --default-toolchain 1.93
     echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
 jobs:
   build-macos:
     name: 'macOS (brew)'
-    runs-on: macOS-latest
+    runs-on: macos-latest
+    timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           submodules: recursive
       - name: restore ccache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         id: ccache-restore
         with:
           path: /Users/runner/Library/Caches/ccache
@@ -58,7 +72,6 @@ jobs:
       - uses: ./.github/actions/set-make-job-count
       - name: install dependencies
         run: |
-          brew uninstall cmake
           brew update
           brew install --quiet cmake boost hidapi openssl zmq unbound protobuf ccache
       - name: build
@@ -70,7 +83,7 @@ jobs:
       - name: reduced tests
         run: ${{env.CTEST_EXCLUDE_SLOW}}
       - name: save ccache
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
         with:
           path: /Users/runner/Library/Caches/ccache
@@ -79,15 +92,17 @@ jobs:
   build-windows:
     name: 'Windows (MSYS2)'
     runs-on: windows-latest
+    timeout-minutes: 120
     defaults:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           submodules: recursive
       - name: restore ccache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         id: ccache-restore
         with:
           path: C:\Users\runneradmin\AppData\Local\ccache
@@ -98,7 +113,14 @@ jobs:
           msystem: ucrt64
           update: true
           cache: false
-          pacboy: toolchain:p cmake:p ccache:p boost:p openssl:p zeromq:p libsodium:p hidapi:p protobuf:p libusb:p unbound:p rust:p git:p
+          install: pactoys
+      - name: install dependencies
+        run: |
+          for i in 1 2 3; do
+            pacboy --noconfirm -S --needed toolchain:p cmake:p ccache:p boost:p openssl:p zeromq:p libsodium:p hidapi:p protobuf:p libusb:p unbound:p rust:p git:p && exit 0
+            sleep 30
+          done
+          exit 1
       - uses: ./.github/actions/set-make-job-count
       - name: build
         env:
@@ -109,7 +131,7 @@ jobs:
       - name: reduced tests
         run: ${{env.CTEST_EXCLUDE_SLOW}}
       - name: save ccache
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
         with:
           path: C:\Users\runneradmin\AppData\Local\ccache
@@ -118,18 +140,20 @@ jobs:
   build-arch:
     name: 'Arch Linux'
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     container:
       image: archlinux:latest
     steps:
       - name: install dependencies
-        run: pacman -Syyu --noconfirm base-devel git rust cmake boost boost-libs openssl zeromq unbound libsodium expat gtest python3 doxygen graphviz hidapi libusb protobuf ccache
+        run: pacman -Syu --noconfirm base-devel git rust cmake boost boost-libs openssl zeromq unbound libsodium python3 hidapi libusb protobuf ccache
       - name: configure git
         run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           submodules: recursive
       - name: restore ccache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         id: ccache-restore
         with:
           path: ~/.cache/ccache
@@ -143,7 +167,7 @@ jobs:
           ${{ env.CCACHE_SETTINGS }}
           ${{ env.BUILD_DEFAULT }}
       - name: save ccache
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
         with:
           path: ~/.cache/ccache
@@ -152,6 +176,7 @@ jobs:
   build-linux:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
@@ -177,11 +202,12 @@ jobs:
         run: ${{env.INSTALL_RUST}}
       - name: configure git
         run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           submodules: recursive
       - name: restore ccache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         id: ccache-restore
         with:
           path: ~/.cache/ccache
@@ -195,7 +221,7 @@ jobs:
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT}}
       - name: save ccache
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
         with:
           path: ~/.cache/ccache
@@ -204,6 +230,7 @@ jobs:
   test-ubuntu:
     name: "${{ matrix.name }} (tests)"
     runs-on: ubuntu-latest
+    timeout-minutes: 180
     strategy:
       matrix:
         include:
@@ -232,11 +259,12 @@ jobs:
         run: python3 -m pip install --break-system-packages requests psutil monotonic zmq deepdiff
       - name: configure git
         run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           submodules: recursive
       - name: restore ccache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         id: ccache-restore
         with:
           path: ~/.cache/ccache
@@ -266,7 +294,7 @@ jobs:
       - name: run core_tests
         run: ctest --test-dir build --output-on-failure -R core_tests
       - name: save ccache
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
         with:
           path: ~/.cache/ccache
@@ -275,9 +303,12 @@ jobs:
   build-docker:
     name: 'Docker'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    cache-mode: none
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           submodules: recursive
       - name: build image
         run: docker build .
@@ -285,6 +316,8 @@ jobs:
   source-archive:
     name: "source archive"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    cache-mode: none
     container:
       image: ubuntu:22.04
       env:
@@ -298,18 +331,19 @@ jobs:
         run: apt install -y git python3-pip
       - name: configure git
         run: git config --global --add safe.directory '*'
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: archive
         run: |
-          pip install git-archive-all
-          export VERSION="monero-$(git describe)"
-          export OUTPUT="$VERSION.tar"
+          echo "git-archive-all==1.24.0 --hash=sha256:c7212ff853dd3bb155f201f8c20a673e44d98785ce740e65d4c80c0b3b522ab6" | pip install --require-hashes -r /dev/stdin
+          VERSION="monero-$(git describe --always)"
+          OUTPUT="$VERSION.tar.gz"
           echo "OUTPUT=$OUTPUT" >> $GITHUB_ENV
           git-archive-all --prefix "$VERSION/" --force-submodules "$OUTPUT"
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ env.OUTPUT }}
           path: ${{ env.OUTPUT }}
+          archive: false
