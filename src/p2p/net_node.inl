@@ -3079,6 +3079,19 @@ namespace nodetool
       if (zone.second.m_connect == nullptr)
         continue;
 
+      peerlist_entry oldest{}, newcomer{};
+      if (zone.second.m_peerlist.get_white_collision(oldest, newcomer))
+      {
+        if (is_addr_connected(oldest.adr) || check_connection_and_handshake_with_peer(oldest.adr, oldest.last_seen))
+          zone.second.m_peerlist.set_peer_just_seen(oldest.id, oldest.adr, oldest.pruning_seed, oldest.rpc_port, oldest.rpc_credits_per_hash);
+        else
+        {
+          zone.second.m_peerlist.remove_from_peer_white(oldest);
+          zone.second.m_peerlist.append_with_peer_white(newcomer);
+          LOG_PRINT_L2("PEER REPLACED IN WHITE PEER LIST: address: " << oldest.adr.host_str() << " by " << newcomer.adr.host_str());
+        }
+      }
+
       peerlist_entry pe{};
       if (!zone.second.m_peerlist.get_random_gray_peer(pe))
         continue;
