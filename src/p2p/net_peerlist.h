@@ -93,6 +93,9 @@ namespace nodetool
     peerlist_types m_types;
   };
 
+  // public IPv6 addresses are grouped by /64
+  bool is_same_p2p_host(const epee::net_utils::network_address& left, const epee::net_utils::network_address& right);
+
   /************************************************************************/
   /*                                                                      */
   /************************************************************************/
@@ -147,6 +150,7 @@ namespace nodetool
   private: 
     void trim_white_peerlist();
     void trim_gray_peerlist();
+    void evict_p2p_host_from_white_peerlist(const peerlist_entry& pr);
     static peerlist_entry get_nth_latest_peer(peers_indexed& peerlist, size_t n);
 
     friend class boost::serialization::access;
@@ -297,7 +301,7 @@ namespace nodetool
     if(by_addr_it_wt == m_peers_white.get<by_addr>().end())
     {
       //put new record into white list
-      evict_host_from_peerlist(true, ple);
+      evict_p2p_host_from_white_peerlist(ple);
       m_peers_white.insert(ple);
       trim_white_peerlist();
     }else

@@ -439,8 +439,8 @@ TEST(node_server, p2p_connection_limit_ipv6_by_64)
     }
   };
 
-  EXPECT_TRUE(nodetool::is_same_p2p_connection_limit_host(ipv6_a, ipv6_b));
-  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(ipv6_a, ipv6_c));
+  EXPECT_TRUE(nodetool::is_same_p2p_host(ipv6_a, ipv6_b));
+  EXPECT_FALSE(nodetool::is_same_p2p_host(ipv6_a, ipv6_c));
 
   const epee::net_utils::network_address loopback_a{
     epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6::loopback(), 18080}
@@ -448,7 +448,7 @@ TEST(node_server, p2p_connection_limit_ipv6_by_64)
   const epee::net_utils::network_address loopback_b{
     epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("::2"), 18080}
   };
-  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(loopback_a, loopback_b));
+  EXPECT_FALSE(nodetool::is_same_p2p_host(loopback_a, loopback_b));
 
   const epee::net_utils::network_address link_local_a{
     epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fe80::1"), 18080}
@@ -456,7 +456,7 @@ TEST(node_server, p2p_connection_limit_ipv6_by_64)
   const epee::net_utils::network_address link_local_b{
     epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fe80::2"), 18080}
   };
-  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(link_local_a, link_local_b));
+  EXPECT_FALSE(nodetool::is_same_p2p_host(link_local_a, link_local_b));
 
   const epee::net_utils::network_address unique_local_a{
     epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fc00::1"), 18080}
@@ -464,7 +464,7 @@ TEST(node_server, p2p_connection_limit_ipv6_by_64)
   const epee::net_utils::network_address unique_local_b{
     epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fc00::2"), 18080}
   };
-  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(unique_local_a, unique_local_b));
+  EXPECT_FALSE(nodetool::is_same_p2p_host(unique_local_a, unique_local_b));
 
   const epee::net_utils::network_address unique_local_c{
     epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fd00::1"), 18080}
@@ -472,7 +472,7 @@ TEST(node_server, p2p_connection_limit_ipv6_by_64)
   const epee::net_utils::network_address unique_local_d{
     epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fd00::2"), 18080}
   };
-  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(unique_local_c, unique_local_d));
+  EXPECT_FALSE(nodetool::is_same_p2p_host(unique_local_c, unique_local_d));
 
   const epee::net_utils::network_address multicast_a{
     epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("ff00::1"), 18080}
@@ -480,7 +480,7 @@ TEST(node_server, p2p_connection_limit_ipv6_by_64)
   const epee::net_utils::network_address multicast_b{
     epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("ff00::2"), 18080}
   };
-  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(multicast_a, multicast_b));
+  EXPECT_FALSE(nodetool::is_same_p2p_host(multicast_a, multicast_b));
 
   const epee::net_utils::network_address site_local_a{
     epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fec0::1"), 18080}
@@ -488,11 +488,11 @@ TEST(node_server, p2p_connection_limit_ipv6_by_64)
   const epee::net_utils::network_address site_local_b{
     epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6("fec0::2"), 18080}
   };
-  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(site_local_a, site_local_b));
+  EXPECT_FALSE(nodetool::is_same_p2p_host(site_local_a, site_local_b));
 
   const epee::net_utils::network_address ipv4_a{MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 1, 18080)};
   const epee::net_utils::network_address ipv4_b{MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 2, 18080)};
-  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(ipv4_a, ipv4_b));
+  EXPECT_FALSE(nodetool::is_same_p2p_host(ipv4_a, ipv4_b));
 
   boost::asio::ip::address_v6::bytes_type bytes_a = {};
   bytes_a[10] = 0xff;
@@ -510,7 +510,7 @@ TEST(node_server, p2p_connection_limit_ipv6_by_64)
   const epee::net_utils::network_address mapped_b{
     epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes_b}, 18080}
   };
-  EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(mapped_a, mapped_b));
+  EXPECT_FALSE(nodetool::is_same_p2p_host(mapped_a, mapped_b));
 }
 
 namespace
