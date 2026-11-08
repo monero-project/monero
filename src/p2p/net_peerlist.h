@@ -30,6 +30,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <deque>
 #include <iosfwd>
 #include <iterator>
 #include <list>
@@ -118,6 +120,7 @@ namespace nodetool
     bool get_and_empty_anchor_peerlist(std::vector<anchor_peerlist_entry>& apl);
     bool remove_from_peer_anchor(const epee::net_utils::network_address& addr);
     bool remove_from_peer_white(const peerlist_entry& pe);
+    bool get_white_collision(peerlist_entry& oldest, peerlist_entry& newcomer);
     template<typename F> size_t filter(bool white, const F &f); // f returns true: drop, false: keep
     
   private:
@@ -146,6 +149,7 @@ namespace nodetool
 
   private: 
     void trim_white_peerlist();
+    bool white_has_room();
     void trim_gray_peerlist();
     static peerlist_entry get_nth_latest_peer(peers_indexed& peerlist, size_t n);
 
@@ -158,6 +162,7 @@ namespace nodetool
     peers_indexed m_peers_gray;
     peers_indexed m_peers_white;
     anchor_peers_indexed m_peers_anchor;
+    std::deque<peerlist_entry> m_white_collisions;
   };
   //--------------------------------------------------------------------------------------------------
   inline void peerlist_manager::trim_gray_peerlist()
@@ -176,6 +181,14 @@ namespace nodetool
       peers_indexed::index<by_time>::type& sorted_index=m_peers_white.get<by_time>();
       sorted_index.erase(sorted_index.begin());
     }
+  }
+  //--------------------------------------------------------------------------------------------------
+  inline bool peerlist_manager::white_has_room()
+  {
+    if (m_peers_white.size() < P2P_LOCAL_WHITE_PEERLIST_LIMIT)
+      return true;
+    const int64_t oldest_last_seen = m_peers_white.get<by_time>().begin()->last_seen;
+    return time(nullptr) - oldest_last_seen > P2P_WHITE_PEER_STALE_SECONDS;
   }
   //--------------------------------------------------------------------------------------------------
   inline
@@ -298,6 +311,14 @@ namespace nodetool
     {
       //put new record into white list
       evict_host_from_peerlist(true, ple);
+      if (!white_has_room())
+      {
+        const bool queued = std::any_of(m_white_collisions.begin(), m_white_collisions.end(),
+          [&ple](const peerlist_entry& pe) { return pe.adr == ple.adr; });
+        if (!queued && m_white_collisions.size() < P2P_LOCAL_WHITE_PEERLIST_COLLISIONS_MAX)
+          m_white_collisions.push_back(ple);
+        return true;
+      }
       m_peers_white.insert(ple);
       trim_white_peerlist();
     }else
@@ -407,9 +428,39 @@ namespace nodetool
       m_peers_white.erase(iterator);
     }
 
+    m_white_collisions.erase(std::remove_if(m_white_collisions.begin(), m_white_collisions.end(),
+      [&pe](const peerlist_entry& queued) { return queued.adr == pe.adr; }), m_white_collisions.end());
+
     return true;
 
     CATCH_ENTRY_L0("peerlist_manager::remove_from_peer_white()", false);
+  }
+  //--------------------------------------------------------------------------------------------------
+  inline
+  bool peerlist_manager::get_white_collision(peerlist_entry& oldest, peerlist_entry& newcomer)
+  {
+    TRY_ENTRY();
+
+    CRITICAL_REGION_LOCAL(m_peerlist_lock);
+
+    while (!m_white_collisions.empty())
+    {
+      newcomer = m_white_collisions.front();
+      m_white_collisions.pop_front();
+      if (m_peers_white.get<by_addr>().count(newcomer.adr))
+        continue;
+      if (white_has_room())
+      {
+        append_with_peer_white(newcomer);
+        continue;
+      }
+      oldest = *m_peers_white.get<by_time>().begin();
+      return true;
+    }
+
+    return false;
+
+    CATCH_ENTRY_L0("peerlist_manager::get_white_collision()", false);
   }
   //--------------------------------------------------------------------------------------------------
   inline
@@ -486,6 +537,8 @@ namespace nodetool
       else
         ++i;
     }
+    if (white)
+      m_white_collisions.erase(std::remove_if(m_white_collisions.begin(), m_white_collisions.end(), f), m_white_collisions.end());
     CATCH_ENTRY_L0("peerlist_manager::filter()", filtered);
     return filtered;
   }
