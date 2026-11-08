@@ -40,6 +40,7 @@
 #include <boost/algorithm/string.hpp>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -634,10 +635,15 @@ namespace nodetool
 
     if (command_line::has_arg(vm, arg_p2p_seed_node))
     {
-      boost::unique_lock<boost::shared_mutex> lock(public_zone.m_seed_nodes_lock);
-
-      if (!parse_peers_and_add_to_container(vm, arg_p2p_seed_node, public_zone.m_seed_nodes))
+      std::vector<epee::net_utils::network_address> seed_nodes;
+      if (!parse_peers_and_add_to_container(vm, arg_p2p_seed_node, seed_nodes))
         return false;
+      for (const auto& address : seed_nodes)
+      {
+        network_zone& zone = m_network_zones.at(address.get_zone());
+        boost::unique_lock<boost::shared_mutex> lock(zone.m_seed_nodes_lock);
+        zone.m_seed_nodes.push_back(address);
+      }
     }
 
     if (!command_line::is_arg_defaulted(vm, arg_ban_list))
@@ -1183,6 +1189,24 @@ namespace nodetool
     network_zone& public_zone = m_network_zones.at(epee::net_utils::zone::public_);
     public_zone.m_net_server.add_idle_handler(boost::bind(&node_server<t_payload_net_handler>::idle_worker, this), std::chrono::seconds{1});
     public_zone.m_net_server.add_idle_handler(boost::bind(&t_payload_net_handler::on_idle, &m_payload_handler), std::chrono::seconds{1});
+    for (auto& zone : m_network_zones)
+    {
+      if (zone.first == epee::net_utils::zone::public_)
+        continue;
+      // Blocking dials must not delay other zones. Randomize housekeeping independently.
+      zone.second.m_net_server.add_idle_handler([this, zone_type = zone.first,
+        next_housekeeping = std::chrono::steady_clock::now() + std::chrono::seconds{crypto::rand_range(30u, 90u)}]() mutable {
+        if (m_stop_signal_sent_once)
+          return false;
+        connections_maker(zone_type);
+        if (!m_stop_signal_sent_once && std::chrono::steady_clock::now() >= next_housekeeping)
+        {
+          gray_peerlist_housekeeping(zone_type);
+          next_housekeeping = std::chrono::steady_clock::now() + std::chrono::seconds{crypto::rand_range(30u, 90u)};
+        }
+        return !m_stop_signal_sent_once;
+      }, std::chrono::seconds{1});
+    }
 
     //here you can set worker threads count
     int thrds_count = 10;
@@ -2018,25 +2042,26 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::connections_maker()
+  bool node_server<t_payload_net_handler>::connections_maker(const epee::net_utils::zone zone_type)
   {
-    using zone_type = epee::net_utils::zone;
-
     if (m_offline) return true;
-    if (!connect_to_peerlist(m_exclusive_peers)) return false;
+    if (!connect_to_peerlist(m_exclusive_peers, zone_type)) return false;
 
     if (!m_exclusive_peers.empty()) return true;
 
     bool one_succeeded = false;
     for(auto& zone : m_network_zones)
     {
+      if (zone.first != zone_type)
+        continue;
+
       size_t start_conn_count = get_outgoing_connections_count(zone.second);
       if(!zone.second.m_peerlist.get_white_peers_count() && !connect_to_seed(zone.first))
       {
         continue;
       }
 
-      if (zone.first == zone_type::public_ && !connect_to_peerlist(m_priority_peers)) continue;
+      if (!connect_to_peerlist(m_priority_peers, zone_type)) continue;
 
       size_t base_expected_white_connections = (zone.second.m_config.m_net_config.max_out_connection_count*P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT)/100;
 
@@ -2209,8 +2234,8 @@ namespace nodetool
   bool node_server<t_payload_net_handler>::idle_worker()
   {
     m_peer_handshake_idle_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::peer_sync_idle_maker, this));
-    m_connections_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::connections_maker, this));
-    m_gray_peerlist_housekeeping_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::gray_peerlist_housekeeping, this));
+    m_connections_maker_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::connections_maker, this, epee::net_utils::zone::public_));
+    m_gray_peerlist_housekeeping_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::gray_peerlist_housekeeping, this, epee::net_utils::zone::public_));
     m_peerlist_store_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::store_config, this));
     m_incoming_connections_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::check_incoming_connections, this));
     m_dns_blocklist_interval.do_call(boost::bind(&node_server<t_payload_net_handler>::update_dns_blocklist, this));
@@ -2869,15 +2894,15 @@ namespace nodetool
   }
 
   template<class t_payload_net_handler> template <class Container>
-  bool node_server<t_payload_net_handler>::connect_to_peerlist(const Container& peers)
+  bool node_server<t_payload_net_handler>::connect_to_peerlist(const Container& peers, const epee::net_utils::zone zone_type)
   {
-    const network_zone& public_zone = m_network_zones.at(epee::net_utils::zone::public_);
+    const network_zone& zone = m_network_zones.at(zone_type);
     for(const epee::net_utils::network_address& na: peers)
     {
-      if(public_zone.m_net_server.is_stop_signal_sent())
+      if(zone.m_net_server.is_stop_signal_sent())
         return false;
 
-      if(is_addr_connected(na))
+      if(na.get_zone() != zone_type || is_addr_connected(na))
         continue;
 
       try_to_connect_and_handshake_with_new_peer(na);
@@ -3067,13 +3092,16 @@ namespace nodetool
   }
 
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::gray_peerlist_housekeeping()
+  bool node_server<t_payload_net_handler>::gray_peerlist_housekeeping(const epee::net_utils::zone zone_type)
   {
     if (m_offline) return true;
     if (!m_exclusive_peers.empty()) return true;
 
     for (auto& zone : m_network_zones)
     {
+      if (zone.first != zone_type)
+        continue;
+
       if (m_payload_handler.needs_new_sync_connections(zone.first))
         continue;
 
