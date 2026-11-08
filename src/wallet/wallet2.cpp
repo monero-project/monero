@@ -12625,6 +12625,7 @@ bool wallet2::check_spend_proof(const crypto::hash &txid, const std::string &mes
   crypto::hash tx_hash;
   THROW_WALLET_EXCEPTION_IF(!get_pruned_tx(res.txs[0], tx, tx_hash), error::wallet_internal_error, "failed to get tx from daemon");
   THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
+  THROW_WALLET_EXCEPTION_IF(tx.is_coinbase(), error::wallet_internal_error, "Cannot check spend proof for a coinbase transaction");
 
   // check signature size
   size_t num_sigs = 0;
@@ -12636,7 +12637,8 @@ bool wallet2::check_spend_proof(const crypto::hash &txid, const std::string &mes
   }
   std::vector<std::vector<crypto::signature>> signatures = { std::vector<crypto::signature>(1) };
   const size_t sig_len = tools::base58::encode(std::string((const char *)&signatures[0][0], sizeof(crypto::signature))).size();
-  if( num_sigs == 0 || sig_str.size() != header_len + num_sigs * sig_len ) {
+  THROW_WALLET_EXCEPTION_IF(num_sigs == 0, error::wallet_internal_error, "Transaction has no key inputs");
+  if( sig_str.size() != header_len + num_sigs * sig_len ) {
     return false;
   }
 
