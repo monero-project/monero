@@ -757,11 +757,11 @@ TEST(HTTP_Server_Auth, Algorithms)
   ASSERT_TRUE(bool(response));
 
   const auto parsed = parse_response(*response);
-  ASSERT_EQ(4u, parsed.size()); // sha256, sha256-sess, md5, md5-sess
-  EXPECT_STREQ(u8"SHA-256", parsed[0].at(u8"algorithm").c_str());
-  EXPECT_STREQ(u8"SHA-256-sess", parsed[1].at(u8"algorithm").c_str());
-  EXPECT_STREQ(u8"MD5", parsed[2].at(u8"algorithm").c_str());
-  EXPECT_STREQ(u8"MD5-sess", parsed[3].at(u8"algorithm").c_str());
+  ASSERT_EQ(4u, parsed.size()); // sha256-sess, sha256, md5-sess, md5
+  EXPECT_STREQ(u8"SHA-256-sess", parsed[0].at(u8"algorithm").c_str());
+  EXPECT_STREQ(u8"SHA-256", parsed[1].at(u8"algorithm").c_str());
+  EXPECT_STREQ(u8"MD5-sess", parsed[2].at(u8"algorithm").c_str());
+  EXPECT_STREQ(u8"MD5", parsed[3].at(u8"algorithm").c_str());
 
   for (const auto& challenge : parsed)
   {
@@ -782,9 +782,9 @@ TEST(HTTP_Server_Auth, DisableMD5_Algorithms)
   ASSERT_TRUE(bool(response));
 
   const auto parsed = parse_response(*response);
-  ASSERT_EQ(2u, parsed.size()); // sha256, sha256-sess only
-  EXPECT_STREQ(u8"SHA-256", parsed[0].at(u8"algorithm").c_str());
-  EXPECT_STREQ(u8"SHA-256-sess", parsed[1].at(u8"algorithm").c_str());
+  ASSERT_EQ(2u, parsed.size()); // sha256-sess, sha256 only
+  EXPECT_STREQ(u8"SHA-256-sess", parsed[0].at(u8"algorithm").c_str());
+  EXPECT_STREQ(u8"SHA-256", parsed[1].at(u8"algorithm").c_str());
 
   for (const auto& challenge : parsed)
   {
