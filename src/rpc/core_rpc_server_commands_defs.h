@@ -277,6 +277,9 @@ inline const std::string get_rpc_status(const bool trusted_daemon, const std::st
     typedef epee::misc_utils::struct_init<response_t> response;
   };
 
+  // Deprecated but retained for compatibility.
+  // Use get_block_header_by_height for headers, get_block for block blobs and
+  // transaction hashes, or /get_blocks.bin for blocks with transaction data.
   struct COMMAND_RPC_GET_BLOCKS_BY_HEIGHT
   {
     struct request_t: public rpc_access_request_base
