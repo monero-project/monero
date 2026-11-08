@@ -139,6 +139,7 @@ static_assert(CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT >= BLOCKS_SYNCHRONIZING
 
 #define P2P_LOCAL_WHITE_PEERLIST_LIMIT                  1000
 #define P2P_LOCAL_GRAY_PEERLIST_LIMIT                   5000
+#define P2P_LOCAL_WHITE_PEERLIST_COLLISIONS_MAX         10
 
 #define P2P_DEFAULT_CONNECTIONS_COUNT                   12
 #define P2P_DEFAULT_HANDSHAKE_INTERVAL                  60           //seconds
@@ -159,6 +160,7 @@ static_assert(CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT >= BLOCKS_SYNCHRONIZING
 #define P2P_FAILED_ADDR_FORGET_SECONDS                  (60*60)     //1 hour
 #define P2P_FAILED_SEED_ADDR_FORGET_SECONDS             (60*5)      //5 minutes
 #define P2P_IP_BLOCKTIME                                (60*60*24)  //24 hour
+#define P2P_WHITE_PEER_STALE_SECONDS                    (60*60*24*30) //30 days
 #define P2P_IP_FAILS_BEFORE_BLOCK                       10
 #define P2P_IDLE_CONNECTION_KILL_INTERVAL               (5*60) //5 minutes
 
