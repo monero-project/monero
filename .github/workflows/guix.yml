@@ -2,7 +2,7 @@ name: ci/gh-actions/guix
 
 on:
   push:
-    paths:
+    paths: &paths
       - 'contrib/depends/**'
       - 'contrib/guix/**'
       - 'contrib/shell/**'
@@ -11,14 +11,7 @@ on:
       - '.github/workflows/guix.yml'
       - '**/Cargo.lock'
   pull_request:
-    paths:
-      - 'contrib/depends/**'
-      - 'contrib/guix/**'
-      - 'contrib/shell/**'
-      - '!contrib/**.md'
-      - 'external/**'
-      - '.github/workflows/guix.yml'
-      - '**/Cargo.lock'
+    paths: *paths
 
 permissions:
   contents: read

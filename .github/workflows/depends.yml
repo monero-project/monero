@@ -2,7 +2,7 @@ name: ci/gh-actions/depends
 
 on:
   push:
-    paths-ignore:
+    paths-ignore: &paths-ignore
       - '**/*.md'
       - 'docs/**'
       - 'utils/conf/**'
@@ -11,14 +11,7 @@ on:
       - 'utils/openrc/**'
       - 'utils/systemd/**'
   pull_request:
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'utils/conf/**'
-      - 'utils/fish/**'
-      - 'utils/gpg_keys/**'
-      - 'utils/openrc/**'
-      - 'utils/systemd/**'
+    paths-ignore: *paths-ignore
 
 permissions:
   contents: read
