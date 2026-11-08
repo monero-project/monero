@@ -27,6 +27,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_OPT_LEVEL: 3
+
 jobs:
   build-cross:
     runs-on: ubuntu-latest
@@ -102,6 +105,11 @@ jobs:
           echo "/usr/lib/llvm-19/bin/" >> $GITHUB_PATH
     - name: install dependencies
       run: apt update; apt -y install build-essential cmake pkg-config git ccache ${{ matrix.toolchain.packages }}
+    - name: prepare w64-mingw32
+      if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' }}
+      run: |
+        update-alternatives --set ${{ matrix.toolchain.host }}-g++ $(which ${{ matrix.toolchain.host }}-g++-posix)
+        update-alternatives --set ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-posix)
     - name: install rust
       run: |
           curl -O https://static.rust-lang.org/rustup/archive/1.29.3/x86_64-unknown-linux-gnu/rustup-init
@@ -124,23 +132,27 @@ jobs:
         key: ccache-${{ matrix.toolchain.host }}-${{ github.sha }}
         restore-keys: ccache-${{ matrix.toolchain.host }}-
 # Less volatile cache
+    - name: get depends build id
+      id: depends-id
+      run: |
+        id=$(make -s -C contrib/depends HOST=${{ matrix.toolchain.host }} print-final_build_id)
+        echo "id=$id" >> $GITHUB_OUTPUT
     - name: restore depends cache
       uses: actions/cache/restore@v6
       id: depends-restore
       with:
         path: contrib/depends/built
-        key: depends-${{ matrix.toolchain.host }}-${{ hashFiles('contrib/depends/packages/*') }}
+        key: depends-${{ matrix.toolchain.host }}-${{ steps.depends-id.outputs.id }}
         restore-keys: depends-${{ matrix.toolchain.host }}-
-    - name: prepare w64-mingw32
-      if: ${{ matrix.toolchain.host == 'x86_64-w64-mingw32' }}
-      run: |
-        update-alternatives --set ${{ matrix.toolchain.host }}-g++ $(which ${{ matrix.toolchain.host }}-g++-posix)
-        update-alternatives --set ${{ matrix.toolchain.host }}-gcc $(which ${{ matrix.toolchain.host }}-gcc-posix)
     - uses: ./.github/actions/set-make-job-count
     - name: build
       run: |
         ccache --max-size=150M
+        ccache --zero-stats
+        ccache_start=$(date +%s)
         make depends target=${{ matrix.toolchain.host }} -j"$MAKE_JOB_COUNT"
+        ccache --evict-older-than $(($(date +%s) - ccache_start + 1))s
+        ccache --show-stats --verbose
     - name: save ccache
       uses: actions/cache/save@v6
       if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'

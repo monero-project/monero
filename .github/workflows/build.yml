@@ -30,8 +30,12 @@ concurrency:
 # The below variables reduce repetitions across similar targets
 env:
   # ARCH="default" (not "native") ensures, that a different execution host can execute binaries compiled elsewhere.
-  BUILD_DEFAULT: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release && cmake --build build --target all'
-  BUILD_DEFAULT_WITH_FCMP_INTEGRATION_ENABLED: 'cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release -D ENABLE_FCMP_INTEGRATION=ON && cmake --build build --target all'
+  BUILD_DEFAULT: |
+    cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release
+    cmake --build build --target all
+  BUILD_DEFAULT_WITH_FCMP_INTEGRATION_ENABLED: |
+    cmake -S . -B build -D ARCH="default" -D BUILD_TESTS=ON -D BUILD_GUI_DEPS=ON -D ENABLE_FUZZ_TEST=ON -D CMAKE_BUILD_TYPE=Release -D ENABLE_FCMP_INTEGRATION=ON
+    cmake --build build --target all
   APT_INSTALL_LINUX: 'apt -y install build-essential cmake libboost-all-dev libunbound-dev pkg-config libssl-dev libzmq3-dev libsodium-dev libhidapi-dev libusb-1.0-0-dev libprotobuf-dev protobuf-compiler ccache curl git'
   APT_SET_CONF: |
     tee -a /etc/apt/apt.conf.d/80-custom << EOF
@@ -41,10 +45,16 @@ env:
     EOF
   CCACHE_SETTINGS: |
     ccache --max-size=150M
+    ccache --zero-stats
+    ccache_start=$(date +%s)
+  CCACHE_EVICT_UNUSED: |
+    ccache --evict-older-than $(($(date +%s) - ccache_start + 1))s
+    ccache --show-stats --verbose
   CTEST_EXCLUDE_SLOW: |
     cd build
     env GTEST_FILTER="-DNSResolver.*:AddressFromURL.*:select_outputs.*" ctest --output-on-failure -E "functional_tests_rpc|core_tests|cnv4-jit|hash-variant2-int-sqrt|wide_difficulty"
   USE_DEVICE_TREZOR_MANDATORY: ON
+  CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_OPT_LEVEL: 3
   INSTALL_RUST: |
     curl -O https://static.rust-lang.org/rustup/archive/1.29.3/x86_64-unknown-linux-gnu/rustup-init
     echo "b1c8cb14e30889e7e2999e6b69e62d9e9b9ffc0f4df8180564d306d9680e6c55 rustup-init" | sha256sum -c
@@ -80,14 +90,15 @@ jobs:
         run: |
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT}}
-      - name: reduced tests
-        run: ${{env.CTEST_EXCLUDE_SLOW}}
+          ${{env.CCACHE_EVICT_UNUSED}}
       - name: save ccache
         uses: actions/cache/save@v6
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
         with:
           path: /Users/runner/Library/Caches/ccache
           key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
+      - name: reduced tests
+        run: ${{env.CTEST_EXCLUDE_SLOW}}
 
   build-windows:
     name: 'Windows (MSYS2)'
@@ -128,14 +139,15 @@ jobs:
         run: |
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT}}
-      - name: reduced tests
-        run: ${{env.CTEST_EXCLUDE_SLOW}}
+          ${{env.CCACHE_EVICT_UNUSED}}
       - name: save ccache
         uses: actions/cache/save@v6
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
         with:
           path: C:\Users\runneradmin\AppData\Local\ccache
           key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
+      - name: reduced tests
+        run: ${{env.CTEST_EXCLUDE_SLOW}}
 
   build-arch:
     name: 'Arch Linux'
@@ -166,6 +178,7 @@ jobs:
         run: |
           ${{ env.CCACHE_SETTINGS }}
           ${{ env.BUILD_DEFAULT }}
+          ${{ env.CCACHE_EVICT_UNUSED }}
       - name: save ccache
         uses: actions/cache/save@v6
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
@@ -220,6 +233,7 @@ jobs:
         run: |
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT}}
+          ${{env.CCACHE_EVICT_UNUSED}}
       - name: save ccache
         uses: actions/cache/save@v6
         if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
@@ -279,6 +293,13 @@ jobs:
         run: |
           ${{env.CCACHE_SETTINGS}}
           ${{env.BUILD_DEFAULT_WITH_FCMP_INTEGRATION_ENABLED}}
+          ${{env.CCACHE_EVICT_UNUSED}}
+      - name: save ccache
+        uses: actions/cache/save@v6
+        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
+        with:
+          path: ~/.cache/ccache
+          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
       - name: run tests except core_tests
         env:
           DNS_PUBLIC: tcp
@@ -293,12 +314,6 @@ jobs:
           cmake --build build --target core_tests
       - name: run core_tests
         run: ctest --test-dir build --output-on-failure -R core_tests
-      - name: save ccache
-        uses: actions/cache/save@v6
-        if: github.event_name != 'pull_request' && steps.ccache-restore.outputs.cache-hit != 'true'
-        with:
-          path: ~/.cache/ccache
-          key: ${{ steps.ccache-restore.outputs.cache-primary-key }}
 
   build-docker:
     name: 'Docker'
