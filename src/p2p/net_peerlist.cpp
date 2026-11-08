@@ -264,10 +264,13 @@ namespace nodetool
     if (!m_peers_white.empty() || !m_peers_gray.empty() || !m_peers_anchor.empty())
       return false;
 
-    add_peers(m_peers_white.get<by_addr>(), std::move(peers.white));
-    add_peers(m_peers_gray.get<by_addr>(), std::move(peers.gray));
-    add_peers(m_peers_anchor.get<by_addr>(), std::move(peers.anchor));
     m_allow_local_ip = allow_local_ip;
+    add_peers(m_peers_anchor.get<by_addr>(), std::move(peers.anchor));
+    std::sort(peers.white.begin(), peers.white.end(), [](const peerlist_entry& a, const peerlist_entry& b) { return a.last_seen > b.last_seen; });
+    for (const peerlist_entry& pe : peers.white)
+      append_with_peer_white(pe, true);
+    for (const peerlist_entry& pe : peers.gray)
+      append_with_peer_gray(pe, pe.adr);
     return true;
   }
 

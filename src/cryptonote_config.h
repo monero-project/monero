@@ -137,8 +137,15 @@ static_assert(CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT >= BLOCKS_SYNCHRONIZING
 #define DEFAULT_RPC_SOFT_LIMIT_SIZE                     25 * 1024 * 1024 // 25 MiB
 #define MAX_RPC_CONTENT_LENGTH                          1048576 // 1 MB
 
-#define P2P_LOCAL_WHITE_PEERLIST_LIMIT                  1000
-#define P2P_LOCAL_GRAY_PEERLIST_LIMIT                   5000
+#define P2P_LOCAL_WHITE_BUCKET_COUNT                    256
+#define P2P_LOCAL_WHITE_BUCKET_SIZE                     16
+#define P2P_LOCAL_WHITE_BUCKETS_PER_GROUP               8
+#define P2P_LOCAL_WHITE_PEERLIST_LIMIT                  (P2P_LOCAL_WHITE_BUCKET_COUNT * P2P_LOCAL_WHITE_BUCKET_SIZE)
+#define P2P_LOCAL_GRAY_BUCKET_COUNT                     256
+#define P2P_LOCAL_GRAY_BUCKET_SIZE                      32
+#define P2P_LOCAL_GRAY_BUCKETS_PER_SOURCE_GROUP         16
+#define P2P_LOCAL_GRAY_PEERLIST_LIMIT                   (P2P_LOCAL_GRAY_BUCKET_COUNT * P2P_LOCAL_GRAY_BUCKET_SIZE)
+#define P2P_LOCAL_WHITE_PEERLIST_COLLISIONS_MAX         10
 
 #define P2P_DEFAULT_CONNECTIONS_COUNT                   12
 #define P2P_DEFAULT_HANDSHAKE_INTERVAL                  60           //seconds
@@ -150,7 +157,6 @@ static_assert(CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT >= BLOCKS_SYNCHRONIZING
 #define P2P_DEFAULT_PING_CONNECTION_TIMEOUT             2000       //2 seconds
 #define P2P_DEFAULT_INVOKE_TIMEOUT                      60*2*1000  //2 minutes
 #define P2P_DEFAULT_HANDSHAKE_INVOKE_TIMEOUT            5000       //5 seconds
-#define P2P_DEFAULT_WHITELIST_CONNECTIONS_PERCENT       70
 #define P2P_DEFAULT_ANCHOR_CONNECTIONS_COUNT            2
 #define P2P_DEFAULT_SYNC_SEARCH_CONNECTIONS_COUNT       2
 #define P2P_DEFAULT_LIMIT_RATE_UP                       8192       // kB/s
@@ -158,7 +164,10 @@ static_assert(CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT >= BLOCKS_SYNCHRONIZING
 
 #define P2P_FAILED_ADDR_FORGET_SECONDS                  (60*60)     //1 hour
 #define P2P_FAILED_SEED_ADDR_FORGET_SECONDS             (60*5)      //5 minutes
+#define P2P_FAILED_ADDR_ATTEMPTS_BEFORE_FORGET          3
+#define P2P_FAILED_ADDR_ATTEMPTS_FORGET_SECONDS         (60*60*24*7) //1 week
 #define P2P_IP_BLOCKTIME                                (60*60*24)  //24 hour
+#define P2P_WHITE_PEER_STALE_SECONDS                    (60*60*24*30) //30 days
 #define P2P_IP_FAILS_BEFORE_BLOCK                       10
 #define P2P_IDLE_CONNECTION_KILL_INTERVAL               (5*60) //5 minutes
 
