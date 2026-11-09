@@ -1805,6 +1805,76 @@ TEST(HTTP, Client_Keeps_Unknown_Header)
   EXPECT_STREQ("abc", client.last_headers.m_header_info.m_etc_fields.front().second.c_str());
 }
 
+TEST(HTTP, Client_Waits_For_Final_Response_After_Interim_Headers)
+{
+  test_http_client client;
+  const bool result = client.test(
+    "HTTP/1.1 100 Continue\r\n\r\n"
+    "HTTP/1.1 103 Early Hints\r\nLink: </style.css>; rel=preload\r\n\r\n"
+    "HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK",
+    std::chrono::milliseconds(1000)
+  );
+
+  ASSERT_TRUE(result);
+  EXPECT_EQ(1u, client.headers_seen);
+  EXPECT_EQ(200, client.last_headers.m_response_code);
+  EXPECT_TRUE(client.last_headers.m_header_info.m_etc_fields.empty());
+  EXPECT_EQ("OK", client.body_seen);
+  EXPECT_FALSE(client.disconnected);
+}
+
+TEST(HTTP, Client_Waits_For_Fragmented_Final_Response)
+{
+  test_http_client client;
+  std::string response = "HTTP/1.1 103 Early Hints\r\nX-Test: ";
+  response.append(dummy_client::recv_size - response.size() - 2, 'a');
+  response += "\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK";
+
+  ASSERT_TRUE(client.test(response, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(1u, client.headers_seen);
+  EXPECT_EQ(200, client.last_headers.m_response_code);
+  EXPECT_EQ("OK", client.body_seen);
+  EXPECT_EQ(2u, dummy_client::recv_calls);
+}
+
+TEST(HTTP, Client_Rejects_Unsupported_Protocol_Switch)
+{
+  test_http_client client;
+  EXPECT_FALSE(client.test(
+    "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n\r\n",
+    std::chrono::milliseconds(1000)
+  ));
+  EXPECT_EQ(0u, client.headers_seen);
+  EXPECT_TRUE(client.disconnected);
+}
+
+TEST(HTTP, Client_Rejects_Interim_Without_Final_Response)
+{
+  test_http_client client;
+  EXPECT_FALSE(client.test("HTTP/1.1 103 Early Hints\r\n\r\n", std::chrono::milliseconds(1000)));
+  EXPECT_EQ(0u, client.headers_seen);
+  EXPECT_TRUE(client.disconnected);
+}
+
+TEST(HTTP, Client_Rejects_Too_Many_Interim_Responses)
+{
+  std::string response;
+  for (unsigned i = 0; i < 16; ++i)
+    response += "HTTP/1.1 103 Early Hints\r\n\r\n";
+  const std::string final = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+
+  test_http_client accepted;
+  EXPECT_TRUE(accepted.test(response + final, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(1u, accepted.headers_seen);
+  EXPECT_EQ(200, accepted.last_headers.m_response_code);
+
+  response += "HTTP/1.1 103 Early Hints\r\n\r\n";
+  test_http_client rejected;
+  EXPECT_FALSE(rejected.test(response + final, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(0u, rejected.headers_seen);
+  EXPECT_TRUE(rejected.disconnected);
+}
+
 TEST(HTTP, Client_Rejects_Malformed_Response_Header)
 {
   test_http_client client;

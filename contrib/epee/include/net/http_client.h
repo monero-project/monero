@@ -295,6 +295,7 @@ namespace net_utils
 				CRITICAL_REGION_LOCAL(m_lock);
 				bool keep_handling = true;
 				bool need_more_data = true;
+				std::size_t interim_responses = 0;
 				std::string recv_buffer;
 				try
 				{
@@ -320,7 +321,7 @@ namespace net_utils
 						switch(m_state)
 						{
 						case reciev_machine_state_header:
-							keep_handling = handle_header(recv_buffer, need_more_data);
+							keep_handling = handle_header(recv_buffer, need_more_data, interim_responses);
 							break;
 						case reciev_machine_state_body_content_len:
 							keep_handling = handle_body_content_len(recv_buffer, need_more_data);
@@ -385,7 +386,7 @@ namespace net_utils
 			}
 			//---------------------------------------------------------------------------
 			inline
-				bool handle_header(std::string& recv_buff, bool& need_more_data)
+				bool handle_header(std::string& recv_buff, bool& need_more_data, std::size_t& interim_responses)
 			{
  
 				CRITICAL_REGION_LOCAL(m_lock);
@@ -419,7 +420,13 @@ namespace net_utils
 						m_state = reciev_machine_state_error;
 						return false;
 					}
-          if (!on_header(m_response_info))
+          if (m_state == reciev_machine_state_header && ++interim_responses > 16)
+          {
+            MERROR("Too many informational HTTP responses");
+            m_state = reciev_machine_state_error;
+            return false;
+          }
+          if (m_state != reciev_machine_state_header && !on_header(m_response_info))
           {
             MDEBUG("Connection cancelled by on_header");
             m_state = reciev_machine_state_done;
@@ -799,6 +806,17 @@ namespace net_utils
 				bool res = parse_header(m_response_info.m_header_info, m_header_cache);
 				CHECK_AND_ASSERT_MES(res, false, "http_stream_filter::analize_cached_reply_header_and_invoke_state(): failed to anilize reply header (" << m_header_cache.size() << " bytes)");
 
+				if (m_response_info.m_response_code >= 100 && m_response_info.m_response_code < 200)
+				{
+					if (m_response_info.m_response_code == 101)
+					{
+						MERROR("HTTP protocol upgrade is not supported");
+						return false;
+					}
+					m_state = reciev_machine_state_header;
+					return true;
+				}
+
 				set_reply_content_encoder();
 
 				m_len_in_summary = 0;
@@ -808,8 +826,7 @@ namespace net_utils
 
 
 
-				if(!m_len_in_summary && ((m_response_info.m_response_code>=100&&m_response_info.m_response_code<200) 
-					|| 204 == m_response_info.m_response_code 
+				if(!m_len_in_summary && (204 == m_response_info.m_response_code
 					|| 304 == m_response_info.m_response_code) )
 				{//There will be no response body, server will display the local page with error
 					m_state = reciev_machine_state_done;
