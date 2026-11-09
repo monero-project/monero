@@ -31,6 +31,7 @@
 #include "fcmp_pp_types.h"
 #include "serialization/serialization.h"
 #include "serialization/binary_archive.h"
+#include "serialization/crypto.h"
 #include "serialization/debug_archive.h"
 #include "serialization/json_archive.h"
 #include "serialization/variant.h"
