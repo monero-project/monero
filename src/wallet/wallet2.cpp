@@ -3695,6 +3695,7 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
     pull_blocks(first, try_incremental, start_height, blocks_start_height, short_chain_history, blocks, o_indices, current_height, process_pool_txs);
     THROW_WALLET_EXCEPTION_IF(blocks.size() != o_indices.size(), error::wallet_internal_error, "Mismatched sizes of blocks and o_indices");
 
+    boost::mutex error_lock;
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter waiter(tpool);
     parsed_blocks.resize(blocks.size());
@@ -3731,7 +3732,6 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
       parsed_blocks[i].o_indices = std::move(o_indices[i]);
     }
 
-    boost::mutex error_lock;
     for (size_t i = 0; i < blocks.size(); ++i)
     {
       parsed_blocks[i].txes.resize(blocks[i].txs.size());
