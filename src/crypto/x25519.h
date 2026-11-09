@@ -84,6 +84,10 @@ void x25519_scmul_base_unclamped(const x25519_scalar &scalar, x25519_pubkey &res
  * @param[out] result_out scalar * pubkey
  */
 void x25519_scmul_key_unclamped(const x25519_scalar &scalar, const x25519_pubkey &pubkey, x25519_pubkey &result_out);
+/**
+ * @brief Determine if `point` is one of 7 representations of a small-order point
+ */
+bool x25519_is_small_order_point(const x25519_pubkey &point);
 
 } //namespace crypto
 
