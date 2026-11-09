@@ -90,13 +90,19 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db,
     return true;
   CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't get root for pruned FCMP txs");
 
-  // Make sure reference block exists in the chain
-  CHECK_AND_NO_ASSERT_MES_L1(tx.rct_signatures.p.reference_block < db->height(), false,
+  const bool not_too_high = ver_fcmp_pp_tx_reference_block_not_too_high(
+      get_transaction_hash(tx),
+      tx.rct_signatures.p.reference_block,
+      tx.unlock_time,
+      db->height()
+    );
+  CHECK_AND_NO_ASSERT_MES_L1(not_too_high, false,
       "tx " << get_transaction_hash(tx) << " included reference block that was too high");
 
   // Make sure the reference block is from the block immediately before the FCMP++ fork height or higher.
   // This allows wallets to start constructing FCMP++ txs that can land in the first fork block.
-  CHECK_AND_NO_ASSERT_MES_L1((tx.rct_signatures.p.reference_block + 1) >= m_hardfork->get_earliest_ideal_height_for_version(HF_VERSION_FCMP_PLUS_PLUS), false,
+  const bool not_too_low = (tx.rct_signatures.p.reference_block + 1) >= m_hardfork->get_earliest_ideal_height_for_version(HF_VERSION_FCMP_PLUS_PLUS);
+  CHECK_AND_NO_ASSERT_MES_L1(not_too_low, false,
       "tx " << get_transaction_hash(tx) << " included reference block that was too low");
 
   // Get the tree root and n tree layers at provided block

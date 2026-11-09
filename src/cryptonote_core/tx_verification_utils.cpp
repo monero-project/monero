@@ -396,6 +396,16 @@ static bool ver_non_input_consensus_templated(TxForwardIt tx_begin, TxForwardIt 
                 return false;
             }
         }
+
+        // Rule 9
+        // Allow relative locks from HF_VERSION_RELATIVE_LOCK
+        if (hf_version >= HF_VERSION_REJECT_UNLOCK_TIME && tx.unlock_time != 0
+            && !(hf_version >= HF_VERSION_RELATIVE_LOCK && tx.unlock_time == FCMP_RELATIVE_LOCK))
+        {
+            tvc.m_verifivation_failed = true;
+            tvc.m_nonzero_unlock_time = true;
+            return false;
+        }
     }
 
     // Rule 7
@@ -842,6 +852,28 @@ bool batch_ver_fcmp_pp_consensus(pool_supplement& ps,
 
     // All FCMP++'s have been verified, so set the valid input verification ID's
     valid_input_verification_id_by_txid_out = std::move(input_verification_id_by_txid);
+
+    return true;
+}
+
+bool ver_fcmp_pp_tx_reference_block_not_too_high(const crypto::hash &tx_hash,
+    const uint64_t reference_block,
+    const uint64_t unlock_time,
+    const uint64_t cur_blockchain_height)
+{
+    // Make sure the reference block exists in the chain.
+    CHECK_AND_NO_ASSERT_MES_L1(cur_blockchain_height > reference_block, false,
+        "tx " << tx_hash << " included reference block that was too high");
+
+    // Relative locks are enforced by requiring the transaction to use an old reference_block value.
+    // This proves that the transaction is not spending any outputs younger than
+    // FCMP_RELATIVE_LOCK_DURATION + CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE blocks.
+    const uint64_t lock_duration = unlock_time == FCMP_RELATIVE_LOCK ? FCMP_RELATIVE_LOCK_DURATION : 0;
+
+    // If it has a lock duration, then the chain must be at least that far ahead of the
+    // provided reference block. Otherwise the reference block is too high.
+    CHECK_AND_NO_ASSERT_MES_L1(cur_blockchain_height - reference_block > lock_duration, false,
+        "tx " << tx_hash << " included reference block higher than lock duration");
 
     return true;
 }

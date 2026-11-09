@@ -1945,6 +1945,13 @@ namespace cryptonote
     {
       last_locked_block_index = default_block_index;
     }
+    else if (unlock_time == FCMP_RELATIVE_LOCK)
+    {
+      // The relative lock was introduced with HF_VERSION_RELATIVE_LOCK, and it just governs what FCMP++ reference_block
+      // can be used in the transaction. Any output constructed in a tx with unlock_time set == FCMP_RELATIVE_LOCK
+      // should have the default last locked block.
+      last_locked_block_index = default_block_index;
+    }
     else if (unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
     {
       // The unlock_time in this case is supposed to be the chain height at which the output unlocks.
