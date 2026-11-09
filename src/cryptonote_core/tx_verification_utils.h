@@ -220,6 +220,20 @@ bool batch_ver_fcmp_pp_consensus
 );
 
 /**
+ * @brief Verify the reference block included on an FCMP++ tx is not too high.
+ *
+ * @param tx_hash the FCMP++ transaction hash
+ * @param reference_block the block containing the tree root the FCMP++ tx is proving for
+ * @param unlock_time the tx's provided unlock time
+ * @param cur_blockchain_height the chain's current height
+ * @return true if it's not too high, false if too high
+ */
+bool ver_fcmp_pp_tx_reference_block_not_too_high(const crypto::hash &tx_hash,
+    const uint64_t reference_block,
+    const uint64_t unlock_time,
+    const uint64_t cur_blockchain_height);
+
+/**
  * @brief Verify every non-input consensus rule for a group of non-coinbase transactions
  *
  * List of checks that we do for each transaction:
@@ -231,6 +245,7 @@ bool batch_ver_fcmp_pp_consensus
  *     6. Passes Blockchain::check_tx_outputs()
  *     7. Passes ver_mixed_rct_semantics() [Uses batch RingCT verification when applicable]
  *     8. Passes verPointsForTorsion() for applicable outputs
+ *     9. Prevent unlock_time, except relative locks
  *
  * For pool_supplement input:
  * We assume the structure of the pool supplement is already correct: for each value entry, the

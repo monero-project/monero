@@ -206,8 +206,9 @@ namespace cryptonote
       return false;
     }
 
-    if (!kept_by_block && tx.unlock_time)
+    if (version < HF_VERSION_RELATIVE_LOCK && !kept_by_block && tx.unlock_time > 0)
     {
+      static_assert(HF_VERSION_RELATIVE_LOCK >= HF_VERSION_REJECT_UNLOCK_TIME, "HF_VERSION_REJECT_UNLOCK_TIME is unexpectedly high");
       LOG_PRINT_L1("transaction unlock time is not zero: " << tx.unlock_time);
       tvc.m_verifivation_failed = true;
       tvc.m_nonzero_unlock_time = true;
@@ -215,10 +216,10 @@ namespace cryptonote
       return false;
     }
 
-    // FCMP++ transaction can't reference a tree root not yet in the chain
+    // FCMP++ transaction can't reference a tree root that is too high
     if (!kept_by_block && !tx.pruned && rct::is_rct_fcmp(tx.rct_signatures.type))
     {
-      if (tx.rct_signatures.p.reference_block >= m_blockchain.get_current_blockchain_height())
+      if (!ver_fcmp_pp_tx_reference_block_not_too_high(id, tx.rct_signatures.p.reference_block, tx.unlock_time, m_blockchain.get_current_blockchain_height()))
       {
         LOG_PRINT_L1("Transaction with id= "<< id << " included reference block that was too high");
         tvc.m_verifivation_failed = true;
