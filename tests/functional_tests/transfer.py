@@ -1598,6 +1598,11 @@ class TransferTest():
         assert balance_info_0_999['blocks_to_unlock'] == 9
         assert balance_info_0_999['time_to_unlock'] == 0
 
+        selected = self.wallet[0].get_balance(address_indices = [0, 998, 999])['per_subaddress']
+        selected = {info['address_index']: info for info in selected}
+        assert selected[998]['balance'] == selected[998]['num_unspent_outputs'] == 0
+        assert selected[999] == balance_info_0_999
+
     def check_pool_scanner(self):
         daemon = Daemon()
 
