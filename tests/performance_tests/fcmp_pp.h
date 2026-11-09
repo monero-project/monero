@@ -57,7 +57,7 @@ public:
                 tree_root,
                 pseudo_outs,
                 key_images
-            );
+            ) && test(); // run once so generators set up and don't affect perf timing
     }
 
     bool test()
