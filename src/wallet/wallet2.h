@@ -109,6 +109,11 @@ private:
     double average_output_time;
   };
 
+  // Repeat picker.pick() until it returns an index in [lo, hi). Every pick() call counts against
+  // budget, and the call throws once the budget is used up instead of looping forever when
+  // the distribution makes every pick unusable.
+  uint64_t pick_in_range(gamma_picker &picker, uint64_t lo, uint64_t hi, size_t &budget);
+
   class wallet_keys_unlocker
   {
   public:
