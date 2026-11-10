@@ -188,14 +188,11 @@ namespace
   //------------------------------------------------------------------------------------------------------------------------------
   bool is_valid_wallet_filename(const std::string &filename, epee::json_rpc::error& er)
   {
-    const char *ptr = strchr(filename.c_str(), '/');
+    bool invalid = filename == "." || filename == ".." || filename.find('\0') != std::string::npos || filename.find('/') != std::string::npos;
 #ifdef _WIN32
-    if (!ptr)
-      ptr = strchr(filename.c_str(), '\\');
-    if (!ptr)
-      ptr = strchr(filename.c_str(), ':');
+    invalid = invalid || filename.find_first_of("\\:") != std::string::npos;
 #endif
-    if (ptr)
+    if (invalid)
     {
       er.code = WALLET_RPC_ERROR_CODE_UNKNOWN_ERROR;
       er.message = "Invalid filename";
