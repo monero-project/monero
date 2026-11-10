@@ -197,8 +197,13 @@ void ZmqServer::serve()
             MDEBUG("Received RPC request: \"" << *message << "\"");
           epee::byte_slice response = handler.handle(std::move(*message));
 
-          const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
-          MDEBUG("Sending RPC reply: \"" << response_view << "\"");
+          if (restricted)
+            MDEBUG("Sending RPC reply");
+          else
+          {
+            const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
+            MDEBUG("Sending RPC reply: \"" << response_view << "\"");
+          }
           MONERO_UNWRAP(net::zmq::send(std::move(response), rep.get()));
         }
       }

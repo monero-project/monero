@@ -1028,8 +1028,13 @@ namespace rpc
 
       epee::byte_slice response = matched_handler->call(*this, req_full.getID(), req_full.getMessage());
 
-      const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
-      MDEBUG("Returning RPC response: " << response_view);
+      if (m_restricted)
+        MDEBUG("Returning RPC response");
+      else
+      {
+        const boost::string_ref response_view{reinterpret_cast<const char*>(response.data()), response.size()};
+        MDEBUG("Returning RPC response: " << response_view);
+      }
 
       return response;
     }
