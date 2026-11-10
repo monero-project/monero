@@ -89,7 +89,6 @@ namespace cryptonote
     //      will work correctly.
     time_t const MIN_RELAY_TIME = (60 * 5); // only start re-relaying transactions after that many seconds
     time_t const MAX_RELAY_TIME = (60 * 60 * 4); // at most that many seconds between resends
-    float const ACCEPT_THRESHOLD = 1.0f;
 
     //! Max DB check interval for relayable txes
     constexpr const std::chrono::minutes max_relayable_check{2};
@@ -1533,14 +1532,16 @@ namespace cryptonote
   }
   //---------------------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
-  bool tx_memory_pool::get_block_template_backlog(const size_t median_weight,
+  bool tx_memory_pool::get_block_template_backlog(size_t median_weight,
     const uint64_t already_generated_coins,
     const uint8_t version/*AKA hf_version*/,
     const float overpick,
     const bool include_sensitive,
-    std::vector<tx_block_template_backlog_entry> &selected_backlog)
+    std::vector<tx_block_template_backlog_entry> &selected_backlog,
+    const uint64_t coinbase_weight)
   {
     selected_backlog.clear();
+    median_weight = std::max(median_weight, get_min_block_weight(version));
 
     CHECK_AND_ASSERT_MES(overpick >= 0, false, "Block template blocklog overpick cannot be negative");
     CHECK_AND_ASSERT_MES(overpick <= 100, false, "Block template blocklog overpick should be less than 10000%");
@@ -1549,7 +1550,7 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL1(m_blockchain);
 
     uint64_t best_coinbase = 0;
-    uint64_t total_weight = 0;
+    uint64_t total_weight = coinbase_weight;
     uint64_t fee = 0;
     
     //baseline empty block
@@ -1625,7 +1626,7 @@ namespace cryptonote
       {
         // If we're getting lower coinbase tx, and not overpicking,
         // stop including more tx. If overpicking, set `tentative_break`, which
-        // will trigger a re-calculation of `max_total_weight` next loop.
+        // will trigger a re-calculation of `max_total_weight` if the candidate is accepted.
         uint64_t block_reward;
         if(!get_block_reward(median_weight, total_weight + meta.weight, already_generated_coins, block_reward, version))
         {
@@ -1707,9 +1708,8 @@ namespace cryptonote
 
       if (tentative_break && overpick > 0)
       {
-        // If overpicking, set weight limit as overpick ratio against optimal, which is the lowest
-        // `total_weight` value when `tentative_break` is tripped
-        max_total_weight = std::min<size_t>(max_total_weight, total_weight * (1 + overpick));
+        // Include the current accepted candidate when calculating the overpick limit.
+        max_total_weight = std::min<size_t>(max_total_weight, (total_weight + meta.weight) * (1 + overpick));
       }
 
       selected_backlog.push_back(tx_block_template_backlog_entry{txid, meta.weight, meta.fee});
