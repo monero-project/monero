@@ -69,6 +69,7 @@ using namespace epee;
 #define RESTRICTED_TRANSACTIONS_COUNT 100
 #define RESTRICTED_SPENT_KEY_IMAGES_COUNT 5000
 #define RESTRICTED_BLOCK_COUNT 1000
+#define RESTRICTED_OUTPUT_HISTOGRAM_AMOUNTS_COUNT 100
 
 static constexpr size_t GET_BLOCKS_BIN_MAX_ADDED_POOL_TX_BODIES = 20000;
 
@@ -2523,6 +2524,11 @@ namespace cryptonote
     if (restricted && amounts == 0)
     {
       res.status = "Restricted RPC will not serve histograms on the whole blockchain. Use your own node.";
+      return true;
+    }
+    if (restricted && amounts > RESTRICTED_OUTPUT_HISTOGRAM_AMOUNTS_COUNT)
+    {
+      res.status = "Too many amounts requested in restricted mode";
       return true;
     }
 
