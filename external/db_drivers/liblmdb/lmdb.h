@@ -136,7 +136,7 @@
  *
  *	@author	Howard Chu, Symas Corporation.
  *
- *	@copyright Copyright 2011-2019 Howard Chu, Symas Corp. All rights reserved.
+ *	@copyright Copyright 2011-2021 Howard Chu, Symas Corp. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
@@ -610,7 +610,7 @@ int  mdb_env_create(MDB_env **env);
 	 *	<li>#MDB_NOTLS
 	 *		Don't use Thread-Local Storage. Tie reader locktable slots to
 	 *		#MDB_txn objects instead of to threads. I.e. #mdb_txn_reset() keeps
-	 *		the slot reseved for the #MDB_txn object. A thread may use parallel
+	 *		the slot reserved for the #MDB_txn object. A thread may use parallel
 	 *		read-only transactions. A read-only transaction may span threads if
 	 *		the user synchronizes its use. Applications that multiplex many
 	 *		user threads over individual OS threads need this option. Such an
@@ -968,7 +968,7 @@ void *mdb_env_get_userctx(MDB_env *env);
 typedef void MDB_assert_func(MDB_env *env, const char *msg);
 
 	/** Set or reset the assert() callback of the environment.
-	 * Disabled if liblmdb is buillt with NDEBUG.
+	 * Disabled if liblmdb is built with NDEBUG.
 	 * @note This hack should become obsolete as lmdb's error handling matures.
 	 * @param[in] env An environment handle returned by #mdb_env_create().
 	 * @param[in] func An #MDB_assert_func function, or 0.

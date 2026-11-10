@@ -31,7 +31,7 @@ PROJECT_NAME           = LMDB
 # This could be handy for archiving the generated documentation or
 # if some version control system is used.
 
-PROJECT_NUMBER         =
+PROJECT_NUMBER         = 0.9
 
 # The OUTPUT_DIRECTORY tag is used to specify the (relative or absolute)
 # base path where the generated documentation will be put.
@@ -57,7 +57,7 @@ CREATE_SUBDIRS         = NO
 # Croatian, Czech, Danish, Dutch, Esperanto, Farsi, Finnish, French, German,
 # Greek, Hungarian, Italian, Japanese, Japanese-en (Japanese with English
 # messages), Korean, Korean-en, Lithuanian, Norwegian, Macedonian, Persian,
-# Polish, Portuguese, Romanian, Russian, Serbian, Serbian-Cyrilic, Slovak,
+# Polish, Portuguese, Romanian, Russian, Serbian, Serbian-Cyrillic, Slovak,
 # Slovene, Spanish, Swedish, Ukrainian, and Vietnamese.
 
 OUTPUT_LANGUAGE        = English
@@ -211,7 +211,7 @@ OPTIMIZE_OUTPUT_VHDL   = NO
 # parses. With this tag you can assign which parser to use for a given extension.
 # Doxygen has a built-in mapping, but you can override or extend it using this
 # tag. The format is ext=language, where ext is a file extension, and language
-# is one of the parsers supported by doxygen: IDL, Java, Javascript, CSharp, C,
+# is one of the parsers supported by doxygen: IDL, Java, JavaScript, CSharp, C,
 # C++, D, PHP, Objective-C, Python, Fortran, VHDL, C, C++. For instance to make
 # doxygen treat .inc files as Fortran files (default is PHP), and .f files as C
 # (default is Fortran), use: inc=Fortran f=C. Note that for custom extensions
@@ -484,12 +484,6 @@ MAX_INITIALIZER_LINES  = 30
 
 SHOW_USED_FILES        = YES
 
-# If the sources in your project are distributed over multiple directories
-# then setting the SHOW_DIRECTORIES tag to YES will show the directory hierarchy
-# in the documentation. The default is NO.
-
-SHOW_DIRECTORIES       = NO
-
 # Set the SHOW_FILES tag to NO to disable the generation of the Files page.
 # This will remove the Files entry from the Quick Index and from the
 # Folder Tree View (if specified). The default is YES.
@@ -550,7 +544,7 @@ WARN_IF_UNDOCUMENTED   = YES
 
 WARN_IF_DOC_ERROR      = YES
 
-# This WARN_NO_PARAMDOC option can be abled to get warnings for
+# This WARN_NO_PARAMDOC option can be enabled to get warnings for
 # functions that are documented, but have no documentation for their parameters
 # or return value. If set to NO (the default) doxygen will only warn about
 # wrong or incomplete parameter documentation, but not about the absence of
@@ -841,12 +835,6 @@ HTML_COLORSTYLE_GAMMA  = 80
 
 HTML_TIMESTAMP         = YES
 
-# If the HTML_ALIGN_MEMBERS tag is set to YES, the members of classes,
-# files or namespaces will be aligned in HTML using tables. If set to
-# NO a bullet list will be used.
-
-HTML_ALIGN_MEMBERS     = YES
-
 # If the HTML_DYNAMIC_SECTIONS tag is set to YES then the generated HTML
 # documentation will contain sections that can be hidden and shown after the
 # page has loaded. For this to work a browser that supports
@@ -1027,11 +1015,6 @@ ENUM_VALUES_PER_LINE   = 4
 
 GENERATE_TREEVIEW      = NO
 
-# By enabling USE_INLINE_TREES, doxygen will generate the Groups, Directories,
-# and Class Hierarchy pages using a tree view instead of an ordered list.
-
-USE_INLINE_TREES       = NO
-
 # If the treeview is enabled (see GENERATE_TREEVIEW) then this tag can be
 # used to set the initial width (in pixels) of the frame in which the tree
 # is shown.
@@ -1051,7 +1034,7 @@ EXT_LINKS_IN_WINDOW    = NO
 
 FORMULA_FONTSIZE       = 10
 
-# Use the FORMULA_TRANPARENT tag to determine whether or not the images
+# Use the FORMULA_TRANSPARENT tag to determine whether or not the images
 # generated for formulas are transparent PNGs. Transparent PNGs are
 # not supported properly for IE 6.0, but are supported on all modern browsers.
 # Note that when changing this option you need to delete any form_*.png files
@@ -1071,7 +1054,7 @@ SEARCHENGINE           = YES
 
 # When the SERVER_BASED_SEARCH tag is enabled the search engine will be
 # implemented using a PHP enabled web server instead of at the web client
-# using Javascript. Doxygen will generate the search PHP script and index
+# using JavaScript. Doxygen will generate the search PHP script and index
 # file to put on the web server. The advantage of the server
 # based approach is that it scales better to large projects and allows
 # full text search. The disadvances is that it is more difficult to setup
