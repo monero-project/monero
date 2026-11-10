@@ -7199,13 +7199,21 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   // 4. store new cache file
   // 5. remove old cache file
 
-  // Avoid canonicalizing paths when explicitly saving to the current wallet file.
-  bool same_file = had_old_wallet_files && (path.empty() || path == m_wallet_file);
+  std::string target_wallet_file = path;
+  if (!path.empty())
+  {
+    std::string target_keys_file, target_mms_file;
+    do_prepare_file_names(path, target_keys_file, target_wallet_file, target_mms_file);
+  }
+
+  // The cache file itself may end in ".keys", so match the original path first.
+  bool same_file = had_old_wallet_files && (path.empty() || path == m_wallet_file || target_wallet_file == m_wallet_file);
   if (had_old_wallet_files && !same_file)
   {
     const std::string canonical_old_path = boost::filesystem::canonical(m_wallet_file).string();
-    const std::string canonical_new_path = boost::filesystem::weakly_canonical(path).string();
-    same_file = canonical_old_path == canonical_new_path;
+    same_file = canonical_old_path == boost::filesystem::weakly_canonical(path).string();
+    if (!same_file && target_wallet_file != path)
+      same_file = canonical_old_path == boost::filesystem::weakly_canonical(target_wallet_file).string();
   }
 
   THROW_WALLET_EXCEPTION_IF(m_is_background_wallet && !same_file, error::wallet_internal_error,
@@ -7246,7 +7254,7 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   boost::optional<wallet2::cache_file_data> cache_file_data = get_cache_file_data();
   THROW_WALLET_EXCEPTION_IF(cache_file_data == boost::none, error::wallet_internal_error, "failed to generate wallet cache data");
 
-  const std::string new_file = same_file ? m_wallet_file + ".new" : path;
+  const std::string new_file = same_file ? m_wallet_file + ".new" : target_wallet_file;
   const std::string old_file = m_wallet_file;
   const std::string old_keys_file = m_keys_file;
   const std::string old_address_file = m_wallet_file + ".address.txt";
