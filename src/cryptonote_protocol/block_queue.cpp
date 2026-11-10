@@ -95,14 +95,17 @@ void block_queue::erase_block(block_map::iterator j)
   blocks.erase(j);
 }
 
-void block_queue::flush_stale_spans(const std::set<boost::uuids::uuid> &live_connections)
+void block_queue::flush_stale_spans(const std::set<boost::uuids::uuid> &stale_connections)
 {
+  if (stale_connections.empty())
+    return;
+
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
   block_map::iterator i = blocks.begin();
   while (i != blocks.end())
   {
     block_map::iterator j = i++;
-    if (j->blocks.empty() && live_connections.find(j->connection_id) == live_connections.end())
+    if (j->blocks.empty() && stale_connections.find(j->connection_id) != stale_connections.end())
     {
       erase_block(j);
     }
