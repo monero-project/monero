@@ -917,12 +917,14 @@ namespace cryptonote
         {
           // txes can be received as "stem" or "fluff" in either order
           const bool already_broadcasted = meta.matches(relay_category::broadcasted);
+          const bool already_stem = meta.dandelionpp_stem;
           meta.upgrade_relay_method(method);
           meta.relayed = true;
 
           if (meta.dandelionpp_stem)
           {
-            meta.last_relayed_time = std::chrono::system_clock::to_time_t(now + embargo_duration());
+            if (!already_stem)
+              meta.last_relayed_time = std::chrono::system_clock::to_time_t(now + embargo_duration());
             next_relay = std::min(next_relay, meta.last_relayed_time);
           }
           else
