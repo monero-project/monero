@@ -394,7 +394,8 @@ namespace nodetool
     bool sanitize_peerlist(std::vector<peerlist_entry>& local_peerlist);
 
     bool connections_maker();
-    bool peer_sync_idle_maker();
+    bool peer_sync_idle_maker(network_zone& zone);
+    void schedule_anonymous_peer_sync(network_zone& zone);
     bool do_handshake_with_peer(peerid_type& pi, p2p_connection_context& context, bool just_take_peerlist = false);
     bool do_peer_timed_sync(const epee::net_utils::connection_context_base& context, peerid_type peer_id);
     bool update_dns_blocklist();
