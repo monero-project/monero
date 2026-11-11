@@ -28,7 +28,101 @@
 
 #include "gtest/gtest.h"
 
+#include <boost/filesystem.hpp>
+
 #include "common/util.h"
+#include "file_io_utils.h"
+
+namespace
+{
+  struct temp_dir
+  {
+    const boost::filesystem::path path = boost::filesystem::temp_directory_path() /
+      boost::filesystem::unique_path("util_test-%%%%-%%%%-%%%%-%%%%");
+
+    temp_dir() { boost::filesystem::create_directories(path); }
+    ~temp_dir()
+    {
+      boost::system::error_code ec;
+      boost::filesystem::remove_all(path, ec);
+    }
+  };
+
+#ifndef _WIN32
+  boost::filesystem::perms file_perms(const boost::filesystem::path& path)
+  {
+    return boost::filesystem::symlink_status(path).permissions() & boost::filesystem::perms::all_all;
+  }
+#endif
+}
+
+TEST(save_private_file, writes_owner_only_file)
+{
+  const temp_dir dir;
+  const boost::filesystem::path file = dir.path / "key";
+
+  ASSERT_FALSE(tools::save_private_file(file.string(), "secret"));
+
+  std::string loaded;
+  ASSERT_TRUE(epee::file_io_utils::load_file_to_string(file.string(), loaded));
+  EXPECT_EQ("secret", loaded);
+  EXPECT_FALSE(boost::filesystem::exists(file.string() + ".tmp"));
+#ifndef _WIN32
+  EXPECT_EQ(boost::filesystem::perms::owner_read | boost::filesystem::perms::owner_write, file_perms(file));
+#endif
+}
+
+TEST(save_private_file, replaces_existing_file)
+{
+  const temp_dir dir;
+  const boost::filesystem::path file = dir.path / "key";
+  ASSERT_TRUE(epee::file_io_utils::save_string_to_file(file.string(), "old contents that are longer"));
+#ifndef _WIN32
+  boost::filesystem::permissions(file, boost::filesystem::perms::owner_all | boost::filesystem::perms::group_read | boost::filesystem::perms::others_read);
+#endif
+  ASSERT_TRUE(epee::file_io_utils::save_string_to_file(file.string() + ".tmp", "stale"));
+
+  ASSERT_FALSE(tools::save_private_file(file.string(), "new"));
+
+  std::string loaded;
+  ASSERT_TRUE(epee::file_io_utils::load_file_to_string(file.string(), loaded));
+  EXPECT_EQ("new", loaded);
+  EXPECT_FALSE(boost::filesystem::exists(file.string() + ".tmp"));
+#ifndef _WIN32
+  EXPECT_EQ(boost::filesystem::perms::owner_read | boost::filesystem::perms::owner_write, file_perms(file));
+#endif
+}
+
+#ifndef _WIN32
+TEST(save_private_file, does_not_follow_symlinks)
+{
+  const temp_dir dir;
+  const boost::filesystem::path target = dir.path / "target";
+  const boost::filesystem::path file = dir.path / "key";
+  ASSERT_TRUE(epee::file_io_utils::save_string_to_file(target.string(), "untouched"));
+  boost::filesystem::create_symlink(target, file);
+  boost::filesystem::create_symlink(target, file.string() + ".tmp");
+
+  ASSERT_FALSE(tools::save_private_file(file.string(), "secret"));
+
+  std::string loaded;
+  ASSERT_TRUE(epee::file_io_utils::load_file_to_string(target.string(), loaded));
+  EXPECT_EQ("untouched", loaded);
+  ASSERT_TRUE(epee::file_io_utils::load_file_to_string(file.string(), loaded));
+  EXPECT_EQ("secret", loaded);
+  EXPECT_FALSE(boost::filesystem::is_symlink(file));
+  EXPECT_EQ(boost::filesystem::perms::owner_read | boost::filesystem::perms::owner_write, file_perms(file));
+}
+#endif
+
+TEST(save_private_file, fails_in_missing_directory)
+{
+  const temp_dir dir;
+  const boost::filesystem::path file = dir.path / "missing" / "key";
+
+  EXPECT_TRUE(tools::save_private_file(file.string(), "secret"));
+  EXPECT_FALSE(boost::filesystem::exists(file));
+}
 
 TEST(LocalAddress, localhost) { ASSERT_TRUE(tools::is_local_address("localhost")); }
 TEST(LocalAddress, localhost_port) { ASSERT_TRUE(tools::is_local_address("localhost:18081")); }

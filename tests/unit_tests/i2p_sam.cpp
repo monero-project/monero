@@ -798,6 +798,26 @@ TEST(i2p_sam, get_value_does_not_match_key_inside_value)
     EXPECT_EQ(ec, net::sam::make_error_code(net::sam::error::parse_failed));
 }
 
+TEST(i2p_sam, get_message)
+{
+  EXPECT_EQ(net::sam::get_message("SESSION STATUS RESULT=I2P_ERROR MESSAGE=\"Tunnel build failed\""), "Tunnel build failed");
+  EXPECT_EQ(net::sam::get_message("STREAM STATUS RESULT=I2P_ERROR MESSAGE=\"say \\\"hi\\\" \\\\ bye\" X=Y"), "say \"hi\" \\ bye");
+  EXPECT_EQ(net::sam::get_message("SESSION STATUS RESULT=I2P_ERROR MESSAGE=Unknown destination error"), "Unknown destination error");
+  EXPECT_EQ(net::sam::get_message("SESSION STATUS RESULT=I2P_ERROR MESSAGE=\"unterminated"), "unterminated");
+  EXPECT_EQ(net::sam::get_message("SESSION STATUS RESULT=I2P_ERROR MESSAGE="), "");
+  EXPECT_EQ(net::sam::get_message("SESSION STATUS RESULT=I2P_ERROR"), "");
+  EXPECT_EQ(net::sam::get_message("SESSION STATUS RESULT=I2P_ERROR XMESSAGE=nope"), "");
+}
+
+TEST(i2p_sam, control_socket_starts_with_random_session_id)
+{
+  boost::asio::io_context io;
+  auto first = net::sam::make_control_client("", "", tcp::socket{io}, [](boost::system::error_code, tcp::socket, net::i2p_address, std::string) {});
+  auto second = net::sam::make_control_client("", "", tcp::socket{io}, [](boost::system::error_code, tcp::socket, net::i2p_address, std::string) {});
+  EXPECT_EQ(first->session_id().size(), 10u);
+  EXPECT_NE(first->session_id(), second->session_id());
+}
+
 TEST(i2p_sam, sanitize_private_key_strips_surrounding_whitespace)
 {
     EXPECT_EQ(net::sam::sanitize_private_key("abc123\n"), "abc123");
@@ -1061,6 +1081,7 @@ namespace
     std::vector<connection_ptr> connections;
     on_line_t on_line;
     std::mutex* lock = nullptr; //!< set when tests read the router's state from another thread
+    std::size_t closed_connections = 0; //!< connections that ended while the router was reading
 
     scripted_router(boost::asio::io_context& io_, on_line_t on_line_)
       : io(io_)
@@ -1093,7 +1114,11 @@ namespace
       boost::asio::async_read_until(conn->socket, boost::asio::dynamic_buffer(conn->buffer), '\n',
         [this, conn](boost::system::error_code ec, std::size_t bytes)
         {
-          if (ec) return; // the client closed or abandoned this connection
+          if (ec)
+          {
+            ++closed_connections; // the client closed or abandoned this connection
+            return;
+          }
           std::string line = conn->buffer.substr(0, bytes - 1);
           conn->buffer.erase(0, bytes);
           {
@@ -1142,6 +1167,13 @@ namespace
   };
 
   constexpr std::chrono::milliseconds short_delay{20};
+
+  std::string session_id_of(const std::string& line)
+  {
+    std::string id;
+    EXPECT_FALSE(net::sam::get_value(line, "ID", id));
+    return id;
+  }
 
   //! Runs `io` until `done()` is true or `limit` passes.
   void run_until(boost::asio::io_context& io, const std::function<bool()>& done, std::chrono::milliseconds limit = std::chrono::seconds{5})
@@ -1262,12 +1294,13 @@ TEST(i2p_sam, control_socket_retries_accept_without_recreating_session)
 TEST(i2p_sam, control_socket_recreates_session_after_session_socket_drops)
 {
   boost::asio::io_context io;
-  scripted_router router{io, [](scripted_router& r, const scripted_router::connection_ptr& conn, const std::string& line)
+  std::vector<std::string> session_ids;
+  scripted_router router{io, [&](scripted_router& r, const scripted_router::connection_ptr& conn, const std::string& line)
   {
     if (scripted_router::answer_hello(conn, line)) return;
     if (line.rfind("SESSION CREATE", 0) == 0)
     {
-      EXPECT_NE(line.find("ID=abcdefghij "), std::string::npos);
+      session_ids.push_back(session_id_of(line));
       scripted_router::reply(conn, "SESSION STATUS RESULT=OK DESTINATION=FAKE_PRIVATE_KEY\n");
     }
     else if (line.rfind("STREAM ACCEPT", 0) == 0)
@@ -1295,6 +1328,134 @@ TEST(i2p_sam, control_socket_recreates_session_after_session_socket_drops)
   // The abandoned accept is stale and must not be reported as an error.
   EXPECT_EQ(log.calls, 0u);
   EXPECT_TRUE(client->session_established());
+
+  ASSERT_EQ(session_ids.size(), 2u);
+  EXPECT_EQ(session_ids[0], "abcdefghij");
+  EXPECT_NE(session_ids[1], session_ids[0]); // the router may still hold the old session
+  EXPECT_EQ(session_ids[1], client->session_id());
+  std::string last_accept;
+  for (const auto& conn : router.connections)
+    for (const auto& line : conn->lines)
+      if (line.rfind("STREAM ACCEPT", 0) == 0) last_accept = line;
+  EXPECT_EQ(session_id_of(last_accept), session_ids[1]);
+}
+
+TEST(i2p_sam, control_socket_uses_new_session_id_after_duplicated_id)
+{
+  boost::asio::io_context io;
+  std::vector<std::string> session_ids;
+  scripted_router router{io, [&](scripted_router& r, const scripted_router::connection_ptr& conn, const std::string& line)
+  {
+    if (scripted_router::answer_hello(conn, line)) return;
+    if (line.rfind("SESSION CREATE", 0) == 0)
+    {
+      session_ids.push_back(session_id_of(line));
+      scripted_router::reply(conn, session_ids.size() == 1 ? "SESSION STATUS RESULT=DUPLICATED_ID\n" : "SESSION STATUS RESULT=OK DESTINATION=FAKE_PRIVATE_KEY\n");
+    }
+    else if (line.rfind("STREAM ACCEPT", 0) == 0)
+      scripted_router::reply(conn, "STREAM STATUS RESULT=OK\n");
+  }};
+  router.start();
+
+  handler_log log;
+  auto client = make_test_control_client(io, log);
+  ASSERT_TRUE(net::sam::control_socket::connect_and_send(client, router.endpoint()));
+
+  run_until(io, [&]{ return router.count("STREAM ACCEPT") >= 1; });
+
+  ASSERT_EQ(session_ids.size(), 2u);
+  EXPECT_EQ(session_ids[0], "abcdefghij");
+  EXPECT_NE(session_ids[1], session_ids[0]);
+  ASSERT_EQ(log.errors.size(), 1u);
+  EXPECT_EQ(log.errors[0], net::sam::make_error_code(net::sam::error::duplicated_id));
+  EXPECT_TRUE(client->session_established());
+}
+
+TEST(i2p_sam, control_socket_stops_when_router_rejects_saved_key)
+{
+  boost::asio::io_context io;
+  scripted_router router{io, [](scripted_router&, const scripted_router::connection_ptr& conn, const std::string& line)
+  {
+    if (scripted_router::answer_hello(conn, line)) return;
+    if (line.rfind("SESSION CREATE", 0) == 0)
+      scripted_router::reply(conn, "SESSION STATUS RESULT=INVALID_KEY MESSAGE=\"bad key\"\n");
+  }};
+  router.start();
+
+  handler_log log;
+  auto client = make_test_control_client(io, log);
+  ASSERT_TRUE(net::sam::control_socket::connect_and_send(client, router.endpoint()));
+
+  run_until(io, [&]{ return log.calls > 0; });
+  run_for(io, short_delay * 10); // several reconnect delays; no retry expected
+
+  EXPECT_EQ(router.count("SESSION CREATE"), 1u);
+  ASSERT_EQ(log.errors.size(), 1u);
+  EXPECT_EQ(log.errors[0], net::sam::make_error_code(net::sam::error::invalid_key));
+  EXPECT_FALSE(client->session_established());
+}
+
+TEST(i2p_sam, control_socket_outbound_retries_after_invalid_key)
+{
+  // A transient session has no saved key, so it keeps retrying.
+  boost::asio::io_context io;
+  scripted_router router{io, [](scripted_router&, const scripted_router::connection_ptr& conn, const std::string& line)
+  {
+    if (scripted_router::answer_hello(conn, line)) return;
+    if (line.rfind("SESSION CREATE", 0) == 0)
+      scripted_router::reply(conn, "SESSION STATUS RESULT=INVALID_KEY\n");
+  }};
+  router.start();
+
+  handler_log log;
+  auto client = net::sam::make_control_client("", "", tcp::socket{io},
+    [&log](boost::system::error_code ec, tcp::socket, net::i2p_address, std::string)
+    {
+      ++log.calls;
+      if (ec) log.errors.push_back(ec);
+    }, /*accept_inbound=*/false);
+  client->set_timeouts(std::chrono::seconds{2}, std::chrono::seconds{2});
+  client->set_reconnect_delay(short_delay);
+  ASSERT_TRUE(net::sam::control_socket::connect_and_send(client, router.endpoint()));
+
+  run_until(io, [&]{ return router.count("SESSION CREATE") >= 2; });
+
+  EXPECT_GE(router.count("SESSION CREATE"), 2u);
+}
+
+TEST(i2p_sam, control_socket_stop_closes_session_and_never_reconnects)
+{
+  boost::asio::io_context io;
+  scripted_router router{io, [](scripted_router&, const scripted_router::connection_ptr& conn, const std::string& line)
+  {
+    if (scripted_router::answer_hello(conn, line)) return;
+    if (line.rfind("SESSION CREATE", 0) == 0)
+      scripted_router::reply(conn, "SESSION STATUS RESULT=OK DESTINATION=FAKE_PRIVATE_KEY\n");
+    else if (line.rfind("STREAM ACCEPT", 0) == 0)
+      scripted_router::reply(conn, "STREAM STATUS RESULT=OK\n");
+  }};
+  router.start();
+
+  handler_log log;
+  auto client = make_test_control_client(io, log);
+  ASSERT_TRUE(net::sam::control_socket::connect_and_send(client, router.endpoint()));
+
+  run_until(io, [&]{ return router.count("STREAM ACCEPT") >= 1; });
+  ASSERT_TRUE(client->session_established());
+
+  ASSERT_EQ(router.connections.size(), 2u); // session and accept
+  ASSERT_EQ(router.closed_connections, 0u);
+
+  client->async_stop();
+  run_until(io, [&]{ return router.closed_connections == 2; });
+  run_for(io, short_delay * 10); // several reconnect delays; no retry expected
+
+  EXPECT_EQ(router.closed_connections, 2u);
+  EXPECT_EQ(router.connections.size(), 2u);
+  EXPECT_FALSE(client->session_established());
+  EXPECT_EQ(router.count("SESSION CREATE"), 1u);
+  EXPECT_EQ(router.count("HELLO VERSION"), 2u);
+  EXPECT_EQ(log.calls, 0u);
 }
 
 TEST(i2p_sam, control_socket_ignores_stale_connect_after_session_drops)
