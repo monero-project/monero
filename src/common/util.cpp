@@ -195,6 +195,10 @@ namespace tools
     if (!SetSecurityDescriptorDacl(std::addressof(descriptor), true, reinterpret_cast<PACL>(dacl.get()), false))
       return {};
 
+    // block inheritable ACEs
+    if (!SetSecurityDescriptorControl(std::addressof(descriptor), SE_DACL_PROTECTED, SE_DACL_PROTECTED))
+      return {};
+
     SECURITY_ATTRIBUTES attributes{sizeof(SECURITY_ATTRIBUTES), std::addressof(descriptor), false};
     std::unique_ptr<void, close_handle> file{
       CreateFile(
@@ -463,7 +467,8 @@ namespace tools
 
     SECURITY_DESCRIPTOR descriptor{};
     if (!InitializeSecurityDescriptor(std::addressof(descriptor), SECURITY_DESCRIPTOR_REVISION) ||
-        !SetSecurityDescriptorDacl(std::addressof(descriptor), true, reinterpret_cast<PACL>(dacl.get()), false))
+        !SetSecurityDescriptorDacl(std::addressof(descriptor), true, reinterpret_cast<PACL>(dacl.get()), false) ||
+        !SetSecurityDescriptorControl(std::addressof(descriptor), SE_DACL_PROTECTED, SE_DACL_PROTECTED)) // block inheritable ACEs
       return std::error_code(GetLastError(), std::system_category());
 
     SECURITY_ATTRIBUTES attributes{sizeof(SECURITY_ATTRIBUTES), std::addressof(descriptor), false};
