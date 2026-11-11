@@ -44,7 +44,7 @@
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/asio/ip/address.hpp>
-#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <openssl/evp.h>
@@ -7210,6 +7210,35 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
 
   THROW_WALLET_EXCEPTION_IF(m_is_background_wallet && !same_file, error::wallet_internal_error,
     "Cannot save background wallet files to a different location");
+
+  if (had_old_wallet_files && !same_file)
+  {
+    std::string new_keys_file, new_wallet_file, new_mms_file;
+    do_prepare_file_names(path, new_keys_file, new_wallet_file, new_mms_file);
+    const auto old_path = boost::filesystem::absolute(m_wallet_file);
+    const auto keys_path = boost::filesystem::absolute(new_keys_file);
+    const auto old_parent = boost::filesystem::weakly_canonical(old_path.parent_path());
+    const auto keys_parent = boost::filesystem::weakly_canonical(keys_path.parent_path());
+    boost::system::error_code ec;
+    bool same_entry = old_parent == keys_parent || boost::filesystem::equivalent(old_parent, keys_parent, ec);
+    if (same_entry && old_path.filename() != keys_path.filename())
+    {
+      same_entry = boost::filesystem::equivalent(old_path, keys_path, ec);
+      if (same_entry)
+      {
+        // Two names can refer to one file without naming the same directory entry.
+        bool old_name_found = false, keys_name_found = false;
+        for (const auto &entry : boost::filesystem::directory_iterator(old_parent))
+        {
+          old_name_found |= entry.path().filename() == old_path.filename();
+          keys_name_found |= entry.path().filename() == keys_path.filename();
+        }
+        same_entry = !(old_name_found && keys_name_found);
+      }
+    }
+    THROW_WALLET_EXCEPTION_IF(same_entry,
+      error::wallet_internal_error, "Destination keys file overlaps the current wallet cache");
+  }
 
   if (!same_file)
   {
