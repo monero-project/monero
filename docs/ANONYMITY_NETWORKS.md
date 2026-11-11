@@ -59,6 +59,44 @@ You can also combine `--proxy` with `--tx-proxy` (see below).
 Hidden services - onion and I2P domains - are available to use for transaction broadcasts.
 You may use the below options with or without `--proxy`.
 
+#### I2P via SAM (recommended)
+
+For I2P, the recommended setup is the `--i2p-sam` option. It uses the I2P router's
+[SAM bridge](https://i2p.net/en/docs/api/samv3/) (Simple Anonymous Messaging),
+an API that lets `monerod` ask the router to create I2P destinations for it, so
+it can make and accept I2P connections without a SOCKS proxy or any tunnels
+configured in the router:
+
+```bash
+monerod --i2p-sam 127.0.0.1:7656
+```
+
+Compared to `--tx-proxy i2p,...` and `--anonymous-inbound <address>.b32.i2p,...`:
+
+- Only the router's SAM bridge needs to be enabled (it is by default in i2pd;
+  Java I2P needs it to be started from the router console). No client or server
+  tunnels have to be set up.
+- `monerod` uses destinations of its own, rather than the SOCKS proxy's
+  destination, which is usually shared with every other application using it.
+- One option covers both directions, each with its own connection limit:
+  `<router-ip:sam-port>[,max_out_connections[,max_in_connections]]`. A limit of
+  `0` disables that direction.
+
+When `--i2p-sam` is set, I2P entries in `--tx-proxy` and `--anonymous-inbound`
+are ignored.
+
+Inbound connections are on by default. They use a persistent destination,
+whose key is stored as `i2p_private_key` in the data directory, and its address
+is announced to the peers this node connects to. Those peers can therefore link
+the transactions this node broadcasts to that address. To make outgoing I2P
+connections only:
+
+```bash
+monerod --i2p-sam 127.0.0.1:7656,32,0
+```
+
+See [I2P_SAM.md](I2P_SAM.md) for router setup and more details.
+
 #### Outbound Connections
 
 Connecting to an anonymous address requires the command line option
@@ -74,7 +112,8 @@ monerod \
 which tells `monerod` to connect to ".onion" P2P addresses using a socks
 proxy at IP 127.0.0.1 port 9050 with a max of 10 outgoing connections and
 ".b32.i2p" P2P addresses using a socks proxy at IP 127.0.0.1 port 4447
-with the default max outgoing connections.
+with the default max outgoing connections. For I2P, `--i2p-sam` is recommended
+instead; see [I2P via SAM](#i2p-via-sam-recommended).
 
 If desired, peers can be manually specified:
 
@@ -106,7 +145,8 @@ localhost port 18084, and a default max I2P connections are being received at
 address "cmeua5767mz2q5jsaelk2rxhf67agrwuetaso5dzbenyzwlbkg2q.b32.i2p" and
 forwarded to `monerod` localhost port 18085. Using `tx-proxy`(required), these
 addresses will be shared with peers over the same network type, otherwise your
-peers will not be notified of your onion or I2P address.
+peers will not be notified of your onion or I2P address. With `--i2p-sam`,
+inbound I2P connections need no `--anonymous-inbound` entry or router tunnel.
 
 **_Note: The specified port for `anonymous-inbound` must be unique (not 18080 etc). `anonymous-inbound` is not for blockchain sync!_**
 Peers will use their own `tx-proxy` to relay transactions, which originate on their node,
@@ -151,11 +191,13 @@ encryption, or bypassed with `--daemon-ssl-allow-any-cert`.
 
 Options `--add-exclusive-node`, `--add-priority-node`, and `--add-peer` recognize ".onion" and
 ".b32.i2p" addresses, and will properly forward those addresses to the proxy
-provided with `--tx-proxy tor,...` or `--tx-proxy i2p,...`.
+provided with `--tx-proxy tor,...` or `--tx-proxy i2p,...`, or to the SAM
+bridge given with `--i2p-sam`.
 
 Option `--anonymous-inbound` also recognizes ".onion" and ".b32.i2p" addresses,
 and will automatically be sent out to outgoing Tor/I2P connections so the peer
-can distribute the address to its other peers.
+can distribute the address to its other peers. `--i2p-sam` does the same with
+its inbound I2P address.
 
 #### Configuration
 
@@ -180,6 +222,8 @@ and will forward "Tor port" 18084 and 18089 to ports 18084 and 18089 of ip 127.0
 I2P must be configured with a standard server tunnel. Configuration differs by
 I2P implementation.  
 You can find guides for i2pd [here](https://docs.getmonero.org/running-node/monerod-tori2p/#__tabbed_1_2).
+With `--i2p-sam`, no tunnels are needed for P2P connections; a server tunnel is
+still needed to provide the RPC over I2P.
 
 ## Example Node Configurations
 
@@ -203,6 +247,17 @@ Tor.
 sudo apt install tor # Or install Tor some other way
 systemctl start tor # Or start Tor manually
 monerod --tx-proxy tor,127.0.0.1:9050,10
+```
+
+### Connect to IPv4 Nodes Over Clearnet and Relay Transactions via I2P
+
+Monerod will connect to IPv4 nodes via clearnet, revealing to your ISP
+that you are running a Monero node, but your transactions will be relayed over
+I2P. The router's SAM bridge must be enabled; see [I2P_SAM.md](I2P_SAM.md#configuration).
+Remove `,32,0` to also accept incoming I2P connections.
+
+```bash
+monerod --i2p-sam 127.0.0.1:7656,32,0
 ```
 
 ### Connect To IPv4 Nodes Over Tor Only
@@ -315,9 +370,13 @@ transmitting transactions over I2P/Tor. Using outgoing connections prevents an
 adversary from making many incoming connections to obtain information (this
 technique was taken from Dandelion). Outgoing connections also do not have a
 persistent public key identity - the creation of a new circuit will generate
-a new public key identity. The lock time on a change address is ~20 minutes, so
-`monerod` will have rotated its selected outgoing connections several times in
-most cases. However, the number of outgoing connections is typically a small
+a new public key identity. This does not hold when the node also accepts
+inbound connections (`--anonymous-inbound`, or `--i2p-sam` with inbound on,
+which is the default); its persistent inbound address is announced to the
+peers it connects to, linking those connections to that address. See
+[I2P_SAM.md](I2P_SAM.md#two-sam-sessions). The lock time on a change address
+is ~20 minutes, so `monerod` will have rotated its selected outgoing
+connections several times in most cases. However, the number of outgoing connections is typically a small
 fixed number, so there is a decent probability of reuse with the same public
 key identity.
 
