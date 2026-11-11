@@ -67,6 +67,7 @@ using namespace epee;
   #include <windows.h>
   #include <shlobj.h>
 #else
+  #include <fcntl.h>
   #include <sys/file.h>
   #include <sys/stat.h>
 #endif
@@ -131,9 +132,9 @@ namespace tools
   private_file::private_file(std::FILE* handle, std::string&& filename) noexcept
     : m_handle(handle), m_filename(std::move(filename)) {}
 
-  private_file private_file::create(std::string name, uint32_t extra_flags)
+#ifdef _WIN32
+  namespace
   {
-#ifdef WIN32
     struct close_handle
     {
       void operator()(HANDLE handle) const noexcept
@@ -142,33 +143,49 @@ namespace tools
       }
     };
 
-    std::unique_ptr<void, close_handle> process = nullptr;
+    //! \return DACL granting `access` to the process owner only, OR `nullptr` on error.
+    std::unique_ptr<char[]> make_owner_only_dacl(const DWORD access)
     {
-      HANDLE temp{};
-      const bool fail = OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, std::addressof(temp)) == 0;
-      process.reset(temp);
-      if (fail)
-        return {};
+      std::unique_ptr<void, close_handle> process = nullptr;
+      {
+        HANDLE temp{};
+        const bool fail = OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, std::addressof(temp)) == 0;
+        process.reset(temp);
+        if (fail)
+          return nullptr;
+      }
+
+      DWORD sid_size = 0;
+      GetTokenInformation(process.get(), TokenOwner, nullptr, 0, std::addressof(sid_size));
+      if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+        return nullptr;
+
+      std::unique_ptr<char[]> sid{new char[sid_size]};
+      if (!GetTokenInformation(process.get(), TokenOwner, sid.get(), sid_size, std::addressof(sid_size)))
+        return nullptr;
+
+      const PSID psid = reinterpret_cast<const PTOKEN_OWNER>(sid.get())->Owner;
+      const DWORD daclSize =
+        sizeof(ACL) + sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(psid) - sizeof(DWORD);
+
+      std::unique_ptr<char[]> dacl{new char[daclSize]};
+      if (!InitializeAcl(reinterpret_cast<PACL>(dacl.get()), daclSize, ACL_REVISION))
+        return nullptr;
+
+      // the ACE holds a copy of the SID, so `sid` can be freed
+      if (!AddAccessAllowedAce(reinterpret_cast<PACL>(dacl.get()), ACL_REVISION, access, psid))
+        return nullptr;
+
+      return dacl;
     }
+  }
+#endif
 
-    DWORD sid_size = 0;
-    GetTokenInformation(process.get(), TokenOwner, nullptr, 0, std::addressof(sid_size));
-    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
-      return {};
-
-    std::unique_ptr<char[]> sid{new char[sid_size]};
-    if (!GetTokenInformation(process.get(), TokenOwner, sid.get(), sid_size, std::addressof(sid_size)))
-      return {};
-
-    const PSID psid = reinterpret_cast<const PTOKEN_OWNER>(sid.get())->Owner;
-    const DWORD daclSize =
-      sizeof(ACL) + sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(psid) - sizeof(DWORD);
-
-    const std::unique_ptr<char[]> dacl{new char[daclSize]};
-    if (!InitializeAcl(reinterpret_cast<PACL>(dacl.get()), daclSize, ACL_REVISION))
-      return {};
-
-    if (!AddAccessAllowedAce(reinterpret_cast<PACL>(dacl.get()), ACL_REVISION, (READ_CONTROL | FILE_GENERIC_READ | DELETE), psid))
+  private_file private_file::create(std::string name, uint32_t extra_flags)
+  {
+#ifdef WIN32
+    const std::unique_ptr<char[]> dacl = make_owner_only_dacl(READ_CONTROL | FILE_GENERIC_READ | DELETE);
+    if (!dacl)
       return {};
 
     SECURITY_DESCRIPTOR descriptor{};
@@ -425,6 +442,75 @@ namespace tools
     code = ok ? 0 : errno;
 #endif
     return std::error_code(code, std::system_category());
+  }
+
+  std::error_code save_private_file(const std::string& filename, const std::string& data)
+  {
+    const std::string temp_name = filename + ".tmp";
+
+    // a stale temp file from an earlier crash would make the exclusive create fail
+    boost::system::error_code remove_ec;
+    boost::filesystem::remove(temp_name, remove_ec);
+
+#ifdef _WIN32
+    std::wstring wide_temp_name;
+    try { wide_temp_name = string_tools::utf8_to_utf16(temp_name); }
+    catch (...) { return std::make_error_code(std::errc::invalid_argument); }
+
+    const std::unique_ptr<char[]> dacl = make_owner_only_dacl(READ_CONTROL | FILE_GENERIC_READ | FILE_GENERIC_WRITE | DELETE);
+    if (!dacl)
+      return std::error_code(GetLastError(), std::system_category());
+
+    SECURITY_DESCRIPTOR descriptor{};
+    if (!InitializeSecurityDescriptor(std::addressof(descriptor), SECURITY_DESCRIPTOR_REVISION) ||
+        !SetSecurityDescriptorDacl(std::addressof(descriptor), true, reinterpret_cast<PACL>(dacl.get()), false))
+      return std::error_code(GetLastError(), std::system_category());
+
+    SECURITY_ATTRIBUTES attributes{sizeof(SECURITY_ATTRIBUTES), std::addressof(descriptor), false};
+    std::unique_ptr<void, close_handle> file{
+      CreateFileW(wide_temp_name.c_str(), GENERIC_WRITE, 0, std::addressof(attributes), CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr)
+    };
+    if (file.get() == INVALID_HANDLE_VALUE)
+    {
+      file.release();
+      return std::error_code(GetLastError(), std::system_category());
+    }
+
+    std::error_code ec{};
+    DWORD written = 0;
+    if (!WriteFile(file.get(), data.data(), DWORD(data.size()), std::addressof(written), nullptr) || written != data.size() ||
+        !FlushFileBuffers(file.get()))
+      ec = std::error_code(GetLastError(), std::system_category());
+    file.reset();
+#else
+    const int fd = open(temp_name.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR);
+    if (fd < 0)
+      return std::error_code(errno, std::system_category());
+
+    std::error_code ec{};
+    for (std::size_t offset = 0; offset < data.size();)
+    {
+      const ssize_t written = write(fd, data.data() + offset, data.size() - offset);
+      if (written < 0)
+      {
+        if (errno == EINTR)
+          continue;
+        ec = std::error_code(errno, std::system_category());
+        break;
+      }
+      offset += written;
+    }
+    if (!ec && fsync(fd) != 0)
+      ec = std::error_code(errno, std::system_category());
+    if (close(fd) != 0 && !ec)
+      ec = std::error_code(errno, std::system_category());
+#endif
+
+    if (!ec)
+      ec = replace_file(temp_name, filename);
+    if (ec)
+      boost::filesystem::remove(temp_name, remove_ec);
+    return ec;
   }
 
   static bool unbound_built_with_threads()
