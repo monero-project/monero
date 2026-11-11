@@ -4696,6 +4696,7 @@ void wallet2::handle_reorg(uint64_t height, std::map<std::pair<uint64_t, uint64_
       error::wallet_internal_error, "Daemon claims reorg below last checkpoint");
 
   detached_blockchain_data dbd = detach_blockchain(height, output_tracker_cache);
+  m_skip_to_height = std::min(m_skip_to_height, height);
 
   if (m_background_syncing && height < m_background_sync_data.start_height)
     m_background_sync_data.start_height = height;
