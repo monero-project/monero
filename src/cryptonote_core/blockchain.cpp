@@ -3458,10 +3458,9 @@ bool Blockchain::check_tx_inputs(transaction& tx,
   const crypto::hash txid = get_transaction_hash(tx);
 
   // Try skipping verification if input verification ID matches a previously valid ID
-  crypto::hash calculated_input_verification_id = crypto::null_hash;
+  const crypto::hash calculated_input_verification_id = make_input_verification_id(get_transaction_hash(tx), pubkeys);
   if (valid_input_verification_id_inout != crypto::null_hash)
   {
-    calculated_input_verification_id = make_input_verification_id(get_transaction_hash(tx), pubkeys);
     if (calculated_input_verification_id == valid_input_verification_id_inout)
     {
       MDEBUG("Valid verID hit for tx " << txid << ", skipping input verification...");
@@ -3478,18 +3477,25 @@ bool Blockchain::check_tx_inputs(transaction& tx,
     MDEBUG("No previously valid verID provided for tx " << txid << ", continuing to input verification as normal...");
   }
 
-  // Verify ring signature input proofs
   valid_input_verification_id_inout = crypto::null_hash;
+
+  auto invalid_ids_it = m_invalid_input_verification_ids.find(txid);
+  if (invalid_ids_it != m_invalid_input_verification_ids.end() && invalid_ids_it->second == calculated_input_verification_id)
+  {
+    MDEBUG("Tx inputs found in the invalid cache for " << txid);
+    return false;
+  }
+
+  // Verify ring signature input proofs
   if (!ver_input_proofs_rings(tx, pubkeys))
   {
     MERROR_VER("Failed to verify input ring signatures for tx " << txid);
+    m_invalid_input_verification_ids[txid] = calculated_input_verification_id;
     return false;
   }
 
   // At this point, we've succeeded at input verification, so set `valid_input_verification_id_inout`
-  valid_input_verification_id_inout = (calculated_input_verification_id == crypto::null_hash)
-    ? make_input_verification_id(get_transaction_hash(tx), pubkeys)
-    : calculated_input_verification_id;
+  valid_input_verification_id_inout = calculated_input_verification_id;
 
   MDEBUG("Input verification for tx " << txid << " succeeded. Setting verID to " << valid_input_verification_id_inout);
 
@@ -4031,13 +4037,17 @@ leave:
 
     for (size_t i = 0; i < txs.size(); ++i)
     {
+      const crypto::hash &txid = std::get<0>(txs_meta[i]);
+
       // if this transaction wasn't ever in the pool, don't return it back to the pool
       const bool found_in_pool = std::get<2>(txs_meta[i]);
       if (!found_in_pool)
+      {
+        remove_invalid_input_entry(txid);
         continue;
+      }
 
       transaction &tx = txs[i].first;
-      const crypto::hash &txid = std::get<0>(txs_meta[i]);
       const blobdata &tx_blob = txs[i].second;
       const size_t tx_weight = std::get<1>(txs_meta[i]);
       const crypto::hash &valid_input_verification_id = std::get<3>(txs_meta[i]);
@@ -5254,6 +5264,12 @@ void Blockchain::update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta
 void Blockchain::remove_txpool_tx(const crypto::hash &txid)
 {
   m_db->remove_txpool_tx(txid);
+  remove_invalid_input_entry(txid);
+}
+
+void Blockchain::remove_invalid_input_entry(const crypto::hash &txid)
+{
+  m_invalid_input_verification_ids.erase(txid);
 }
 
 uint64_t Blockchain::get_txpool_tx_count(bool include_sensitive) const

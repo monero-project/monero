@@ -42,6 +42,7 @@
 #include "blockchain_db/blockchain_db.h"
 #include "misc_language.h"
 #include "misc_log_ex.h"
+#include "scope_guard.h"
 #include "tx_verification_utils.h"
 #include "warnings.h"
 #include "common/perf_timer.h"
@@ -241,6 +242,13 @@ namespace cryptonote
 
     // assume failure during verification steps until success is certain
     tvc.m_verifivation_failed = true;
+
+    const epee::scope_guard scope_exit_handler([&](){
+      // The invalid input cache should only be used for txs in the pool. An entry may have been added in
+      // check_tx_inputs, but we don't want to keep the entry if the tx wasn't added to the pool.
+      if (!tvc.m_added_to_pool)
+        m_blockchain.remove_invalid_input_entry(id);
+    });
 
     time_t receive_time = time(nullptr);
 
