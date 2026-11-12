@@ -7206,6 +7206,19 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
     const std::string canonical_old_path = boost::filesystem::canonical(m_wallet_file).string();
     const std::string canonical_new_path = boost::filesystem::weakly_canonical(path).string();
     same_file = canonical_old_path == canonical_new_path;
+    if (!same_file)
+    {
+      // A bind mount can give the same directory entry two different canonical paths.
+      const boost::filesystem::path old_file(canonical_old_path), new_file(canonical_new_path);
+      const auto same_entry_alias = [&old_file](const boost::filesystem::path &candidate) {
+        return candidate != old_file && old_file.filename() == candidate.filename() &&
+          boost::filesystem::exists(candidate.parent_path()) &&
+          boost::filesystem::equivalent(old_file.parent_path(), candidate.parent_path());
+      };
+      same_file = same_entry_alias(new_file);
+      if (!same_file && string_tools::get_extension(path) == "keys")
+        same_file = same_entry_alias(boost::filesystem::weakly_canonical(string_tools::cut_off_extension(path)));
+    }
   }
 
   THROW_WALLET_EXCEPTION_IF(m_is_background_wallet && !same_file, error::wallet_internal_error,
