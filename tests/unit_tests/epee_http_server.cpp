@@ -566,11 +566,12 @@ TEST(http_server, rpc_incomplete_request_expires)
   acceptor.accept(socket);
   const auto shared = std::make_shared<connection_t::shared_state>();
   const auto connection = std::make_shared<connection_t>(context, std::move(socket), shared,
-    epee::net_utils::e_connection_type_RPC, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+    epee::net_utils::e_connection_type_RPC);
   uint32_t ip = 0;
   ASSERT_TRUE(epee::string_tools::get_ip_int32_from_string(ip, "8.8.8.8"));
   ASSERT_TRUE(connection->start(true, false,
-    epee::net_utils::ipv4_network_address{ip, acceptor.local_endpoint().port()}));
+    epee::net_utils::ipv4_network_address{ip, acceptor.local_endpoint().port()},
+    epee::net_utils::ssl_support_t::e_ssl_support_disabled));
 
   const std::string partial = "POST / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 5\r\n\r\nx";
   boost::asio::write(peer, boost::asio::buffer(partial));
