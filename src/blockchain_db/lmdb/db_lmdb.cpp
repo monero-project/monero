@@ -1745,39 +1745,65 @@ crypto::ec_point BlockchainLMDB::grow_layer(const fcmp_pp::CompressedLayerExtens
   CURSOR(layers)
 
   CHECK_AND_ASSERT_THROW_MES(!layer_extension.hashes.empty(), "empty layer extension");
-  std::vector<crypto::ec_point> hashes;
-  hashes.reserve(layer_extension.hashes.size());
-
-  // Expected: layer_extension.start_idx should line up with the end of the layer
-
-  MDB_val_copy<uint64_t> k(layer_idx);
 
   // 1. Update the existing last hash if necessary
-  if (layer_extension.update_existing_last_hash)
+  //    - We also make sure that if there's an existing hash, it lines up to the layer extension
+  if (layer_extension.update_existing_last_hash || layer_extension.start_idx > 0)
   {
-    hashes.emplace_back(layer_extension.hashes.front());
+    const uint64_t expected_last_idx = layer_extension.update_existing_last_hash
+      ? layer_extension.start_idx
+      : layer_extension.start_idx - 1;
 
-    // We updated the last hash, so update it
-    layer_val lv;
-    lv.child_chunk_idx  = layer_extension.start_idx;
-    lv.child_chunk_hash = hashes.back();
-    MDB_val_set(v, lv);
-
-    // We expect to overwrite the existing hash
-    // Expected: the hash should already exist and be the expected existing last hash
-    int result = mdb_cursor_put(m_cur_layers, &k, &v, 0);
+    // Get the first record with this layer index so we can get the last
+    MDB_val_copy<uint64_t> k(layer_idx);
+    MDB_val v;
+    int result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_SET);
     if (result != MDB_SUCCESS)
-      throw0(DB_ERROR(lmdb_error("Failed to update chunk hash: ", result).c_str()));
+      throw0(DB_ERROR(lmdb_error("Failed to set layer: ", result).c_str()));
+
+    // Get the last record at this layer idx
+    result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_LAST_DUP);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get existing last hash: ", result).c_str()));
+
+    const layer_val *existing_last_hash_elem = (layer_val*)v.mv_data;
+    if (existing_last_hash_elem->child_chunk_idx != expected_last_idx)
+      throw0(DB_ERROR("Last hash has an unexpected chunk idx"));
+
+    // Now update the last hash if necessary
+    if (layer_extension.update_existing_last_hash)
+    {
+      // We placed the cursor at the existing last hash, now update it
+      layer_val lv;
+      lv.child_chunk_idx  = expected_last_idx;
+      lv.child_chunk_hash = layer_extension.hashes.front();
+      MDB_val_set(new_v, lv);
+
+      // We expect to overwrite the existing hash
+      result = mdb_cursor_put(m_cur_layers, &k, &new_v, MDB_CURRENT);
+      if (result != MDB_SUCCESS)
+        throw0(DB_ERROR(lmdb_error("Failed to update chunk hash: ", result).c_str()));
+    }
+  }
+  else // !update_existing_last_hash && start_idx == 0
+  {
+    // In this case we don't expect there to be any existing hash elems at this layer
+    MDB_val_copy<uint64_t> k(layer_idx);
+    MDB_val v;
+    int result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_SET);
+    if (result == MDB_SUCCESS)
+      throw0(DB_ERROR("Found unexpected hash elem at layer"));
+    if (result != MDB_NOTFOUND)
+      throw0(DB_ERROR(lmdb_error("Expected MDB_NOTFOUND at empty layer: ", result).c_str()));
   }
 
   // 2. Add all the new hashes found in the extension
   for (uint64_t i = layer_extension.update_existing_last_hash ? 1 : 0; i < layer_extension.hashes.size(); ++i)
   {
-    hashes.emplace_back(layer_extension.hashes[i]);
-
+    MDB_val_copy<uint64_t> k(layer_idx);
     layer_val lv;
     lv.child_chunk_idx  = i + layer_extension.start_idx;
-    lv.child_chunk_hash = hashes.back();
+    lv.child_chunk_hash = layer_extension.hashes[i];
     MDB_val_set(v, lv);
 
     int result = mdb_cursor_put(m_cur_layers, &k, &v, MDB_APPENDDUP);
@@ -1785,7 +1811,7 @@ crypto::ec_point BlockchainLMDB::grow_layer(const fcmp_pp::CompressedLayerExtens
       throw0(DB_ERROR(lmdb_error("Failed to add hash: ", result).c_str()));
   }
 
-  return hashes.back();
+  return layer_extension.hashes.back();
 }
 
 uint64_t BlockchainLMDB::trim_leaves(const uint64_t new_n_leaf_tuples, const uint64_t trim_block_idx)
@@ -1891,16 +1917,32 @@ void BlockchainLMDB::trim_layers(const uint64_t new_n_leaf_tuples,
     // Delete all excess elems in layer
     this->trim_layer(n_new_elems, layer_idx);
 
-    // Set the new last elem using the old tree edge elem
-    MDB_val_copy<uint64_t> k_layer_idx(layer_idx);
+    const uint64_t expected_last_idx = n_new_elems - 1;
+
+    // Get the first record with this layer index so we can get the last
+    MDB_val_copy<uint64_t> k(layer_idx);
+    MDB_val v;
+    int result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_SET);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to set layer: ", result).c_str()));
+
+    // Get the last record at this layer idx
+    result = mdb_cursor_get(m_cur_layers, &k, &v, MDB_LAST_DUP);
+    if (result != MDB_SUCCESS)
+      throw0(DB_ERROR(lmdb_error("Failed to get new last hash: ", result).c_str()));
+
+    const layer_val *existing_last_hash_elem = (layer_val*)v.mv_data;
+    if (existing_last_hash_elem->child_chunk_idx != expected_last_idx)
+      throw0(DB_ERROR("New last hash has an unexpected chunk idx"));
+
+    // We placed the cursor at the new last hash, now update it using the old tree edge elem
     layer_val lv;
     lv.child_chunk_idx  = n_new_elems - 1;
     lv.child_chunk_hash = std::move(new_tree_edge.at(layer_idx));
-    MDB_val_set(v_lv, lv);
+    MDB_val_set(new_v, lv);
 
-    // Overwrite layer last elem
     MDEBUG("Re-setting elem " << lv.child_chunk_idx << " at layer idx " << layer_idx << ": " << epee::string_tools::pod_to_hex(lv.child_chunk_hash));
-    int result = mdb_cursor_put(m_cur_layers, &k_layer_idx, &v_lv, 0);
+    result = mdb_cursor_put(m_cur_layers, &k, &new_v, MDB_CURRENT);
     if (result != MDB_SUCCESS)
       throw0(DB_ERROR(lmdb_error("Failed to update chunk hash: ", result).c_str()));
   }
