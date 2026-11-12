@@ -80,15 +80,13 @@ DISABLE_VS_WARNINGS(4267)
 namespace
 {
 //------------------------------------------------------------------
-static bool get_fcmp_tx_tree_root(const BlockchainDB *db,
+static bool ver_fcmp_pp_tx_reference_block(const BlockchainDB *db,
   const HardFork *m_hardfork,
-  const cryptonote::transaction &tx,
-  std::pair<crypto::ec_point, uint8_t> &tree_root_out)
+  const cryptonote::transaction &tx)
 {
-  tree_root_out = {crypto::ec_point{}, 0};
   if (!rct::is_rct_fcmp(tx.rct_signatures.type))
     return true;
-  CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't get root for pruned FCMP txs");
+  CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't verify pruned FCMP txs");
 
   const bool not_too_high = ver_fcmp_pp_tx_reference_block_not_too_high(
       get_transaction_hash(tx),
@@ -104,6 +102,22 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db,
   const bool not_too_low = (tx.rct_signatures.p.reference_block + 1) >= m_hardfork->get_earliest_ideal_height_for_version(HF_VERSION_FCMP_PLUS_PLUS);
   CHECK_AND_NO_ASSERT_MES_L1(not_too_low, false,
       "tx " << get_transaction_hash(tx) << " included reference block that was too low");
+
+  return true;
+}
+//------------------------------------------------------------------
+static bool get_fcmp_tx_tree_root(const BlockchainDB *db,
+  const HardFork *m_hardfork,
+  const cryptonote::transaction &tx,
+  std::pair<crypto::ec_point, uint8_t> &tree_root_out)
+{
+  tree_root_out = {crypto::ec_point{}, 0};
+  if (!rct::is_rct_fcmp(tx.rct_signatures.type))
+    return true;
+  CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't verify pruned FCMP txs");
+
+  const bool valid_reference_block = ver_fcmp_pp_tx_reference_block(db, m_hardfork, tx);
+  CHECK_AND_ASSERT_MES(valid_reference_block, false, "Invalid FCMP++ reference block");
 
   // Get the tree root and n tree layers at provided block
   const uint8_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out.first);
@@ -134,7 +148,11 @@ static bool set_fcmp_tx_tree_root(const BlockchainDB *db,
   {
     // cache hit
     if (tree_root_it->second.second == tx.rct_signatures.p.n_tree_layers)
+    {
+      const bool valid_reference_block = ver_fcmp_pp_tx_reference_block(db, m_hardfork, tx);
+      CHECK_AND_ASSERT_MES(valid_reference_block, false, "Invalid FCMP++ reference block");
       return true;
+    }
 
     MERROR_VER("Tx included incorrect n tree layers");
     return false;
@@ -3323,7 +3341,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
       const bool is_fcmp_pp = tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus;
       if (is_fcmp_pp || tx.rct_signatures.p.fcmp_pp.size() != 0 || tx.rct_signatures.p.reference_block != 0 || tx.rct_signatures.p.n_tree_layers != 0)
       {
-        MERROR("FCMP++ not allowed before v" << std::to_string(HF_VERSION_FCMP_PLUS_PLUS));
+        MERROR_VER("FCMP++ not allowed before v" << std::to_string(HF_VERSION_FCMP_PLUS_PLUS));
         tvc.m_invalid_output = true;
         return false;
       }
@@ -3335,7 +3353,7 @@ bool Blockchain::check_tx_outputs(const transaction& tx, tx_verification_context
     const bool is_fcmp_pp = tx.rct_signatures.type == rct::RCTTypeFcmpPlusPlus;
     if (!is_fcmp_pp)
     {
-      MERROR("FCMP++ required after v" << std::to_string(HF_VERSION_FCMP_PLUS_PLUS));
+      MERROR_VER("FCMP++ required after v" << std::to_string(HF_VERSION_FCMP_PLUS_PLUS));
       tvc.m_invalid_output = true;
       return false;
     }
