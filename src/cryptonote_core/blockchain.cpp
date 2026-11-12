@@ -117,7 +117,7 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db,
   CHECK_AND_ASSERT_MES(!tx.pruned, false, "can't verify pruned FCMP txs");
 
   const bool valid_reference_block = ver_fcmp_pp_tx_reference_block(db, m_hardfork, tx);
-  CHECK_AND_ASSERT_MES(valid_reference_block, false, "Invalid FCMP++ reference block");
+  CHECK_AND_NO_ASSERT_MES_L1(valid_reference_block, false, "Invalid FCMP++ reference block");
 
   // Get the tree root and n tree layers at provided block
   const uint8_t n_tree_layers = db->get_tree_root_at_blk_idx(tx.rct_signatures.p.reference_block, tree_root_out.first);
@@ -125,7 +125,7 @@ static bool get_fcmp_tx_tree_root(const BlockchainDB *db,
 
   // Make sure the provided n tree layers matches expected
   // IMPORTANT!
-  CHECK_AND_ASSERT_MES(tx.rct_signatures.p.n_tree_layers == n_tree_layers, false,
+  CHECK_AND_NO_ASSERT_MES_L1(tx.rct_signatures.p.n_tree_layers == n_tree_layers, false,
       "tx " << get_transaction_hash(tx) << " included incorrect number of tree layers");
 
   return true;
@@ -150,7 +150,7 @@ static bool set_fcmp_tx_tree_root(const BlockchainDB *db,
     if (tree_root_it->second.second == tx.rct_signatures.p.n_tree_layers)
     {
       const bool valid_reference_block = ver_fcmp_pp_tx_reference_block(db, m_hardfork, tx);
-      CHECK_AND_ASSERT_MES(valid_reference_block, false, "Invalid FCMP++ reference block");
+      CHECK_AND_NO_ASSERT_MES_L1(valid_reference_block, false, "Invalid FCMP++ reference block");
       return true;
     }
 
