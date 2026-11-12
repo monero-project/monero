@@ -248,8 +248,14 @@ namespace cryptonote
     uint64_t max_used_block_height = 0;
     cryptonote::txpool_tx_meta_t meta{};
     meta.valid_input_verification_id = valid_input_verification_id;
+
+    crypto::hash invalid_input_verification_id = crypto::null_hash;
+    const auto invalid_input_it = m_invalid_input_verification_ids.find(id);
+    if (invalid_input_it != m_invalid_input_verification_ids.end())
+      invalid_input_verification_id = invalid_input_it->second;
+
     const bool ch_inp_res = check_tx_inputs([&tx]()->cryptonote::transaction&{ return tx; }, id,
-      meta.valid_input_verification_id, max_used_block_height, max_used_block_id, tvc, kept_by_block);
+      meta.valid_input_verification_id, invalid_input_verification_id, max_used_block_height, max_used_block_id, tvc, kept_by_block);
     if(!ch_inp_res)
     {
       // if the transaction was valid before (kept_by_block), then it
@@ -291,6 +297,10 @@ namespace cryptonote
         }
         tvc.m_verifivation_impossible = true;
         tvc.m_added_to_pool = true;
+
+        // Added to pool with invalid input
+        if (invalid_input_verification_id != crypto::null_hash)
+          m_invalid_input_verification_ids[id] = invalid_input_verification_id;
       }else
       {
         LOG_PRINT_L1("tx used wrong inputs, rejected");
@@ -1395,6 +1405,7 @@ namespace cryptonote
   bool tx_memory_pool::check_tx_inputs(const std::function<cryptonote::transaction&(void)> &get_tx,
     const crypto::hash &txid,
     crypto::hash &valid_input_verification_id_inout,
+    crypto::hash &invalid_input_verification_id_inout,
     uint64_t &max_used_block_height,
     crypto::hash &max_used_block_id,
     tx_verification_context &tvc,
@@ -1411,7 +1422,7 @@ namespace cryptonote
         return std::get<0>(i->second);
       }
     }
-    bool ret = m_blockchain.check_tx_inputs(get_tx(), max_used_block_height, max_used_block_id, tvc, valid_input_verification_id_inout, kept_by_block);
+    bool ret = m_blockchain.check_tx_inputs(get_tx(), max_used_block_height, max_used_block_id, tvc, valid_input_verification_id_inout, invalid_input_verification_id_inout, kept_by_block);
     if (!kept_by_block)
       m_input_cache.insert(std::make_pair(txid, std::make_tuple(ret, tvc, max_used_block_height, max_used_block_id)));
     return ret;
@@ -1441,16 +1452,27 @@ namespace cryptonote
     if (txd.last_failed_id == top_block_hash)
       return false; // we are already sure that this tx isn't passing for this exact chain
 
+    crypto::hash invalid_input_verification_id = crypto::null_hash;
+    const auto invalid_input_it = m_invalid_input_verification_ids.find(txid);
+    if (invalid_input_it != m_invalid_input_verification_ids.end())
+      invalid_input_verification_id = invalid_input_it->second;
+
     tx_verification_context tvc{};
     if (!check_tx_inputs([&lazy_tx]()->cryptonote::transaction&{ return lazy_tx(); },
       txid,
       txd.valid_input_verification_id,
+      invalid_input_verification_id,
       txd.max_used_block_height,
       txd.max_used_block_id,
       tvc))
     {
       txd.last_failed_height = top_block_height;
       txd.last_failed_id = top_block_hash;
+
+      // The tx is in the pool with an invalid input verID, cache it
+      if (invalid_input_verification_id != crypto::null_hash)
+        m_invalid_input_verification_ids[txid] = invalid_input_verification_id;
+
       return false;
     }
 
@@ -1869,6 +1891,9 @@ namespace cryptonote
       MDEBUG("Removing tx " << txid << " from tx pool, but it was not found in the map of added txs");
     }
     track_removed_tx(txid, sensitive);
+
+    // Remove from invalid input cache (may not be present)
+    m_invalid_input_verification_ids.erase(txid);
   }
   //---------------------------------------------------------------------------------
   void tx_memory_pool::track_removed_tx(const crypto::hash& txid, bool sensitive)
