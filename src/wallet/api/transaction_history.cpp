@@ -172,9 +172,8 @@ void TransactionHistoryImpl::refresh()
         const crypto::hash &hash = i->first;
         const tools::wallet2::confirmed_transfer_details &pd = i->second;
         
-        uint64_t change = pd.m_change == (uint64_t)-1 ? 0 : pd.m_change; // change may not be known
         uint64_t fee = pd.m_amount_in - pd.m_amount_out;
-        
+        const uint64_t amount = m_wallet->m_wallet->get_amount_sent(pd);
 
         std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
         if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
@@ -183,7 +182,7 @@ void TransactionHistoryImpl::refresh()
 
         TransactionInfoImpl * ti = new TransactionInfoImpl();
         ti->m_paymentid = payment_id;
-        ti->m_amount = pd.m_amount_in - change - fee;
+        ti->m_amount = amount;
         ti->m_fee    = fee;
         ti->m_direction = TransactionInfo::Direction_Out;
         ti->m_hash = string_tools::pod_to_hex(hash);
@@ -209,8 +208,8 @@ void TransactionHistoryImpl::refresh()
     for (std::list<std::pair<crypto::hash, tools::wallet2::unconfirmed_transfer_details>>::const_iterator i = upayments_out.begin(); i != upayments_out.end(); ++i) {
         const tools::wallet2::unconfirmed_transfer_details &pd = i->second;
         const crypto::hash &hash = i->first;
-        uint64_t amount = pd.m_amount_in;
-        uint64_t fee = amount - pd.m_amount_out;
+        uint64_t fee = pd.m_amount_in - pd.m_amount_out;
+        const uint64_t amount = m_wallet->m_wallet->get_amount_sent(pd);
         std::string payment_id = string_tools::pod_to_hex(i->second.m_payment_id);
         if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
             payment_id = payment_id.substr(0,16);
@@ -218,7 +217,7 @@ void TransactionHistoryImpl::refresh()
 
         TransactionInfoImpl * ti = new TransactionInfoImpl();
         ti->m_paymentid = payment_id;
-        ti->m_amount = amount - pd.m_change - fee;
+        ti->m_amount = amount;
         ti->m_fee    = fee;
         ti->m_direction = TransactionInfo::Direction_Out;
         ti->m_failed = is_failed;
