@@ -1106,7 +1106,7 @@ namespace cryptonote
   //---------------------------------------------------------------
   bool get_commitment(const transaction& tx, const std::size_t o_idx, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, rct::key &c_out)
   {
-    static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with 2 tx versions in mind. "
+    static_assert(CURRENT_TRANSACTION_VERSION == 2, "This section of code was written with v2 txs in mind. "
       "Revisit this section and update for the new tx version.");
     CHECK_AND_ASSERT_THROW_MES(tx.version == 1 || tx.version == 2, "encountered unexpected tx version");
 
@@ -1925,8 +1925,8 @@ namespace cryptonote
     }
     else if (unlock_time < CRYPTONOTE_MAX_BLOCK_NUMBER)
     {
-      // The unlock_time in this case is supposed to be the chain height at which the output unlocks.
-      // The chain height is 1 higher than the highest block index, so we subtract 1 for this delta.
+      // The unlock_time in this case is the first block index where the output is spendable.
+      // Last locked is just prior to that block, so we subtract 1.
       last_locked_block_index = unlock_time > 0 ? (unlock_time - 1) : 0;
     }
     else
@@ -1935,8 +1935,9 @@ namespace cryptonote
           implement this here.
 
         1) We use the hf16 block 84785e719b9bcbb763b103bb04b46565cea1c82a4995d984ae30817b8c6ac922 timestamp as an anchor
-           point to determine the expected block last locked block index. We use the timestamp that was actually
-           recorded in the mainnet chain for this so that it is more accurate.
+           point to determine the expected last locked block index. We use the timestamp that was actually
+           recorded in the mainnet chain for this so that it is more accurate. There is a 'minimum timestamp' of
+           1656629118 recorded in `mainnet_hard_forks` which we don't need here.
 
         2) As of this writing (chain height 3783990), there are no expected unlock times that are materially affected
            by this function's logic. Either some outputs are going to unlock way in the future (because of some
@@ -1951,7 +1952,7 @@ namespace cryptonote
       const uint64_t HF_V16_HEIGHT = 2689608;
       const uint64_t HF_V16_TIMESTAMP = 1660505834;
 
-      // Use the last hard fork's time and block combo to convert the time-based timelock into an last locked block
+      // Use the last hard fork's time and block combo to convert the time-based timelock into a last locked block
       if (HF_V16_TIMESTAMP > unlock_time)
       {
         const uint64_t seconds_since_unlock = HF_V16_TIMESTAMP - unlock_time;
@@ -1968,11 +1969,11 @@ namespace cryptonote
         last_locked_block_index = HF_V16_HEIGHT + blocks_until_unlock;
       }
 
-      /* Note: since this function was introduced for the hf that included fcmp's, it's possible for an output to be
+      /* Note: since this function was introduced for the hf that included fcmps, it's possible for an output to be
           spent before it reaches the last_locked_block_index going by the old rules; this is ok. It can't be spent again b/c
           it'll have a duplicate key image. It's also possible for an output to unlock by old rules, and then re-lock
           again at the fork. This is also ok, we just need to be sure that the new hf rules use this last_locked_block_index
-          starting at the fork for fcmp's.
+          starting at the fork for fcmps.
       */
 
       MDEBUG("unlock time: " << unlock_time << " , last_locked_block_index: " << last_locked_block_index);
@@ -1984,7 +1985,7 @@ namespace cryptonote
     return std::max(last_locked_block_index, default_block_index);
   }
   //---------------------------------------------------------------
-  // Helper function to group outputs by last locked block idx
+  // Groups outputs by last locked block idx
   static uint64_t set_tx_outs_by_last_locked_block(const cryptonote::transaction &tx,
     const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments,
     const uint64_t &first_unified_id,

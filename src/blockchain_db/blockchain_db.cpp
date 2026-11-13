@@ -340,6 +340,12 @@ void BlockchainDB::handle_fcmp_tree(const uint64_t block_idx,
   // locked block higher than the default will be added to the locked outputs
   // tables, staged for insertion to the tree later.
   new_locked_outs.outs_by_last_locked_block.erase(default_last_locked_block);
+
+  for (const auto& outs_entry : new_locked_outs.outs_by_last_locked_block)
+  {
+    CHECK_AND_ASSERT_THROW_MES(outs_entry.first > default_last_locked_block,
+      "Outputs unlock below the default unlock block.");
+  }
   this->add_locked_outs(new_locked_outs.outs_by_last_locked_block, new_locked_outs.timelocked_outputs);
 
   // Assume we just added block n. The soonest that outputs from block n can be
@@ -347,11 +353,14 @@ void BlockchainDB::handle_fcmp_tree(const uint64_t block_idx,
   // we grow the tree with these outputs (and any others with last locked block
   // n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1). We then expect this tree root
   // be included in block header n+1. This way miners will build on top of the
-  // tree root usable in FCMP++'s in a future block. After block
+  // tree root usable in FCMP++s in a future block. After block
   // n + (CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1) is added to the chain, SPV
   // clients syncing just block headers will have a solid assurance that the
   // root usable to construct FCMP++ proofs is the correct root, since it will
   // have 9 blocks of PoW on top of it.
+  // Note that we don't put the root in block n's header so miners don't have to
+  // manage tree adjustments as the tx pool changes (and then revert/redo changes if
+  // a slighlty different block is published by someone else).
   // To be clear, block header n+1 includes the tree root usable to spend
   // outputs with last locked block n + CRYPTNOTE_DEFAULT_SPENDABLE_AGE - 1.
   static_assert(CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE > 0, "Expect a non-0 spendable age");
@@ -405,10 +414,9 @@ void BlockchainDB::grow_tree(const uint64_t blk_idx, std::vector<fcmp_pp::Unifie
 
   // Get the prev block's tree edge (i.e. the current tree edge before growing)
   std::vector<crypto::ec_point> prev_tree_edge;
-  uint64_t prev_blk_idx = 0;
   if (blk_idx > 0)
   {
-    prev_blk_idx = blk_idx - 1;
+    const uint64_t prev_blk_idx = blk_idx - 1;
 
     // Make sure tree tip lines up to expected block
     const uint64_t tree_block_idx = this->get_tree_block_idx();
@@ -477,7 +485,8 @@ void BlockchainDB::trim_block()
   // Remove block from tree meta
   this->del_tree_meta(tree_block_idx);
 
-  // If we're removing the genesis block, we need to reverse the initially added in advance_tree.
+  // If we're removing the genesis block, we need to reverse the blocks with no spendable outputs initially added
+  // in advance_tree.
   // Since we know they're all empty, we can just delete the tree meta.
   if (removing_block_idx == 0)
   {

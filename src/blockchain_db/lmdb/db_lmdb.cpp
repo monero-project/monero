@@ -1412,6 +1412,8 @@ void BlockchainLMDB::add_locked_outs(const fcmp_pp::OutsByLastLockedBlock& outs_
         throw0(DB_ERROR(("Out " + std::to_string(locked_output.unified_id) + " has unexpected blob size" + std::to_string(output_blob.size())).c_str()));
       static_assert(SIZEOF_SERIALIZED_UNIFIED_OUTPUT == 73, "Unified output is stored serialized in 73 bytes");
 
+      // Assuming blocks are appended in sequence, the outputs at m_cur_locked_outputs[block_id] will be
+      // sorted by unified ids since new blocks only produce higher unified ids.
       MDB_val_set(k_block_id, last_locked_block_idx);
       MDB_val_sized(v_output, output_blob);
       int result = mdb_cursor_put(m_cur_locked_outputs, &k_block_id, &v_output, MDB_APPENDDUP);
@@ -1600,7 +1602,7 @@ uint64_t BlockchainLMDB::get_tree_block_idx() const
   return block_idx;
 }
 
-std::vector<crypto::ec_point> BlockchainLMDB::get_tree_edge(uint64_t block_id) const
+std::vector<crypto::ec_point> BlockchainLMDB::get_tree_edge(const uint64_t block_id) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
   check_open();
@@ -1644,13 +1646,13 @@ void BlockchainLMDB::save_tree_meta(const uint64_t block_idx, const uint64_t n_l
     throw0(DB_ERROR("Number of layers in the tree edge does not match expected for the saved n leaf tuples"));
 
   // 1. Save the tree edge
-  MDB_val_copy<uint64_t> k_tee(block_idx);
+  MDB_val_copy<uint64_t> k_tree(block_idx);
   MDB_val v;
   const std::size_t n_layers = tree_edge.size();
   v.mv_data = n_layers ? (void *)tree_edge.data() : (void*)"";
   v.mv_size = sizeof(crypto::ec_point) * n_layers;
 
-  int result = mdb_cursor_put(m_cur_tree_edges, &k_tee, &v, MDB_NOOVERWRITE);
+  int result = mdb_cursor_put(m_cur_tree_edges, &k_tree, &v, MDB_NOOVERWRITE);
   if (result != MDB_SUCCESS)
     throw0(DB_ERROR(lmdb_error("Failed to set last hash: ", result).c_str()));
 
@@ -1707,7 +1709,7 @@ std::vector<crypto::ec_point> BlockchainLMDB::grow_with_tree_extension(const fcm
   CURSOR(leaves)
 
   // Insert the leaves
-  auto &leaves = tree_extension.leaves;
+  const auto &leaves = tree_extension.leaves;
   for (uint64_t i = 0; i < leaves.tuples.size(); ++i)
   {
     const uint64_t leaf_idx = i + leaves.start_idx;
@@ -1831,7 +1833,7 @@ uint64_t BlockchainLMDB::trim_leaves(const uint64_t new_n_leaf_tuples, const uin
     MDEBUG("Successfully removed leaf at leaf_tuple_idx: " << i);
   }
 
-  const auto unified_outputs = this->get_unified_output_by_id(unified_ids);
+  const auto unified_outputs = this->get_unified_outputs_by_id(unified_ids);
 
   MDB_val_set(k_block_id, trim_block_idx);
   for (const fcmp_pp::UnifiedOutput &unified_output : unified_outputs)
@@ -1984,7 +1986,7 @@ void BlockchainLMDB::trim_layer(const uint64_t new_n_elems_in_layer, const uint6
   }
 }
 
-std::vector<fcmp_pp::UnifiedOutput> BlockchainLMDB::get_unified_output_by_id(
+std::vector<fcmp_pp::UnifiedOutput> BlockchainLMDB::get_unified_outputs_by_id(
   const std::vector<uint64_t> &unified_ids) const
 {
   LOG_PRINT_L3("BlockchainLMDB::" << __func__);
@@ -1995,7 +1997,7 @@ std::vector<fcmp_pp::UnifiedOutput> BlockchainLMDB::get_unified_output_by_id(
   std::vector<fcmp_pp::UnifiedOutput> unified_outputs;
   unified_outputs.reserve(unified_ids.size());
 
-  // Collect tx hashes from output id's, reading db output_txs
+  // Collect tx hashes from output ids, reading db output_txs
   std::vector<tx_out_index> tois;
   this->get_output_tx_and_index_from_unified(unified_ids, tois);
 
@@ -2040,7 +2042,7 @@ std::vector<fcmp_pp::UnifiedOutput> BlockchainLMDB::get_unified_output_by_id(
   }
 
   if (unified_ids.size() != unified_outputs.size())
-    throw0(DB_ERROR("get_unified_output_by_id: unified_ids <> unified_outputs size mismatch"));
+    throw0(DB_ERROR("get_unified_outputs_by_id: unified_ids <> unified_outputs size mismatch"));
 
   TXN_POSTFIX_RDONLY();
 
@@ -6027,7 +6029,7 @@ void BlockchainLMDB::migrate_0_1()
         throw0(DB_ERROR("Failed to parse block from blob retrieved from the db"));
 
       const auto miner_blob = tx_to_blob(b.miner_tx);
-      // Empty transparent amount commitments is ok bc only needed for v2 txs, which v0 db's can't have
+      // Empty transparent amount commitments is ok bc only needed for v2 txs, which v0 dbs can't have
       add_transaction(null_hash, b.miner_tx, epee::strspan<std::uint8_t>(miner_blob), {});
       for (unsigned int j = 0; j<b.tx_hashes.size(); j++) {
         transaction tx;
@@ -6670,7 +6672,7 @@ void BlockchainLMDB::migrate_5_7()
   do
   {
     // 1. Prepare all valid outputs to be inserted into the merkle tree and
-    //    place them in a locked outputs table. The key to this new table is the
+    //    place them in a new locked outputs table. The key to this table is the
     //    block id in which the outputs unlock.
     {
       MGINFO("Setting up a locked outputs table (step 1/2 of the full-chain membership proof migration)");
@@ -6694,6 +6696,7 @@ void BlockchainLMDB::migrate_5_7()
       MDB_cursor *c_output_amounts, *c_locked_outputs, *c_tmp_last_output, *c_timelocked_outputs;
       MDB_val k, v;
 
+      // `i` is unified output index
       i = 0;
       const uint64_t n_outputs = this->total_outputs();
       {
@@ -6727,6 +6730,7 @@ void BlockchainLMDB::migrate_5_7()
             }
 
             // Update last output read
+            // - Will be initialized because i != 0
             MDB_val_set(v_last_output, last_output);
             result = mdb_cursor_put(c_tmp_last_output, (MDB_val*)&zerokval, &v_last_output, 0);
             if (result)
@@ -6781,6 +6785,8 @@ void BlockchainLMDB::migrate_5_7()
               found_cached_output = true;
 
               // Set k and v so we can continue the migration from that output
+              // POINTER SAFETY: the `found_cached_output` branch below reads and then overwrites k/v while
+              // `cached_last_o` is still alive.
               k = {sizeof(cached_last_o.amount), (void *)&cached_last_o.amount};
 
               const std::size_t outkey_size = (cached_last_o.amount == 0) ? sizeof(outkey) : sizeof(pre_rct_outkey);
@@ -6860,7 +6866,7 @@ void BlockchainLMDB::migrate_5_7()
           }};
 
         const fcmp_pp::UnifiedOutput unified_output{
-            .unified_id       = unified_id,
+            .unified_id      = unified_id,
             .output_pair     = std::move(output_pair)
           };
         const cryptonote::blobdata output_blob = cryptonote::t_serializable_object_to_blob(unified_output);
@@ -6870,7 +6876,9 @@ void BlockchainLMDB::migrate_5_7()
         const bool has_coinbase_unlock_time = output_data.unlock_time == (output_data.height + CRYPTONOTE_MINED_MONEY_UNLOCK_WINDOW);
         if (has_coinbase_unlock_time)
         {
-          // Only coinbase outputs could potentially have the coinbase unlock_time (see prevalidate_miner_transaction)
+          // Coinbases only have the coinbase unlock_time (see prevalidate_miner_transaction), but
+          // custom timelocks may also have the coinbase unlock_time so we need to look up the tx to
+          // set `is_coinbase`.
           auto toi = this->get_output_tx_and_index_from_unified(unified_id);
           auto tx = this->get_pruned_tx(toi.first);
           is_coinbase = tx.is_coinbase();
@@ -6887,7 +6895,7 @@ void BlockchainLMDB::migrate_5_7()
         MDB_val_set(k_block_id, last_locked_block);
         MDB_val_sized(v_output, output_blob);
 
-        // MDB_NODUPDATA because all output id's should be unique
+        // MDB_NODUPDATA because all output ids should be unique
         // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unified_id
         result = mdb_cursor_put(c_locked_outputs, &k_block_id, &v_output, MDB_NODUPDATA);
         if (result != MDB_SUCCESS)
@@ -6900,7 +6908,7 @@ void BlockchainLMDB::migrate_5_7()
         MDB_val_set(k_timelocked_block_id, last_locked_block);
         MDB_val_sized(v_timelocked_output, output_blob);
 
-        // MDB_NODUPDATA because all output id's should be unique
+        // MDB_NODUPDATA because all output ids should be unique
         // Can't use MDB_APPENDDUP because outputs aren't inserted in order sorted by unified_id
         result = mdb_cursor_put(c_timelocked_outputs, &k_timelocked_block_id, &v_timelocked_output, MDB_NODUPDATA);
         if (result != MDB_SUCCESS)
@@ -6921,6 +6929,7 @@ void BlockchainLMDB::migrate_5_7()
 
       MDB_cursor *c_locked_outputs;
 
+      // `i` is block index
       i = 0;
       const uint64_t n_blocks = height();
       std::size_t progress_width = 0;
