@@ -125,7 +125,7 @@ bf::path get_config_file_path(const po::variables_map &vm)
   return config_path;
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 bool isFat32(const wchar_t* root_path)
 {
   std::vector<wchar_t> fs(MAX_PATH + 1);
@@ -273,7 +273,7 @@ int main(int argc, char const * argv[])
     boost::filesystem::path data_dir = boost::filesystem::absolute(
         command_line::get_arg(vm, cryptonote::arg_data_dir));
 
-#ifdef WIN32
+#ifdef _WIN32
     if (isFat32(data_dir.root_path().c_str()))
     {
       MERROR("Data directory resides on FAT32 volume that has 4GiB file size limit, blockchain might get corrupted.");

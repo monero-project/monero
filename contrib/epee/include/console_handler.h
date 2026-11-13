@@ -112,7 +112,7 @@ namespace epee
       // Both the console and the signal thread may call this.
       if (m_run.exchange(false))
       {
-#if defined(WIN32)
+#if defined(_WIN32)
         ::CloseHandle(::GetStdHandle(STD_INPUT_HANDLE));
 #endif
 
@@ -165,7 +165,7 @@ namespace epee
 
     bool wait_stdin_data()
     {
-#if !defined(WIN32)
+#if !defined(_WIN32)
       #if defined(__OpenBSD__) || defined(__ANDROID__)
       int stdin_fileno = fileno(stdin);
       #else
