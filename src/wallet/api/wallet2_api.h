@@ -81,7 +81,11 @@ struct PendingTransaction
     virtual ~PendingTransaction() = 0;
     virtual int status() const = 0;
     virtual std::string errorString() const = 0;
-    // commit transaction or save to file if filename is provided.
+    /**
+     * @brief commit transaction or save to file if filename is provided.
+     * @note Broadcasting directly from a WalletListener callback running on a refresh thread returns false;
+     *       saving to a file remains allowed from this wallet's own refresh callback.
+     */
     virtual bool commit(const std::string &filename = "", bool overwrite = false) = 0;
     virtual uint64_t amount() const = 0;
     virtual uint64_t dust() const = 0;
@@ -535,6 +539,7 @@ struct Wallet
      * \param path - main filename to store wallet to. additionally stores address file and keys file.
      *               to store to the same file - just pass empty string;
      * \return
+     * \note Returns false when called directly from a WalletListener callback running on a refresh thread.
      */
     virtual bool store(const std::string &path) = 0;
     /*!
@@ -732,6 +737,8 @@ struct Wallet
     /**
      * @brief refresh - refreshes the wallet, updating transactions from daemon
      * @return - true if refreshed successfully;
+     * @note Returns false when interrupted by another wallet operation or called directly from a WalletListener
+     *       callback running on a refresh thread.
      */
     virtual bool refresh() = 0;
 
@@ -743,6 +750,8 @@ struct Wallet
     /**
      * @brief rescanBlockchain - rescans the wallet, updating transactions from daemon
      * @return - true if refreshed successfully;
+     * @note Returns false when interrupted by another wallet operation or called directly from a WalletListener
+     *       callback running on a refresh thread.
      */
     virtual bool rescanBlockchain() = 0;
 
@@ -866,6 +875,8 @@ struct Wallet
      * \param priority
      * \return                          PendingTransaction object. caller is responsible to check PendingTransaction::status()
      *                                  after object returned
+     * \note                            Returns a transaction with Status_Error when called directly from a WalletListener
+     *                                  callback running on a refresh thread.
      */
 
     virtual PendingTransaction * createTransactionMultDest(const std::vector<std::string> &dst_addr, const std::string &payment_id,
@@ -885,6 +896,8 @@ struct Wallet
      * \param priority
      * \return                  PendingTransaction object. caller is responsible to check PendingTransaction::status()
      *                          after object returned
+     * \note                    Returns a transaction with Status_Error when called directly from a WalletListener
+     *                          callback running on a refresh thread.
      */
 
     virtual PendingTransaction * createTransaction(const std::string &dst_addr, const std::string &payment_id,
@@ -897,6 +910,8 @@ struct Wallet
      * \brief createSweepUnmixableTransaction creates transaction with unmixable outputs.
      * \return                  PendingTransaction object. caller is responsible to check PendingTransaction::status()
      *                          after object returned
+     * \note                    Returns a transaction with Status_Error when called directly from a WalletListener
+     *                          callback running on a refresh thread.
      */
 
     virtual PendingTransaction * createSweepUnmixableTransaction() = 0;
@@ -911,6 +926,7 @@ struct Wallet
    /*!
     * \brief submitTransaction - submits transaction in signed tx file
     * \return                  - true on success
+    * \note Returns false when called directly from a WalletListener callback running on a refresh thread.
     */
     virtual bool submitTransaction(const std::string &fileName) = 0;
     
@@ -971,6 +987,7 @@ struct Wallet
      * \param wallet_password
      * \param background_cache_password - custom password to encrypt background cache, only needed for custom password background sync type
      * \return                          - true on success
+     * \note Returns false when called directly from a WalletListener callback running on a refresh thread.
      */
     virtual bool setupBackgroundSync(const BackgroundSyncType background_sync_type, const std::string &wallet_password, const optional<std::string> &background_cache_password) = 0;
 
@@ -982,12 +999,14 @@ struct Wallet
 
     /**
      * @brief startBackgroundSync - sync the chain in the background with just view key
+     * @note Returns false when called directly from a WalletListener callback running on a refresh thread.
      */
     virtual bool startBackgroundSync() = 0;
 
     /**
      * @brief stopBackgroundSync  - bring back spend key and process background synced txs
      * \param wallet_password
+     * @note Returns false when called directly from a WalletListener callback running on a refresh thread.
      */
     virtual bool stopBackgroundSync(const std::string &wallet_password) = 0;
 
@@ -1339,7 +1358,8 @@ struct WalletManager
 /*!
      * \brief Closes wallet. In case operation succeeded, wallet object deleted. in case operation failed, wallet object not deleted
      * \param wallet        previously opened / created wallet instance
-     * \return              None
+     * \return              true on success
+     * \note Returns false when called directly from a WalletListener callback running on a refresh thread.
      */
     virtual bool closeWallet(Wallet *wallet, bool store = true) = 0;
 
