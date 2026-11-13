@@ -9409,6 +9409,7 @@ bool simple_wallet::run()
   m_idle_thread = boost::thread([&]{wallet_idle_thread();});
 
   message_writer(console_color_green, false) << "Background refresh thread started";
+  m_cmd_binder.set_log_command_arguments(false);
   return m_cmd_binder.run_handling([this](){return get_prompt();}, "");
 }
 //----------------------------------------------------------------------------------------------------

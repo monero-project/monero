@@ -313,6 +313,11 @@ eof:
     {
     }
 
+    void set_log_command_arguments(bool log_command_arguments)
+    {
+      m_log_command_arguments = log_command_arguments;
+    }
+
     template<class t_server, class chain_handler>
     bool run(t_server* psrv, chain_handler ch_handler, std::function<std::string(void)> prompt, const std::string& usage = "")
     {
@@ -398,7 +403,7 @@ eof:
 
           string_tools::trim(command);
 
-          LOG_PRINT_L2("Read command: " << command);
+          LOG_PRINT_L2("Read command: " << (m_log_command_arguments ? command : command.substr(0, command.find_first_of(" \t\r\n"))));
           if(cmd_handler(command))
           {
             continue;
@@ -430,6 +435,7 @@ eof:
     async_stdin_reader m_stdin_reader;
     std::atomic<bool> m_running = {true};
     std::atomic<bool> m_cancel = {false};
+    bool m_log_command_arguments = true;
     std::function<std::string(void)> m_prompt;
   };
 
@@ -654,6 +660,11 @@ eof:
     void stop_handling()
     {
       m_console_handler.stop();
+    }
+
+    void set_log_command_arguments(bool log_command_arguments)
+    {
+      m_console_handler.set_log_command_arguments(log_command_arguments);
     }
 
     bool run_handling(std::function<std::string(void)> prompt, const std::string& usage_string, std::function<void(void)> exit_handler = NULL)
