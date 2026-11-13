@@ -274,7 +274,7 @@ namespace
   const char* USAGE_EXPORT_OUTPUTS("export_outputs [all] <filename>");
   const char* USAGE_IMPORT_OUTPUTS("import_outputs <filename>");
   const char* USAGE_SHOW_TRANSFER("show_transfer <txid>");
-  const char* USAGE_MAKE_MULTISIG("make_multisig <threshold> <string1> [<string>...]");
+  const char* USAGE_MAKE_MULTISIG("make_multisig [nofn-fast-noninteractive-setup] <threshold> <string1> [<string>...]");
   const char* USAGE_EXCHANGE_MULTISIG_KEYS("exchange_multisig_keys [force-update-use-with-caution] <string> [<string>...]");
   const char* USAGE_EXPORT_MULTISIG_INFO("export_multisig_info <filename>");
   const char* USAGE_IMPORT_MULTISIG_INFO("import_multisig_info <filename> [<filename>...]");
@@ -1245,11 +1245,22 @@ bool simple_wallet::prepare_multisig_main(const std::vector<std::string> &args, 
 bool simple_wallet::make_multisig(const std::vector<std::string> &args)
 {
   CHECK_MULTISIG_ENABLED();
-  make_multisig_main(args, false);
+  bool nofn_fast_noninteractive_setup = false;
+
+  auto local_args = args;
+  if (args.size() >= 1 && local_args[0] == "nofn-fast-noninteractive-setup")
+  {
+    nofn_fast_noninteractive_setup = true;
+    local_args.erase(local_args.begin());
+  }
+
+  make_multisig_main(local_args, false, nofn_fast_noninteractive_setup);
   return true;
 }
 
-bool simple_wallet::make_multisig_main(const std::vector<std::string> &args, bool called_by_mms)
+bool simple_wallet::make_multisig_main(const std::vector<std::string> &args,
+  bool called_by_mms,
+  const bool nofn_fast_noninteractive_setup /*= false*/)
 {
   CHECK_MULTISIG_ENABLED();
   if (m_wallet->key_on_device())
@@ -1289,6 +1300,27 @@ bool simple_wallet::make_multisig_main(const std::vector<std::string> &args, boo
     return false;
   }
 
+  if (nofn_fast_noninteractive_setup)
+  {
+    if (called_by_mms)
+    {
+      fail_msg_writer() << tr("N-of-N fast setup is not supported by the MMS");
+      return false;
+    }
+    const size_t num_signers = args.size() - 1; // threshold | {kex msgs per signer}
+    if (threshold != num_signers)
+    {
+      fail_msg_writer() << tr("N-of-N fast setup requires the threshold to be equal to the number of signers");
+      return false;
+    }
+
+    message_writer(console_color_red, true) << tr("WARNING: N-of-N fast setup skips the post-KEX verification round. "
+      "This means that there is no check to see whether the other signers are alive or have finished setting up their wallets. "
+      "If any other signer can't complete their wallet setup, funds sent to this multisig address will be inaccessible.");
+    if (!command_line::is_yes(input_line(tr("Is this okay?"), true)))
+      return false;
+  }
+
   const auto orig_pwd_container = get_and_verify_password();
   if(orig_pwd_container == boost::none)
   {
@@ -1302,17 +1334,28 @@ bool simple_wallet::make_multisig_main(const std::vector<std::string> &args, boo
   {
     auto local_args = args;
     local_args.erase(local_args.begin());
-    std::string multisig_extra_info = m_wallet->make_multisig(orig_pwd_container->password(), local_args, threshold);
-    if (!m_wallet->get_multisig_status().is_ready)
+
+    if (nofn_fast_noninteractive_setup)
     {
-      success_msg_writer() << tr("Another step is needed");
-      success_msg_writer() << multisig_extra_info;
-      success_msg_writer() << tr("Send this multisig info to all other participants, then use exchange_multisig_keys <info1> [<info2>...] with others' multisig info");
-      if (called_by_mms)
+      const std::string post_kex_msg = m_wallet->multisig_nofn_fast_noninteractive_setup(orig_pwd_container->password(), local_args);
+      success_msg_writer() << tr("Multisig wallet has been created without the post-KEX verification round.");
+      success_msg_writer() << tr("Other participants that are not using the fast setup need this to complete their wallets with exchange_multisig_keys:");
+      success_msg_writer() << post_kex_msg;
+    }
+    else
+    {
+      std::string multisig_extra_info = m_wallet->make_multisig(orig_pwd_container->password(), local_args, threshold);
+      if (!m_wallet->get_multisig_status().is_ready)
       {
-        get_message_store().process_wallet_created_data(get_multisig_wallet_state(), mms::message_type::additional_key_set, multisig_extra_info);
+        success_msg_writer() << tr("Another step is needed");
+        success_msg_writer() << multisig_extra_info;
+        success_msg_writer() << tr("Send this multisig info to all other participants, then use exchange_multisig_keys <info1> [<info2>...] with others' multisig info");
+        if (called_by_mms)
+        {
+          get_message_store().process_wallet_created_data(get_multisig_wallet_state(), mms::message_type::additional_key_set, multisig_extra_info);
+        }
+        return true;
       }
-      return true;
     }
   }
   catch (const std::exception &e)

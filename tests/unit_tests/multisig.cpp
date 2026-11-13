@@ -280,6 +280,54 @@ static void make_wallets(const unsigned int M, const unsigned int N, const bool 
   check_results(intermediate_infos, wallets, M);
 }
 
+static void make_wallets_nofn_fast_setup(const unsigned int N, const unsigned int num_fast_setup_wallets)
+{
+  std::vector<tools::wallet2> wallets(N);
+  ASSERT_TRUE(wallets.size() > 1 && wallets.size() <= KEYS_COUNT);
+  ASSERT_TRUE(num_fast_setup_wallets <= wallets.size());
+
+  // initialize wallets, get first round multisig KEX msgs
+  std::vector<std::string> initial_infos(wallets.size());
+
+  for (size_t i = 0; i < wallets.size(); ++i)
+  {
+    make_wallet(i, wallets[i]);
+
+    wallets[i].decrypt_keys("");
+    initial_infos[i] = wallets[i].get_multisig_first_kex_msg();
+    wallets[i].encrypt_keys("");
+  }
+
+  // the first 'num_fast_setup_wallets' wallets use the fast setup, the rest use the normal setup
+  std::vector<std::string> post_kex_infos(wallets.size());
+
+  for (size_t i = 0; i < wallets.size(); ++i)
+  {
+    if (i < num_fast_setup_wallets)
+    {
+      post_kex_infos[i] = wallets[i].multisig_nofn_fast_noninteractive_setup("", initial_infos);
+      EXPECT_TRUE(wallets[i].get_multisig_status().is_ready);
+    }
+    else
+    {
+      post_kex_infos[i] = wallets[i].make_multisig("", initial_infos, N);
+      EXPECT_FALSE(wallets[i].get_multisig_status().is_ready);
+    }
+  }
+
+  // wallets using the normal setup complete the post-KEX round with everyone's post-KEX messages (including the
+  //   messages produced by fast-setup wallets)
+  std::vector<std::string> final_infos{post_kex_infos};
+
+  for (size_t i = num_fast_setup_wallets; i < wallets.size(); ++i)
+  {
+    final_infos[i] = wallets[i].exchange_multisig_keys("", post_kex_infos);
+    EXPECT_TRUE(wallets[i].get_multisig_status().is_ready);
+  }
+
+  check_results(final_infos, wallets, N);
+}
+
 static void make_wallets_boosting(std::vector<tools::wallet2>& wallets, unsigned int M)
 {
   ASSERT_TRUE(wallets.size() > 1 && wallets.size() <= KEYS_COUNT);
@@ -406,6 +454,52 @@ TEST(multisig, make_2_3)
 {
   make_wallets(2, 3, false);
   make_wallets(2, 3, true);
+}
+
+TEST(multisig, make_nofn_fast_setup)
+{
+  // all wallets use the fast setup
+  make_wallets_nofn_fast_setup(2, 2);
+  make_wallets_nofn_fast_setup(3, 3);
+  make_wallets_nofn_fast_setup(4, 4);
+
+  // some wallets use the fast setup, others use the normal setup
+  make_wallets_nofn_fast_setup(2, 1);
+  make_wallets_nofn_fast_setup(3, 1);
+  make_wallets_nofn_fast_setup(3, 2);
+}
+
+TEST(multisig, make_nofn_fast_setup_invalid)
+{
+  std::vector<tools::wallet2> wallets(3);
+  std::vector<std::string> initial_infos(wallets.size());
+
+  for (size_t i = 0; i < wallets.size(); ++i)
+  {
+    make_wallet(i, wallets[i]);
+
+    wallets[i].decrypt_keys("");
+    initial_infos[i] = wallets[i].get_multisig_first_kex_msg();
+    wallets[i].encrypt_keys("");
+  }
+
+  // only the local signer
+  EXPECT_ANY_THROW(wallets[0].multisig_nofn_fast_noninteractive_setup("", {initial_infos[0]}));
+  EXPECT_FALSE(wallets[0].get_multisig_status().multisig_is_active);
+
+  // local signer missing
+  EXPECT_ANY_THROW(wallets[0].multisig_nofn_fast_noninteractive_setup("", {initial_infos[1], initial_infos[2]}));
+  EXPECT_FALSE(wallets[0].get_multisig_status().multisig_is_active);
+
+  // duplicate signer
+  EXPECT_ANY_THROW(wallets[0].multisig_nofn_fast_noninteractive_setup("", {initial_infos[0], initial_infos[1], initial_infos[1]}));
+  EXPECT_FALSE(wallets[0].get_multisig_status().multisig_is_active);
+
+  // success, then can't set up again
+  EXPECT_NO_THROW(wallets[0].multisig_nofn_fast_noninteractive_setup("", initial_infos));
+  EXPECT_TRUE(wallets[0].get_multisig_status().is_ready);
+  EXPECT_ANY_THROW(wallets[0].multisig_nofn_fast_noninteractive_setup("", initial_infos));
+  EXPECT_TRUE(wallets[0].get_multisig_status().is_ready);
 }
 
 TEST(multisig, reload_after_intermediate_exchange)

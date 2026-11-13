@@ -61,6 +61,7 @@ class MultisigTest():
         print('Testing in-depth transferring with many different multisig setups')
 
         self.test_states()
+        self.test_nofn_fast_setup()
 
         self.fund_addrs_with_normal_wallet(PUB_ADDRS)
 
@@ -342,6 +343,70 @@ class MultisigTest():
         try: res = wallet2of3[1].make_multisig(info2of3[0:2], 2)
         except: ok = True
         assert ok
+
+    @classmethod
+    def test_nofn_fast_setup(cls):
+        print('Testing N-of-N multisig fast setup')
+        seeds = [
+            'velvet lymph giddy number token physics poetry unquoted nibs useful sabotage limits benches lifestyle eden nitrogen anvil fewest avoid batch vials washing fences goat unquoted',
+            'peeled mixture ionic radar utopia puddle buying illness nuns gadget river spout cavernous bounced paradise drunk looking cottage jump tequila melting went winter adjust spout',
+            'dilute gutter certain antics pamphlet macro enjoy left slid guarded bogeys upload nineteen bomb jubilee enhanced irritate turnip eggs swung jukebox loudly reduce sedan slid',
+        ]
+        expected_2of2_address = [case[2] for case in TEST_CASES if case[0] == 2 and case[1] == 2][0]
+
+        def prepare_wallets(n):
+            wallets = [None] * n
+            infos = []
+            for i in range(n):
+                wallets[i] = Wallet(idx = i)
+                try: wallets[i].close_wallet()
+                except: pass
+                res = wallets[i].restore_deterministic_wallet(seed = seeds[i])
+                res = wallets[i].prepare_multisig(enable_multisig_experimental = True)
+                assert len(res.multisig_info) > 0
+                infos.append(res.multisig_info)
+            return wallets, infos
+
+        # 2-of-2: wallet 0 uses the fast setup, wallet 1 uses the normal setup
+        wallet2of2, info2of2 = prepare_wallets(2)
+
+        res = wallet2of2[0].make_multisig(info2of2, 2, nofn_fast_noninteractive_setup = True)
+        assert res.address == expected_2of2_address, res.address
+        assert len(res.multisig_info) > 0
+        post_kex_info = [res.multisig_info]
+        res = wallet2of2[0].is_multisig()
+        assert res.multisig
+        assert res.ready
+        assert res.threshold == 2
+        assert res.total == 2
+
+        res = wallet2of2[1].make_multisig(info2of2, 2)
+        post_kex_info.append(res.multisig_info)
+        res = wallet2of2[1].is_multisig()
+        assert res.multisig
+        assert not res.ready
+
+        res = wallet2of2[1].exchange_multisig_keys(post_kex_info)
+        assert res.address == expected_2of2_address, res.address
+        res = wallet2of2[1].is_multisig()
+        assert res.multisig
+        assert res.ready
+
+        # can't fast-setup an already-multisig wallet
+        ok = False
+        try: res = wallet2of2[0].make_multisig(info2of2, 2, nofn_fast_noninteractive_setup = True)
+        except: ok = True
+        assert ok
+
+        # fast setup is only allowed for N-of-N
+        wallet2of3, info2of3 = prepare_wallets(3)
+        for i in range(3):
+            ok = False
+            try: res = wallet2of3[i].make_multisig(info2of3, 2, nofn_fast_noninteractive_setup = True)
+            except: ok = True
+            assert ok
+            res = wallet2of3[i].is_multisig()
+            assert not res.multisig
 
     def import_multisig_info(self, signers, expected_outputs):
         assert len(signers) >= 2
