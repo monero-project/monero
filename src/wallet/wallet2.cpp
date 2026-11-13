@@ -3830,6 +3830,17 @@ bool wallet2::accept_pool_tx_for_processing(const crypto::hash &txid, const std:
   }
 }
 //----------------------------------------------------------------------------------------------------
+// Remember a pool tx as seen, so 'update_pool_state_by_pool_query' does not fetch it again
+void wallet2::mark_pool_tx_scanned(const crypto::hash &txid)
+{
+  m_scanned_pool_txs[0].insert(txid);
+  if (m_scanned_pool_txs[0].size() > 5000)
+  {
+    std::swap(m_scanned_pool_txs[0], m_scanned_pool_txs[1]);
+    m_scanned_pool_txs[0].clear();
+  }
+}
+//----------------------------------------------------------------------------------------------------
 // Code that is common to 'update_pool_state_by_pool_query' and 'update_pool_state_from_pool_data':
 // Process an unconfirmed transfer after we know whether it's in the pool or not
 void wallet2::process_unconfirmed_transfer(bool incremental, const crypto::hash &txid, wallet2::unconfirmed_transfer_details &tx_details, bool seen_in_pool, std::chrono::system_clock::time_point now, bool refreshed)
@@ -4014,24 +4025,37 @@ void wallet2::update_pool_state_by_pool_query(std::vector<std::tuple<cryptonote:
   for (const auto &p: m_unconfirmed_payments)
     payments_tx_hashes.insert(p.second.m_pd.m_tx_hash);
 
-  // gather txids of new pool txes to us
+  // gather txids of pool txes we did not fetch yet; which txs we ask for must not depend on
+  // whether they are ours, or the daemon could tell from the request which txs we sent
   std::vector<crypto::hash> txids;
   txids.reserve(res.tx_hashes.size());
   for (const auto &txid: res.tx_hashes)
   {
-    if (accept_pool_tx_for_processing(txid, payments_tx_hashes))
+    if (m_scanned_pool_txs[0].count(txid) == 0 && m_scanned_pool_txs[1].count(txid) == 0)
       txids.push_back(txid);
   }
 
+  std::vector<std::tuple<cryptonote::transaction, crypto::hash, bool>> fetched_txs;
+  fetched_txs.reserve(txids.size());
   m_node_rpc_proxy.get_transactions(txids,
-    [this, &txids, &process_txs](const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request &req_t, const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response &resp_t, bool r)
+    [this, &txids, &fetched_txs](const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request &req_t, const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response &resp_t, bool r)
     {
-      if (read_pool_txs(req_t, resp_t, r, txids, process_txs) != req_t.txs_hashes.size())
+      if (read_pool_txs(req_t, resp_t, r, txids, fetched_txs) != req_t.txs_hashes.size())
         reset_pool_info_query_time();
       if (!r || resp_t.status != CORE_RPC_STATUS_OK)
         LOG_PRINT_L0("Error calling gettransactions daemon RPC: r " << r << ", status " << get_rpc_status(m_trusted_daemon, resp_t.status));
     }
   );
+
+  // only now pick the txs that are worth processing; remember the others so they are not fetched again
+  for (auto &pool_tx: fetched_txs)
+  {
+    const crypto::hash txid = std::get<1>(pool_tx);
+    if (accept_pool_tx_for_processing(txid, payments_tx_hashes))
+      process_txs.push_back(std::move(pool_tx));
+    else
+      mark_pool_tx_scanned(txid);
+  }
 
   MTRACE("update_pool_state_by_pool_query end");
 }
@@ -4091,6 +4115,11 @@ void wallet2::update_pool_state_from_pool_data(bool incremental, const std::vect
     {
       process_txs.push_back(pool_tx);
     }
+    else
+    {
+      // keep track of it like 'update_pool_state_by_pool_query' does, so that query never re-fetches it
+      mark_pool_tx_scanned(std::get<1>(pool_tx));
+    }
   }
 
   MTRACE("update_pool_state_from_pool_data end");
@@ -4131,12 +4160,7 @@ void wallet2::process_pool_state(const std::vector<std::tuple<cryptonote::transa
       continue;
     }
     process_new_transaction(tx_hash, tx, std::vector<uint64_t>(), 0, 0, now, false, true, double_spend_seen, {});
-    m_scanned_pool_txs[0].insert(tx_hash);
-    if (m_scanned_pool_txs[0].size() > 5000)
-    {
-      std::swap(m_scanned_pool_txs[0], m_scanned_pool_txs[1]);
-      m_scanned_pool_txs[0].clear();
-    }
+    mark_pool_tx_scanned(tx_hash);
   }
   complete = true;
   MTRACE("process_pool_state end");

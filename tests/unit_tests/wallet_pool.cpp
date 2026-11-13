@@ -962,7 +962,7 @@ TEST(wallet_pool, retries_incomplete_remaining_pool_transactions)
             cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response &response)
         {
             ++body_queries;
-            EXPECT_EQ(mode == 2 ? 1 : 2, request.txs_hashes.size());
+            EXPECT_EQ(2, request.txs_hashes.size());
             if (failure == 0)
                 return false;
             if (failure == 1)
