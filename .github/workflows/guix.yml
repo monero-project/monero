@@ -2,21 +2,19 @@ name: ci/gh-actions/guix
 
 on:
   push:
-    paths:
+    paths: &paths
       - 'contrib/depends/**'
       - 'contrib/guix/**'
+      - 'contrib/shell/**'
       - '!contrib/**.md'
       - 'external/**'
       - '.github/workflows/guix.yml'
       - '**/Cargo.lock'
   pull_request:
-    paths:
-      - 'contrib/depends/**'
-      - 'contrib/guix/**'
-      - '!contrib/**.md'
-      - 'external/**'
-      - '.github/workflows/guix.yml'
-      - '**/Cargo.lock'
+    paths: *paths
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
@@ -26,20 +24,21 @@ jobs:
   cache-sources:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          persist-credentials: false
       - name: restore depends sources cache
         id: cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: contrib/depends/sources
           key: sources-${{ hashFiles('contrib/depends/packages/*') }}
+          lookup-only: true
       - name: download depends sources
         if: steps.cache.outputs.cache-hit != 'true'
         run: make -C contrib/depends download
       - name: save depends sources cache
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         if: github.event_name != 'pull_request' && steps.cache.outputs.cache-hit != 'true'
         with:
           path: contrib/depends/sources
@@ -48,6 +47,7 @@ jobs:
   build-guix:
     runs-on: ubuntu-24.04
     needs: [cache-sources]
+    cache-mode: read
     strategy:
       fail-fast: false
       matrix:
@@ -63,8 +63,9 @@ jobs:
 
     name: ${{ matrix.toolchain.target }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: remove bundled packages
@@ -73,12 +74,10 @@ jobs:
           sudo mkdir /empty
           sudo rsync -a --delete /empty/ /usr/local
       - name: depends sources cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: contrib/depends/sources
           key: sources-${{ hashFiles('contrib/depends/packages/*') }}
-      - name: install dependencies
-        run: sudo apt update; sudo apt -y install git ca-certificates
       - name: apparmor workaround
         # https://bugs.launchpad.net/ubuntu/+source/guix/+bug/2064115
         run: |
@@ -121,6 +120,7 @@ jobs:
   bundle-logs:
     runs-on: ubuntu-24.04
     needs: [build-guix]
+    cache-mode: none
     steps:
       - uses: actions/download-artifact@v8
         with:
