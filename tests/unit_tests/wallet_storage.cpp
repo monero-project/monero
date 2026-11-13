@@ -39,6 +39,7 @@
 #include "serialization/binary_utils.h"
 #include "wallet/wallet2.h"
 #include "common/util.h"
+#include "scope_guard.h"
 
 using namespace boost::filesystem;
 using namespace epee::file_io_utils;
@@ -412,6 +413,79 @@ TEST(wallet_storage, store_to_file2file)
     }
 
     files_are_expected();
+}
+
+TEST(wallet_storage, store_to_keys_filename)
+{
+    const path dir = temp_directory_path() / unique_path("wallet-store-keys-%%%%-%%%%");
+    create_directories(dir);
+    epee::scope_guard cleanup{[&] { boost::system::error_code ec; remove_all(dir, ec); }};
+
+    const path wallet_file = dir / "wallet";
+    const epee::wipeable_string password("test");
+    std::string address;
+    {
+        tools::wallet2 w(cryptonote::MAINNET);
+        w.generate("", password);
+        address = w.get_address_as_str();
+        w.store_to(wallet_file.string() + ".keys", password);
+        EXPECT_EQ(w.path(), wallet_file.string());
+        ASSERT_TRUE(exists(wallet_file));
+        ASSERT_TRUE(exists(wallet_file.string() + ".keys"));
+    }
+
+    tools::wallet2 loaded(cryptonote::MAINNET);
+    loaded.load(wallet_file.string() + ".keys", password);
+    EXPECT_EQ(loaded.get_address_as_str(), address);
+}
+
+TEST(wallet_storage, store_to_current_keys_filename)
+{
+    const path dir = temp_directory_path() / unique_path("wallet-store-current-keys-%%%%-%%%%");
+    create_directories(dir);
+    epee::scope_guard cleanup{[&] { boost::system::error_code ec; remove_all(dir, ec); }};
+
+    const path wallet_file = dir / "wallet";
+    const epee::wipeable_string password("test");
+    std::string address;
+    {
+        tools::wallet2 w(cryptonote::MAINNET);
+        w.generate(wallet_file.string(), password);
+        address = w.get_address_as_str();
+        w.store_to(wallet_file.string() + ".keys", password);
+        ASSERT_TRUE(exists(wallet_file));
+        ASSERT_TRUE(exists(wallet_file.string() + ".keys"));
+    }
+
+    tools::wallet2 loaded(cryptonote::MAINNET);
+    loaded.load(wallet_file.string(), password);
+    EXPECT_EQ(loaded.get_address_as_str(), address);
+}
+
+TEST(wallet_storage, change_password_cache_filename_ending_in_keys)
+{
+    const path dir = temp_directory_path() / unique_path("wallet-store-cache-keys-%%%%-%%%%");
+    create_directories(dir);
+    epee::scope_guard cleanup{[&] { boost::system::error_code ec; remove_all(dir, ec); }};
+
+    const path wallet_file = dir / "wallet.keys";
+    const path keys_file = dir / "wallet.keys.keys";
+    const epee::wipeable_string password("test");
+    const epee::wipeable_string new_password("new test");
+    std::string address;
+    {
+        tools::wallet2 w(cryptonote::MAINNET);
+        w.generate(keys_file.string(), password);
+        address = w.get_address_as_str();
+        ASSERT_EQ(w.path(), wallet_file.string());
+        w.change_password(w.path(), password, new_password);
+        ASSERT_TRUE(exists(wallet_file));
+        ASSERT_TRUE(exists(keys_file));
+    }
+
+    tools::wallet2 loaded(cryptonote::MAINNET);
+    loaded.load(keys_file.string(), new_password);
+    EXPECT_EQ(loaded.get_address_as_str(), address);
 }
 
 TEST(wallet_storage, store_to_mem2file)
