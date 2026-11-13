@@ -102,6 +102,7 @@ set(unit_tests_sources
   vercmp.cpp
   ringdb.cpp
   wallet_pool.cpp
+  wallet_ring_size.cpp
   wallet_storage.cpp
   wipeable_string.cpp
   is_hdd.cpp
