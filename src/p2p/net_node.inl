@@ -780,16 +780,12 @@ namespace nodetool
         std::string private_key{};
         CHECK_AND_ASSERT_MES(net::sam::private_key_from_file(data_dir, private_key), false, "Failed to load I2P destination key");
 
-        const std::string session_id = net::sam::random_session_id();
-
         i2p_sam_zone.m_sam_control_socket = net::sam::make_control_client(
           private_key,
           data_dir,
           net::sam::client::stream_type::socket{i2p_sam_zone.m_net_server.get_io_context()},
           handler
         );
-        i2p_sam_zone.m_sam_session_id = session_id;
-        i2p_sam_zone.m_sam_control_socket->set_session_id(session_id);
 
         i2p_sam_zone.m_sam_control_socket->set_destination_handler(
           [this](const net::i2p_address& local)
@@ -815,8 +811,6 @@ namespace nodetool
           if (ec) MWARNING("I2P SAM outbound session error: " << ec.message());
         };
 
-        const std::string outbound_session_id = net::sam::random_session_id();
-
         i2p_sam_zone.m_sam_outbound_control_socket = net::sam::make_control_client(
           std::string{}, // ignored; an outbound-only session always uses DESTINATION=TRANSIENT
           std::string{}, // unused for an outbound-only session
@@ -824,8 +818,6 @@ namespace nodetool
           outbound_handler,
           /*accept_inbound=*/false
         );
-        i2p_sam_zone.m_sam_outbound_session_id = outbound_session_id;
-        i2p_sam_zone.m_sam_outbound_control_socket->set_session_id(outbound_session_id);
 
         MDEBUG("Attempting to start outbound-only I2P SAM session");
 
@@ -1415,6 +1407,15 @@ namespace nodetool
     for (auto& zone : m_network_zones)
     {
       zone.second.m_net_server.mark_stop_signal_sent();
+    }
+
+    MDEBUG("[node] closing I2P SAM sessions");
+    for (auto& zone : m_network_zones)
+    {
+      if (zone.second.m_sam_control_socket)
+        zone.second.m_sam_control_socket->async_stop();
+      if (zone.second.m_sam_outbound_control_socket)
+        zone.second.m_sam_outbound_control_socket->async_stop();
     }
 
     MDEBUG("[node] closing connections");
@@ -3343,7 +3344,7 @@ namespace nodetool
     }
 
     const net::i2p_address& i2p_addr = remote.as<net::i2p_address>();
-    auto result = sam_connect_internal(zone.m_net_server.get_stop_signal(), zone.m_net_server.get_io_context(), zone.m_sam_router_endpoint, i2p_addr, zone.m_sam_outbound_session_id);
+    auto result = sam_connect_internal(zone.m_net_server.get_stop_signal(), zone.m_net_server.get_io_context(), zone.m_sam_router_endpoint, i2p_addr, zone.m_sam_outbound_control_socket->session_id());
 
     // The inbound session may have set our address while this connect was pending, after the pre-dial self-checks ran.
     if (result && zone.get_our_address() == remote)

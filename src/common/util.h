@@ -146,6 +146,11 @@ namespace tools
    */
   std::error_code replace_file(const std::string& old_name, const std::string& new_name);
 
+  /*! \brief Writes `data` to a new file only the process owner can access,
+      then atomically replaces `filename` with it.
+   */
+  std::error_code save_private_file(const std::string& filename, const std::string& data);
+
   bool sanitize_locale();
 
   bool disable_core_dumps();

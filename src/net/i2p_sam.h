@@ -35,6 +35,7 @@
 #include <atomic>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <utility>
 #include <cstdint>
 #include <string>
@@ -122,8 +123,9 @@ namespace sam
         //! Buffer used for whatever string value the current `state_` parameter needs.
         std::string reply_buffer_;
 
-        //! A randomly-generated global SAM session ID.
+        //! A randomly-generated global SAM session ID. Only changed under `session_id_lock_`.
         std::string session_id_;
+        mutable std::mutex session_id_lock_;
 
         //! I2P network address of the remote peer (if applicable).
         net::i2p_address remote_peer_;
@@ -175,6 +177,9 @@ namespace sam
         //! Sets the SAM session ID used in later commands. Strips whitespace, since embedded
         //! spaces or newlines would otherwise let `id` inject extra SAM command parameters.
         void set_session_id(const std::string& id);
+
+        //! @return The current SAM session ID. Thread-safe.
+        std::string session_id() const;
 
         //! Sets the raw command sent by the next `async_write_command` call.
         void set_write_buffer(std::string in) noexcept { write_buffer_ = std::move(in); }
@@ -265,7 +270,7 @@ namespace sam
         //! Delay before each reconnect attempt.
         std::chrono::steady_clock::duration reconnect_delay_;
 
-        //! Set when the generated key can't be saved. Stops `reconnect_after_error` from retrying.
+        //! Set by `async_stop`, or when retrying can't help (the key can't be saved or is rejected).
         bool stopped_{false};
 
         //! True after `SESSION CREATE` completes; read from outside the strand, so it's atomic.
@@ -292,14 +297,17 @@ namespace sam
         void connect_now();
 
     public:
-        //! Reconnects after a delay; `keep_session` retries only the accept connection.
+        //! Reconnects after a delay; `keep_session` retries only the accept connection. Without it, a new session ID is used.
         void async_reconnect(bool keep_session);
 
         /**
          * Retries the accept connection if a session has already been created; otherwise, falls
-         * back to a full async reconnect.
+         * back to a full async reconnect. Stops instead if the router rejected our saved key.
          */
-        void reconnect_after_error();
+        void reconnect_after_error(boost::system::error_code ec);
+
+        //! Closes every socket, which ends the router's session, and stops reconnecting. Thread-safe.
+        void async_stop();
 
         void set_destination_handler(std::function<void(const net::i2p_address&)> handler) noexcept { destination_handler_ = std::move(handler); }
 
@@ -310,6 +318,7 @@ namespace sam
 
         /**
          * Socket ownership is passed into this. Does not have to be in connected state.
+         * Starts with a random session ID.
          * `accept_inbound=false` ignores `private_key`/`data_dir`, uses `DESTINATION=TRANSIENT`,
          * and never sends `STREAM ACCEPT`.
          */
@@ -361,6 +370,10 @@ namespace sam
     net::i2p_address session_destination_to_address(std::string_view private_destination);
 
     [[nodiscard]] boost::system::error_code get_value(std::string_view line, std::string_view key, std::string& out);
+
+    //! @return The `MESSAGE` value of a reply, quoted or otherwise, or an empty string if there is none.
+    [[nodiscard]] std::string get_message(std::string_view line);
+
     [[nodiscard]] boost::system::error_code parse_result_code(std::string_view line);
 
     [[nodiscard]] boost::system::error_code parse_hello_reply(std::string_view line);
@@ -403,7 +416,7 @@ namespace sam
         virtual void done(boost::system::error_code error) override
         {
             handler_(error, take_socket(), remote_address(), take_buffered_data());
-            if (error) reconnect_after_error();
+            if (error) reconnect_after_error(error);
         }
 
     public:
