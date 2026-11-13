@@ -264,7 +264,20 @@ namespace nodetool
     if (!m_peers_white.empty() || !m_peers_gray.empty() || !m_peers_anchor.empty())
       return false;
 
-    add_peers(m_peers_white.get<by_addr>(), std::move(peers.white));
+    // keep the most recently seen entry per p2p host
+    std::stable_sort(peers.white.begin(), peers.white.end(), [](const peerlist_entry& a, const peerlist_entry& b) {
+      return a.last_seen > b.last_seen;
+    });
+    std::vector<peerlist_entry> white;
+    white.reserve(peers.white.size());
+    for (peerlist_entry& pe : peers.white)
+    {
+      const auto same_host = [&pe](const peerlist_entry& kept) { return is_same_p2p_host(kept.adr, pe.adr); };
+      if (std::none_of(white.begin(), white.end(), same_host))
+        white.push_back(std::move(pe));
+    }
+
+    add_peers(m_peers_white.get<by_addr>(), std::move(white));
     add_peers(m_peers_gray.get<by_addr>(), std::move(peers.gray));
     add_peers(m_peers_anchor.get<by_addr>(), std::move(peers.anchor));
     m_allow_local_ip = allow_local_ip;
@@ -293,6 +306,27 @@ namespace nodetool
   void peerlist_manager::evict_host_from_peerlist(bool use_white, const peerlist_entry& pr)
   {
     filter(use_white, [&pr](const peerlist_entry& pe){ return pe.adr.is_same_host(pr.adr); });
+  }
+
+  void peerlist_manager::evict_p2p_host_from_white_peerlist(const peerlist_entry& pr)
+  {
+    filter(true, [&pr](const peerlist_entry& pe){ return is_same_p2p_host(pe.adr, pr.adr); });
+  }
+
+  bool is_same_p2p_host(const epee::net_utils::network_address& left, const epee::net_utils::network_address& right)
+  {
+    if (left.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id() &&
+        right.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
+    {
+      const boost::asio::ip::address_v6 left_ip = left.as<const epee::net_utils::ipv6_network_address>().ip();
+      const boost::asio::ip::address_v6 right_ip = right.as<const epee::net_utils::ipv6_network_address>().ip();
+      if (epee::net_utils::should_group_ipv6_by_prefix(left_ip) &&
+          epee::net_utils::should_group_ipv6_by_prefix(right_ip))
+        return epee::net_utils::get_ipv6_subnet_address(left_ip, 64) ==
+          epee::net_utils::get_ipv6_subnet_address(right_ip, 64);
+    }
+
+    return left.is_same_host(right);
   }
 }
 

@@ -93,6 +93,84 @@ TEST(peer_list, rejects_ipv4_link_local_by_default)
   EXPECT_TRUE(white.empty());
 }
 
+TEST(peer_list, white_ipv6_one_entry_per_prefix)
+{
+  nodetool::peerlist_manager plm;
+  ASSERT_TRUE(plm.init(nodetool::peerlist_types{}, false));
+
+  const auto make_ipv6 = [](const std::string& ip) {
+    return epee::net_utils::network_address{
+      epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6(ip), 18080}};
+  };
+
+  for (uint32_t i = 0; i < P2P_LOCAL_WHITE_PEERLIST_LIMIT; ++i)
+  {
+    const nodetool::peerlist_entry honest{
+      epee::net_utils::ipv4_network_address{MAKE_IP(123, 45, i / 256, i % 256), 18080}, i, 1000 + i};
+    ASSERT_TRUE(plm.append_with_peer_white(honest, true));
+  }
+  ASSERT_EQ(P2P_LOCAL_WHITE_PEERLIST_LIMIT, plm.get_white_peers_count());
+
+  for (uint32_t i = 0; i < P2P_LOCAL_WHITE_PEERLIST_LIMIT; ++i)
+  {
+    char ip[64];
+    snprintf(ip, sizeof(ip), "2001:db8:abcd:1234::%x", i + 1);
+    const nodetool::peerlist_entry attacker{make_ipv6(ip), 100000 + i, 1000000 + i};
+    ASSERT_TRUE(plm.append_with_peer_white(attacker, true));
+  }
+
+  std::vector<nodetool::peerlist_entry> gray;
+  std::vector<nodetool::peerlist_entry> white;
+  plm.get_peerlist(gray, white);
+  const size_t ipv6_count = std::count_if(white.begin(), white.end(), [](const nodetool::peerlist_entry& pe) {
+    return pe.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id();
+  });
+  EXPECT_EQ(1u, ipv6_count);
+  EXPECT_EQ(P2P_LOCAL_WHITE_PEERLIST_LIMIT - 1, white.size() - ipv6_count);
+
+  // a different /64 is a different host
+  ASSERT_TRUE(plm.append_with_peer_white({make_ipv6("2001:db8:abcd:1235::1"), 1, 2000000}, true));
+  gray.clear();
+  white.clear();
+  plm.get_peerlist(gray, white);
+  EXPECT_EQ(2, std::count_if(white.begin(), white.end(), [](const nodetool::peerlist_entry& pe) {
+    return pe.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id();
+  }));
+}
+
+TEST(peer_list, init_dedups_white_ipv6_prefix)
+{
+  const auto make_ipv6 = [](const std::string& ip) {
+    return epee::net_utils::network_address{
+      epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6(ip), 18080}};
+  };
+
+  nodetool::peerlist_types peers;
+  peers.white.push_back({make_ipv6("2001:db8:abcd:1234::1"), 1, 1000});
+  peers.white.push_back({make_ipv6("2001:db8:abcd:1234::2"), 2, 3000});
+  peers.white.push_back({make_ipv6("2001:db8:abcd:1234::3"), 3, 2000});
+  peers.white.push_back({make_ipv6("2001:db8:abcd:1235::1"), 4, 1000});
+  peers.white.push_back({epee::net_utils::ipv4_network_address{MAKE_IP(123, 45, 67, 89), 18080}, 5, 1000});
+  peers.gray.push_back({make_ipv6("2001:db8:abcd:1236::1"), 6, 1000});
+  peers.gray.push_back({make_ipv6("2001:db8:abcd:1236::2"), 7, 1000});
+
+  nodetool::peerlist_manager plm;
+  ASSERT_TRUE(plm.init(std::move(peers), false));
+
+  std::vector<nodetool::peerlist_entry> gray;
+  std::vector<nodetool::peerlist_entry> white;
+  plm.get_peerlist(gray, white);
+  ASSERT_EQ(3u, white.size());
+  EXPECT_EQ(2u, gray.size());
+
+  const auto in_white = [&white](uint64_t id) {
+    return std::any_of(white.begin(), white.end(), [id](const nodetool::peerlist_entry& pe) { return pe.id == id; });
+  };
+  EXPECT_TRUE(in_white(2));
+  EXPECT_TRUE(in_white(4));
+  EXPECT_TRUE(in_white(5));
+}
+
 TEST(peer_list, merge_peer_lists)
 {
   //([^ \t]*)\t([^ \t]*):([^ \t]*) \tlast_seen: d(\d+)\.h(\d+)\.m(\d+)\.s(\d+)\n
