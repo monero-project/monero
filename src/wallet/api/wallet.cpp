@@ -236,7 +236,6 @@ struct Wallet2CallbackImpl : public tools::i_wallet2_callback
     virtual void on_money_spent(uint64_t height, const crypto::hash &txid, const cryptonote::transaction& in_tx,
                                 uint64_t amount, const cryptonote::transaction& spend_tx, const cryptonote::subaddress_index& subaddr_index)
     {
-        // TODO;
         std::string tx_hash = epee::string_tools::pod_to_hex(txid);
         LOG_PRINT_L3(__FUNCTION__ << ": money spent. height:  " << height
                      << ", tx: " << tx_hash
