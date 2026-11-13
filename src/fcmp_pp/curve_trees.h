@@ -173,7 +173,7 @@ public:
     std::size_t n_layers(const uint64_t n_leaf_tuples) const;
 
     // Decompress the compressed points from the provided tree edge
-    LastHashes tree_edge_to_last_hashes(const std::vector<crypto::ec_point> &tree_edge_to_last_hashes) const;
+    LastHashes tree_edge_to_last_hashes(const std::vector<crypto::ec_point> &tree_edge) const;
 
     // Compress all the points in the tree extension
     CompressedTreeExtension compress_tree_extension(TreeExtension &&tree_extension) const;
