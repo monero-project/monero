@@ -148,6 +148,13 @@ namespace tools
 
   bool sanitize_locale();
 
+  /*! \brief Disables core dumps by setting both the soft and hard RLIMIT_CORE
+   *  limits to 0 on POSIX systems that support it.
+   *
+   *  Lowering the hard limit is irreversible for an unprivileged process, so
+   *  this affects the whole process (including any host application embedding
+   *  this library) and any children it spawns afterwards.
+   */
   bool disable_core_dumps();
 
   bool on_startup();
