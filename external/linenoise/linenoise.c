@@ -104,6 +104,7 @@
  */
 
 #include <termios.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -121,10 +122,10 @@
 #include "linenoise.h"
 
 #define LINENOISE_DEFAULT_HISTORY_MAX_LEN 100
-#define LINENOISE_MAX_LINE (1024*1024)      // That will get dynamically allocated
+#define LINENOISE_MAX_LINE (16*1024*1024)   // That will get dynamically allocated
 #define LINENOISE_INITIAL_BUFLEN 4096
 #define PASTE_FOLD_CONTEXT 8                // Context chars kept around generic folds.
-#define PASTE_MAX_BYTES LINENOISE_MAX_LINE
+#define PROMPT_MIN_INPUT_COLS 8             // Columns a prompt must leave for input.
 static char *unsupported_term[] = {"dumb","cons25","emacs",NULL};
 static linenoiseCompletionCallback *completionCallback = NULL;
 static linenoiseHintsCallback *hintsCallback = NULL;
@@ -132,10 +133,12 @@ static linenoiseFreeHintsCallback *freeHintsCallback = NULL;
 static char *linenoiseReadLine(FILE *fp, int *err);
 static char *linenoiseNoTTY(void);
 static char *linenoiseNoTTYFeed(void);
-static char *linenoiseEditPasteFeed(struct linenoiseState *l);
+static char *linenoiseDumbFeed(struct linenoiseState *l);
 static void refreshLineWithCompletion(struct linenoiseState *ls, linenoiseCompletions *lc, int flags);
 static void refreshLineWithFlags(struct linenoiseState *l, int flags);
 static void linenoiseFoldClear(struct linenoiseState *l);
+static int linenoiseEditGrow(struct linenoiseState *l, size_t needed);
+static void linenoiseEditSetBuffer(struct linenoiseState *l, const char *src);
 
 static struct termios orig_termios; /* In order to restore at exit.*/
 static int maskmode = 0; /* Show "***" instead of input. For passwords. */
@@ -578,6 +581,48 @@ static int isUnsupportedTerm(void) {
     return 0;
 }
 
+/* Return true if input is not a tty. */
+static int isPipeInput(int ifd) {
+    return !isatty(ifd) && !getenv("LINENOISE_ASSUME_TTY");
+}
+
+/* Return true if the prompt and line are not drawn. This is the case when
+ * input or output is not a tty, or the terminal is unsupported. */
+int linenoiseIsPlainInput(int ifd, int ofd) {
+    if (isUnsupportedTerm()) return 1;
+    return (!isatty(ifd) || !isatty(ofd)) && !getenv("LINENOISE_ASSUME_TTY");
+}
+
+/* Return true if input is a tty but the line can't be drawn, as with an
+ * unsupported terminal or redirected output. Raw mode is still used here.
+ * In canonical mode Linux truncates lines at 4095 bytes. */
+static int isDumbTerminal(int ifd, int ofd) {
+    return !isPipeInput(ifd) && linenoiseIsPlainInput(ifd, ofd);
+}
+
+/* Return a writable fd for echoing to the terminal on 'ifd', or -1. Use
+ * 'ofd' unless it was redirected. Input may be a read-only open of the
+ * terminal (e.g. </dev/tty), so open it again for writing if needed. */
+static int dumbEchoFd(int ifd, int ofd) {
+    static int tty_fd = -1;
+    int fl;
+
+    if (isatty(ofd) || !isatty(ifd)) return ofd;
+    fl = fcntl(ifd, F_GETFL);
+    if (fl != -1 && (fl & O_ACCMODE) != O_RDONLY) return ifd;
+    if (tty_fd == -1) {
+        const char *name = ttyname(ifd);
+        if (name) tty_fd = open(name, O_WRONLY | O_NOCTTY | O_CLOEXEC);
+    }
+    return tty_fd;
+}
+
+/* Return true if we are in the terminal's foreground process group. */
+static int isForeground(int fd) {
+    if (getenv("LINENOISE_ASSUME_TTY")) return 1;
+    return tcgetpgrp(fd) == getpgrp();
+}
+
 /* Raw mode: 1960 magic shit. */
 static int enableRawMode(int fd) {
     struct termios raw;
@@ -774,7 +819,6 @@ static void refreshLineWithCompletion(struct linenoiseState *ls, linenoiseComple
  * from stdin. */
 static int completeLine(struct linenoiseState *ls, int keypressed) {
     linenoiseCompletions lc = { 0, NULL };
-    int nwritten;
     char c = keypressed;
 
     completionCallback(ls->buf,&lc);
@@ -801,12 +845,8 @@ static int completeLine(struct linenoiseState *ls, int keypressed) {
                 break;
             default:
                 /* Update buffer and return */
-                if (ls->completion_idx < lc.len) {
-                    nwritten = snprintf(ls->buf,ls->buflen,"%s",
-                        lc.cvec[ls->completion_idx]);
-                    ls->len = ls->pos = nwritten;
-                    linenoiseFoldClear(ls);
-                }
+                if (ls->completion_idx < lc.len)
+                    linenoiseEditSetBuffer(ls,lc.cvec[ls->completion_idx]);
                 ls->in_completion = 0;
                 break;
         }
@@ -1266,6 +1306,24 @@ void refreshShowHints(struct abuf *ab, struct linenoiseState *l, int pwidth, siz
     }
 }
 
+/* Return the prompt shown in single-line mode, with its length and width.
+ * A prompt that leaves less than PROMPT_MIN_INPUT_COLS for input is replaced
+ * by a shorter one. */
+static const char *displayPrompt(struct linenoiseState *l, size_t *plen, size_t *pwidth) {
+    size_t width = utf8StrWidth(l->prompt, l->plen);
+
+    if (width + PROMPT_MIN_INPUT_COLS > l->cols) {
+        const char *shortp = l->cols > 2 ? "> " : "";
+        if (strlen(shortp) < width) {
+            *plen = *pwidth = strlen(shortp);
+            return shortp;
+        }
+    }
+    *plen = l->plen;
+    *pwidth = width;
+    return l->prompt;
+}
+
 /* Single line low level line refresh.
  *
  * Rewrite the currently edited line accordingly to the buffer content,
@@ -1278,7 +1336,9 @@ void refreshShowHints(struct abuf *ab, struct linenoiseState *l, int pwidth, siz
  * for cursor positioning and horizontal scrolling. */
 static void refreshSingleLine(struct linenoiseState *l, int flags) {
     char seq[64];
-    size_t pwidth = utf8StrWidth(l->prompt, l->plen); /* Prompt display width */
+    size_t plen;
+    size_t pwidth; /* Prompt display width */
+    const char *prompt = displayPrompt(l, &plen, &pwidth);
     int fd = l->ofd;
     char *render = NULL;
     char *buf;
@@ -1302,7 +1362,7 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
      * cursor position fits within the terminal width. */
     while (pwidth + poscol >= l->cols) {
         size_t clen = utf8NextCharLen(buf, 0, len);
-        if (clen == 0) break;
+        if (clen == 0 || clen > pos) break;
         int cwidth = utf8SingleCharWidth(buf, clen);
         buf += clen;
         len -= clen;
@@ -1327,7 +1387,7 @@ static void refreshSingleLine(struct linenoiseState *l, int flags) {
 
     if (flags & REFRESH_WRITE) {
         /* Write the prompt and the current buffer content */
-        abAppend(&ab,l->prompt,l->plen);
+        abAppend(&ab,prompt,plen);
         if (maskmode == 1) {
             /* In mask mode, we output one '*' per UTF-8 character, not byte */
             size_t i = 0;
@@ -1541,14 +1601,28 @@ static int linenoiseEditGrow(struct linenoiseState *l, size_t needed) {
     return 0;
 }
 
-/* Insert bytes into l->buf without repainting the prompt. The paste path uses
- * this to first store the real pasted bytes, then mark their range as folded,
- * and only then refresh so raw pasted newlines are never printed directly. */
+/* Replace the edit buffer with 'src' and move the cursor to the end.
+ * 'src' is truncated if the buffer can't grow. */
+static void linenoiseEditSetBuffer(struct linenoiseState *l, const char *src) {
+    size_t len = strlen(src);
+
+    if (linenoiseEditGrow(l,len) == -1) len = l->buflen;
+    memcpy(l->buf,src,len);
+    l->buf[len] = '\0';
+    l->len = l->pos = len;
+    linenoiseFoldClear(l);
+}
+
+/* Insert bytes into l->buf without repainting the prompt. */
 static int linenoiseEditInsertNoRefresh(struct linenoiseState *l, const char *c, size_t clen) {
     size_t insert_pos = l->pos;
 
-    if (clen > SIZE_MAX-l->len || linenoiseEditGrow(l,l->len+clen) == -1)
+    if (clen > SIZE_MAX-l->len || linenoiseEditGrow(l,l->len+clen) == -1) {
+        /* Enter will discard this line. */
+        if (!l->overflowed) linenoiseBeep();
+        l->overflowed = 1;
         return -1;
+    }
 
     if (l->len == l->pos) {
         memcpy(l->buf+l->pos,c,clen);
@@ -1580,7 +1654,9 @@ int linenoiseEditInsert(struct linenoiseState *l, const char *c, size_t clen) {
             char *sbuf = sanitizeForDisplayAlloc(l->buf,l->len,&sbuflen);
             if (sbuf != NULL) {
                 size_t bufwidth = utf8StrWidth(sbuf,sbuflen);
-                int fits = utf8StrWidth(l->prompt,l->plen)+bufwidth < l->cols;
+                size_t plen, pwidth;
+                displayPrompt(l,&plen,&pwidth);
+                int fits = pwidth+bufwidth < l->cols;
                 free(sbuf);
                 if (fits) {
                     if (maskmode == 1) {
@@ -1663,9 +1739,7 @@ void linenoiseEditMoveEnd(struct linenoiseState *l) {
 #define LINENOISE_HISTORY_NEXT 0
 #define LINENOISE_HISTORY_PREV 1
 void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
-    if (history_len > 1) {
-        const char *src;
-        size_t len;
+    if (history_len > 1 && !l->overflowed) {
         struct linenoiseFold f;
 
         /* Update the current history entry before to
@@ -1682,16 +1756,7 @@ void linenoiseEditHistoryNext(struct linenoiseState *l, int dir) {
             return;
         }
 
-        /* Copy the selected history entry into the edit buffer. With the
-         * fixed-buffer API, truncate the entry if it does not fit. */
-        src = history[history_len - 1 - l->history_index];
-        len = strlen(src);
-        if (linenoiseEditGrow(l,len) == -1 && len > l->buflen)
-            len = l->buflen;
-        memcpy(l->buf,src,len);
-        l->buf[len] = '\0';
-        l->len = l->pos = len;
-        linenoiseFoldClear(l);
+        linenoiseEditSetBuffer(l,history[history_len - 1 - l->history_index]);
 
         /* History stores the real text, but not the original paste ranges.
          * If the recalled entry needs folding, create one display fold now
@@ -1748,6 +1813,23 @@ void linenoiseEditDeletePrevWord(struct linenoiseState *l) {
     refreshLine(l);
 }
 
+/* Push the "" history entry for the edited line, unless already pushed.
+ * linenoiseHistoryAdd() skips a duplicate "", so an empty top entry counts. */
+static void linenoiseHistoryPushPlaceholder(struct linenoiseState *l) {
+    if (l->history_placeholder) return;
+    linenoiseHistoryAdd("");
+    l->history_placeholder = history_len > 0 && history[history_len-1][0] == '\0';
+}
+
+/* Pop the "" history entry, only if this session pushed it. */
+static void linenoiseHistoryPopPlaceholder(struct linenoiseState *l) {
+    if (l->history_placeholder && history_len > 0) {
+        history_len--;
+        free(history[history_len]);
+    }
+    l->history_placeholder = 0;
+}
+
 /* This function is part of the multiplexed API of Linenoise, that is used
  * in order to implement the blocking variant of the API but can also be
  * called by the user directly in an event driven program. It will:
@@ -1771,16 +1853,31 @@ void linenoiseEditDeletePrevWord(struct linenoiseState *l) {
  * The function returns 0 on success, or -1 if writing to standard output
  * fails. If stdin_fd or stdout_fd are set to -1, the default is to use
  * STDIN_FILENO and STDOUT_FILENO.
+ *
+ * 'l' must be zeroed before first use; passing back its own 'buf' resumes.
  */
 int linenoiseEditStart(struct linenoiseState *l, int stdin_fd, int stdout_fd, char *buf, size_t buflen, const char *prompt) {
     int resuming = (l->buf != NULL && l->buf == buf);
     int ifd = stdin_fd != -1 ? stdin_fd : STDIN_FILENO;
     int ofd = stdout_fd != -1 ? stdout_fd : STDOUT_FILENO;
-    int no_tty = (!isatty(ifd) || !isatty(ofd)) && !getenv("LINENOISE_ASSUME_TTY");
+    int no_tty = isPipeInput(ifd);
+    int dumb = isDumbTerminal(ifd, ofd);
+
+    /* tcsetattr() from a background job raises SIGTTOU. */
+    if (dumb && !isForeground(ifd)) no_tty = 1;
 
     /* No raw mode on a non-tty; enter it before touching 'l' otherwise. */
     if (!no_tty) {
         if (enableRawMode(ifd) == -1) return -1;
+        /* Nowhere to echo to: let the kernel echo instead. */
+        if (dumb && (orig_termios.c_lflag & ECHO) &&
+            !getenv("LINENOISE_ASSUME_TTY") && dumbEchoFd(ifd, ofd) == -1) {
+            struct termios t;
+            if (tcgetattr(ifd,&t) == 0) {
+                t.c_lflag |= ECHO;
+                tcsetattr(ifd,TCSADRAIN,&t);
+            }
+        }
     }
 
     /* Populate the linenoise state that we pass to functions implementing
@@ -1788,6 +1885,7 @@ int linenoiseEditStart(struct linenoiseState *l, int stdin_fd, int stdout_fd, ch
     l->in_completion = 0;
     l->ifd = ifd;
     l->ofd = ofd;
+    l->no_tty = no_tty;
     l->buf = buf;
     l->buflen = buflen;
     l->buflen--; /* Make sure there is always space for the nulterm */
@@ -1798,6 +1896,7 @@ int linenoiseEditStart(struct linenoiseState *l, int stdin_fd, int stdout_fd, ch
         l->oldpos = l->pos = 0;
         l->len = 0;
         l->history_index = 0;
+        l->overflowed = 0;
         linenoiseFoldClear(l);
     }
 
@@ -1808,68 +1907,18 @@ int linenoiseEditStart(struct linenoiseState *l, int stdin_fd, int stdout_fd, ch
 
     /* If stdin is not a tty, stop here with the initialization. We
      * will actually just read a line from standard input in blocking
-     * mode later, in linenoiseEditFeed(). */
-    if (no_tty) return 0;
+     * mode later, in linenoiseEditFeed(). Dumb terminals stop here too. */
+    if (no_tty || dumb) return 0;
 
     l->cols = getColumns(stdin_fd, stdout_fd);
     l->oldrows = 0;
     l->oldrpos = 1;  /* Cursor starts on row 1. */
 
-    if (!resuming) {
-        /* The latest history entry is always our current buffer, that
-         * initially is just an empty string. */
-        linenoiseHistoryAdd("");
-    }
+    /* The latest history entry is always our current buffer, that
+     * initially is just an empty string. */
+    linenoiseHistoryPushPlaceholder(l);
 
     linenoiseShow(l);
-    return 0;
-}
-
-/* Make sure the temporary paste buffer can hold len+need bytes. Return -1 on
- * allocation failure or if the requested size is over PASTE_MAX_BYTES. */
-static int pasteBufferReserve(char **buf, size_t *cap, size_t len, size_t need) {
-    size_t want;
-    char *nb;
-
-    /* Nothing to do if the current paste buffer already has room for the
-     * bytes collected so far plus the new bytes we want to append. */
-    if (*cap >= len + need) return 0;
-
-    /* Start small, then double like the line buffer. The cap avoids turning a
-     * huge paste into an unbounded allocation attempt. */
-    want = *cap ? *cap : 64;
-    while (want < len + need) {
-        size_t doubled = want*2;
-        if (doubled <= want || doubled > PASTE_MAX_BYTES) {
-            want = PASTE_MAX_BYTES;
-            break;
-        }
-        want = doubled;
-    }
-    if (want < len + need) return -1;
-
-    /* realloc(NULL, want) handles the first allocation too. */
-    nb = realloc(*buf, want);
-    if (nb == NULL) return -1;
-    *buf = nb;
-    *cap = want;
-    return 0;
-}
-
-/* Append bytes to the temporary paste buffer, growing both it and l->buf as
- * needed. Return -1 if the paste is too large or allocation fails. */
-static int pasteBufferAppend(struct linenoiseState *l, char **buf, size_t *cap,
-                             size_t *len, const char *s, size_t slen, size_t maxlen) {
-    size_t needed;
-
-    if (*len > maxlen || slen > maxlen-*len) return -1;
-    if (*len > SIZE_MAX-slen) return -1;
-    needed = *len+slen;
-    if (l->len > SIZE_MAX-needed) return -1;
-    if (linenoiseEditGrow(l,l->len+needed) == -1) return -1;
-    if (pasteBufferReserve(buf,cap,*len,slen) == -1) return -1;
-    memcpy(*buf+*len,s,slen);
-    *len = needed;
     return 0;
 }
 
@@ -1891,110 +1940,118 @@ static long elapsedMs(const struct timespec *t0) {
            (now.tv_nsec - t0->tv_nsec) / 1000000L;
 }
 
-static int pasteInProgress = 0;
-static char *pasteBuf = NULL;
-static size_t pasteCap = 0, pasteLen = 0, pasteMatch = 0, pasteMaxlen = 0;
-static int pasteOverflowed = 0;
+/* Return true if a byte can be read from 'fd' without waiting. */
+static int isReadableNow(int fd) {
+    fd_set rfds;
+    struct timeval tv = {0, 0};
+    FD_ZERO(&rfds);
+    FD_SET(fd,&rfds);
+    return select(fd+1,&rfds,NULL,NULL,&tv) > 0;
+}
 
-/* Read a bracketed paste until ESC[201~ and insert the real bytes. If folding
- * is needed, remember the inserted range so only rendering is shortened. */
-static char *linenoiseEditPasteFeed(struct linenoiseState *l) {
-    static const char END[] = "\x1b[201~";
-    const size_t ENDLEN = sizeof(END)-1;
-    struct timespec t0;
+/* Drop the rest of an escape sequence. A lone Esc drops nothing. */
+static void dumbSkipEscape(int fd) {
+    char c;
 
-    if (!pasteInProgress) {
-        pasteBuf = NULL;
-        pasteCap = pasteLen = pasteMatch = 0;
-        pasteOverflowed = 0;
-        pasteMaxlen = l->buflen_max ? l->buflen_max : l->buflen;
-        pasteMaxlen = pasteMaxlen > l->len ? pasteMaxlen - l->len : 0;
-        if (pasteMaxlen > PASTE_MAX_BYTES) pasteMaxlen = PASTE_MAX_BYTES;
-        /* Once all fold slots are used, consume later pastes without storing them. */
-        if (l->fold_count == LINENOISE_MAX_FOLDS) pasteMaxlen = 0;
-        pasteInProgress = 1;
+    if (waitReadable(fd) <= 0 || read(fd,&c,1) != 1) return;
+    if (c == 'O') {
+        if (waitReadable(fd) > 0 && read(fd,&c,1) == 1) {}
+    } else if (c == '[') {
+        int budget = 32;
+        while (--budget > 0 && waitReadable(fd) > 0 && read(fd,&c,1) == 1)
+            if (c < 0x20 || c > 0x3f) break;
     }
+}
+
+/* Read a line from a dumb terminal (see isDumbTerminal()). Typed bytes are
+ * echoed. Backspace, Ctrl-W and Ctrl-U erase. Escape sequences and other
+ * control bytes are ignored. */
+static char *linenoiseDumbFeed(struct linenoiseState *l) {
+    char echo[256];
+    size_t elen = 0;
+    char *result = linenoiseEditMore;
+    struct timespec t0;
+    /* Echo to the terminal, not to redirected output, and only if the
+     * terminal had echo on. Emacs turns it off and shows input itself. */
+    int efd = dumbEchoFd(l->ifd, l->ofd);
+    int echo_on = efd != -1 && (orig_termios.c_lflag & ECHO) != 0;
+
+#define DUMB_ECHO(s,n) do { \
+        if (!echo_on) break; \
+        if (elen + (n) > sizeof(echo)) { \
+            if (write(efd,echo,elen) == -1) {} \
+            elen = 0; \
+        } \
+        memcpy(echo+elen,(s),(n)); \
+        elen += (n); \
+    } while(0)
 
     clock_gettime(CLOCK_MONOTONIC, &t0);
-
-    while (1) {
-        if (elapsedMs(&t0) >= LOOP_TIME_BUDGET_MS) return linenoiseEditMore;
-
+    while (result == linenoiseEditMore) {
         char c;
-        if (waitReadable(l->ifd) <= 0) return linenoiseEditMore;
-        if (read(l->ifd, &c, 1) != 1) break;
+        ssize_t n = read(l->ifd,&c,1);
 
-        /* Track a possible ESC[201~ terminator without copying it into the
-         * paste. If it turns out to be ordinary input, flush the partial
-         * match below. */
-        if (c == END[pasteMatch]) {
-            pasteMatch++;
-            if (pasteMatch == ENDLEN) break;
-            continue;
+        if (n < 0) {
+            if (errno != EAGAIN && errno != EWOULDBLOCK) result = NULL;
+            break;
+        }
+        if (n == 0) {
+            result = NULL;
+            break;
         }
 
-        if (pasteMatch > 0) {
-            if (!pasteOverflowed &&
-                pasteBufferAppend(l,&pasteBuf,&pasteCap,&pasteLen,END,pasteMatch,pasteMaxlen) == -1)
-                pasteOverflowed = 1;
-            pasteMatch = 0;
-            if (c == END[0]) {
-                pasteMatch = 1;
-                continue;
-            }
-        }
-
-        if (!pasteOverflowed &&
-            pasteBufferAppend(l,&pasteBuf,&pasteCap,&pasteLen,&c,1,pasteMaxlen) == -1)
-            pasteOverflowed = 1;
-    }
-
-    pasteInProgress = 0;
-    {
-        char *buf = pasteBuf;
-        size_t len = pasteLen;
-        int overflowed = pasteOverflowed;
-        pasteBuf = NULL;
-        pasteCap = pasteLen = pasteMatch = 0;
-        pasteOverflowed = 0;
-
-        if (overflowed) {
-            free(buf);
-            linenoiseBeep();
-            return linenoiseEditMore;
-        }
-        if (buf == NULL) return linenoiseEditMore;
-
-        /* Normalize pasted CR and CRLF to LF, so the edit buffer uses one
-         * internal newline representation. */
-        size_t r = 0, w = 0;
-        while (r < len) {
-            if (buf[r] == '\0') {
-                r += 1;
-            } else if (buf[r] == '\r') {
-                buf[w++] = '\n';
-                r += (r+1 < len && buf[r+1] == '\n') ? 2 : 1;
+        if (c == ENTER || c == '\n') {
+            DUMB_ECHO("\n",1);
+            if (l->overflowed) {
+                /* Don't return a truncated line. */
+                l->overflowed = 0;
+                errno = E2BIG;
+                result = NULL;
             } else {
-                buf[w++] = buf[r++];
+                result = strdup(l->buf);
+                if (result == NULL) errno = ENOMEM;
             }
-        }
-        len = w;
+        } else if (c == BACKSPACE || c == CTRL_H || c == CTRL_W || c == CTRL_U) {
+            size_t end = l->len, w;
 
-        if (!maskmode && shouldFoldText(buf,len)) {
-            size_t start = l->pos;
-            if (linenoiseEditInsertNoRefresh(l,buf,len) == -1) {
-                free(buf);
-                linenoiseBeep();
-                return linenoiseEditMore;
+            if (c == CTRL_U) {
+                l->len = 0;
+                l->overflowed = 0;
+            } else if (c == CTRL_W) {
+                while (l->len > 0 && l->buf[l->len-1] == ' ') l->len--;
+                while (l->len > 0 && l->buf[l->len-1] != ' ') {
+                    size_t clen = utf8PrevCharLen(l->buf,l->len);
+                    l->len -= clen ? clen : 1;
+                }
+            } else {
+                l->len -= utf8PrevCharLen(l->buf,l->len);
             }
-            linenoiseFoldAdd(l,start,start+len);
-            refreshLine(l);
-        } else {
-            linenoiseEditInsert(l,buf,len);
+            w = utf8StrWidth(l->buf+l->len,end-l->len);
+            l->pos = l->len;
+            l->buf[l->len] = '\0';
+            while (w--) DUMB_ECHO("\b \b",3);
+        } else if (c == CTRL_C) {
+            errno = EAGAIN;
+            result = NULL;
+        } else if (c == CTRL_D) {
+            if (l->len == 0) {
+                errno = ENOENT;
+                result = NULL;
+            }
+        } else if (c == ESC) {
+            dumbSkipEscape(l->ifd);
+        } else if ((unsigned char)c >= 0x20) {
+            if (linenoiseEditInsertNoRefresh(l,&c,1) == 0) DUMB_ECHO(&c,1);
         }
-        free(buf);
+
+        if (result == linenoiseEditMore &&
+            (elapsedMs(&t0) >= LOOP_TIME_BUDGET_MS || !isReadableNow(l->ifd)))
+            break;
     }
-    return linenoiseEditMore;
+#undef DUMB_ECHO
+
+    if (elen && write(efd,echo,elen) == -1) {}
+    return result;
 }
 
 char *linenoiseEditMore = "If you see this, you are misusing the API: when linenoiseEditFeed() is called, if it returns linenoiseEditMore the user is yet editing the line. See the README file for more information.";
@@ -2014,15 +2071,18 @@ char *linenoiseEditMore = "If you see this, you are misusing the API: when linen
  *
  * EAGAIN if the user pressed Ctrl-C
  * ENOENT if the user pressed Ctrl-D
+ * E2BIG if the line was too long and was discarded
  *
  * Some other errno: I/O error.
  */
 char *linenoiseEditFeed(struct linenoiseState *l) {
-    if (pasteInProgress) return linenoiseEditPasteFeed(l);
+    /* Read plain lines if input is not a tty. */
+    if (l->no_tty) return linenoiseNoTTYFeed();
+    if (isDumbTerminal(l->ifd, l->ofd)) return linenoiseDumbFeed(l);
 
-    /* Not a TTY, pass control to line reading without character
-     * count limits. */
-    if ((!isatty(l->ifd) || !isatty(l->ofd)) && !getenv("LINENOISE_ASSUME_TTY")) return linenoiseNoTTYFeed();
+    /* Enter pops the placeholder; the caller may keep feeding without
+     * calling linenoiseEditStart() again. */
+    linenoiseHistoryPushPlaceholder(l);
 
     char c;
     int nread;
@@ -2050,8 +2110,13 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
         break;
     case ENTER:    /* enter */
     case 10:       /* ctrl-j / line feed: also accepted as enter */
-        history_len--;
-        free(history[history_len]);
+        linenoiseHistoryPopPlaceholder(l);
+        if (l->overflowed) {
+            /* Don't return a truncated line. */
+            l->overflowed = 0;
+            errno = E2BIG;
+            return NULL;
+        }
         if (mlmode) linenoiseEditMoveEnd(l);
         if (hintsCallback) {
             /* Force a refresh without hints to leave the previous
@@ -2074,8 +2139,7 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
         if (l->len > 0) {
             linenoiseEditDelete(l);
         } else {
-            history_len--;
-            free(history[history_len]);
+            linenoiseHistoryPopPlaceholder(l);
             errno = ENOENT;
             return NULL;
         }
@@ -2207,6 +2271,7 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
     case CTRL_U: /* Ctrl+u, delete the whole line. */
         l->buf[0] = '\0';
         l->pos = l->len = 0;
+        l->overflowed = 0;
         linenoiseFoldClear(l);
         refreshLine(l);
         break;
@@ -2238,33 +2303,7 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
  * returns something different than NULL. At this point the user input
  * is in the buffer, and we can restore the terminal in normal mode. */
 void linenoiseEditStop(struct linenoiseState *l) {
-    if (pasteInProgress) {
-        /* Drain the rest of the paste up to its terminator so it isn't
-         * replayed as keystrokes (e.g. submitted via an embedded newline)
-         * on the next edit session. */
-        static const char END[] = "\x1b[201~";
-        const size_t ENDLEN = sizeof(END)-1;
-        struct timespec t0;
-        clock_gettime(CLOCK_MONOTONIC, &t0);
-        while (elapsedMs(&t0) < LOOP_TIME_BUDGET_MS) {
-            char c;
-            if (waitReadable(l->ifd) <= 0) break;
-            if (read(l->ifd, &c, 1) != 1) break;
-            if (c == END[pasteMatch]) {
-                if (++pasteMatch == ENDLEN) break;
-            } else {
-                pasteMatch = (c == END[0]) ? 1 : 0;
-            }
-        }
-
-        free(pasteBuf);
-        pasteBuf = NULL;
-        pasteCap = pasteLen = pasteMatch = 0;
-        pasteOverflowed = 0;
-        pasteInProgress = 0;
-    }
-
-    if ((!isatty(l->ifd) || !isatty(l->ofd)) && !getenv("LINENOISE_ASSUME_TTY")) return;
+    if (l->no_tty) return;
     disableRawMode(l->ifd);
 }
 
@@ -2275,7 +2314,7 @@ void linenoiseEditStop(struct linenoiseState *l) {
  * state grow it dynamically for large pasted input. */
 static char *linenoiseBlockingEdit(int stdin_fd, int stdout_fd, const char *prompt)
 {
-    struct linenoiseState l;
+    struct linenoiseState l = {0};
     char *buf = malloc(LINENOISE_INITIAL_BUFLEN);
     char *res;
 
@@ -2337,6 +2376,12 @@ static char *linenoiseReadLine(FILE *fp, int *err) {
         if (len+1 >= cap) {
             size_t newcap = cap ? cap*2 : 16;
             char *oldval = line;
+            if (newcap <= cap) {
+                free(line);
+                if (err) *err = 1;
+                errno = ENOMEM;
+                return NULL;
+            }
             line = realloc(line,newcap);
             if (line == NULL) {
                 if (oldval) free(oldval);
@@ -2365,9 +2410,12 @@ static char *linenoiseNoTTY(void) {
     return linenoiseReadLine(stdin,NULL);
 }
 
+/* Read a line from a non-tty. Lines longer than LINENOISE_MAX_LINE are
+ * discarded, and NULL is returned with errno set to E2BIG. */
 static char *linenoiseNoTTYFeed(void) {
     static char *line = NULL;
     static size_t len = 0, cap = 0;
+    static int overflowed = 0;
     int fd = fileno(stdin);
     struct timespec t0;
 
@@ -2376,12 +2424,15 @@ static char *linenoiseNoTTYFeed(void) {
     while (1) {
         if (elapsedMs(&t0) >= LOOP_TIME_BUDGET_MS) return linenoiseEditMore;
 
-        if (len+1 >= cap) {
+        if (len+1 >= cap && cap < LINENOISE_MAX_LINE) {
             size_t newcap = cap ? cap*2 : 16;
             char *oldval = line;
+            if (newcap > LINENOISE_MAX_LINE) newcap = LINENOISE_MAX_LINE;
             line = realloc(line,newcap);
             if (line == NULL) {
                 if (oldval) free(oldval);
+                len = cap = 0;
+                overflowed = 0;
                 return NULL;
             }
             cap = newcap;
@@ -2392,6 +2443,7 @@ static char *linenoiseNoTTYFeed(void) {
         if (sr < 0) {
             free(line);
             line = NULL; len = cap = 0;
+            overflowed = 0;
             return NULL;
         }
 
@@ -2401,10 +2453,19 @@ static char *linenoiseNoTTYFeed(void) {
         if (n < 0) {
             free(line);
             line = NULL; len = cap = 0;
+            overflowed = 0;
             return NULL;
         }
 
         if (n == 0 || c == '\n') {
+            if (overflowed) {
+                /* An EOF here is reported by the next call. */
+                free(line);
+                line = NULL; len = cap = 0;
+                overflowed = 0;
+                errno = E2BIG;
+                return NULL;
+            }
             if (n == 0 && len == 0) {
                 free(line);
                 line = NULL; len = cap = 0;
@@ -2416,8 +2477,10 @@ static char *linenoiseNoTTYFeed(void) {
             return result;
         }
 
-        line[len] = c;
-        len++;
+        /* Skip NUL, which would truncate the returned string. */
+        if (c == '\0') continue;
+        if (len+1 < cap) line[len++] = c;
+        else overflowed = 1;
     }
 }
 
