@@ -757,6 +757,12 @@ namespace tools
           for (const auto& i : balance_per_subaddress)
             address_indices.insert(i.first);
         }
+        std::map<uint32_t, uint64_t> unspent_counts;
+        if (address_indices.size() > 1)
+          for (const auto& td : transfers)
+            if (!td.m_spent && td.m_subaddr_index.major == account_index &&
+                address_indices.count(td.m_subaddr_index.minor) != 0)
+              ++unspent_counts[td.m_subaddr_index.minor];
         for (uint32_t i : address_indices)
         {
           wallet_rpc::COMMAND_RPC_GET_BALANCE::per_subaddress_info info;
@@ -769,7 +775,13 @@ namespace tools
           info.blocks_to_unlock = unlocked_balance_per_subaddress[i].second.first;
           info.time_to_unlock = unlocked_balance_per_subaddress[i].second.second;
           info.label = m_wallet->get_subaddress_label(index);
-          info.num_unspent_outputs = std::count_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) { return !td.m_spent && td.m_subaddr_index == index; });
+          if (address_indices.size() == 1)
+            info.num_unspent_outputs = std::count_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) { return !td.m_spent && td.m_subaddr_index == index; });
+          else
+          {
+            const auto count = unspent_counts.find(i);
+            info.num_unspent_outputs = count == unspent_counts.end() ? 0 : count->second;
+          }
           res.per_subaddress.emplace_back(std::move(info));
         }
       }
