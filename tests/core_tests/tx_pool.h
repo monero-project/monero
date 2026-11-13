@@ -126,9 +126,12 @@ struct txpool_double_spend_local : txpool_double_spend_base
 {
   txpool_double_spend_local()
     : txpool_double_spend_base()
-  {}
+  {
+    REGISTER_CALLBACK_METHOD(txpool_double_spend_local, check_local_tx_return);
+  }
 
   bool generate(std::vector<test_event_entry>& events) const;
+  bool check_local_tx_return(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
 };
 
 struct txpool_double_spend_keyimage : txpool_double_spend_base
@@ -138,6 +141,17 @@ struct txpool_double_spend_keyimage : txpool_double_spend_base
   {}
 
   bool generate(std::vector<test_event_entry>& events) const;
+};
+
+struct txpool_forward_relay : test_chain_unit_base
+{
+  txpool_forward_relay()
+  {
+    REGISTER_CALLBACK_METHOD(txpool_forward_relay, check_forward_relay);
+  }
+
+  bool generate(std::vector<test_event_entry>& events) const;
+  bool check_forward_relay(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
 };
 
 struct txpool_stem_loop : txpool_double_spend_base

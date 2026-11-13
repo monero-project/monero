@@ -393,11 +393,9 @@ namespace levin
             context.flush_time = std::chrono::steady_clock::time_point::max();
         }
 
-        /* Always send with `fluff` flag, even over i2p/tor. The hidden service
-	   will disable the forwarding delay and immediately fluff. The i2p/tor
-	   network is therefore replacing the sybil protection of Dandelion++.
-	   Dandelion++ stem phase over i2p/tor is also worth investigating
-	   (with/without "noise"?). */
+        /* Always send with the `fluff` flag. Receivers ignore this flag over
+           i2p/tor and forward after a randomized delay using public
+           Dandelion++ relay. */
         for (auto& connection : connections)
         {
           std::sort(connection.first.begin(), connection.first.end()); // don't leak receive order
