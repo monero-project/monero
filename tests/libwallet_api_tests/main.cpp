@@ -511,6 +511,51 @@ TEST_F(WalletManagerTest, FailedKeyRecoveryDoesNotOverwriteExistingWallet)
     ASSERT_TRUE(wmgr->closeWallet(wallet));
 }
 
+TEST_F(WalletManagerTest, WatchOnlyMessageSigningReportsError)
+{
+    const std::string message = "message to sign";
+    Monero::Wallet *full = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    ASSERT_EQ(Monero::Wallet::Status_Ok, full->status());
+    const std::string address = full->mainAddress();
+    const std::string view_key = full->secretViewKey();
+    const std::string signature = full->signMessage(message);
+    EXPECT_TRUE(full->verifySignedMessage(message, address, signature));
+    ASSERT_TRUE(wmgr->closeWallet(full));
+    Utils::deleteWallet(WALLET_NAME);
+
+    Monero::Wallet *view_only = wmgr->createWalletFromKeys(WALLET_NAME, WALLET_PASS, WALLET_LANG,
+        Monero::NetworkType::MAINNET, 0, address, view_key, "");
+    ASSERT_EQ(Monero::Wallet::Status_Ok, view_only->status());
+    ASSERT_TRUE(view_only->watchOnly());
+    EXPECT_TRUE(view_only->signMessage(message).empty());
+    EXPECT_EQ(Monero::Wallet::Status_Error, view_only->status());
+    EXPECT_NE(std::string::npos, view_only->errorString().find("message signing key"));
+    ASSERT_TRUE(wmgr->closeWallet(view_only));
+}
+
+TEST_F(WalletManagerTest, MessageSigningChecksRequestedAddress)
+{
+    Monero::Wallet *wallet = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, Monero::NetworkType::MAINNET);
+    ASSERT_EQ(Monero::Wallet::Status_Ok, wallet->status());
+    const std::string message = "message to sign";
+    const std::string address = wallet->mainAddress();
+    const std::string signature = wallet->signMessage(message, address);
+    ASSERT_FALSE(signature.empty());
+    EXPECT_TRUE(wallet->verifySignedMessage(message, address, signature));
+
+    cryptonote::address_parse_info info;
+    ASSERT_TRUE(cryptonote::get_account_address_from_str(info, cryptonote::MAINNET, address));
+    cryptonote::account_base other;
+    other.generate();
+    info.address.m_view_public_key = other.get_keys().m_account_address.m_view_public_key;
+    const std::string wrong_address = cryptonote::get_account_address_as_str(cryptonote::MAINNET, false, info.address);
+
+    EXPECT_TRUE(wallet->signMessage(message, wrong_address).empty());
+    EXPECT_EQ(Monero::Wallet::Status_Error, wallet->status());
+    EXPECT_NE(std::string::npos, wallet->errorString().find("Address doesn't belong"));
+    ASSERT_TRUE(wmgr->closeWallet(wallet));
+}
+
 
 TEST_F(WalletManagerTest, WalletManagerStoresWallet1)
 {

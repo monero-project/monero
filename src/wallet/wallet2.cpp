@@ -13765,6 +13765,15 @@ std::string wallet2::sign(const std::string &data, message_signature_type_t sign
     secret_key_to_public_key(skey, pkey);
     hash = get_message_hash(data,pkey_spend,pkey_view,mode);
   }
+
+  const cryptonote::account_public_address address = index.is_zero()
+      ? keys.m_account_address : get_subaddress(index);
+  const crypto::public_key &expected_key = signature_type == sign_with_spend_key
+      ? address.m_spend_public_key : address.m_view_public_key;
+  crypto::public_key derived_key;
+  CHECK_AND_ASSERT_THROW_MES(crypto::secret_key_to_public_key(skey, derived_key) && derived_key == expected_key,
+      "Wallet does not have the requested message signing key");
+
   crypto::generate_signature(hash, pkey, skey, signature);
   return std::string("SigV2") + tools::base58::encode(std::string((const char *)&signature, sizeof(signature)));
 }
