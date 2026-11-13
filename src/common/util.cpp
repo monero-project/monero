@@ -29,7 +29,10 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <unistd.h>
+#include <cerrno>
 #include <cstdio>
+#include <mutex>
+#include <thread>
 #include <wchar.h>
 
 #ifdef __GLIBC__
@@ -62,6 +65,7 @@ using namespace epee;
 #include "stack_trace.h"
 #include "memwipe.h"
 #include "net/http_client.h"                        // epee::net_utils::...
+#include "password.h"
 
 #ifdef WIN32
   #include <windows.h>
@@ -69,6 +73,8 @@ using namespace epee;
 #else
   #include <sys/file.h>
   #include <sys/stat.h>
+  #include <fcntl.h>
+  #include <pthread.h>
 #endif
 
 #include <boost/filesystem/path.hpp>
@@ -124,7 +130,176 @@ namespace tools
   #endif
   }
 
-  std::function<void(int)> signal_handler::m_handler;
+  namespace
+  {
+    struct signal_state
+    {
+      std::mutex mutex;
+      std::function<void(int)> handler;
+      std::uint64_t current = 0;
+      std::uint64_t next = 0;
+      bool started = false;
+    };
+
+    // intentionally leaked; used by the dispatch thread until exit
+    signal_state& get_signal_state()
+    {
+      static signal_state* const state = new signal_state{};
+      return *state;
+    }
+
+    void dispatch_signal(int type)
+    {
+      signal_state& state = get_signal_state();
+      std::lock_guard<std::mutex> lock{state.mutex};
+      if (!state.handler) return;
+      try
+      {
+        state.handler(type);
+      }
+      catch (const std::exception& e)
+      {
+        MERROR("Signal handler failed: " << e.what());
+      }
+      catch (...)
+      {
+        MERROR("Signal handler failed");
+      }
+    }
+
+#ifdef WIN32
+    BOOL WINAPI win_handler(DWORD type)
+    {
+      if (CTRL_C_EVENT != type && CTRL_BREAK_EVENT != type)
+      {
+        MGINFO_RED("Got control signal " << type << ". Exiting without saving...");
+        return FALSE;
+      }
+      if (!password_container::is_prompting.load())
+        dispatch_signal(type);
+      return TRUE;
+    }
+
+    void start_signal_dispatch()
+    {
+      if (TRUE != ::SetConsoleCtrlHandler(&win_handler, TRUE))
+        throw std::system_error(static_cast<int>(::GetLastError()), std::system_category(), "SetConsoleCtrlHandler");
+    }
+
+    void set_signal_actions() {}
+#else
+    static_assert(std::atomic<bool>::is_always_lock_free, "is_prompting is read in signal context");
+
+    int signal_pipe[2] = {-1, -1};
+
+    void posix_handler(int type)
+    {
+      if (password_container::is_prompting.load(std::memory_order_relaxed)) return;
+      const int saved_errno = errno;
+      const unsigned char sig = type;
+      while (::write(signal_pipe[1], &sig, 1) < 0 && errno == EINTR) {}
+      errno = saved_errno;
+    }
+
+    void dispatch_thread()
+    {
+      for (;;)
+      {
+        unsigned char sig;
+        const ssize_t r = ::read(signal_pipe[0], &sig, 1);
+        if (r == 1) dispatch_signal(sig);
+        else if (r == 0 || errno != EINTR) return;
+      }
+    }
+
+    sigset_t signal_mask()
+    {
+      sigset_t mask;
+      sigemptyset(&mask);
+      sigaddset(&mask, SIGINT);
+      sigaddset(&mask, SIGTERM);
+      return mask;
+    }
+
+    void start_signal_dispatch()
+    {
+      if (::pipe(signal_pipe) != 0)
+        throw std::system_error(errno, std::generic_category(), "pipe");
+      ::fcntl(signal_pipe[0], F_SETFD, FD_CLOEXEC);
+      ::fcntl(signal_pipe[1], F_SETFD, FD_CLOEXEC);
+      ::fcntl(signal_pipe[1], F_SETFL, ::fcntl(signal_pipe[1], F_GETFL) | O_NONBLOCK);
+
+      // keep SIGINT/SIGTERM off the dispatch thread
+      const sigset_t mask = signal_mask();
+      sigset_t old_mask;
+      pthread_sigmask(SIG_BLOCK, &mask, &old_mask);
+      try
+      {
+        std::thread{dispatch_thread}.detach();
+      }
+      catch (...)
+      {
+        pthread_sigmask(SIG_SETMASK, &old_mask, nullptr);
+        ::close(signal_pipe[0]);
+        ::close(signal_pipe[1]);
+        signal_pipe[0] = signal_pipe[1] = -1;
+        throw;
+      }
+      pthread_sigmask(SIG_SETMASK, &old_mask, nullptr);
+    }
+
+    // reapplied on every install in case the dispositions were changed since
+    void set_signal_actions()
+    {
+      struct sigaction sa = {};
+      sa.sa_handler = posix_handler;
+      sa.sa_mask = signal_mask();
+      sa.sa_flags = 0; // no SA_RESTART: password prompt reads must fail with EINTR
+      sigaction(SIGINT, &sa, nullptr);
+      sigaction(SIGTERM, &sa, nullptr);
+      signal(SIGPIPE, SIG_IGN);
+    }
+#endif
+  }
+
+  signal_handler::registration& signal_handler::registration::operator=(registration&& other) noexcept
+  {
+    if (this != &other)
+    {
+      reset();
+      m_id = other.m_id;
+      other.m_id = 0;
+    }
+    return *this;
+  }
+
+  void signal_handler::registration::reset() noexcept
+  {
+    if (!m_id) return;
+    signal_state& state = get_signal_state();
+    std::lock_guard<std::mutex> lock{state.mutex};
+    if (state.current == m_id)
+    {
+      state.handler = nullptr;
+      state.current = 0;
+    }
+    m_id = 0;
+  }
+
+  signal_handler::registration signal_handler::install(std::function<void(int)> handler)
+  {
+    signal_state& state = get_signal_state();
+    std::lock_guard<std::mutex> lock{state.mutex};
+    if (!state.started)
+    {
+      start_signal_dispatch();
+      state.started = true;
+    }
+    set_signal_actions();
+    state.handler = std::move(handler);
+    state.current = ++state.next;
+    return registration{state.current};
+  }
 
   private_file::private_file() noexcept : m_handle(), m_filename() {}
 

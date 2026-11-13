@@ -283,10 +283,10 @@ bool t_daemon::run(bool interactive)
     stop = true;
     stop_thread.join();
   });
-  tools::signal_handler::install([&stop, &shutdown](int){ stop = shutdown = true; });
 
   try
   {
+    const auto signal_registration = tools::signal_handler::install([&stop, &shutdown](int){ stop = shutdown = true; });
     if (!mp_internals->core.run())
       return false;
 

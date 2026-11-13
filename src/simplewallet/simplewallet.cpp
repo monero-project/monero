@@ -78,9 +78,7 @@
 #include <io.h>
 #include <climits>
 #else
-#include <fcntl.h>
 #include <unistd.h>
-#include <thread>
 #endif
 
 #ifdef HAVE_READLINE
@@ -10740,72 +10738,11 @@ int main(int argc, char* argv[])
   }
   else
   {
-#ifndef WIN32
-    // Stopping the console takes the console lock, which the thread receiving
-    // the signal may already hold. The handler only writes to a pipe, and
-    // this thread does the actual work.
-    static int signal_pipe[2] = {-1, -1};
-    static std::atomic<bool> signal_thread_stop{false};
-    std::thread signal_thread;
-    if (pipe(signal_pipe) == 0)
-    {
-      fcntl(signal_pipe[0], F_SETFD, FD_CLOEXEC);
-      fcntl(signal_pipe[1], F_SETFD, FD_CLOEXEC);
-      // the handler must not block
-      fcntl(signal_pipe[1], F_SETFL, fcntl(signal_pipe[1], F_GETFL) | O_NONBLOCK);
-      signal_thread = std::thread([&w]() {
-        for (;;)
-        {
-          char c;
-          const ssize_t n = read(signal_pipe[0], &c, 1);
-          if (n < 0 && errno == EINTR)
-            continue;
-          if (n != 1 || c == 'q' || signal_thread_stop.load())
-            break;
-          if (c == 'i')
-            w.interrupt();
-          else
-            w.stop();
-        }
-      });
-    }
-    else
-    {
-      signal_pipe[0] = signal_pipe[1] = -1;
-    }
-    // Let any stop in progress finish before deinit. The pipe is left open
-    // for late signals.
-    auto stop_signal_thread = [&signal_thread]() {
-      if (signal_thread.joinable())
-      {
-        // If the write fails because the pipe is full, the worker still has
-        // bytes to read and will see the flag.
-        signal_thread_stop.store(true);
-        const char c = 'q';
-        if (write(signal_pipe[1], &c, 1) == -1) {}
-        signal_thread.join();
-      }
-    };
-    const epee::scope_guard signal_thread_guard([&](){ stop_signal_thread(); });
-#endif
-    tools::signal_handler::install([&w](int type) {
-      if (tools::password_container::is_prompting.load())
-      {
-        // must be prompting for password so return and let the signal stop prompt
-        return;
-      }
+    auto signal_registration = tools::signal_handler::install([&w](int type) {
 #ifdef WIN32
       const bool is_interrupt = type == CTRL_C_EVENT;
 #else
       const bool is_interrupt = type == SIGINT;
-      if (signal_pipe[1] != -1)
-      {
-        const int saved_errno = errno;
-        const char c = is_interrupt ? 'i' : 's';
-        if (write(signal_pipe[1], &c, 1) == -1) {}
-        errno = saved_errno;
-        return;
-      }
 #endif
       if (is_interrupt)
       {
@@ -10819,9 +10756,8 @@ int main(int argc, char* argv[])
     });
     w.run();
 
-#ifndef WIN32
-    stop_signal_thread();
-#endif
+    // let any stop in progress finish before deinit
+    signal_registration.reset();
     w.deinit();
   }
   return 0;

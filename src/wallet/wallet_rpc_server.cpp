@@ -5391,8 +5391,8 @@ public:
         return false;
       }
 
-      bool quit = false;
-      tools::signal_handler::install([&wal, &quit](int) {
+      std::atomic<bool> quit{false};
+      auto signal_registration = tools::signal_handler::install([&wal, &quit](int) {
         assert(wal);
         quit = true;
         wal->shutdown();
@@ -5408,7 +5408,7 @@ public:
         LOG_ERROR(tools::wallet_rpc_server::tr("Initial refresh failed: ") << e.what());
       }
       // swap handlers before the quit check so a late signal cannot permanently stop the wallet the server serves
-      tools::signal_handler::install([&quit](int) { quit = true; });
+      signal_registration = tools::signal_handler::install([&quit](int) { quit = true; });
       // if we ^C during potentially length load/refresh, there's no server loop yet
       if (quit)
       {
@@ -5426,7 +5426,7 @@ public:
     }
   just_dir:
     if (wal) wrpc->set_wallet(wal.release());
-    tools::signal_handler::install([this](int) {
+    const auto signal_registration = tools::signal_handler::install([this](int) {
       wrpc->stop_refresh(); // a running refresh blocks server exit
       wrpc->send_stop_signal();
     });
