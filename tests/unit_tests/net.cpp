@@ -1153,6 +1153,19 @@ TEST(get_network_address, onion)
 
     address = net::get_network_address(std::string{v3_onion} + ":65536", 1000);
     EXPECT_EQ(net::error::invalid_port, address);
+
+    // dispatch to `tor_address::make` should not be case-sensitive, matching `canonicalize_host`
+    address = net::get_network_address(v3_onion_upper, 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::tor, address->get_type_id());
+    EXPECT_STREQ(v3_onion, address->host_str().c_str());
+    EXPECT_EQ(std::string{v3_onion} + ":1000", address->str());
+
+    address = net::get_network_address(std::string{v3_onion_upper} + ":2000", 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::tor, address->get_type_id());
+    EXPECT_STREQ(v3_onion, address->host_str().c_str());
+    EXPECT_EQ(std::string{v3_onion} + ":2000", address->str());
 }
 
 namespace
@@ -1220,6 +1233,12 @@ TEST(i2p_address, invalid)
     std::string i2p_standard{standard_i2p};
     i2p_standard.at(7) = 1;
     EXPECT_TRUE(net::i2p_address::make(i2p_standard).has_error());
+
+    // i2p addresses have no virtual ports, but a valid port is ignored for compatibility; malformed ones are rejected
+    EXPECT_EQ(net::error::invalid_port, net::i2p_address::make(std::string{standard_i2p} + ":900a"));
+    EXPECT_EQ(net::error::invalid_port, net::i2p_address::make(std::string{standard_i2p} + ":65536"));
+    EXPECT_EQ(net::error::invalid_port, net::i2p_address::make(std::string{standard_i2p} + ":-1"));
+    EXPECT_EQ(net::error::invalid_port, net::i2p_address::make(std::string{b32_i2p} + ":kfsdhkfasd"));
 }
 
 TEST(i2p_address, unblockable_types)
@@ -1663,6 +1682,15 @@ TEST(get_network_address, i2p)
     EXPECT_STREQ(b32_i2p, address->host_str().c_str());
     EXPECT_EQ(std::string{b32_i2p}, address->str());
 
+    // `print_pl` displays i2p peers with port 0, which must round-trip (e.g. into `ban`)
+    address = net::get_network_address(std::string{b32_i2p} + ":0", 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
+    EXPECT_STREQ(b32_i2p, address->host_str().c_str());
+
+    address = net::get_network_address(std::string{b32_i2p} + ":900a", 1000);
+    EXPECT_EQ(net::error::invalid_port, address);
+
     address = net::get_network_address(standard_i2p, 1000);
     ASSERT_TRUE(bool(address));
     EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
@@ -1670,6 +1698,19 @@ TEST(get_network_address, i2p)
     EXPECT_EQ(std::string{standard_i2p}, address->str());
 
     address = net::get_network_address(std::string{standard_i2p} + ":2000", 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
+    EXPECT_STREQ(standard_i2p, address->host_str().c_str());
+    EXPECT_EQ(std::string{standard_i2p}, address->str());
+
+    // dispatch to `i2p_address::make` should not be case-sensitive, matching `canonicalize_host`
+    address = net::get_network_address(b32_i2p_upper, 1000);
+    ASSERT_TRUE(bool(address));
+    EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
+    EXPECT_STREQ(b32_i2p, address->host_str().c_str());
+    EXPECT_EQ(std::string{b32_i2p}, address->str());
+
+    address = net::get_network_address("TEST.I2P", 1000);
     ASSERT_TRUE(bool(address));
     EXPECT_EQ(epee::net_utils::address_type::i2p, address->get_type_id());
     EXPECT_STREQ(standard_i2p, address->host_str().c_str());
@@ -1706,6 +1747,25 @@ TEST(get_network_address, ipv4_mapped_ipv6)
     EXPECT_EQ(epee::net_utils::address_type::ipv4, address->get_type_id());
     EXPECT_STREQ("203.0.113.1", address->host_str().c_str());
     EXPECT_STREQ("203.0.113.1:18080", address->str().c_str());
+}
+
+TEST(get_network_address, ipv6_scope_id_case)
+{
+    // lowercasing would match the Linux loopback "lo"
+    boost::system::error_code ec;
+    const boost::asio::ip::address_v6 expected = boost::asio::ip::make_address_v6("fe80::1%LO", ec);
+    if (ec)
+        GTEST_SKIP() << "named IPv6 scope IDs are not supported on this platform";
+
+    expect<epee::net_utils::network_address> address =
+        net::get_network_address("[fe80::1%LO]:18080", 0);
+    ASSERT_TRUE(bool(address));
+    ASSERT_EQ(epee::net_utils::address_type::ipv6, address->get_type_id());
+    EXPECT_EQ(expected.scope_id(), address->as<epee::net_utils::ipv6_network_address>().ip().scope_id());
+
+    const expect<net::socks::endpoint> proxy = net::socks::endpoint::get("socks5://[fe80::1%LO]:9050");
+    ASSERT_TRUE(bool(proxy));
+    EXPECT_EQ(expected.scope_id(), proxy->address.address().to_v6().scope_id());
 }
 
 TEST(get_network_address, ipv4subnet)
