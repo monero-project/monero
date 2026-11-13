@@ -12753,33 +12753,14 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
   uint32_t rpc_version;
   THROW_WALLET_EXCEPTION_IF(!check_connection(&rpc_version), error::wallet_internal_error, "Failed to connect to daemon: " + get_daemon_address());
 
-  COMMAND_RPC_GET_TRANSACTIONS::request req;
-  COMMAND_RPC_GET_TRANSACTIONS::response res;
-  req.txs_hashes.push_back(epee::string_tools::pod_to_hex(txid));
-  req.decode_as_json = false;
-  req.prune = true;
-
-  bool ok;
-  {
-    const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
-    ok = epee::net_utils::invoke_http_json("/gettransactions", req, res, *m_http_client);
-    THROW_WALLET_EXCEPTION_IF(!ok || res.txs.size() != 1,
-      error::wallet_internal_error, "Failed to get transaction from daemon");
-  }
-
   cryptonote::transaction tx;
-  crypto::hash tx_hash;
-  ok = get_pruned_tx(res.txs.front(), tx, tx_hash);
-  THROW_WALLET_EXCEPTION_IF(!ok, error::wallet_internal_error, "Failed to parse transaction from daemon");
-
-  THROW_WALLET_EXCEPTION_IF(tx_hash != txid, error::wallet_internal_error,
-    "Failed to get the right transaction from daemon");
+  const auto tx_entry = get_tx_for_proof(txid, tx);
   THROW_WALLET_EXCEPTION_IF(additional_derivations.size() > tx.vout.size(), error::wallet_internal_error,
     "The size of additional derivations is wrong");
 
   check_tx_key_helper(tx, derivation, additional_derivations, address, received);
 
-  in_pool = res.txs.front().in_pool;
+  in_pool = tx_entry.in_pool;
   confirmations = 0;
   if (!in_pool)
   {
@@ -12787,12 +12768,12 @@ void wallet2::check_tx_key_helper(const crypto::hash &txid, const crypto::key_de
     {
       std::string err;
       uint64_t bc_height = get_daemon_blockchain_height(err);
-      if (err.empty() && bc_height > res.txs.front().block_height)
-        confirmations = bc_height - res.txs.front().block_height;
+      if (err.empty() && bc_height > tx_entry.block_height)
+        confirmations = bc_height - tx_entry.block_height;
     }
     else
     {
-      confirmations = res.txs.front().confirmations;
+      confirmations = tx_entry.confirmations;
     }
   }
 }
