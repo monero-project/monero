@@ -39,6 +39,7 @@
 #include "common_defines.h"
 #include "common/util.h"
 #include "multisig/multisig_account.h"
+#include "scope_guard.h"
 
 #include "mnemonics/electrum-words.h"
 #include "mnemonics/english.h"
