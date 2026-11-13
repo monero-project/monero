@@ -6764,6 +6764,7 @@ void BlockchainLMDB::migrate_5_7()
 
           // Get the cached last output from the db
           bool found_cached_output = false;
+          tmp_output_cache cached_last_o;
           if (i == 0)
           {
             MDB_val v_last_output;
@@ -6772,7 +6773,7 @@ void BlockchainLMDB::migrate_5_7()
               throw0(DB_ERROR(lmdb_error("Failed to get max output id: ", result).c_str()));
             if (result != MDB_NOTFOUND)
             {
-              const tmp_output_cache cached_last_o = *(const tmp_output_cache*)v_last_output.mv_data;
+              cached_last_o = *(const tmp_output_cache*)v_last_output.mv_data;
 
               if (n_outputs < cached_last_o.n_outputs_read)
                 throw0(DB_ERROR("Unexpected n_outputs_read on cached last output"));
@@ -6784,6 +6785,8 @@ void BlockchainLMDB::migrate_5_7()
               found_cached_output = true;
 
               // Set k and v so we can continue the migration from that output
+              // POINTER SAFETY: the `found_cached_output` branch below reads and then overwrites k/v while
+              // `cached_last_o` is still alive.
               k = {sizeof(cached_last_o.amount), (void *)&cached_last_o.amount};
 
               const std::size_t outkey_size = (cached_last_o.amount == 0) ? sizeof(outkey) : sizeof(pre_rct_outkey);
