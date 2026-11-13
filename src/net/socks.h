@@ -29,6 +29,7 @@
 #pragma once
 
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -105,11 +106,17 @@ namespace socks
     //! Client support for socks connect and resolve commands.
     class client
     {
+    public:
+        //! Furthest stage reached by `connect_and_send`; `replied` means a final SOCKS connect reply.
+        enum class stage : std::uint8_t { connecting, connected, replied };
+
+    private:
         boost::asio::ip::tcp::socket proxy_;
         boost::asio::strand<boost::asio::ip::tcp::socket::executor_type> strand_;
         std::array<std::uint16_t, 3> buffer_size_;
         std::uint8_t buffer_[1024];
         socks::version ver_;
+        std::atomic<stage> stage_;
 
         /*!
             Only invoked after `*send(...)` function completes or fails.
@@ -126,6 +133,9 @@ namespace socks
 
     public:
         using stream_type = boost::asio::ip::tcp;
+
+        //! May be read from another thread while a connect attempt is running.
+        stage connection_stage() const noexcept { return stage_.load(); }
 
         // defined in cpp
         struct write;

@@ -27,7 +27,9 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <algorithm>
+#include <array>
 #include <atomic>
+#include <chrono>
 #include <boost/archive/portable_binary_oarchive.hpp>
 #include <boost/archive/portable_binary_iarchive.hpp>
 #include <boost/asio/buffer.hpp>
@@ -53,6 +55,7 @@
 #include <memory>
 #include <thread>
 #include <type_traits>
+#include <vector>
 #ifndef _WIN32
 #include <atomic>
 #include <csignal>
@@ -71,6 +74,7 @@
 #include "net/parse.h"
 #include "net/tor_address.h"
 #include "net/zmq.h"
+#include "p2p/net_node.h"
 #include "p2p/net_peerlist_boost_serialization.h"
 #include "serialization/keyvalue_serialization.h"
 #include "storages/portable_storage.h"
@@ -2087,6 +2091,231 @@ namespace
             (*called_) = true;
         }
     };
+
+    struct running_io
+    {
+        boost::asio::io_context io;
+        boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work{io.get_executor()};
+        std::thread thread{[this] { io.run(); }};
+
+        ~running_io()
+        {
+            io.stop();
+            thread.join();
+        }
+    };
+
+    struct socks_reply_server
+    {
+        enum class reply { v4_granted, v4_rejected, v5_granted, v5_rejected, close_after_request, silent };
+
+        struct session : std::enable_shared_from_this<session>
+        {
+            stream_type::socket socket;
+            reply response;
+            std::array<std::uint8_t, 10> request{};
+            std::array<std::uint8_t, 10> result{};
+
+            session(stream_type::socket&& socket, reply response)
+              : socket(std::move(socket)), response(response)
+            {}
+
+            void start()
+            {
+                auto self = shared_from_this();
+                if (response == reply::v5_granted || response == reply::v5_rejected)
+                {
+                    boost::asio::async_read(socket, boost::asio::buffer(request.data(), 3),
+                        [self](const boost::system::error_code error, std::size_t)
+                        {
+                            if (error) return;
+                            self->result[0] = 5;
+                            boost::asio::async_write(self->socket, boost::asio::buffer(self->result.data(), 2),
+                                [self](const boost::system::error_code error, std::size_t)
+                                {
+                                    if (error) return;
+                                    boost::asio::async_read(self->socket, boost::asio::buffer(self->request),
+                                        [self](const boost::system::error_code error, std::size_t)
+                                        {
+                                            if (error) return;
+                                            self->result = {{5, self->response == reply::v5_granted ? std::uint8_t{0} : std::uint8_t{2}, 0, 1, 0, 0, 0, 0, 0, 0}};
+                                            boost::asio::async_write(self->socket, boost::asio::buffer(self->result),
+                                                [self](const boost::system::error_code, std::size_t) {});
+                                        });
+                                });
+                        });
+                }
+                else
+                {
+                    boost::asio::async_read(socket, boost::asio::buffer(request.data(), 9),
+                        [self](const boost::system::error_code error, std::size_t)
+                        {
+                            if (error || self->response == reply::close_after_request || self->response == reply::silent)
+                                return;
+                            self->result[1] = self->response == reply::v4_granted ? 90 : 91;
+                            boost::asio::async_write(self->socket, boost::asio::buffer(self->result.data(), 8),
+                                [self](const boost::system::error_code, std::size_t) {});
+                        });
+                }
+            }
+        };
+
+        boost::asio::io_context io;
+        stream_type::acceptor acceptor;
+        reply response;
+        std::atomic<unsigned> connections{0};
+        std::thread thread;
+        std::vector<std::shared_ptr<session>> held;
+
+        explicit socks_reply_server(reply response, bool start_listening = true)
+          : acceptor(io), response(response)
+        {
+            acceptor.open(stream_type::v4());
+            acceptor.bind(stream_type::endpoint{boost::asio::ip::address_v4::loopback(), 0});
+            if (start_listening)
+                listen();
+        }
+
+        void listen()
+        {
+            acceptor.listen();
+            accept_next();
+            thread = std::thread{[this] { io.run(); }};
+        }
+
+        ~socks_reply_server()
+        {
+            io.stop();
+            if (thread.joinable())
+                thread.join();
+        }
+
+        stream_type::endpoint endpoint() const { return acceptor.local_endpoint(); }
+
+        void accept_next()
+        {
+            acceptor.async_accept([this](const boost::system::error_code error, stream_type::socket socket)
+            {
+                if (error)
+                    return;
+                ++connections;
+                auto current = std::make_shared<session>(std::move(socket), response);
+                if (response == reply::silent)
+                    held.push_back(current);
+                current->start();
+                if (acceptor.is_open())
+                    accept_next();
+            });
+        }
+    };
+}
+
+TEST(socks_connect, fallback_and_prefer_last_responder)
+{
+    running_io client{};
+    socks_reply_server recovered{socks_reply_server::reply::v4_granted, false};
+    socks_reply_server second{socks_reply_server::reply::v4_granted};
+
+    net::socks::endpoint proxy{recovered.endpoint()};
+    proxy.resolved_addresses = {recovered.endpoint(), second.endpoint()};
+    std::atomic<std::size_t> preferred{0};
+    std::atomic<bool> stop{false};
+    const epee::net_utils::network_address remote{epee::net_utils::ipv4_network_address{MAKE_IP(1, 2, 3, 4), 80}};
+
+    auto first = nodetool::socks_connect_internal(stop, client.io, proxy, preferred, remote);
+    ASSERT_TRUE(first);
+    EXPECT_EQ(preferred.load(), 1u);
+    EXPECT_EQ(second.connections.load(), 1u);
+
+    recovered.listen();
+    auto next = nodetool::socks_connect_internal(stop, client.io, proxy, preferred, remote);
+    ASSERT_TRUE(next);
+    EXPECT_EQ(second.connections.load(), 2u);
+    EXPECT_EQ(recovered.connections.load(), 0u);
+}
+
+TEST(socks_connect, do_not_retry_after_socks_reply)
+{
+    for (const bool v5 : {false, true})
+    {
+        running_io client{};
+        socks_reply_server unreachable{socks_reply_server::reply::v4_granted, false};
+        socks_reply_server first{v5 ? socks_reply_server::reply::v5_rejected : socks_reply_server::reply::v4_rejected};
+        socks_reply_server second{v5 ? socks_reply_server::reply::v5_granted : socks_reply_server::reply::v4_granted};
+        net::socks::endpoint proxy{unreachable.endpoint()};
+        proxy.ver = v5 ? net::socks::version::v5 : net::socks::version::v4a;
+        proxy.resolved_addresses = {unreachable.endpoint(), first.endpoint(), second.endpoint()};
+        std::atomic<std::size_t> preferred{0};
+        std::atomic<bool> stop{false};
+        const epee::net_utils::network_address remote{epee::net_utils::ipv4_network_address{MAKE_IP(1, 2, 3, 4), 80}};
+
+        auto result = nodetool::socks_connect_internal(stop, client.io, proxy, preferred, remote);
+        EXPECT_FALSE(result);
+        EXPECT_EQ(preferred.load(), 1u);
+        EXPECT_EQ(first.connections.load(), 1u);
+        EXPECT_EQ(second.connections.load(), 0u);
+    }
+}
+
+TEST(socks_connect, do_not_retry_after_proxy_closes_handshake)
+{
+    running_io client{};
+    socks_reply_server first{socks_reply_server::reply::close_after_request};
+    socks_reply_server second{socks_reply_server::reply::v4_granted};
+    net::socks::endpoint proxy{first.endpoint()};
+    proxy.resolved_addresses = {first.endpoint(), second.endpoint()};
+    std::atomic<std::size_t> preferred{0};
+    std::atomic<bool> stop{false};
+    const epee::net_utils::network_address remote{epee::net_utils::ipv4_network_address{MAKE_IP(1, 2, 3, 4), 80}};
+
+    auto result = nodetool::socks_connect_internal(stop, client.io, proxy, preferred, remote);
+    EXPECT_FALSE(result);
+    EXPECT_EQ(first.connections.load(), 1u);
+    EXPECT_EQ(second.connections.load(), 0u);
+}
+
+TEST(socks_connect, timeout_does_not_try_another_proxy)
+{
+    running_io client{};
+    socks_reply_server first{socks_reply_server::reply::silent};
+    socks_reply_server second{socks_reply_server::reply::v4_granted};
+    net::socks::endpoint proxy{first.endpoint()};
+    proxy.resolved_addresses = {first.endpoint(), second.endpoint()};
+    std::atomic<std::size_t> preferred{0};
+    std::atomic<bool> stop{false};
+    const epee::net_utils::network_address remote{epee::net_utils::ipv4_network_address{MAKE_IP(1, 2, 3, 4), 80}};
+
+    auto result = nodetool::socks_connect_internal(stop, client.io, proxy, preferred, remote, std::chrono::milliseconds{100});
+    EXPECT_FALSE(result);
+    EXPECT_EQ(preferred.load(), 0u);
+    EXPECT_EQ(first.connections.load(), 1u);
+    EXPECT_EQ(second.connections.load(), 0u);
+}
+
+TEST(socks_connect, tcp_timeout_advances_next_dial)
+{
+    socks_reply_server stalled{socks_reply_server::reply::v4_granted, false};
+    socks_reply_server healthy{socks_reply_server::reply::v4_granted};
+    net::socks::endpoint proxy{stalled.endpoint()};
+    proxy.resolved_addresses = {stalled.endpoint(), healthy.endpoint()};
+    std::atomic<std::size_t> preferred{0};
+    std::atomic<bool> stop{false};
+    const epee::net_utils::network_address remote{epee::net_utils::ipv4_network_address{MAKE_IP(1, 2, 3, 4), 80}};
+
+    // Leave the TCP connect callback pending until the short deadline expires.
+    boost::asio::io_context paused_io;
+    auto timed_out = nodetool::socks_connect_internal(stop, paused_io, proxy, preferred, remote, std::chrono::milliseconds{100});
+    paused_io.stop();
+    EXPECT_FALSE(timed_out);
+    ASSERT_EQ(preferred.load(), 1u);
+    EXPECT_EQ(healthy.connections.load(), 0u);
+
+    stalled.listen();
+    running_io client{};
+    auto next = nodetool::socks_connect_internal(stop, client.io, proxy, preferred, remote);
+    ASSERT_TRUE(next);
+    EXPECT_EQ(healthy.connections.load(), 1u);
+    EXPECT_EQ(stalled.connections.load(), 0u);
 }
 
 TEST(socks_client, unsupported_command)
