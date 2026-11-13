@@ -280,3 +280,59 @@ TEST(select_outputs, exact_unlock_block_tiny)
 
   EXPECT_TRUE(found_the_one_output);
 }
+
+TEST(select_outputs, pick_in_range_returns_in_range)
+{
+  std::vector<uint64_t> offsets;
+
+  MKOFFSETS(300000, 1);
+  tools::gamma_picker picker(offsets);
+  const uint64_t num_outs = picker.get_num_rct_outs();
+  size_t budget = 1000000;
+  for (size_t i = 0; i < 1000; ++i)
+  {
+    const uint64_t o = tools::pick_in_range(picker, 0, num_outs, budget);
+    ASSERT_LT(o, num_outs);
+  }
+}
+
+TEST(select_outputs, pick_in_range_gives_up_on_unreachable_range)
+{
+  // pick() returns either an index below get_num_rct_outs() or uint64_t(-1), so no pick can
+  // fall in [num_outs, num_outs + 1). pick_in_range must spend the budget and throw.
+  std::vector<uint64_t> offsets;
+
+  MKOFFSETS(300000, 1);
+  tools::gamma_picker picker(offsets);
+  const uint64_t num_outs = picker.get_num_rct_outs();
+  size_t budget = 1000;
+  ASSERT_THROW(tools::pick_in_range(picker, num_outs, num_outs + 1, budget), std::exception);
+  ASSERT_EQ(budget, 0);
+}
+
+TEST(select_outputs, oversized_tail_ends_in_error)
+{
+  // The checks in wallet2::get_outs bound rct_offsets[size - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE],
+  // and the entries after it only by ordering. With a tail that is far too large,
+  // average_output_time becomes so small that pick() returns uint64_t(-1) on almost every draw, and
+  // the rare usable draw always lands in the youngest unlocked block, which holds one output here.
+  // get_outs needs distinct indices for a ring, so without a shared budget it retries forever.
+  std::vector<uint64_t> offsets;
+  for (uint64_t i = 1; i <= 101; ++i)
+    offsets.push_back(i);
+  for (int i = 0; i < 9; ++i)
+    offsets.push_back(1000000000000ull);
+  tools::gamma_picker picker(offsets);
+  const uint64_t num_outs = picker.get_num_rct_outs();
+  ASSERT_EQ(num_outs, 101);
+
+  std::unordered_set<uint64_t> seen;
+  size_t budget = 200000;
+  auto collect_ring = [&]() {
+    while (seen.size() < 16)
+      seen.insert(tools::pick_in_range(picker, 0, num_outs, budget));
+  };
+  ASSERT_THROW(collect_ring(), std::exception);
+  ASSERT_EQ(budget, 0);
+  ASSERT_LE(seen.size(), 2);
+}
