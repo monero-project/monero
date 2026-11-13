@@ -382,7 +382,7 @@ namespace cryptonote
       *
       * @note see Blockchain::get_block_by_hash
       */
-     bool get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan = NULL) const;
+     bool get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan = NULL, cryptonote::blobdata *blk_blob = NULL) const;
 
      /**
       * @copydoc Blockchain::get_alternative_blocks
