@@ -25,8 +25,6 @@
 // INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Parts of this file are originally copyright (c) 2021-2026 SChernykh
 
 #include "tor_address.h"
 
@@ -37,7 +35,9 @@
 #include <cstring>
 #include <limits>
 #include <string_view>
+#include <vector>
 
+#include "common/base32.h"
 #include "net/error.h"
 #include "net/host.h"
 #include "serialization/keyvalue_serialization.h"
@@ -61,9 +61,6 @@ namespace net
         constexpr const unsigned legacy_length = 16;
         constexpr const unsigned v3_length = 56;
 
-        constexpr const char base32_alphabet[] =
-            u8"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz234567";
-
         expect<void> host_check(boost::string_ref host) noexcept
         {
             if (!host.ends_with(tld))
@@ -71,16 +68,18 @@ namespace net
 
             host.remove_suffix(sizeof(tld) - 1);
 
-            if (host.find_first_not_of(base32_alphabet) != boost::string_ref::npos)
-                return {net::error::invalid_tor_address};
-
             if (host.size() != v3_length)
                 return {host.size() == legacy_length
                     ? net::error::legacy_tor_address
                     : net::error::invalid_tor_address};
 
-            const std::string_view tmp{host.data(), host.size()};
-            const auto bytes = from_onion_v3(tmp);
+            std::vector<std::uint8_t> decoded{};
+            if (!tools::base32::decode(std::string_view{host.data(), host.size()}, decoded) ||
+                decoded.size() != v3_onion_payload_size)
+                return {net::error::invalid_tor_address};
+
+            std::array<std::uint8_t, v3_onion_payload_size> bytes{};
+            std::copy(decoded.begin(), decoded.end(), bytes.begin());
 
             if (!validate_v3_onion_checksum(bytes))
                 return {net::error::invalid_tor_address};
@@ -233,44 +232,12 @@ namespace net
     {
         if (address.size() != v3_length) return {};
 
-        uint8_t buf[v3_onion_payload_size + 4] = {};
-        uint8_t* p = buf;
-
-        uint64_t data = 0;
-        uint64_t bit_size = 0;
-
-        for (size_t i = 0; i < v3_length; ++i) {
-            const char c = address[i];
-            uint64_t digit = 0;
-
-            if ('a' <= c && c <= 'z') {
-                digit = static_cast<uint64_t>(c - 'a');
-            }
-            else if ('A' <= c && c <= 'Z') {
-                digit = static_cast<uint64_t>(c - 'A');
-            }
-            else if ('2' <= c && c <= '7') {
-                digit = static_cast<uint64_t>(c - '2') + 26;
-            }
-            else {
-                return {};
-            }
-
-            data = (data << 5) | digit;
-            bit_size += 5;
-
-            while (bit_size >= 8) {
-                bit_size -= 8;
-                *(p++) = static_cast<uint8_t>(data >> bit_size);
-            }
-        }
+        std::vector<std::uint8_t> decoded{};
+        if (!tools::base32::decode(address, decoded) || decoded.size() != v3_onion_payload_size)
+            return {};
 
         std::array<uint8_t, v3_onion_payload_size> result{};
-
-        for (size_t i = 0; i < v3_onion_payload_size; ++i) {
-            result[i] = buf[i];
-        }
-
+        std::copy(decoded.begin(), decoded.end(), result.begin());
         return result;
     }
 
