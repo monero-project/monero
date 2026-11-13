@@ -510,10 +510,11 @@ void mdb_txn_safe::increment_txns(int i)
 #define TXN_PREFIX_RDONLY() \
   MDB_txn *m_txn; \
   mdb_txn_cursors *m_cursors; \
-  mdb_txn_safe auto_txn; \
+  const bool nested_txn = txn_active_on_this_thread(); \
+  mdb_txn_safe auto_txn(!nested_txn); \
   bool my_rtxn = block_rtxn_start(&m_txn, &m_cursors); \
   if (my_rtxn) auto_txn.m_tinfo = m_tinfo.get(); \
-  else auto_txn.uncheck()
+  else if (!nested_txn) auto_txn.uncheck()
 #define TXN_POSTFIX_RDONLY()
 
 #define TXN_POSTFIX_SUCCESS() \
@@ -4920,12 +4921,20 @@ void BlockchainLMDB::block_rtxn_stop() const
   mdb_txn_safe::increment_txns(-1);
 }
 
+bool BlockchainLMDB::txn_active_on_this_thread() const
+{
+  if (m_write_txn && m_writer == boost::this_thread::get_id())
+    return true;
+  const mdb_threadinfo *tinfo = m_tinfo.get();
+  return tinfo && tinfo->m_ti_rflags.m_rf_txn && mdb_txn_env(tinfo->m_ti_rtxn) == m_env;
+}
+
 bool BlockchainLMDB::block_rtxn_start() const
 {
   MDB_txn *mtxn;
   mdb_txn_cursors *mcur;
   /* auto_txn is only used for the create gate */
-  mdb_txn_safe auto_txn;
+  mdb_txn_safe auto_txn(!txn_active_on_this_thread());
   bool ret = block_rtxn_start(&mtxn, &mcur);
   if (ret)
     auto_txn.increment_txns(1); /* remember there is an active readtxn */
