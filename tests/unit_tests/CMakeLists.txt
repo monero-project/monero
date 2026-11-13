@@ -140,6 +140,9 @@ target_link_libraries(unit_tests
     ${CMAKE_THREAD_LIBS_INIT}
     ${EXTRA_LIBRARIES}
     PkgConfig::libzmq)
+if (EPEE_READLINE)
+  target_link_libraries(unit_tests PRIVATE epee_readline)
+endif()
 set_property(TARGET unit_tests
   PROPERTY
     FOLDER "tests")

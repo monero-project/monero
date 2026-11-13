@@ -1230,7 +1230,7 @@ bool simple_wallet::prepare_multisig_main(const std::vector<std::string> &args, 
   SCOPED_WALLET_UNLOCK_ON_BAD_PASSWORD(return false;);
 
   std::string multisig_info = m_wallet->get_multisig_first_kex_msg();
-  success_msg_writer() << multisig_info;
+  tools::unlogged_success_msg_writer(false) << multisig_info;
   success_msg_writer() << tr("Send this multisig info to all other participants, then use make_multisig <threshold> <info1> [<info2>...] with others' multisig info");
   success_msg_writer() << tr("This includes the PRIVATE view key, so needs to be disclosed only to that multisig wallet's participants ");
 
@@ -8104,7 +8104,7 @@ bool simple_wallet::get_tx_key(const std::vector<std::string> &args_)
   if (found_tx_key)
   {
     std::string stream = get_tx_key_stream(tx_key, additional_tx_keys);
-    success_msg_writer() << tr("Tx key: ") << stream;
+    tools::unlogged_success_msg_writer(false) << tr("Tx key: ") << stream;
     return true;
   }
   else

@@ -53,17 +53,20 @@ private:
   epee::console_colors m_color;
   bool m_bright;
   el::Level m_log_level;
+  bool m_log_to_file;
 public:
   scoped_message_writer(
       epee::console_colors color = epee::console_color_default
     , bool bright = false
     , std::string&& prefix = std::string()
     , el::Level log_level = el::Level::Info
+    , bool log_to_file = true
     )
     : m_flush(true)
     , m_color(color)
     , m_bright(bright)
     , m_log_level(log_level)
+    , m_log_to_file(log_to_file)
   {
     m_oss << prefix;
   }
@@ -74,6 +77,7 @@ public:
     , m_oss(rhs.m_oss.str(), std::ios_base::out | std::ios_base::ate)
     , m_color(std::move(rhs.m_color))
     , m_log_level(std::move(rhs.m_log_level))
+    , m_log_to_file(rhs.m_log_to_file)
   {
     rhs.m_flush = false;
   }
@@ -96,7 +100,8 @@ public:
       m_flush = false;
 
       std::string message = m_oss.str();
-      MCLOG_FILE(m_log_level, "msgwriter", message);
+      if (m_log_to_file)
+        MCLOG_FILE(m_log_level, "msgwriter", message);
       try { el::base::sanitize(message); }
       catch (const std::exception&) { message = "<Invalid UTF-8 in message>"; }
 
@@ -119,6 +124,11 @@ public:
 inline scoped_message_writer success_msg_writer(bool color = true)
 {
   return scoped_message_writer(color ? epee::console_color_green : epee::console_color_default, false, std::string(), el::Level::Info);
+}
+
+inline scoped_message_writer unlogged_success_msg_writer(bool color = true)
+{
+  return scoped_message_writer(color ? epee::console_color_green : epee::console_color_default, false, std::string(), el::Level::Info, false);
 }
 
 inline scoped_message_writer msg_writer(epee::console_colors color = epee::console_color_default)
