@@ -840,6 +840,8 @@ bool tx_builder_ringct_t::init(
 
   if (not reconstruction)
     unsigned_tx.set_null();
+  else
+    unsigned_tx.invalidate_hashes();
 
   std::uint64_t fee;
   if (not compute_tx_fee(sources, destinations, fee))

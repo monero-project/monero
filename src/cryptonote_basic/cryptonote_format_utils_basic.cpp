@@ -32,15 +32,42 @@
 
 namespace cryptonote
 {
-  void get_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h)
+  void calculate_transaction_prefix_hash(const transaction_prefix& tx, crypto::hash& h)
   {
     std::ostringstream s;
     binary_archive<true> a(s);
     ::serialization::serialize(a, const_cast<transaction_prefix&>(tx));
-    crypto::cn_fast_hash(s.str().data(), s.str().size(), h);
+    const std::string blob = s.str();
+    crypto::cn_fast_hash(blob.data(), blob.size(), h);
   }
 
-  crypto::hash get_transaction_prefix_hash(const transaction_prefix& tx)
+  crypto::hash calculate_transaction_prefix_hash(const transaction_prefix& tx)
+  {
+    crypto::hash h = crypto::null_hash;
+    calculate_transaction_prefix_hash(tx, h);
+    return h;
+  }
+
+  void get_transaction_prefix_hash(const transaction& tx, crypto::hash& h)
+  {
+    // the prefix hash is only cached alongside a valid tx hash, so code which modifies a tx must
+    // already call invalidate_hashes(), and a stale prefix hash can't outlive a stale tx hash
+    if (tx.is_hash_valid() && tx.is_prefix_hash_valid())
+    {
+#ifdef ENABLE_HASH_CASH_INTEGRITY_CHECK
+      calculate_transaction_prefix_hash(tx, h);
+      CHECK_AND_ASSERT_THROW_MES(tx.prefix_hash == h, "tx prefix hash cash integrity failure");
+#endif
+      h = tx.prefix_hash;
+      return;
+    }
+
+    calculate_transaction_prefix_hash(tx, h);
+    if (tx.is_hash_valid())
+      tx.set_prefix_hash(h);
+  }
+
+  crypto::hash get_transaction_prefix_hash(const transaction& tx)
   {
     crypto::hash h = crypto::null_hash;
     get_transaction_prefix_hash(tx, h);
