@@ -28,12 +28,15 @@
 
 #include "tx_pool.h"
 
+#include <cstring>
 #include <boost/chrono/chrono.hpp>
 #include <boost/thread/thread_only.hpp>
 #include <ctime>
 #include <limits>
 #include "blockchain_db/locked_txn.h"
 #include "string_tools.h"
+#include "cryptonote_basic/events.h"
+#include "scope_guard.h"
 
 #define INIT_MEMPOOL_TEST()                                   \
   uint64_t send_amount = 1000;                                \
@@ -637,7 +640,7 @@ bool txpool_double_spend_local::generate(std::vector<test_event_entry>& events) 
   DO_CALLBACK(events, "check_unchanged");
   SET_EVENT_VISITOR_SETT(events, 0);
   DO_CALLBACK(events, "timestamp_change_pause");
-  events.push_back(tx_0);
+  DO_CALLBACK(events, "check_local_tx_return");
   DO_CALLBACK(events, "check_txpool_spent_keys");
   DO_CALLBACK(events, "mark_timestamp_change");
   DO_CALLBACK(events, "check_new_broadcasted");
@@ -646,6 +649,55 @@ bool txpool_double_spend_local::generate(std::vector<test_event_entry>& events) 
   events.push_back(tx_0);
   DO_CALLBACK(events, "check_unchanged");
 
+  return true;
+}
+
+bool txpool_double_spend_local::check_local_tx_return(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& /*events*/)
+{
+  std::vector<cryptonote::transaction> txs;
+  CHECK_AND_ASSERT_MES(c.get_pool_transactions(txs, true) && txs.size() == 1, false, "Expected one local transaction");
+  const crypto::hash hash = cryptonote::get_transaction_hash(txs.front());
+  cryptonote::blobdata blob;
+  CHECK_AND_ASSERT_MES(c.get_pool_transaction(hash, blob, cryptonote::relay_category::all), false, "Failed to retrieve local transaction");
+
+  const auto& db = c.get_blockchain_storage().get_db();
+  cryptonote::txpool_tx_meta_t original{};
+  CHECK_AND_ASSERT_MES(db.get_txpool_tx_meta(hash, original), false, "Failed to retrieve local transaction metadata");
+  CHECK_AND_ASSERT_MES(original.get_relay_method() == cryptonote::relay_method::local, false, "Expected local relay state");
+
+  size_t public_notifications = 0;
+  c.get_blockchain_storage().set_txpool_notify([&public_notifications](std::vector<cryptonote::txpool_event> txs) {
+    public_notifications += txs.size();
+  });
+  const epee::scope_guard clear_notifier([&c] {
+    c.get_blockchain_storage().set_txpool_notify(cryptonote::TxpoolNotifyCallback{});
+  });
+
+  for (const auto origin : {epee::net_utils::zone::tor, epee::net_utils::zone::i2p})
+  {
+    for (const auto method : {cryptonote::relay_method::fluff, cryptonote::relay_method::forward})
+    {
+      cryptonote::tx_verification_context tvc{};
+      CHECK_AND_ASSERT_MES(c.handle_incoming_tx(blob, tvc, method, true, origin), false, "Anonymity return was rejected");
+      CHECK_AND_ASSERT_MES(!tvc.m_verifivation_failed && !tvc.m_added_to_pool && tvc.m_relay == cryptonote::relay_method::none,
+        false, "Anonymity return changed verification or relay state");
+      cryptonote::txpool_tx_meta_t current{};
+      CHECK_AND_ASSERT_MES(db.get_txpool_tx_meta(hash, current), false, "Local transaction disappeared");
+      CHECK_AND_ASSERT_MES(std::memcmp(&original, &current, sizeof(original)) == 0, false, "Anonymity return changed local metadata");
+      CHECK_AND_ASSERT_MES(!c.pool_has_tx(hash), false, "Anonymity return exposed local transaction");
+      CHECK_AND_ASSERT_MES(public_notifications == 0, false, "Anonymity return emitted a public txpool notification");
+    }
+  }
+
+  cryptonote::tx_verification_context tvc{};
+  CHECK_AND_ASSERT_MES(c.handle_incoming_tx(blob, tvc, cryptonote::relay_method::fluff, true, epee::net_utils::zone::public_),
+    false, "Public return was rejected");
+  CHECK_AND_ASSERT_MES(!tvc.m_verifivation_failed && !tvc.m_added_to_pool && tvc.m_relay == cryptonote::relay_method::fluff,
+    false, "Public return did not request fluff relay");
+  cryptonote::txpool_tx_meta_t current{};
+  CHECK_AND_ASSERT_MES(db.get_txpool_tx_meta(hash, current) && current.get_relay_method() == cryptonote::relay_method::fluff,
+    false, "Public return did not promote local transaction");
+  CHECK_AND_ASSERT_MES(public_notifications == 1, false, "Public return did not emit a txpool notification");
   return true;
 }
 

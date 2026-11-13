@@ -771,7 +771,8 @@ namespace cryptonote
     return true;
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed)
+  bool core::handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
+    epee::net_utils::zone origin)
   {
     tvc = {};
 
@@ -797,7 +798,7 @@ namespace cryptonote
     }
 
     const uint64_t tx_weight = get_transaction_weight(tx, tx_blob.size());
-    if (!add_new_tx(tx, txid, tx_blob, tx_weight, tvc, tx_relay, relayed))
+    if (!add_new_tx(tx, txid, tx_blob, tx_weight, tvc, tx_relay, relayed, origin))
       return false;
 
     if (tvc.m_verifivation_failed)
@@ -1076,7 +1077,7 @@ namespace cryptonote
     blobdata bl;
     t_serializable_object_to_blob(tx, bl);
     size_t tx_weight = get_transaction_weight(tx, bl.size());
-    return add_new_tx(tx, tx_hash, bl, tx_weight, tvc, tx_relay, relayed);
+    return add_new_tx(tx, tx_hash, bl, tx_weight, tvc, tx_relay, relayed, epee::net_utils::zone::invalid);
   }
   //-----------------------------------------------------------------------------------------------
   size_t core::get_blockchain_total_transactions() const
@@ -1084,7 +1085,8 @@ namespace cryptonote
     return m_blockchain_storage.get_total_transactions();
   }
   //-----------------------------------------------------------------------------------------------
-  bool core::add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed)
+  bool core::add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
+    epee::net_utils::zone origin)
   {
     if(m_mempool.have_tx(tx_hash, relay_category::legacy))
     {
@@ -1099,10 +1101,11 @@ namespace cryptonote
     }
 
     uint8_t version = m_blockchain_storage.get_current_hard_fork_version();
-    const bool res = m_mempool.add_tx(tx, tx_hash, blob, tx_weight, tvc, tx_relay, relayed, version);
+    const bool res = m_mempool.add_tx(tx, tx_hash, blob, tx_weight, tvc, tx_relay, relayed, version, 0, crypto::null_hash, origin);
 
-    // If new incoming tx passed verification and entered the pool, notify ZMQ
-    if (!tvc.m_verifivation_failed && res && matches_category(tvc.m_relay, relay_category::legacy))
+    // Successful no-op submissions must not produce a txpool notification.
+    if (!tvc.m_verifivation_failed && res && (tvc.m_added_to_pool || tvc.m_relay != relay_method::none)
+        && matches_category(tvc.m_relay, relay_category::legacy))
     {
       m_blockchain_storage.notify_txpool_event({txpool_event{
         .tx = tx,

@@ -161,7 +161,7 @@ namespace cryptonote
     const crypto::hash &id, const cryptonote::blobdata &blob, size_t tx_weight,
     tx_verification_context& tvc, relay_method tx_relay, bool relayed,
     uint8_t version, uint8_t nic_verified_hf_version,
-    const crypto::hash &valid_input_verification_id)
+    const crypto::hash &valid_input_verification_id, epee::net_utils::zone origin)
   {
     const bool kept_by_block = (tx_relay == relay_method::block);
 
@@ -310,6 +310,15 @@ namespace cryptonote
         const bool existing_tx = m_blockchain.get_txpool_tx_meta(id, meta);
         if (existing_tx)
         {
+          // Preserve local relay state for duplicates received over Tor/I2P.
+          if (meta.is_local && (origin == epee::net_utils::zone::tor || origin == epee::net_utils::zone::i2p))
+          {
+            tvc.m_verifivation_failed = false;
+            tvc.m_added_to_pool = false;
+            tvc.m_relay = relay_method::none;
+            return true;
+          }
+
           /* If Dandelion++ loop. Do not use txes in the `local` state in the
              loop detection - txes in that state should be outgoing over i2p/tor
              then routed back via public dandelion++ stem. Pretend to be

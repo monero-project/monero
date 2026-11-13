@@ -885,6 +885,14 @@ namespace cryptonote
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
 
+    const epee::net_utils::zone zone = context.m_remote_address.get_zone();
+    if ((zone == epee::net_utils::zone::tor || zone == epee::net_utils::zone::i2p) && !context.m_is_income)
+    {
+      // Anonymity peers send transactions only on their outbound connections.
+      LOG_DEBUG_CC(context, "Received tx on outbound anonymity connection, ignored");
+      return 1;
+    }
+
     // while syncing, core will lock for a long time, so we ignore
     // those txes as they aren't really needed anyway, and avoid a
     // long block before replying
@@ -922,7 +930,6 @@ namespace cryptonote
        service) will immediately fluff in that scenario (i.e. this assumes that a
        sybil spy will be unable to link an IP to an i2p/tor connection). */
 
-    const epee::net_utils::zone zone = context.m_remote_address.get_zone();
     relay_method tx_relay = zone == epee::net_utils::zone::public_ ?
       relay_method::stem : relay_method::forward;
 
@@ -939,7 +946,7 @@ namespace cryptonote
     for (auto& tx : arg.txs)
     {
       tx_verification_context tvc{};
-      if (!m_core.handle_incoming_tx(tx, tvc, tx_relay, true) && !tvc.m_no_drop_offense)
+      if (!m_core.handle_incoming_tx(tx, tvc, tx_relay, true, zone) && !tvc.m_no_drop_offense)
       {
         LOG_PRINT_CCONTEXT_L1("Tx verification failed, dropping connection");
         drop_connection(context, false, false);
