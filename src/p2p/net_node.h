@@ -118,7 +118,7 @@ namespace nodetool
 
   // hides boost::future and chrono stuff from mondo template file
   boost::optional<boost::asio::ip::tcp::socket>
-  socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const epee::net_utils::network_address& remote);
+  socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, std::atomic<std::size_t>& preferred_address, const epee::net_utils::network_address& remote, std::chrono::steady_clock::duration timeout = std::chrono::seconds{P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT});
   [[nodiscard]] boost::optional<std::pair<boost::asio::ip::tcp::socket, std::string>>
   sam_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const boost::asio::ip::tcp::endpoint& router, const net::i2p_address& remote, const std::string& session_id);
 
@@ -187,6 +187,7 @@ namespace nodetool
           m_peerlist(),
           m_config{},
           m_proxy_address(),
+          m_proxy_preferred_address(0),
           m_current_number_of_out_peers(0),
           m_current_number_of_in_peers(0),
           m_seed_nodes_lock(),
@@ -208,6 +209,7 @@ namespace nodetool
           m_peerlist(),
           m_config{},
           m_proxy_address(),
+          m_proxy_preferred_address(0),
           m_current_number_of_out_peers(0),
           m_current_number_of_in_peers(0),
           m_seed_nodes_lock(),
@@ -228,6 +230,7 @@ namespace nodetool
       peerlist_manager m_peerlist;
       config m_config;
       net::socks::endpoint m_proxy_address;
+      std::atomic<std::size_t> m_proxy_preferred_address;
 
       std::string m_sam_session_id;
       boost::asio::ip::tcp::endpoint m_sam_router_endpoint;

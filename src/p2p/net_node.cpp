@@ -54,7 +54,6 @@
 namespace
 {
     constexpr const boost::chrono::milliseconds future_poll_interval{500};
-    constexpr const std::chrono::seconds socks_connect_timeout{P2P_DEFAULT_SOCKS_CONNECT_TIMEOUT};
     constexpr const std::chrono::seconds sam_connect_timeout{P2P_DEFAULT_I2P_SAM_CONNECT_TIMEOUT};
 
     std::int64_t get_max_connections(const boost::iterator_range<boost::string_ref::const_iterator> value) noexcept
@@ -371,9 +370,24 @@ namespace nodetool
         return true;
     }
 
-    boost::optional<boost::asio::ip::tcp::socket>
-    socks_connect_attempt(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const boost::asio::ip::tcp::endpoint& proxy_address, const epee::net_utils::network_address& remote)
+    enum class socks_attempt_status { failed, retry_connect, tcp_timeout, budget_exhausted, proxy_replied };
+
+    struct socks_attempt_result
     {
+        boost::optional<boost::asio::ip::tcp::socket> socket;
+        socks_attempt_status status = socks_attempt_status::failed;
+    };
+
+    socks_attempt_result
+    socks_connect_attempt(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const boost::asio::ip::tcp::endpoint& proxy_address, const epee::net_utils::network_address& remote, const std::chrono::steady_clock::time_point deadline)
+    {
+        if (std::chrono::steady_clock::now() >= deadline)
+        {
+            socks_attempt_result out{};
+            out.status = socks_attempt_status::budget_exhausted;
+            return out;
+        }
+
         using socket_type = net::socks::client::stream_type::socket;
         using client_result = std::pair<boost::system::error_code, socket_type>;
 
@@ -398,37 +412,49 @@ namespace nodetool
              );
             close_client.self = client;
             if (!start_socks(std::move(client), proxy, proxy_address, remote))
-                return boost::none;
+                return {};
         }
 
-        const auto start = std::chrono::steady_clock::now();
         while (socks_result.wait_for(future_poll_interval) == boost::future_status::timeout)
         {
-            if (socks_connect_timeout < std::chrono::steady_clock::now() - start)
+            if (std::chrono::steady_clock::now() >= deadline)
             {
                 MERROR("Timeout on socks connect (" << proxy_address << " to " << remote.str() << ")");
-                return boost::none;
+                socks_attempt_result out{};
+                out.status = close_client.self->connection_stage() == net::socks::client::stage::connecting ?
+                    socks_attempt_status::tcp_timeout : socks_attempt_status::failed;
+                return out;
             }
 
             if (stop_signal)
-                return boost::none;
+                return {};
         }
 
         try
         {
             auto result = socks_result.get();
+            const auto stage = close_client.self->connection_stage();
             if (!result.first)
             {
                 close_client.self.reset();
-                return {std::move(result.second)};
+                socks_attempt_result out{};
+                out.socket.emplace(std::move(result.second));
+                out.status = socks_attempt_status::proxy_replied;
+                return out;
             }
 
             MERROR("Failed to make socks connection to " << remote.str() << " (via " << proxy_address << "): " << result.first.message());
+            socks_attempt_result out{};
+            if (stage == net::socks::client::stage::connecting)
+                out.status = socks_attempt_status::retry_connect;
+            else if (stage == net::socks::client::stage::replied)
+                out.status = socks_attempt_status::proxy_replied;
+            return out;
         }
         catch (boost::broken_promise const&)
         {}
 
-        return boost::none;
+        return {};
     }
 
     boost::optional<std::pair<boost::asio::ip::tcp::socket, std::string>>
@@ -494,18 +520,41 @@ namespace nodetool
     }
 
     boost::optional<boost::asio::ip::tcp::socket>
-    socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const epee::net_utils::network_address& remote)
+    socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, std::atomic<std::size_t>& preferred_address, const epee::net_utils::network_address& remote, const std::chrono::steady_clock::duration timeout)
     {
+        const auto deadline = std::chrono::steady_clock::now() + timeout;
         if (proxy.resolved_addresses.empty())
-            return socks_connect_attempt(stop_signal, service, proxy, proxy.address, remote);
+        {
+            auto result = socks_connect_attempt(stop_signal, service, proxy, proxy.address, remote, deadline);
+            return std::move(result.socket);
+        }
 
-        for (const auto& address : proxy.resolved_addresses)
+        const auto count = proxy.resolved_addresses.size();
+        const auto selected = preferred_address.load();
+        std::size_t index = selected % count;
+        for (std::size_t attempts = 0; attempts < count; ++attempts)
         {
             if (stop_signal)
                 break;
-            auto socket = socks_connect_attempt(stop_signal, service, proxy, address, remote);
-            if (socket)
-                return socket;
+            auto result = socks_connect_attempt(stop_signal, service, proxy, proxy.resolved_addresses[index], remote, deadline);
+            if (result.status == socks_attempt_status::proxy_replied)
+                preferred_address.store(index);
+            if (result.socket)
+                return std::move(result.socket);
+            if (result.status == socks_attempt_status::retry_connect)
+            {
+                index = index + 1 == count ? 0 : index + 1;
+                continue;
+            }
+            if (result.status == socks_attempt_status::tcp_timeout ||
+                (result.status == socks_attempt_status::budget_exhausted && attempts != 0))
+            {
+                auto expected = selected;
+                const auto next = result.status == socks_attempt_status::tcp_timeout ?
+                    (index + 1 == count ? 0 : index + 1) : index;
+                preferred_address.compare_exchange_strong(expected, next);
+            }
+            break;
         }
         return boost::none;
     }

@@ -87,10 +87,14 @@ The format for `--tx-proxy` is
 `network,[socks5://[user:pass@]]host:port[,max_connections][,disable_noise]`.
 The proxy host can be an IP address or a hostname, such as `tor:9050` when Tor
 runs in another container on the same Docker network. `monerod` resolves a
-hostname using the system resolver at startup and tries the returned addresses
-in order. Restart `monerod` if the proxy container's address changes while it
-is running. Use an IP address if local DNS resolution of the proxy hostname is
-undesirable. Hidden-service peer names still resolve through the proxy.
+hostname using the system resolver at startup. If a TCP connection to one
+address fails, it tries the next address within the same timeout. It prefers
+the last address that completed a SOCKS connect request for later connections.
+If a TCP connect times out, the next connection starts at the following
+address. A SOCKS rejection or timeout does not trigger another address. Restart
+`monerod` if the proxy container's address changes while it is running. Use an
+IP address if local DNS resolution of the proxy hostname is undesirable.
+Hidden-service peer names still resolve through the proxy.
 Examples:
 
 ```

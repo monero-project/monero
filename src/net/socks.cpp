@@ -435,10 +435,14 @@ namespace socks
                     self.done(socks::error::bad_read, self_);
                 else if (self.buffer_[0] != 0) // response version
                     self.done(socks::error::unexpected_version, self_);
-                else if (self.buffer_[1] != v4_request_granted)
-                    self.done(socks::error(int(self.buffer_[1]) + 1), self_);
                 else
-                    self.done(boost::system::error_code{}, self_);
+                {
+                    self.stage_ = stage::replied;
+                    if (self.buffer_[1] != v4_request_granted)
+                        self.done(socks::error(int(self.buffer_[1]) + 1), self_);
+                    else
+                        self.done(boost::system::error_code{}, self_);
+                }
             }
         }
     };
@@ -598,6 +602,7 @@ namespace socks
                     }
                     if (header.reply != v5_reply_success)
                     {
+                        self.stage_ = stage::replied;
                         self.done(socks::error(int(header.reply)), self_);
                         return;
                     }
@@ -637,6 +642,7 @@ namespace socks
                     std::get<0>(self.buffer_size_) =
                         std::min(sizeof(self.buffer_), std::get<0>(self.buffer_size_) + bytes);
                 }
+                self.stage_ = stage::replied;
                 self.done(error, self_);
             }
         }
@@ -658,10 +664,14 @@ namespace socks
                 client& self = *self_;
                 if (error)
                     self.done(error, self_);
-                else if (self.ver_ == version::v5)
-                    boost::asio::async_write(self.proxy_, get_buffer(self), boost::asio::bind_executor(self.strand_, process_v5{std::move(self_)}));
                 else
-                    boost::asio::async_write(self.proxy_, get_buffer(self), boost::asio::bind_executor(self.strand_, read{std::move(self_)}));
+                {
+                    self.stage_ = stage::connected;
+                    if (self.ver_ == version::v5)
+                        boost::asio::async_write(self.proxy_, get_buffer(self), boost::asio::bind_executor(self.strand_, process_v5{std::move(self_)}));
+                    else
+                        boost::asio::async_write(self.proxy_, get_buffer(self), boost::asio::bind_executor(self.strand_, read{std::move(self_)}));
+                }
             }
         }
     };
@@ -669,7 +679,7 @@ namespace socks
 
 
     client::client(stream_type::socket&& proxy, socks::version ver)
-      : proxy_(std::move(proxy)), strand_(proxy_.get_executor()), buffer_size_{{}}, buffer_(), ver_(ver)
+      : proxy_(std::move(proxy)), strand_(proxy_.get_executor()), buffer_size_{{}}, buffer_(), ver_(ver), stage_(stage::connecting)
     {}
 
     client::~client() {}
@@ -784,6 +794,7 @@ namespace socks
         if (self && std::get<0>(self->buffer_size_))
         {
             client& alias = *self;
+            alias.stage_ = stage::connected;
             if (alias.ver_ == version::v5)
                 boost::asio::async_write(alias.proxy_, write::get_buffer(alias), boost::asio::bind_executor(alias.strand_, process_v5{std::move(self)}));
             else
