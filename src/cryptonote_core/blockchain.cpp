@@ -5434,6 +5434,9 @@ bool Blockchain::prepare_handle_incoming_blocks(const std::vector<block_complete
       its = m_scan_table.find(tx_prefix_hash);
       assert(its != m_scan_table.end());
 
+      if (rct::is_rct_fcmp(tx.rct_signatures.type))
+        continue;
+
       // initialize amount buckets for tx.vin(s)
       for (const auto &txin : tx.vin)
       {
