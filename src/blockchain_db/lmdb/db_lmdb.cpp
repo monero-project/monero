@@ -6919,8 +6919,6 @@ void BlockchainLMDB::migrate_5_7()
       batch_start();
       txn.m_txn = m_write_txn->m_txn;
 
-      MDB_cursor *c_locked_outputs;
-
       i = 0;
       const uint64_t n_blocks = height();
       std::size_t progress_width = 0;
@@ -6943,11 +6941,6 @@ void BlockchainLMDB::migrate_5_7()
             batch_start();
             txn.m_txn = m_write_txn->m_txn;
           }
-
-          // Open all cursors
-          result = mdb_cursor_open(txn, m_locked_outputs, &c_locked_outputs);
-          if (result)
-            throw0(DB_ERROR(lmdb_error("Failed to open a cursor for locked outputs: ", result).c_str()));
 
           // See what the last block inserted into the new table was
           if (i == 0)
