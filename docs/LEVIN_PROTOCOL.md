@@ -115,7 +115,7 @@ Response message can only be sent after a peer first issues a request message.
 Responses must have the `S` bit set, the `Q`, `B` and `E` bits unset, and have
 a zeroed `Expect Response` field. The `Command` field must be the same value
 that was sent in the request message. The `Return Code` is specific to the
-`Command` being issued (see [commands])(#commands)).
+`Command` being issued (see [commands](#commands)).
 
 ### Fragmented
 Fragmented messages were introduced for the "white noise" feature for i2p/tor.
@@ -138,18 +138,21 @@ contents can be safely ignored.
 ## Commands
 ### P2P (Admin) Commands
 
+Commands `1004` through `1006` were debug commands, and have since been removed (see [aa93e38](https://github.com/monero-project/monero/commit/aa93e3886211621e8c3367954b35260df731fc72)).
+They are no longer handled by the implementation.
+
 #### (`1001` Request) Handshake
 #### (`1001` Response) Handshake
 #### (`1002` Request) Timed Sync
 #### (`1002` Response) Timed Sync
 #### (`1003` Request) Ping
 #### (`1003` Response) Ping
-#### (`1004` Request) Stat Info
-#### (`1004` Response) Stat Info
-#### (`1005` Request) Network State
-#### (`1005` Response) Network State
-#### (`1006` Request) Peer ID
-#### (`1006` Response) Peer ID
+#### (`1004` Request) Stat Info (deprecated)
+#### (`1004` Response) Stat Info (deprecated)
+#### (`1005` Request) Network State (deprecated)
+#### (`1005` Response) Network State (deprecated)
+#### (`1006` Request) Peer ID (deprecated)
+#### (`1006` Response) Peer ID (deprecated)
 #### (`1007` Request) Support Flags
 #### (`1007` Response) Support Flags
 
@@ -163,3 +166,4 @@ contents can be safely ignored.
 #### (`2007` Notification) Response Chain Entry
 #### (`2008` Notification) New Fluffy Block
 #### (`2009` Notification) Request Fluffy Missing TX
+#### (`2010` Notification) Get Txpool Complement
