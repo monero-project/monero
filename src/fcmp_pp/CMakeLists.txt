@@ -46,6 +46,10 @@ monero_add_library_with_deps(
 
 if(WIN32)
   set(EXTRA_RUST_LIBRARIES ws2_32 ntdll userenv)
+  if(MINGW)
+    # Keep this after the Rust archive even if Boost linked synchronization earlier.
+    list(APPEND EXTRA_RUST_LIBRARIES -lsynchronization)
+  endif()
 else()
   set(EXTRA_RUST_LIBRARIES )
 endif()
