@@ -238,6 +238,7 @@ namespace cryptonote
       tvc.m_verifivation_failed = true; // should already be set, but just in case
       return false;
     }
+    nic_verified_hf_version = version;
 
     // assume failure during verification steps until success is certain
     tvc.m_verifivation_failed = true;
@@ -247,6 +248,8 @@ namespace cryptonote
     crypto::hash max_used_block_id = null_hash;
     uint64_t max_used_block_height = 0;
     cryptonote::txpool_tx_meta_t meta{};
+    meta.nic_verified_hf_version = nic_verified_hf_version;
+    meta.nic_failed_hf_version = 0;
     meta.valid_input_verification_id = valid_input_verification_id;
     const bool ch_inp_res = check_tx_inputs([&tx]()->cryptonote::transaction&{ return tx; }, id,
       meta.valid_input_verification_id, max_used_block_height, max_used_block_id, tvc, kept_by_block);
@@ -553,6 +556,7 @@ namespace cryptonote
     cryptonote::blobdata &txblob,
     size_t& tx_weight,
     uint64_t& fee,
+    uint8_t &nic_verified_hf_version,
     crypto::hash &valid_input_verification_id,
     bool &relayed,
     bool &do_not_relay,
@@ -599,6 +603,7 @@ namespace cryptonote
       do_not_relay = meta.do_not_relay;
       double_spend_seen = meta.double_spend_seen;
       pruned = meta.pruned;
+      nic_verified_hf_version = meta.nic_verified_hf_version;
       valid_input_verification_id = meta.valid_input_verification_id;
       sensitive = !meta.matches(relay_category::broadcasted);
 
@@ -696,15 +701,22 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   bool tx_memory_pool::get_complement(std::vector<crypto::hash> hashes, std::vector<cryptonote::blobdata> &txes) const
   {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-    CRITICAL_REGION_LOCAL1(m_blockchain);
-
     // Sort so we can do binary search later
     std::sort(hashes.begin(), hashes.end());
 
-    m_blockchain.for_all_txpool_txes([this, &hashes, &txes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
+    CRITICAL_REGION_LOCAL(m_transactions_lock);
+    CRITICAL_REGION_LOCAL1(m_blockchain);
+
+    const uint8_t hf_version = m_blockchain.get_current_hard_fork_version();
+
+    m_blockchain.for_all_txpool_txes([this, &hashes, &txes, hf_version]
+      (const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*)
+    {
       const auto tx_relay_method = meta.get_relay_method();
       if (tx_relay_method != relay_method::block && tx_relay_method != relay_method::fluff)
+        return true;
+
+      if (meta.nic_verified_hf_version != hf_version)
         return true;
 
       // Do binary search for our pool TXID in given list, skip to next if already present
@@ -736,12 +748,156 @@ namespace cryptonote
   //---------------------------------------------------------------------------------
   void tx_memory_pool::on_idle()
   {
-    m_remove_stuck_tx_interval.do_call([this](){return remove_stuck_transactions();});
+    m_remove_stuck_tx_interval.do_call([this]()
+    {
+      constexpr std::chrono::milliseconds max_verify_time{1000}; // Arbitrary. Less than idle interval
+      try { update_nic_tx_verification(max_verify_time); } catch (...) {}
+      return remove_stuck_transactions();
+    });
   }
   //---------------------------------------------------------------------------------
   sorted_tx_container::iterator tx_memory_pool::find_tx_in_sorted_container(const crypto::hash& id)
   {
     return m_txs_by_fee_and_receive_time.project_up(m_txs_by_fee_and_receive_time.right.find(id));
+  }
+  //---------------------------------------------------------------------------------
+  void tx_memory_pool::update_nic_tx_verification(const std::chrono::milliseconds &max_verify_time)
+  {
+    // Collect TXIDs of unverified txs in mempool
+    const uint8_t hf_version = m_blockchain.get_current_hard_fork_version();
+    std::set<std::tuple<uint64_t, crypto::hash, relay_method>> txs_to_nic_verify; // sorted by receive time
+    m_blockchain.for_all_txpool_txes([&txs_to_nic_verify, hf_version]
+      (const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*)
+    {
+      const bool unverified_for_this_hf = meta.nic_verified_hf_version != hf_version
+        && meta.nic_failed_hf_version != hf_version;
+      if (unverified_for_this_hf)
+        txs_to_nic_verify.emplace(meta.receive_time, txid, meta.get_relay_method());
+      return true;
+    }, false, relay_category::all);
+
+    if (txs_to_nic_verify.empty())
+      return;
+
+    // Run ver_non_input_consensus() on txs
+    const auto verify_start_time = std::chrono::steady_clock::now();
+    std::list<std::pair<crypto::hash, bool>> ver_results;
+    std::list<std::tuple<crypto::hash, uint64_t, relay_method>> txs_to_remove;
+    size_t n_txs_verified = 0;
+    cryptonote::blobdata tx_blob;
+    cryptonote::transaction tx;
+    for (const auto &elem : txs_to_nic_verify)
+    {
+      const auto now = std::chrono::steady_clock::now();
+      if (now - verify_start_time >= max_verify_time)
+      {
+        MDEBUG("Ending mempool NIC verification early because we ran out of time");
+        break;
+      }
+
+      const crypto::hash &txid = std::get<1>(elem);
+      const relay_method relay_method = std::get<2>(elem);
+
+      if (!m_blockchain.get_txpool_tx_blob(txid, tx_blob, relay_category::all))
+        continue;
+      bool ver = true;
+      if (!parse_and_validate_tx_from_blob(tx_blob, tx))
+        ver = false;
+      uint64_t tx_weight{};
+      try
+      {
+        tx_weight = get_transaction_weight(tx, tx_blob.size());
+      }
+      catch (const std::exception &e)
+      {
+        LOG_PRINT_L1("Failed to get weight for tx " << txid << ": " << e.what());
+        continue;
+      }
+      tx_verification_context tvc{};
+      if (ver && !ver_non_input_consensus(tx, tvc, hf_version))
+        ver = false;
+      if (ver || relay_method == relay_method::block)
+      {
+        ver_results.emplace_back(txid, ver);
+      }
+      else // verif failure and not kept by block
+      {
+        txs_to_remove.emplace_back(txid, tx_weight, relay_method);
+      }
+      ++n_txs_verified;
+    }
+    const auto verify_elapsed = std::chrono::steady_clock::now() - verify_start_time;
+    MDEBUG("Did NIC verification for " << n_txs_verified << " in "
+      << std::chrono::duration_cast<std::chrono::milliseconds>(verify_elapsed).count() << "ms");
+
+    // Remove all txs which aren't kept by block and failed NIC verification
+    if (!txs_to_remove.empty())
+    {
+      const boost::lock_guard mempool_lock(m_transactions_lock);
+      const boost::lock_guard blockchain_block(m_blockchain);
+      LockedTXN lock(m_blockchain.get_db());
+      for (const auto &elem : txs_to_remove)
+      {
+        const crypto::hash &txid = std::get<0>(elem);
+        try
+        {
+          tx_blob = m_blockchain.get_txpool_tx_blob(txid, relay_category::all);
+          if (!parse_and_validate_tx_prefix_from_blob(tx_blob, tx))
+          {
+            MERROR("Failed to parse tx from txpool");
+            // continue
+          }
+          else
+          {
+            // remove first, so we only remove key images if the tx removal succeeds
+            m_blockchain.remove_txpool_tx(txid);
+            const uint64_t tx_weight = std::get<1>(elem);
+            reduce_txpool_weight(tx_weight);
+            remove_transaction_keyimages(tx, txid);
+            const bool sensitive = !matches_category(std::get<2>(elem), relay_category::broadcasted);
+            remove_tx_from_transient_lists(find_tx_in_sorted_container(txid), txid, sensitive);
+          }
+        }
+        catch (const std::exception &e)
+        {
+          MWARNING("Failed to remove NIC-failed transaction: " << txid);
+          // ignore error
+        }
+      }
+      lock.commit();
+      ++m_cookie;
+    }
+
+    // Update verification results in metaata for verified txs
+    if (!ver_results.empty())
+    {
+      const boost::lock_guard mempool_lock(m_transactions_lock);
+      const boost::lock_guard blockchain_block(m_blockchain);
+      LockedTXN lock(m_blockchain.get_db());
+      for (const auto &elem : ver_results)
+      {
+        const crypto::hash &txid = elem.first;
+        const bool ver = elem.second;
+        try
+        {
+          txpool_tx_meta_t meta;
+          if (!m_blockchain.get_txpool_tx_meta(txid, meta))
+            continue;
+          if (ver)
+            meta.nic_verified_hf_version = hf_version;
+          else
+            meta.nic_failed_hf_version = hf_version;
+          m_blockchain.update_txpool_tx(txid, meta);
+        }
+        catch (const std::exception &e)
+        {
+          MWARNING("Failed to update NIC results in meta for transaction: " << txid);
+          // ignore error
+        }
+      }
+      lock.commit();
+      ++m_cookie;
+    }
   }
   //---------------------------------------------------------------------------------
   //TODO: investigate whether boolean return is appropriate
@@ -809,13 +965,21 @@ namespace cryptonote
     if (uint64_t{std::numeric_limits<time_t>::max()} < now || time_t(now) < m_next_check)
       return false;
 
+    const uint8_t hf_version = m_blockchain.get_current_hard_fork_version();
+
     uint64_t next_check = clock::to_time_t(clock::from_time_t(time_t(now)) + max_relayable_check);
-    std::vector<std::pair<crypto::hash, txpool_tx_meta_t>> change_timestamps;
+    std::list<std::pair<crypto::hash, txpool_tx_meta_t>> change_timestamps;
 
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
     txs.reserve(m_blockchain.get_txpool_tx_count());
-    m_blockchain.for_all_txpool_txes([this, now, &txs, &change_timestamps, &next_check](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *){
+    m_blockchain.for_all_txpool_txes([&, this, now, hf_version](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref *){
+      if (meta.nic_verified_hf_version != hf_version)
+      {
+        MDEBUG("Skipping relaying tx " << txid << " due to it not being NIC-verified for v" << static_cast<int>(hf_version));
+        return true;
+      }
+
       // 0 fee transactions are never relayed
       if(!meta.pruned && meta.fee > 0 && !meta.do_not_relay)
       {
@@ -1440,8 +1604,24 @@ namespace cryptonote
 
     if (txd.last_failed_id == top_block_hash)
       return false; // we are already sure that this tx isn't passing for this exact chain
+    const uint8_t hf_version = m_blockchain.get_current_hard_fork_version();
+    if (txd.nic_failed_hf_version == hf_version)
+      return false; // we are already sure that this tx isn't passing for this HF version
 
     tx_verification_context tvc{};
+
+    // try verify non-input consensus rules if not already verified for this HF version
+    const bool unverified = txd.nic_verified_hf_version != hf_version;
+    if (unverified && !ver_non_input_consensus(lazy_tx(), tvc, hf_version))
+    {
+      txd.nic_failed_hf_version = hf_version;
+      txd.last_failed_height = top_block_height;
+      txd.last_failed_id = top_block_hash;
+      return false;
+    }
+    txd.nic_verified_hf_version = hf_version;
+
+    // try verify input consensus rules using potentially cached verID, setting verID on success
     if (!check_tx_inputs([&lazy_tx]()->cryptonote::transaction&{ return lazy_tx(); },
       txid,
       txd.valid_input_verification_id,
@@ -1551,7 +1731,7 @@ namespace cryptonote
     uint64_t best_coinbase = 0;
     uint64_t total_weight = 0;
     uint64_t fee = 0;
-    
+
     //baseline empty block
     if (!get_block_reward(median_weight, total_weight, already_generated_coins, best_coinbase, version))
     {
@@ -1725,83 +1905,6 @@ namespace cryptonote
         << total_weight << "/" << max_total_weight << ", coinbase " << print_money(best_coinbase)
         << " (including " << print_money(fee) << " in fees)");
     return true;
-  }
-  //---------------------------------------------------------------------------------
-  size_t tx_memory_pool::validate(uint8_t version)
-  {
-    CRITICAL_REGION_LOCAL(m_transactions_lock);
-    CRITICAL_REGION_LOCAL1(m_blockchain);
-
-    // Simply throw away incremental info, too difficult to update
-    m_added_txs_by_id.clear();
-    m_added_txs_start_time = (time_t)0;
-    m_removed_txs_by_time.clear();
-    m_removed_txs_start_time = (time_t)0;
-
-    MINFO("Validating txpool contents for v" << (unsigned)version);
-
-    LockedTXN lock(m_blockchain.get_db());
-
-    struct tx_entry_t
-    {
-      crypto::hash txid;
-      txpool_tx_meta_t meta;
-    };
-
-    // get all txids
-    std::vector<tx_entry_t> txes;
-    m_blockchain.for_all_txpool_txes([&txes](const crypto::hash &txid, const txpool_tx_meta_t &meta, const cryptonote::blobdata_ref*) {
-      if (!meta.pruned) // skip pruned txes
-        txes.push_back({txid, meta});
-      return true;
-    }, false, relay_category::all);
-
-    // take them all out and add them back in, some might fail
-    size_t added = 0;
-    for (auto &e: txes)
-    {
-      try
-      {
-        size_t weight;
-        uint64_t fee;
-        cryptonote::transaction tx;
-        cryptonote::blobdata blob;
-        bool relayed, do_not_relay, double_spend_seen, pruned;
-        crypto::hash valid_input_verification_id;
-        if (!take_tx(e.txid, tx, blob, weight, fee, valid_input_verification_id, relayed, do_not_relay, double_spend_seen, pruned))
-          MERROR("Failed to get tx " << e.txid << " from txpool for re-validation");
-
-        cryptonote::tx_verification_context tvc{};
-        relay_method tx_relay = e.meta.get_relay_method();
-        if (!add_tx(tx, e.txid, blob, e.meta.weight, tvc, tx_relay, relayed, version,
-          /*nic_verified_hf_version=*/0, valid_input_verification_id))
-        {
-          MINFO("Failed to re-validate tx " << e.txid << " for v" << (unsigned)version << ", dropped");
-          continue;
-        }
-        // keep the prunable hash add_tx just computed, rather than overwriting it below
-        txpool_tx_meta_t new_meta;
-        if (m_blockchain.get_txpool_tx_meta(e.txid, new_meta) && new_meta.prunable_hash_valid)
-        {
-          e.meta.prunable_hash = new_meta.prunable_hash;
-          e.meta.prunable_hash_valid = true;
-        }
-        m_blockchain.update_txpool_tx(e.txid, e.meta);
-        ++added;
-      }
-      catch (const std::exception &e)
-      {
-        MERROR("Failed to re-validate tx from pool");
-        continue;
-      }
-    }
-
-    lock.commit();
-
-    const size_t n_removed = txes.size() - added;
-    if (n_removed > 0)
-      ++m_cookie;
-    return n_removed;
   }
   //---------------------------------------------------------------------------------
   void tx_memory_pool::add_tx_to_transient_lists(const crypto::hash& txid, double fee, time_t receive_time, bool sensitive)
