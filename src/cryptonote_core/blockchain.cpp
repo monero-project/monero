@@ -2963,6 +2963,7 @@ bool Blockchain::check_tx_inputs(transaction& tx,
   crypto::hash& max_used_block_id,
   tx_verification_context &tvc,
   crypto::hash &valid_input_verification_id_inout,
+  crypto::hash &invalid_input_verification_id_inout,
   bool kept_by_block) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -2979,7 +2980,7 @@ bool Blockchain::check_tx_inputs(transaction& tx,
 #endif
 
   TIME_MEASURE_START(a);
-  bool res = check_tx_inputs(tx, tvc, valid_input_verification_id_inout, &max_used_block_height);
+  bool res = check_tx_inputs(tx, tvc, valid_input_verification_id_inout, invalid_input_verification_id_inout, &max_used_block_height);
   TIME_MEASURE_FINISH(a);
   if(m_show_time_stats)
   {
@@ -3263,6 +3264,7 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
 bool Blockchain::check_tx_inputs(transaction& tx,
   tx_verification_context &tvc,
   crypto::hash &valid_input_verification_id_inout,
+  crypto::hash &invalid_input_verification_id_inout,
   uint64_t* pmax_used_block_height) const
 {
   PERF_TIMER(check_tx_inputs);
@@ -3478,11 +3480,10 @@ bool Blockchain::check_tx_inputs(transaction& tx,
   }
 
   valid_input_verification_id_inout = crypto::null_hash;
-
-  auto invalid_ids_it = m_invalid_input_verification_ids.find(txid);
-  if (invalid_ids_it != m_invalid_input_verification_ids.end() && invalid_ids_it->second == calculated_input_verification_id)
+  assert(calculated_input_verification_id != crypto::null_hash);
+  if (invalid_input_verification_id_inout == calculated_input_verification_id)
   {
-    MDEBUG("Tx inputs found in the invalid cache for " << txid);
+    MDEBUG("Tx inputs already determined invalid for " << txid);
     return false;
   }
 
@@ -3490,7 +3491,7 @@ bool Blockchain::check_tx_inputs(transaction& tx,
   if (!ver_input_proofs_rings(tx, pubkeys))
   {
     MERROR_VER("Failed to verify input ring signatures for tx " << txid);
-    m_invalid_input_verification_ids[txid] = calculated_input_verification_id;
+    invalid_input_verification_id_inout = calculated_input_verification_id;
     return false;
   }
 
@@ -4037,18 +4038,14 @@ leave:
 
     for (size_t i = 0; i < txs.size(); ++i)
     {
-      const crypto::hash &txid = std::get<0>(txs_meta[i]);
-
       // if this transaction wasn't ever in the pool, don't return it back to the pool
       const bool found_in_pool = std::get<2>(txs_meta[i]);
       if (!found_in_pool)
-      {
-        remove_invalid_input_entry(txid);
         continue;
-      }
 
       transaction &tx = txs[i].first;
       const blobdata &tx_blob = txs[i].second;
+      const crypto::hash &txid = std::get<0>(txs_meta[i]);
       const size_t tx_weight = std::get<1>(txs_meta[i]);
       const crypto::hash &valid_input_verification_id = std::get<3>(txs_meta[i]);
 
@@ -4196,7 +4193,8 @@ leave:
     {
       // validate that transaction inputs and the keys spending them are correct.
       tx_verification_context tvc;
-      if(!check_tx_inputs(tx, tvc, valid_input_verification_id))
+      crypto::hash invalid_input_verification_id{crypto::null_hash};
+      if(!check_tx_inputs(tx, tvc, valid_input_verification_id, invalid_input_verification_id))
       {
         MERROR_VER("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
 
@@ -5264,12 +5262,6 @@ void Blockchain::update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta
 void Blockchain::remove_txpool_tx(const crypto::hash &txid)
 {
   m_db->remove_txpool_tx(txid);
-  remove_invalid_input_entry(txid);
-}
-
-void Blockchain::remove_invalid_input_entry(const crypto::hash &txid)
-{
-  m_invalid_input_verification_ids.erase(txid);
 }
 
 uint64_t Blockchain::get_txpool_tx_count(bool include_sensitive) const

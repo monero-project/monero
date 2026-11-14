@@ -628,6 +628,7 @@ namespace cryptonote
      * @param max_used_block_id return-by-reference block hash of most recent input
      * @param tvc returned information about tx verification
      * @param valid_input_verification_id_inout a previously valid verID if non-null, set on input verification
+     * @param invalid_input_verification_id_inout a previously invalid verID if non-null, set on input verification failure
      * @param kept_by_block whether or not the transaction is from a previously-verified block
      *
      * @return false if any input is invalid, otherwise true
@@ -645,6 +646,7 @@ namespace cryptonote
       crypto::hash& max_used_block_id,
       tx_verification_context &tvc,
       crypto::hash &valid_input_verification_id_inout,
+      crypto::hash &invalid_input_verification_id_inout,
       bool kept_by_block = false) const;
 
     /**
@@ -1091,7 +1093,6 @@ namespace cryptonote
     void add_txpool_tx(const crypto::hash &txid, const cryptonote::blobdata &blob, const txpool_tx_meta_t &meta);
     void update_txpool_tx(const crypto::hash &txid, const txpool_tx_meta_t &meta);
     void remove_txpool_tx(const crypto::hash &txid);
-    void remove_invalid_input_entry(const crypto::hash &txid);
     uint64_t get_txpool_tx_count(bool include_sensitive = false) const;
     bool get_txpool_tx_meta(const crypto::hash& txid, txpool_tx_meta_t &meta) const;
     bool get_txpool_tx_blob(const crypto::hash& txid, cryptonote::blobdata &bd, relay_category tx_category) const;
@@ -1226,14 +1227,6 @@ namespace cryptonote
     // some invalid blocks
     blocks_ext_by_hash m_invalid_blocks;     // crypto::hash -> block_extended_info
 
-    /*
-      If a tx enters the pool but has an invalid input verification ID (e.g. a reorged transaction that may eventually
-      become correct), we save its invalid input verID so we don't re-attempt expensive verification we know will fail.
-      An invalid ID may only be saved for a tx that exists in the pool. This cache can eventually be removed if we
-      modify how the alt block handling protocol inserts invalid input txs into the pool.
-    */
-    mutable std::unordered_map<crypto::hash/*tx_hash*/, crypto::hash> m_invalid_input_verification_ids;
-
     checkpoints m_checkpoints;
     bool m_enforce_dns_checkpoints;
 
@@ -1347,6 +1340,7 @@ namespace cryptonote
      * @param tx the transaction to validate
      * @param tvc returned information about tx verification
      * @param valid_input_verification_id_inout a previously valid verID if non-null, set on input verification
+     * @param invalid_input_verification_id_inout a previously invalid verID if non-null, set on input verification failure
      * @param pmax_related_block_height return-by-pointer the height of the most recent block in the input set
      *
      * @return false if any validation step fails, otherwise true
@@ -1362,6 +1356,7 @@ namespace cryptonote
     bool check_tx_inputs(transaction& tx,
       tx_verification_context &tvc,
       crypto::hash &valid_input_verification_id_inout,
+      crypto::hash &invalid_input_verification_id_inout,
       uint64_t* pmax_used_block_height = NULL) const;
 
     /**
