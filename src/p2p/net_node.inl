@@ -608,6 +608,8 @@ namespace nodetool
         CHECK_AND_ASSERT_MES(
           adr == net::error::unsupported_address, false, "Bad address (\"" << pr_str << "\"): " << adr.error().message()
         );
+        CHECK_AND_ASSERT_MES(m_allow_dns, false,
+          "Cannot resolve peer hostname with --proxy: " << pr_str << ". Use an IP address or --proxy-allow-dns-leaks to allow local DNS resolution.");
 
         std::vector<epee::net_utils::network_address> resolved_addrs;
         bool r = append_net_address(resolved_addrs, pr_str, default_port);
@@ -1044,7 +1046,7 @@ namespace nodetool
     {
       return {};
     }
-    if (!m_enable_dns_seed_nodes)
+    if (!m_allow_dns)
     {
       // TODO: a domain can be set through socks, so that the remote side does the lookup for the DNS seed nodes.
       m_fallback_seed_nodes_added.test_and_set();
@@ -1195,8 +1197,10 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm, const std::string& proxy, bool proxy_dns_leaks_allowed)
   {
+    m_allow_dns = proxy.empty() || proxy_dns_leaks_allowed;
     bool res = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
+    m_enable_dns_blocklist &= m_allow_dns;
     if (proxy.size())
     {
       const auto endpoint = net::socks::endpoint::get(proxy);
@@ -1205,8 +1209,6 @@ namespace nodetool
       public_zone.m_connect = &socks_connect;
       public_zone.m_proxy_address = *endpoint;
       public_zone.m_can_pingback = false;
-      m_enable_dns_seed_nodes &= proxy_dns_leaks_allowed;
-      m_enable_dns_blocklist &= proxy_dns_leaks_allowed;
     }
 
     if (m_nettype == cryptonote::TESTNET)
@@ -3061,6 +3063,8 @@ namespace nodetool
         container.push_back(std::move(*adr));
         continue;
       }
+      CHECK_AND_ASSERT_MES(m_allow_dns, false,
+        "Cannot resolve peer hostname with --proxy: " << pr_str << ". Use an IP address or --proxy-allow-dns-leaks to allow local DNS resolution.");
       std::vector<epee::net_utils::network_address> resolved_addrs;
       bool r = append_net_address(resolved_addrs, pr_str, default_port);
       CHECK_AND_ASSERT_MES(r, false, "Failed to parse or resolve address from string: " << pr_str);
