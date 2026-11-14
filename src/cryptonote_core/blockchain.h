@@ -628,6 +628,7 @@ namespace cryptonote
      * @param max_used_block_id return-by-reference block hash of most recent input
      * @param tvc returned information about tx verification
      * @param valid_input_verification_id_inout a previously valid verID if non-null, set on input verification
+     * @param invalid_input_verification_id_inout a previously invalid verID if non-null, set on input verification failure
      * @param kept_by_block whether or not the transaction is from a previously-verified block
      *
      * @return false if any input is invalid, otherwise true
@@ -645,6 +646,7 @@ namespace cryptonote
       crypto::hash& max_used_block_id,
       tx_verification_context &tvc,
       crypto::hash &valid_input_verification_id_inout,
+      crypto::hash &invalid_input_verification_id_inout,
       bool kept_by_block = false) const;
 
     /**
@@ -1339,6 +1341,7 @@ namespace cryptonote
      * @param tx the transaction to validate
      * @param tvc returned information about tx verification
      * @param valid_input_verification_id_inout a previously valid verID if non-null, set on input verification
+     * @param invalid_input_verification_id_inout a previously invalid verID if non-null, set on input verification failure
      * @param pmax_related_block_height return-by-pointer the height of the most recent block in the input set
      *
      * @return false if any validation step fails, otherwise true
@@ -1354,6 +1357,7 @@ namespace cryptonote
     bool check_tx_inputs(transaction& tx,
       tx_verification_context &tvc,
       crypto::hash &valid_input_verification_id_inout,
+      crypto::hash &invalid_input_verification_id_inout,
       uint64_t* pmax_used_block_height = NULL) const;
 
     /**
