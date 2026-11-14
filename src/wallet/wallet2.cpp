@@ -9686,6 +9686,60 @@ std::pair<std::set<uint64_t>, size_t> outs_unique(const std::vector<std::vector<
   return std::make_pair(std::move(unique), total);
 }
 
+bool wallet2::repair_global_output_indices(const std::vector<size_t> &transfer_idxs)
+{
+  std::vector<crypto::hash> txids;
+  std::unordered_map<crypto::hash, std::vector<size_t>> by_txid;
+  for (size_t i: transfer_idxs)
+  {
+    if (i >= m_transfers.size())
+      continue;
+    auto it = by_txid.find(m_transfers[i].m_txid);
+    if (it == by_txid.end())
+    {
+      txids.push_back(m_transfers[i].m_txid);
+      by_txid.emplace(m_transfers[i].m_txid, std::vector<size_t>{i});
+    }
+    else
+      it->second.push_back(i);
+  }
+  if (txids.empty())
+    return false;
+
+  bool repaired = false;
+  m_node_rpc_proxy.get_transactions(txids,
+    [&](const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request&, const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response &resp, bool r)
+    {
+      if (!r || resp.status != CORE_RPC_STATUS_OK)
+        return;
+      for (const auto &e: resp.txs)
+      {
+        crypto::hash h;
+        if (e.in_pool || !epee::string_tools::hex_to_pod(e.tx_hash, h))
+          continue;
+        const auto it = by_txid.find(h);
+        if (it == by_txid.end())
+          continue;
+        for (size_t i: it->second)
+        {
+          transfer_details &td = m_transfers[i];
+          if (e.output_indices.size() <= td.m_internal_output_index)
+            continue;
+          const uint64_t correct = e.output_indices[td.m_internal_output_index];
+          if (correct == td.m_global_output_index)
+            continue;
+          MWARNING("Correcting global output index for " << td.m_txid << " output " << td.m_internal_output_index
+              << ": " << td.m_global_output_index << " -> " << correct);
+          td.m_global_output_index = correct;
+          repaired = true;
+        }
+      }
+    });
+  if (repaired)
+    store();
+  return repaired;
+}
+//----------------------------------------------------------------------------------------------------
 void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> &outs, const std::vector<size_t> &selected_transfers, size_t fake_outputs_count, bool rct, std::unordered_set<crypto::public_key> &valid_public_keys_cache)
 {
   std::vector<uint64_t> rct_offsets;
@@ -9720,6 +9774,23 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
   LOG_PRINT_L2("fake_outputs_count: " << fake_outputs_count);
   outs.clear();
 
+  // m_global_output_index is taken from /getblocks.bin and stored without any check on its
+  // value, so a daemon that renumbers it leaves the output unspendable for good: the wrong
+  // index is in the cache, switching to an honest node does not help and only
+  // rescan_blockchain repairs it. The index can be re-derived from the transaction id and
+  // the output's position inside it, both of which the wallet keeps, so try that first.
+  // The daemon renumbers its whole answer, so the wrong values are not confined to the
+  // transfers this attempt happened to pick. Asking for the transactions tells the daemon
+  // which ones belong to this wallet, so this is only done on a trusted daemon.
+  const auto repair_on_trusted_daemon = [this]()
+  {
+    if (!is_trusted_daemon())
+      return false;
+    std::vector<size_t> all_idxs(m_transfers.size());
+    std::iota(all_idxs.begin(), all_idxs.end(), 0);
+    return repair_global_output_indices(all_idxs);
+  };
+
   if (fake_outputs_count > 0)
   {
     uint64_t segregation_fork_height = get_segregation_fork_height();
@@ -9753,8 +9824,15 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
           error::get_output_distribution, "Not enough rct outputs");
       THROW_WALLET_EXCEPTION_IF(!std::is_sorted(rct_offsets.begin(), rct_offsets.end()),
           error::get_output_distribution, "Daemon reports non-monotonic rct output distribution");
-      THROW_WALLET_EXCEPTION_IF(rct_offsets[rct_offsets.size() - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE] <= max_rct_index,
-          error::get_output_distribution, "Daemon reports suspicious number of rct outputs");
+      if (rct_offsets[rct_offsets.size() - CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE] <= max_rct_index)
+      {
+        // This offset always counts an unlocked output, so with a trusted daemon's distribution
+        // the stored index is what is wrong. A daemon that shifted it far enough ends up here
+        // before the check on the real output below.
+        THROW_WALLET_EXCEPTION_IF(repair_on_trusted_daemon(), error::wallet_internal_error,
+            "Daemon reports suspicious number of rct outputs; a wrong output index from an earlier refresh has been corrected, please retry");
+        THROW_WALLET_EXCEPTION(error::get_output_distribution, "Daemon reports suspicious number of rct outputs");
+      }
     }
 
     // get histogram for the amounts we need
@@ -9777,6 +9855,31 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
         const boost::lock_guard<boost::recursive_mutex> lock{m_daemon_rpc_mutex};
         bool r = net_utils::invoke_http_json_rpc("/json_rpc", "get_output_histogram", req_t, resp_t, *m_http_client, rpc_timeout);
         THROW_ON_RPC_RESPONSE_ERROR(r, {}, resp_t, "get_output_histogram", error::get_histogram_error, get_rpc_status(m_trusted_daemon, resp_t.status));
+      }
+
+      // A pre-rct index has to be below the number of outputs of its amount. One that is not
+      // makes the daemon fail the whole /get_outs.bin request, which throws before the check
+      // on the real output below gets a chance to repair it.
+      for (size_t idx: selected_transfers)
+      {
+        const transfer_details &td = m_transfers[idx];
+        if (td.is_rct())
+          continue;
+        for (const auto &he: resp_t.histogram)
+        {
+          if (he.amount != td.amount())
+            continue;
+          if (td.m_global_output_index >= he.total_instances)
+          {
+            const bool repaired = repair_on_trusted_daemon();
+            THROW_WALLET_EXCEPTION(error::wallet_internal_error, repaired
+                ? "Stored output index is past the daemon's output count for its amount; a wrong output index from an earlier refresh has been corrected, please retry"
+                : is_trusted_daemon()
+                ? "Stored output index is past the daemon's output count for its amount"
+                : "Stored output index is past the daemon's output count for its amount; if an earlier refresh stored a wrong output index, retrying on a trusted daemon or rescanning the blockchain repairs it");
+          }
+          break;
+        }
       }
     }
 
@@ -10248,8 +10351,15 @@ void wallet2::get_outs(std::vector<std::vector<tools::wallet2::get_outs_entry>> 
               if (daemon_resp.outs[i].unlocked)
                 real_out_found = true;
       }
-      THROW_WALLET_EXCEPTION_IF(!real_out_found, error::wallet_internal_error,
-          "Daemon response did not include the requested real output");
+      if (!real_out_found)
+      {
+        const bool repaired = repair_on_trusted_daemon();
+        THROW_WALLET_EXCEPTION(error::wallet_internal_error, repaired
+            ? "Daemon response did not include the requested real output; a wrong output index from an earlier refresh has been corrected, please retry"
+            : is_trusted_daemon()
+            ? "Daemon response did not include the requested real output"
+            : "Daemon response did not include the requested real output; if an earlier refresh stored a wrong output index, retrying on a trusted daemon or rescanning the blockchain repairs it");
+      }
 
       // pick real out first (it will be sorted when done)
       outs.back().push_back(std::make_tuple(td.m_global_output_index, td.get_public_key(), mask));
