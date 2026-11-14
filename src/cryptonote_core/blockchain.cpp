@@ -2349,6 +2349,8 @@ bool Blockchain::get_output_distribution(uint64_t amount, uint64_t from_height, 
     return false;
   if (amount == 0)
   {
+    if (to_height < start_height)
+      return false;
     std::vector<uint64_t> heights;
     heights.reserve(to_height + 1 - start_height);
     const uint64_t real_start_height = start_height > 0 ? start_height-1 : start_height;

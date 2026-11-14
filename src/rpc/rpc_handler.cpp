@@ -54,7 +54,7 @@ namespace rpc
       {
         // we kept track of the hash 10 blocks below, if it exists, so if it matches,
         // we can still pop the last 10 cached slots and try again
-        if (d.cached && amount == 0 && d.cached_from == from_height && d.cached_to - d.cached_from >= 10 && to_height > d.cached_to - 10)
+        if (d.cached && amount == 0 && d.cached_from == from_height && d.cached_to >= d.cached_from && d.cached_to - d.cached_from >= 10 && d.cached_distribution.size() >= 10 && d.cached_to - 10 < blockchain_height && to_height > d.cached_to - 10)
         {
           crypto::hash hash10 = get_hash(d.cached_to - 10);
           if (hash10 == d.cached_m10_hash)
