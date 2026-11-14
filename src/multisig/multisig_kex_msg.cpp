@@ -271,6 +271,12 @@ namespace multisig
     }
 
     // checks
+    if (m_kex_round == 1)
+    {
+      CHECK_AND_ASSERT_THROW_MES(sc_check((const unsigned char*)&m_msg_privkey) == 0 && m_msg_privkey != crypto::null_skey,
+        "Invalid msg privkey.");
+    }
+
     for (const auto &pubkey: m_msg_pubkeys)
     {
       CHECK_AND_ASSERT_THROW_MES(pubkey != crypto::null_pkey && pubkey != rct::rct2pk(rct::identity()),

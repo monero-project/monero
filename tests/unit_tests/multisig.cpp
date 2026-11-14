@@ -26,11 +26,15 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include "common/base58.h"
 #include "crypto/crypto.h"
+#include "crypto/hash.h"
 #include "multisig/multisig.h"
 #include "multisig/multisig_account.h"
 #include "multisig/multisig_kex_msg.h"
+#include "multisig/multisig_kex_msg_serialization.h"
 #include "ringct/rctOps.h"
+#include "serialization/binary_archive.h"
 #include "serialization/binary_utils.h"
 #include "wallet/wallet2.h"
 #include "wallet/wallet2_basic/wallet2_boost_serialization.h"
@@ -566,6 +570,40 @@ TEST(multisig, multisig_kex_msg)
   EXPECT_EQ(msg_rnd2.get_msg_pubkeys()[1], msg_rnd2_reverse.get_msg_pubkeys()[1]);
   EXPECT_EQ(msg_rnd2.get_msg_privkey(), crypto::null_skey);
   EXPECT_EQ(msg_rnd2.get_msg_privkey(), msg_rnd2_reverse.get_msg_privkey());
+
+  // signed round 1 message with invalid msg_privkey (null_skey or non-canonical scalar) must be rejected when parsed
+  const auto make_signed_round1_msg =
+    [&](const crypto::secret_key &msg_privkey) -> std::string
+    {
+      std::string sign_data;
+      sign_data.append("MultisigxV2R1", 13);
+      const char round_le[4] = {1, 0, 0, 0};
+      sign_data.append(round_le, sizeof(round_le));
+      sign_data.append(reinterpret_cast<const char *>(&signing_pubkey), sizeof(crypto::public_key));
+      sign_data.append(reinterpret_cast<const char *>(&msg_privkey), sizeof(crypto::secret_key));
+
+      crypto::hash msg_hash;
+      crypto::cn_fast_hash(sign_data.data(), sign_data.size(), msg_hash);
+
+      crypto::signature sig;
+      crypto::generate_signature(msg_hash, signing_pubkey, signing_skey, sig);
+
+      multisig_kex_msg_serializable_round1 raw_msg;
+      raw_msg.msg_privkey = msg_privkey;
+      raw_msg.signing_pubkey = signing_pubkey;
+      raw_msg.signature = sig;
+
+      std::stringstream ss;
+      binary_archive<true> ar(ss);
+      EXPECT_TRUE(::serialization::serialize(ar, raw_msg));
+      return std::string("MultisigxV2R1") + tools::base58::encode(ss.str());
+    };
+
+  EXPECT_ANY_THROW((multisig_kex_msg{make_signed_round1_msg(crypto::null_skey)}));
+
+  crypto::secret_key non_canonical_skey{};
+  memset(non_canonical_skey.data, 0xff, sizeof(non_canonical_skey.data));
+  EXPECT_ANY_THROW((multisig_kex_msg{make_signed_round1_msg(non_canonical_skey)}));
 }
 
 TEST(multisig, import_multisig_validation)
