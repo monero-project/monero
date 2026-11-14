@@ -14876,6 +14876,43 @@ std::string wallet2::export_outputs_to_str(bool all, uint32_t start, uint32_t co
   return magic + ciphertext;
 }
 //----------------------------------------------------------------------------------------------------
+static bool generate_imported_key_image(
+    const cryptonote::account_keys &keys,
+    const std::vector<std::vector<std::string>> &subaddress_labels,
+    const std::unordered_map<crypto::public_key, cryptonote::subaddress_index> &subaddresses,
+    const cryptonote::subaddress_index &subaddr_index,
+    const bool in_lookahead,
+    const crypto::public_key &out_key,
+    const crypto::public_key &tx_pub_key,
+    const std::vector<crypto::public_key> &additional_tx_pub_keys,
+    const size_t internal_output_index,
+    cryptonote::keypair &in_ephemeral,
+    crypto::key_image &ki,
+    hw::device &hwdev)
+{
+  // Bind verification to the claimed subaddr_index only (without mutating m_subaddresses first).
+  std::unordered_map<crypto::public_key, cryptonote::subaddress_index> single_subaddress;
+  const bool known_index = subaddr_index.major < subaddress_labels.size()
+      && subaddr_index.minor < subaddress_labels[subaddr_index.major].size();
+  if (in_lookahead || known_index)
+  {
+    single_subaddress.emplace(hwdev.get_subaddress_spend_public_key(keys, subaddr_index), subaddr_index);
+  }
+  else
+  {
+    for (const auto &entry : subaddresses)
+    {
+      if (entry.second == subaddr_index)
+      {
+        single_subaddress.emplace(entry.first, entry.second);
+        break;
+      }
+    }
+  }
+  return !single_subaddress.empty()
+      && cryptonote::generate_key_image_helper(keys, single_subaddress, out_key, tx_pub_key, additional_tx_pub_keys, internal_output_index, in_ephemeral, ki, hwdev);
+}
+//----------------------------------------------------------------------------------------------------
 size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::transfer_details>> &outputs)
 {
   PERF_TIMER(import_outputs);
@@ -14935,17 +14972,16 @@ process:
     THROW_WALLET_EXCEPTION_IF(td.m_internal_output_index >= td.m_tx.vout.size(),
         error::wallet_internal_error, "Internal index is out of range");
     crypto::public_key out_key = td.get_public_key();
-    if (should_expand(td.m_subaddr_index))
-      create_one_off_subaddress(td.m_subaddr_index);
-    bool r = cryptonote::generate_key_image_helper(m_account.get_keys(), m_subaddresses, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
+    const bool expand = should_expand(td.m_subaddr_index);
+    bool r = generate_imported_key_image(m_account.get_keys(), m_subaddress_labels, m_subaddresses, td.m_subaddr_index, expand, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
     THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
-    if (should_expand(td.m_subaddr_index))
-      expand_subaddresses(td.m_subaddr_index);
     td.m_key_image_known = true;
     td.m_key_image_request = true;
     td.m_key_image_partial = false;
     THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != out_key,
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + boost::lexical_cast<std::string>(i + offset));
+    if (expand)
+      expand_subaddresses(td.m_subaddr_index);
 
     const crypto::key_image key_image = td.m_key_image;
     const crypto::public_key pub_key = td.get_public_key();
@@ -15048,17 +15084,16 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
     const crypto::public_key &tx_pub_key = etd.m_tx_pubkey;
     const std::vector<crypto::public_key> &additional_tx_pub_keys = etd.m_additional_tx_keys;
     const crypto::public_key& out_key = etd.m_pubkey;
-    if (should_expand(td.m_subaddr_index))
-      create_one_off_subaddress(td.m_subaddr_index);
-    bool r = cryptonote::generate_key_image_helper(m_account.get_keys(), m_subaddresses, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
+    const bool expand = should_expand(td.m_subaddr_index);
+    bool r = generate_imported_key_image(m_account.get_keys(), m_subaddress_labels, m_subaddresses, td.m_subaddr_index, expand, out_key, tx_pub_key, additional_tx_pub_keys, td.m_internal_output_index, in_ephemeral, td.m_key_image, m_account.get_device());
     THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
-    if (should_expand(td.m_subaddr_index))
-      expand_subaddresses(td.m_subaddr_index);
     td.m_key_image_known = true;
     td.m_key_image_request = true;
     td.m_key_image_partial = false;
     THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != out_key,
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key at index " + boost::lexical_cast<std::string>(i + offset));
+    if (expand)
+      expand_subaddresses(td.m_subaddr_index);
 
     const crypto::key_image key_image = td.m_key_image;
     const crypto::public_key pub_key = td.get_public_key();
