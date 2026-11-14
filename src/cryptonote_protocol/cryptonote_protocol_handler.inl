@@ -2674,46 +2674,50 @@ skip:
         if (!have_block)
           expect_unknown = true;
       }
-      if (0 < i)
+      if (have_block)
       {
-        // after the first, blocks may be known or unknown, but if they are known,
-        // they should be at the same height if on the main chain
-        if (have_block)
+        switch (where)
         {
-          switch (where)
-          {
-            default:
-            case HAVE_BLOCK_INVALID:
-              LOG_ERROR_CCONTEXT("Block is invalid or known without known type, dropping connection");
-              drop_connection(context, true, false);
+          default:
+          case HAVE_BLOCK_INVALID:
+            LOG_ERROR_CCONTEXT("Block is invalid or known without known type, dropping connection");
+            drop_connection(context, true, false);
+            return LEVIN_ERROR_CONNECTION;
+          case HAVE_BLOCK_MAIN_CHAIN:
+            if (expect_unknown)
+            {
+              LOG_ERROR_CCONTEXT("Block is on the main chain, but we did not expect a known block, dropping connection");
+              drop_connection_with_score(context, 5, false);
               return LEVIN_ERROR_CONNECTION;
-            case HAVE_BLOCK_MAIN_CHAIN:
-              if (expect_unknown)
+            }
+            if (m_core.get_block_id_by_height(arg.start_height + i) != arg.m_block_ids[i])
+            {
+              LOG_ERROR_CCONTEXT("Block is on the main chain, but not at the expected height, dropping connection");
+              drop_connection_with_score(context, 5, false);
+              return LEVIN_ERROR_CONNECTION;
+            }
+            break;
+          case HAVE_BLOCK_ALT_CHAIN:
+            if (expect_unknown)
+            {
+              LOG_ERROR_CCONTEXT("Block is on the main chain, but we did not expect a known block, dropping connection");
+              drop_connection_with_score(context, 5, false);
+              return LEVIN_ERROR_CONNECTION;
+            }
+            {
+              block alt_block;
+              if (m_core.get_block_by_hash(arg.m_block_ids[i], alt_block) && get_block_height(alt_block) != arg.start_height + i)
               {
-                LOG_ERROR_CCONTEXT("Block is on the main chain, but we did not expect a known block, dropping connection");
+                LOG_ERROR_CCONTEXT("Block is on an alt chain, but not at the expected height, dropping connection");
                 drop_connection_with_score(context, 5, false);
                 return LEVIN_ERROR_CONNECTION;
               }
-              if (m_core.get_block_id_by_height(arg.start_height + i) != arg.m_block_ids[i])
-              {
-                LOG_ERROR_CCONTEXT("Block is on the main chain, but not at the expected height, dropping connection");
-                drop_connection_with_score(context, 5, false);
-                return LEVIN_ERROR_CONNECTION;
-              }
-              break;
-            case HAVE_BLOCK_ALT_CHAIN:
-              if (expect_unknown)
-              {
-                LOG_ERROR_CCONTEXT("Block is on the main chain, but we did not expect a known block, dropping connection");
-                drop_connection_with_score(context, 5, false);
-                return LEVIN_ERROR_CONNECTION;
-              }
-              break;
-          }
+            }
+            break;
         }
-        else
-          expect_unknown = true;
       }
+      else
+        expect_unknown = true;
       const uint64_t block_weight = arg.m_block_weights.empty() ? 0 : arg.m_block_weights[i];
       context.m_expected_heights.push_back(arg.m_block_ids[i]);
       context.m_needed_objects.push_back(std::make_pair(arg.m_block_ids[i], block_weight));
