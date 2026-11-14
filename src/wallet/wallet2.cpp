@@ -1724,11 +1724,17 @@ void wallet2::add_subaddress(uint32_t index_major, const std::string& label)
 //----------------------------------------------------------------------------------------------------
 bool wallet2::should_expand(const cryptonote::subaddress_index &index) const
 {
-  const uint32_t last_major = m_subaddress_labels.size() - 1 > (std::numeric_limits<uint32_t>::max() - m_subaddress_lookahead_major) ? std::numeric_limits<uint32_t>::max()  : (m_subaddress_labels.size() + m_subaddress_lookahead_major - 1);
+  const uint32_t max_u32 = std::numeric_limits<uint32_t>::max();
+  const size_t nacc = m_subaddress_labels.size();
+  if (nacc == 0 && m_subaddress_lookahead_major == 0)
+    return false;
+  const uint32_t last_major = nacc == 0 ? m_subaddress_lookahead_major - 1 : (nacc - 1 > (max_u32 - m_subaddress_lookahead_major) ? max_u32 : (nacc + m_subaddress_lookahead_major - 1));
   if (index.major > last_major)
     return false;
-  const size_t nsub = index.major < m_subaddress_labels.size() ? m_subaddress_labels[index.major].size() : 0;
-  const uint32_t last_minor = nsub - 1 > (std::numeric_limits<uint32_t>::max() - m_subaddress_lookahead_minor) ? std::numeric_limits<uint32_t>::max()  : (nsub + m_subaddress_lookahead_minor - 1);
+  const size_t nsub = index.major < nacc ? m_subaddress_labels[index.major].size() : 0;
+  if (nsub == 0 && m_subaddress_lookahead_minor == 0)
+    return false;
+  const uint32_t last_minor = nsub == 0 ? m_subaddress_lookahead_minor - 1 : (nsub - 1 > (max_u32 - m_subaddress_lookahead_minor) ? max_u32 : (nsub + m_subaddress_lookahead_minor - 1));
   if (index.minor > last_minor)
     return false;
   return true;
