@@ -13078,16 +13078,38 @@ bool wallet2::check_tx_proof(const crypto::hash &txid, const cryptonote::account
 bool wallet2::check_tx_proof(const cryptonote::transaction &tx, const cryptonote::account_public_address &address, bool is_subaddress, const std::string &message, const std::string &sig_str, uint64_t &received) const
 {
   // InProofV1, InProofV2, OutProofV1, OutProofV2
-  const bool is_out = sig_str.substr(0, 3) == "Out";
-  const std::string header = is_out ? sig_str.substr(0,10) : sig_str.substr(0,9);
-  int version = 2; // InProofV2
-  if (is_out && sig_str.substr(8,2) == "V1") version = 1; // OutProofV1
-  else if (is_out) version = 2; // OutProofV2
-  else if (sig_str.substr(7,2) == "V1") version = 1; // InProofV1
-
-  const size_t header_len = header.size();
-  THROW_WALLET_EXCEPTION_IF(sig_str.size() < header_len || sig_str.substr(0, header_len) != header, error::wallet_internal_error,
-    "Signature header check error");
+  bool is_out = false;
+  int version = 0;
+  size_t header_len = 0;
+  const boost::string_ref sig_ref{sig_str};
+  if (sig_ref.starts_with("OutProofV1"))
+  {
+    is_out = true;
+    version = 1;
+    header_len = sizeof("OutProofV1") - 1;
+  }
+  else if (sig_ref.starts_with("OutProofV2"))
+  {
+    is_out = true;
+    version = 2;
+    header_len = sizeof("OutProofV2") - 1;
+  }
+  else if (sig_ref.starts_with("InProofV1"))
+  {
+    is_out = false;
+    version = 1;
+    header_len = sizeof("InProofV1") - 1;
+  }
+  else if (sig_ref.starts_with("InProofV2"))
+  {
+    is_out = false;
+    version = 2;
+    header_len = sizeof("InProofV2") - 1;
+  }
+  else
+  {
+    THROW_WALLET_EXCEPTION(error::wallet_internal_error, "Signature header check error");
+  }
 
   // decode base58
   std::vector<crypto::public_key> shared_secret(1);
