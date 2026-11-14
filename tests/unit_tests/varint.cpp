@@ -160,3 +160,28 @@ TEST(varint, get_varint_byte_size)
   subtest_varint_byte_size_for_type<std::uint32_t>();
   subtest_varint_byte_size_for_type<std::uint64_t>();
 }
+
+TEST(varint, truncated_at_end_of_input_is_rejected)
+{
+  // A varint whose last available byte has the continuation bit set must not be accepted.
+  const std::string cases[] = {
+    std::string("\x80", 1),
+    std::string("\x81", 1),
+    std::string("\xff\xff", 2),
+    std::string("\x80\x81", 2),
+    std::string(9, '\xff'),
+  };
+  for (const std::string &s : cases)
+  {
+    uint64_t v = 0;
+    const int read = tools::read_varint(s.begin(), s.end(), v);
+    ASSERT_LE(read, 0);
+  }
+  // Complete varints still decode.
+  {
+    const std::string s("\x80\x01", 2);
+    uint64_t v = 0;
+    ASSERT_EQ(tools::read_varint(s.begin(), s.end(), v), 2);
+    ASSERT_EQ(v, 128u);
+  }
+}

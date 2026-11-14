@@ -59,6 +59,8 @@ namespace tools {
     EVARINT_OVERFLOW = -1,
     /* \brief Represents a non-canonical representation */
     EVARINT_REPRESENT = -2,
+    /* \brief Input ended while the continuation bit was still set */
+    EVARINT_TRUNCATED = -3,
   };
 
   /*! \brief writes a varint to a stream.
@@ -96,7 +98,8 @@ namespace tools {
     write = 0;
     for (int shift = 0;; shift += 7) {
       if (first == last) {
-	return read; 
+	/* ended in the middle of a varint (continuation bit set on last byte read) */
+	return read > 0 ? EVARINT_TRUNCATED : read;
       }
       unsigned char byte = *first;
       ++first;
