@@ -1227,6 +1227,7 @@ namespace cryptonote
     // some invalid blocks
     blocks_ext_by_hash m_invalid_blocks;     // crypto::hash -> block_extended_info
 
+
     checkpoints m_checkpoints;
     bool m_enforce_dns_checkpoints;
 

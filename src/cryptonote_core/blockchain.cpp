@@ -4044,8 +4044,8 @@ leave:
         continue;
 
       transaction &tx = txs[i].first;
-      const blobdata &tx_blob = txs[i].second;
       const crypto::hash &txid = std::get<0>(txs_meta[i]);
+      const blobdata &tx_blob = txs[i].second;
       const size_t tx_weight = std::get<1>(txs_meta[i]);
       const crypto::hash &valid_input_verification_id = std::get<3>(txs_meta[i]);
 
