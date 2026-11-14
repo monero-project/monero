@@ -4147,18 +4147,11 @@ bool wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
   std::vector<crypto::hash> hashes;
   uint64_t num_pulls = 0;
 
+  // probe the daemon with the nearest checkpoint below the stop height ahead of our own history, anchoring there if its chain contains it
   const uint64_t checkpoint_height = (stop_height < 1000) ? 0 : m_checkpoints.get_nearest_checkpoint_height(stop_height);
-  if ((stop_height > checkpoint_height && m_blockchain.size()-1 < checkpoint_height) && !force)
-  {
-    // we will drop all these, so don't bother getting them
-    uint64_t missing_blocks = checkpoint_height - m_blockchain.size();
-    while (missing_blocks-- > 0)
-      m_blockchain.push_back(crypto::null_hash); // maybe a bit suboptimal, but deque won't do huge reallocs like vector
-    m_blockchain.push_back(m_checkpoints.get_points().at(checkpoint_height));
-    m_blockchain.trim(checkpoint_height);
-    short_chain_history.clear();
-    get_short_chain_history(short_chain_history);
-  }
+  bool anchor = (stop_height > checkpoint_height && m_blockchain.size()-1 < checkpoint_height) && !force;
+  if (anchor)
+    short_chain_history.push_front(m_checkpoints.get_points().at(checkpoint_height));
 
   size_t current_index = m_blockchain.size();
   while(refresh_running() && current_index < stop_height)
@@ -4166,6 +4159,27 @@ bool wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
     if (max_pulls > 0 && num_pulls++ >= max_pulls)
       return false; // pull budget reached, caller may resume on a later call
     pull_hashes(0, blocks_start_height, short_chain_history, hashes);
+    if (anchor)
+    {
+      anchor = false;
+      if (blocks_start_height == checkpoint_height)
+      {
+        // we will drop all these, so don't bother getting them
+        uint64_t missing_blocks = checkpoint_height - m_blockchain.size();
+        while (missing_blocks-- > 0)
+          m_blockchain.push_back(crypto::null_hash); // maybe a bit suboptimal, but deque won't do huge reallocs like vector
+        m_blockchain.push_back(m_checkpoints.get_points().at(checkpoint_height));
+        m_blockchain.trim(checkpoint_height);
+        short_chain_history.clear();
+        get_short_chain_history(short_chain_history);
+      }
+      else
+      {
+        // the daemon's chain lacks the checkpoint (e.g. regtest), so skip hashes from the split with our own history instead
+        MWARNING("Daemon does not know checkpoint at height " << checkpoint_height << ", skipping hashes from height " << blocks_start_height);
+        short_chain_history.pop_front();
+      }
+    }
     if (hashes.size() <= 3)
       return true;
     if (blocks_start_height < m_blockchain.offset())
