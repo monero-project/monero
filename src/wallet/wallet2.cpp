@@ -7203,21 +7203,29 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   bool same_file = had_old_wallet_files && (path.empty() || path == m_wallet_file);
   if (had_old_wallet_files && !same_file)
   {
-    const std::string canonical_old_path = boost::filesystem::canonical(m_wallet_file).string();
-    const std::string canonical_new_path = boost::filesystem::weakly_canonical(path).string();
-    same_file = canonical_old_path == canonical_new_path;
+    std::string new_keys_file, new_wallet_file, new_mms_file;
+    do_prepare_file_names(path, new_keys_file, new_wallet_file, new_mms_file);
+    const auto old_cache = boost::filesystem::absolute(m_wallet_file);
+    const auto canonical_old_cache = boost::filesystem::canonical(old_cache);
+    const auto new_cache = boost::filesystem::absolute(new_wallet_file);
+    const auto old_keys = boost::filesystem::absolute(m_keys_file);
+    const auto new_keys = boost::filesystem::absolute(new_keys_file);
+    boost::system::error_code ec;
+    // Equivalent parent directories can be separate bind mount paths.
+    const auto same_entry = [&ec](const boost::filesystem::path &old_path, const boost::filesystem::path &new_path) {
+      return old_path.filename() == new_path.filename() &&
+        boost::filesystem::weakly_canonical(old_path.parent_path()) ==
+          boost::filesystem::weakly_canonical(new_path.parent_path()) &&
+        boost::filesystem::equivalent(old_path, new_path, ec);
+    };
+    same_file = same_entry(old_cache, new_cache) && same_entry(old_keys, new_keys);
     if (!same_file)
     {
-      // A bind mount can give the same directory entry two different canonical paths.
-      const boost::filesystem::path old_file(canonical_old_path), new_file(canonical_new_path);
-      const auto same_entry_alias = [&old_file](const boost::filesystem::path &candidate) {
-        return candidate != old_file && old_file.filename() == candidate.filename() &&
-          boost::filesystem::exists(candidate.parent_path()) &&
-          boost::filesystem::equivalent(old_file.parent_path(), candidate.parent_path());
-      };
-      same_file = same_entry_alias(new_file);
-      if (!same_file && string_tools::get_extension(path) == "keys")
-        same_file = same_entry_alias(boost::filesystem::weakly_canonical(string_tools::cut_off_extension(path)));
+      const bool cache_alias = boost::filesystem::equivalent(canonical_old_cache, boost::filesystem::weakly_canonical(new_cache), ec);
+      const bool keys_alias = boost::filesystem::equivalent(old_keys, boost::filesystem::weakly_canonical(new_keys), ec);
+      const bool path_alias = boost::filesystem::equivalent(canonical_old_cache, boost::filesystem::weakly_canonical(path), ec);
+      THROW_WALLET_EXCEPTION_IF(cache_alias || keys_alias || path_alias,
+        error::wallet_internal_error, "Destination wallet files overlap the current wallet");
     }
   }
 

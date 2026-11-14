@@ -39,6 +39,7 @@
 #include "serialization/binary_utils.h"
 #include "wallet/wallet2.h"
 #include "common/util.h"
+#include "scope_guard.h"
 
 using namespace boost::filesystem;
 using namespace epee::file_io_utils;
@@ -380,6 +381,97 @@ TEST(wallet_storage, store_to_file2file)
     }
 
     files_are_expected();
+}
+
+#ifndef WIN32
+TEST(wallet_storage, store_to_rejects_cache_symlink_target)
+{
+    const path fixture = unit_test::data_dir / "wallet_00fd416a";
+    const epee::wipeable_string password("beepbeep");
+    const path dir = temp_directory_path() / unique_path("wallet-store-alias-%%%%-%%%%");
+    create_directories(dir);
+    epee::scope_guard cleanup{[&] { boost::system::error_code ec; remove_all(dir, ec); }};
+
+    const path cache = dir / "realwallet";
+    const path link = dir / "link";
+    const path keys = path(link.string() + ".keys");
+    tools::copy_file(fixture.string(), cache.string());
+    tools::copy_file(fixture.string() + ".keys", keys.string());
+    create_symlink(cache, link);
+
+    std::string cache_before, keys_before;
+    ASSERT_TRUE(load_file_to_string(cache.string(), cache_before));
+    ASSERT_TRUE(load_file_to_string(keys.string(), keys_before));
+    {
+        tools::wallet2 w;
+        w.load(link.string(), password);
+        EXPECT_THROW(w.store_to(cache.string(), password), tools::error::wallet_internal_error);
+    }
+    std::string cache_after, keys_after;
+    ASSERT_TRUE(load_file_to_string(cache.string(), cache_after));
+    ASSERT_TRUE(load_file_to_string(keys.string(), keys_after));
+    EXPECT_EQ(cache_before, cache_after);
+    EXPECT_EQ(keys_before, keys_after);
+    EXPECT_TRUE(is_symlink(link));
+    EXPECT_FALSE(exists(cache.string() + ".keys"));
+    tools::wallet2 loaded;
+    loaded.load(link.string(), password);
+    EXPECT_EQ(WALLET_00fd416a_PRIMARY_ADDRESS, loaded.get_address_as_str());
+}
+
+TEST(wallet_storage, store_to_accepts_directory_symlink_alias)
+{
+    const path fixture = unit_test::data_dir / "wallet_00fd416a";
+    const epee::wipeable_string password("beepbeep");
+    const path dir = temp_directory_path() / unique_path("wallet-store-dir-alias-%%%%-%%%%");
+    create_directories(dir / "actual");
+    epee::scope_guard cleanup{[&] { boost::system::error_code ec; remove_all(dir, ec); }};
+
+    const path source = dir / "actual" / "wallet";
+    const path alias = dir / "alias";
+    tools::copy_file(fixture.string(), source.string());
+    tools::copy_file(fixture.string() + ".keys", source.string() + ".keys");
+    create_directory_symlink(dir / "actual", alias);
+    {
+        tools::wallet2 w;
+        w.load(source.string(), password);
+        w.store_to((alias / "wallet").string(), password);
+    }
+    tools::wallet2 loaded;
+    loaded.load((alias / "wallet").string(), password);
+    EXPECT_EQ(WALLET_00fd416a_PRIMARY_ADDRESS, loaded.get_address_as_str());
+}
+#endif
+
+TEST(wallet_storage, store_to_rejects_ambiguous_keys_cache_alias)
+{
+    const path fixture = unit_test::data_dir / "wallet_00fd416a";
+    const epee::wipeable_string password("beepbeep");
+    const path dir = temp_directory_path() / unique_path("wallet-store-keys-alias-%%%%-%%%%");
+    create_directories(dir);
+    epee::scope_guard cleanup{[&] { boost::system::error_code ec; remove_all(dir, ec); }};
+
+    const path cache = dir / "A.keys";
+    const path keys = path(cache.string() + ".keys");
+    const path alias = dir / "." / "A.keys";
+    tools::copy_file(fixture.string(), cache.string());
+    tools::copy_file(fixture.string() + ".keys", keys.string());
+    std::string cache_before, keys_before;
+    ASSERT_TRUE(load_file_to_string(cache.string(), cache_before));
+    ASSERT_TRUE(load_file_to_string(keys.string(), keys_before));
+    {
+        tools::wallet2 w;
+        w.load(keys.string(), password);
+        EXPECT_THROW(w.store_to(alias.string(), password), tools::error::wallet_internal_error);
+    }
+    std::string cache_after, keys_after;
+    ASSERT_TRUE(load_file_to_string(cache.string(), cache_after));
+    ASSERT_TRUE(load_file_to_string(keys.string(), keys_after));
+    EXPECT_EQ(cache_before, cache_after);
+    EXPECT_EQ(keys_before, keys_after);
+    tools::wallet2 loaded;
+    loaded.load(keys.string(), password);
+    EXPECT_EQ(WALLET_00fd416a_PRIMARY_ADDRESS, loaded.get_address_as_str());
 }
 
 TEST(wallet_storage, store_to_mem2file)
