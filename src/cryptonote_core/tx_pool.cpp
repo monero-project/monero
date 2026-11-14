@@ -42,7 +42,6 @@
 #include "blockchain_db/blockchain_db.h"
 #include "misc_language.h"
 #include "misc_log_ex.h"
-#include "scope_guard.h"
 #include "tx_verification_utils.h"
 #include "warnings.h"
 #include "common/perf_timer.h"
