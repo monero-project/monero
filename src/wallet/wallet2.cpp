@@ -4173,6 +4173,11 @@ bool wallet2::fast_refresh(uint64_t stop_height, uint64_t &blocks_start_height, 
       MERROR("Blocks start before blockchain offset: " << blocks_start_height << " " << m_blockchain.offset());
       return true;
     }
+    if (blocks_start_height > m_blockchain.size())
+    {
+      MERROR("Blocks start after the end of the hash chain: " << blocks_start_height << " " << m_blockchain.size());
+      return true;
+    }
     current_index = blocks_start_height;
     if (hashes.size() + current_index < stop_height) {
       drop_from_short_history(short_chain_history, 3);
