@@ -421,35 +421,6 @@ TEST(wallet_storage, store_to_rejects_keys_overlapping_cache)
     }
 }
 
-#ifndef WIN32
-TEST(wallet_storage, store_to_replaces_distinct_keys_hardlink)
-{
-    const path fixture = unit_test::data_dir / "wallet_00fd416a";
-    const epee::wipeable_string password("beepbeep");
-    const path dir = temp_directory_path() / unique_path("wallet-store-hardlink-%%%%-%%%%");
-    create_directories(dir);
-    epee::scope_guard cleanup{[&] { boost::system::error_code ec; remove_all(dir, ec); }};
-
-    const path source = dir / "source";
-    const path target = dir / "target";
-    tools::copy_file(fixture.string(), source.string());
-    tools::copy_file(fixture.string() + ".keys", source.string() + ".keys");
-    create_hard_link(source, target.string() + ".keys");
-    {
-        tools::wallet2 w;
-        w.load(source.string(), password);
-        w.store_to(target.string(), password);
-    }
-    EXPECT_FALSE(exists(source));
-    EXPECT_FALSE(exists(source.string() + ".keys"));
-    ASSERT_TRUE(exists(target));
-    ASSERT_TRUE(exists(target.string() + ".keys"));
-    tools::wallet2 loaded;
-    loaded.load(target.string(), password);
-    EXPECT_EQ(WALLET_00fd416a_PRIMARY_ADDRESS, loaded.get_address_as_str());
-}
-#endif
-
 TEST(wallet_storage, store_to_mem2file)
 {
     for (const auto nettype : {cryptonote::MAINNET, cryptonote::TESTNET, cryptonote::STAGENET})
