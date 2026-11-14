@@ -39,6 +39,7 @@
 #include "serialization/binary_utils.h"
 #include "wallet/wallet2.h"
 #include "common/util.h"
+#include "scope_guard.h"
 
 using namespace boost::filesystem;
 using namespace epee::file_io_utils;
@@ -412,6 +413,44 @@ TEST(wallet_storage, store_to_file2file)
     }
 
     files_are_expected();
+}
+
+TEST(wallet_storage, store_to_rejects_keys_overlapping_cache)
+{
+    const path fixture = unit_test::data_dir / "wallet_00fd416a";
+    const epee::wipeable_string password("beepbeep");
+    const path dir = temp_directory_path() / unique_path("wallet-store-overlap-%%%%-%%%%");
+    create_directories(dir);
+    epee::scope_guard cleanup{[&] { boost::system::error_code ec; remove_all(dir, ec); }};
+
+    for (int i = 0; i != 2; ++i)
+    {
+        SCOPED_TRACE(i);
+        const path target = dir / ("wallet-" + std::to_string(i));
+        const std::string source = target.string() + ".keys";
+        const std::string source_keys = source + ".keys";
+        const path store_path = i == 1 ? dir / "missing" / ".." / target.filename() : target;
+        tools::copy_file(fixture.string(), source);
+        tools::copy_file(fixture.string() + ".keys", source_keys);
+
+        std::string cache_before, keys_before;
+        ASSERT_TRUE(load_file_to_string(source, cache_before));
+        ASSERT_TRUE(load_file_to_string(source_keys, keys_before));
+        {
+            tools::wallet2 w;
+            w.load(source_keys, password);
+            EXPECT_THROW(w.store_to(store_path.string(), password), tools::error::wallet_internal_error);
+        }
+        std::string cache_after, keys_after;
+        ASSERT_TRUE(load_file_to_string(source, cache_after));
+        ASSERT_TRUE(load_file_to_string(source_keys, keys_after));
+        EXPECT_EQ(cache_before, cache_after);
+        EXPECT_EQ(keys_before, keys_after);
+        EXPECT_FALSE(exists(target));
+        tools::wallet2 loaded;
+        loaded.load(source_keys, password);
+        EXPECT_EQ(WALLET_00fd416a_PRIMARY_ADDRESS, loaded.get_address_as_str());
+    }
 }
 
 TEST(wallet_storage, store_to_mem2file)
