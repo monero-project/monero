@@ -77,7 +77,9 @@ TEST(cn_format_utils, add_extra_nonce_to_tx_extra)
                 continue;
             ASSERT_EQ(expected_extra_size, extra.size());
             if (!extra_prefix.empty())
+            {
                 ASSERT_EQ(0, memcmp(extra_prefix.data(), extra.data(), extra_prefix.size()));
+            }
             const std::uint8_t *p = extra.data() + extra_prefix.size();
             ASSERT_EQ(TX_EXTRA_NONCE, *p);
             ++p;
@@ -327,7 +329,9 @@ TEST(cn_format_utils, add_mm_merkle_root_to_tx_extra)
             ASSERT_TRUE(add_success);
             ASSERT_EQ(expected_extra_size, extra.size());
             if (!extra_prefix.empty())
+            {
                 ASSERT_EQ(0, memcmp(extra_prefix.data(), extra.data(), extra_prefix.size()));
+            }
             const std::uint8_t *p = extra.data() + extra_prefix.size();
             ASSERT_EQ(TX_EXTRA_MERGE_MINING_TAG, *p);
             ++p;
@@ -401,7 +405,9 @@ TEST(cn_format_utils, tx_extra_merge_mining_tag_store_load)
             memcpy(extra.data() + extra.size() - mm_blob.size(), mm_blob.data(), mm_blob.size());
             ASSERT_EQ(expected_extra_size, extra.size());
             if (!extra_prefix.empty())
+            {
                 ASSERT_EQ(0, memcmp(extra_prefix.data(), extra.data(), extra_prefix.size()));
+            }
             const std::uint8_t *p = extra.data() + extra_prefix.size();
             ASSERT_EQ(TX_EXTRA_MERGE_MINING_TAG, *p);
             ++p;

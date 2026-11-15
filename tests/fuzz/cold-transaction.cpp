@@ -53,8 +53,10 @@ END_INIT_SIMPLE_FUZZER()
 BEGIN_SIMPLE_FUZZER()
   tools::wallet2::unsigned_tx_set exported_txs;
   binary_archive<false> ar{{buf, len}};
-  ::serialization::serialize(ar, exported_txs);
-  std::vector<tools::wallet2::pending_tx> ptx;
-  bool success = wallet->sign_tx(exported_txs, "/tmp/cold-transaction-test-signed", ptx);
-  std::cout << (success ? "signed" : "error") << std::endl;
+  if (::serialization::serialize(ar, exported_txs))
+  {
+    std::vector<tools::wallet2::pending_tx> ptx;
+    bool success = wallet->sign_tx(exported_txs, "/tmp/cold-transaction-test-signed", ptx);
+    std::cout << (success ? "signed" : "error") << std::endl;
+  }
 END_SIMPLE_FUZZER()
