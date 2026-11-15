@@ -32,8 +32,20 @@
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
 #include "wallet/wallet2.h"
-#include "wallet/wallet2_basic/wallet2_serialization.h"
 #include "fuzzer.h"
+
+class wallet_accessor_test
+{
+public:
+  static size_t import_outputs(tools::wallet2 &wallet, epee::span<const uint8_t> input)
+  {
+    // Keep encrypted exports on the public import path and fuzz raw archives directly.
+    if (tools::wallet2::has_output_export_magic(input))
+      return wallet.import_outputs_from_str({reinterpret_cast<const char*>(input.data()), input.size()});
+
+    return wallet.import_outputs_from_archive(input);
+  }
+};
 
 static tools::wallet2 *wallet = NULL;
 
@@ -52,6 +64,6 @@ BEGIN_INIT_SIMPLE_FUZZER()
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
-  const size_t n_outputs = wallet->import_outputs_from_str({reinterpret_cast<const char*>(buf), len});
+  const size_t n_outputs = wallet_accessor_test::import_outputs(*wallet, {buf, len});
   std::cout << boost::lexical_cast<std::string>(n_outputs) << " outputs imported" << std::endl;
 END_SIMPLE_FUZZER()
