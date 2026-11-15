@@ -66,7 +66,8 @@ namespace
       boost::unique_lock<boost::mutex> lock(m_mutex);
       m_last_command = command;
       m_last_in_buf = std::string((const char*)in_buff.data(), in_buff.size());
-      buff_out.write(epee::to_span(m_invoke_out_buf));
+      if (!m_invoke_out_buf.empty())
+        buff_out.write(epee::to_span(m_invoke_out_buf));
       return m_return_code;
     }
 
@@ -379,7 +380,7 @@ TEST_F(positive_test_connection_to_levin_protocol_handler_calls, handler_process
   ASSERT_EQ(expected_return_code, SWAP32LE(resp_head.m_return_code));
   ASSERT_EQ(expected_out_data.size(), SWAP64LE(resp_head.m_cb));
   ASSERT_FALSE(resp_head.m_have_to_return_data);
-  ASSERT_EQ(SWAP32LE(LEVIN_PROTOCOL_VER_1), resp_head.m_protocol_version);
+  ASSERT_EQ(LEVIN_PROTOCOL_VER_1, SWAP32LE(resp_head.m_protocol_version));
   ASSERT_TRUE(0 != (SWAP32LE(resp_head.m_flags) & LEVIN_PACKET_RESPONSE));
 }
 

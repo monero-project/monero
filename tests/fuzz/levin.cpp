@@ -76,7 +76,8 @@ namespace
       boost::unique_lock<boost::mutex> lock(m_mutex);
       m_last_command = command;
       m_last_in_buf = std::string((const char*)in_buff.data(), in_buff.size());
-      buff_out.write(epee::to_span(m_invoke_out_buf));
+      if (!m_invoke_out_buf.empty())
+        buff_out.write(epee::to_span(m_invoke_out_buf));
       return m_return_code;
     }
 
