@@ -7211,6 +7211,17 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   THROW_WALLET_EXCEPTION_IF(m_is_background_wallet && !same_file, error::wallet_internal_error,
     "Cannot save background wallet files to a different location");
 
+  if (had_old_wallet_files && !same_file)
+  {
+    std::string new_keys_file, new_wallet_file, new_mms_file;
+    do_prepare_file_names(path, new_keys_file, new_wallet_file, new_mms_file);
+    const auto old_path = boost::filesystem::canonical(m_wallet_file);
+    const auto keys_path = boost::filesystem::weakly_canonical(new_keys_file);
+    boost::system::error_code ec;
+    THROW_WALLET_EXCEPTION_IF(boost::filesystem::equivalent(old_path, keys_path, ec),
+      error::wallet_internal_error, "Destination keys file overlaps the current wallet cache");
+  }
+
   if (!same_file)
   {
     // check if we want to store to directory which doesn't exists yet
