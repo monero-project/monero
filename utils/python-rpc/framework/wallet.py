@@ -545,13 +545,14 @@ class Wallet(object):
         }
         return self.rpc.send_json_rpc_request(prepare_multisig)
 
-    def make_multisig(self, multisig_info, threshold, password = ''):
+    def make_multisig(self, multisig_info, threshold, password = '', nofn_fast_noninteractive_setup = False):
         make_multisig = {
             'method': 'make_multisig',
             'params' : {
                 'multisig_info': multisig_info,
                 'threshold': threshold,
                 'password': password,
+                'nofn_fast_noninteractive_setup': nofn_fast_noninteractive_setup,
             },
             'jsonrpc': '2.0', 
             'id': '0'

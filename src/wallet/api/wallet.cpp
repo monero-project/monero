@@ -1607,6 +1607,25 @@ string WalletImpl::makeMultisig(const vector<string>& info, const uint32_t thres
     return string();
 }
 
+string WalletImpl::makeMultisigNofNFastNoninteractive(const vector<string>& info) {
+    if (checkBackgroundSync("cannot make multisig"))
+        return string();
+    try {
+        clearStatus();
+
+        if (m_wallet->get_multisig_status().multisig_is_active) {
+            throw runtime_error("Wallet is already multisig");
+        }
+
+        return m_wallet->multisig_nofn_fast_noninteractive_setup(epee::wipeable_string(m_password), info);
+    } catch (const exception& e) {
+        LOG_ERROR("Error on making N-of-N multisig wallet (fast setup): " << e.what());
+        setStatusError(string(tr("Failed to make multisig: ")) + e.what());
+    }
+
+    return string();
+}
+
 std::string WalletImpl::exchangeMultisigKeys(const std::vector<std::string> &info, const bool force_update_use_with_caution /*= false*/) {
     try {
         clearStatus();
