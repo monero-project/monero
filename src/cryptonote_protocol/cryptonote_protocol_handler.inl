@@ -208,6 +208,7 @@ namespace cryptonote
     {
       NOTIFY_REQUEST_CHAIN::request r = {};
       context.m_needed_objects.clear();
+      context.m_last_known_hash = crypto::null_hash;
       m_core.get_short_chain_history(r.block_ids, context.m_expect_height);
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)
       r.prune = m_sync_pruned_blocks;
@@ -721,6 +722,7 @@ namespace cryptonote
     else if( bvc.m_marked_as_orphaned )
     {
       context.m_needed_objects.clear();
+      context.m_last_known_hash = crypto::null_hash;
       context.m_state = cryptonote_connection_context::state_synchronizing;
       NOTIFY_REQUEST_CHAIN::request r = {};
       m_core.get_short_chain_history(r.block_ids, context.m_expect_height);
@@ -2061,6 +2063,10 @@ skip:
       CHECK_AND_ASSERT_MES(!r.block_ids.empty(), false, "Short chain history is empty");
 
       // Continue from this peer's last known block, which may still be queued.
+      // One in our main chain is already covered by the chain history.
+      int where;
+      if (context.m_last_known_hash != crypto::null_hash && m_core.have_block_unlocked(context.m_last_known_hash, &where) && where == HAVE_BLOCK_MAIN_CHAIN)
+        context.m_last_known_hash = crypto::null_hash;
       if (context.m_last_known_hash != crypto::null_hash && r.block_ids.front() != context.m_last_known_hash)
       {
         context.m_expect_height = std::numeric_limits<uint64_t>::max();
@@ -2076,6 +2082,31 @@ skip:
       post_notify<NOTIFY_REQUEST_CHAIN>(r, context);
       MLOG_PEER_STATE("requesting chain");
       return true;
+    };
+
+    // a span this peer reserved but did not deliver, as after an idle kick
+    const auto holds_span = [this, &context]() {
+      bool holds = false;
+      m_block_queue.foreach([&context, &holds](const block_queue::span &s) {
+        holds = s.connection_id == context.m_connection_id && s.blocks.empty();
+        return !holds;
+      });
+      return holds;
+    };
+
+    // other connections may have queued or added this peer's whole chain entry
+    const auto chain_entry_known = [this, &context, &holds_span]() {
+      const uint64_t first_height = context.m_expected_heights_start;
+      const uint64_t last_height = context.m_last_response_height;
+      const auto known_at_height = [this](const crypto::hash &hash, uint64_t height) {
+        return m_block_queue.have_height(hash) == height || m_core.get_block_id_by_height(height) == hash;
+      };
+      // a full entry from where we asked, with both ends at the given heights
+      return context.m_chain_entry_from_requested_hash
+        && context.m_expected_heights.size() + HASH_OF_HASHES_STEP > BLOCKS_IDS_SYNCHRONIZING_DEFAULT_COUNT
+        && known_at_height(context.m_expected_heights.front(), first_height)
+        && known_at_height(context.m_last_known_hash, last_height)
+        && !holds_span();
     };
 
     // if we don't need to get next span, and the block queue is full enough, wait a bit
@@ -2108,6 +2139,12 @@ skip:
         {
           if (context.m_remote_blockchain_height > m_block_queue.get_next_needed_height(bc_height))
           {
+            if (chain_entry_known())
+            {
+              MDEBUG(context << "All hashes up to " << context.m_last_response_height << " are known, asking for the next chain entry");
+              check_span_lock.unlock();
+              return request_chain(false);
+            }
             MERROR(context << "Nothing we can request from this peer, and we did not request anything previously");
             return false;
           }
@@ -2292,6 +2329,11 @@ skip:
         {
           if (context.m_remote_blockchain_height > m_block_queue.get_next_needed_height(m_core.get_current_blockchain_height()))
           {
+            if (chain_entry_known())
+            {
+              MDEBUG(context << "All hashes up to " << context.m_last_response_height << " are known, asking for the next chain entry");
+              return request_chain(false);
+            }
             MERROR(context << "Nothing we can request from this peer, and we did not request anything previously");
             return false;
           }
@@ -2432,6 +2474,14 @@ skip:
       {
         context.set_state_normal();
         MLOG_PEER_STATE("Nothing to do for now, switching to normal state");
+        return true;
+      }
+      // other connections are still downloading the rest of this peer's chain entry, wait for them
+      if (!context.m_needed_objects.empty() && !holds_span() && std::all_of(context.m_needed_objects.begin(), context.m_needed_objects.end(),
+          [this](const std::pair<crypto::hash, uint64_t> &o) { return m_block_queue.requested(o.first); }))
+      {
+        context.m_state = cryptonote_connection_context::state_standby;
+        MLOG_PEER_STATE("Rest of the chain entry is requested from other peers, waiting");
         return true;
       }
       MLOG_PEER_STATE("We can download nothing from this peer, dropping");
@@ -2644,6 +2694,10 @@ skip:
     }
 
     context.m_expected_heights_start = arg.start_height;
+    // we asked from the last known hash, or from our top block when there is none
+    context.m_chain_entry_from_requested_hash = context.m_last_known_hash == crypto::null_hash
+      ? arg.start_height + 1 == context.m_expect_height
+      : arg.m_block_ids.front() == context.m_last_known_hash;
 
     context.m_expected_heights.clear();
     context.m_expected_heights.reserve(arg.m_block_ids.size());
