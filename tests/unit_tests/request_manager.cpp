@@ -162,6 +162,26 @@ TEST(request_manager, deferred_requests_respect_queue_limit)
     EXPECT_EQ(req_manager.fly_available_requests(peer).tx_hashes, std::vector<crypto::hash>{overflow});
 }
 //----------------------------------------------------------------------------------------------------------------------
+TEST(request_manager, canceled_requests_preserve_queue_limit)
+{
+    request_manager req_manager(2, 30000, 2);
+    const auto peer = uuid_from_char(1);
+    const std::vector<crypto::hash> hashes{crypto::hash{1}, crypto::hash{2}};
+    ASSERT_TRUE(req_manager.enqueue_requests(hashes, peer, false).tx_hashes.empty());
+
+    for (char i = 3; i < 7; ++i)
+    {
+        req_manager.cancel_peer_requests(peer);
+        const crypto::hash overflow{i};
+        EXPECT_TRUE(req_manager.enqueue_requests({overflow}, peer).tx_hashes.empty());
+        EXPECT_FALSE(req_manager.remove_request(overflow));
+
+        EXPECT_EQ(req_manager.enqueue_requests(hashes, peer).tx_hashes, hashes);
+    }
+    EXPECT_TRUE(req_manager.remove_request(hashes.front()));
+    EXPECT_TRUE(req_manager.remove_request(hashes.back()));
+}
+//----------------------------------------------------------------------------------------------------------------------
 TEST(request_manager, multiple_peers)
 {
     const uint8_t MAX_IN_FLIGHT = 4;

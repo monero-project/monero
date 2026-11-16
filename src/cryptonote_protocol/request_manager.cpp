@@ -156,16 +156,16 @@ request_manager::tx_request_t request_manager::enqueue_requests(const std::vecto
     auto it = by_peer_and_tx.find(boost::make_tuple(peer_id, tx_hash));
 
     const bool in_queue = it != by_peer_and_tx.end();
+    if (!in_queue && n_peer_requests >= m_max_queued_per_peer) {
+      MDEBUG("Not requesting tx " << tx_hash << " from peer "
+            << peer_id << ", queue full");
+      continue;
+    }
     const bool let_it_fly = allow_flight && m_connection_stats[peer_id].in_flight_requests < m_max_in_flight
         && !this->request_is_in_flight(tx_hash);
 
     if (!let_it_fly) {
       if (!in_queue) {
-        if (n_peer_requests >= m_max_queued_per_peer) {
-          MDEBUG("Not requesting tx " << tx_hash << " from peer "
-                << peer_id << ", queue full");
-          continue;
-        }
         // Add the new request! Nonce doesn't get set until it's in flight.
         m_requested_txs.insert(tx_request(peer_id, tx_hash, 0/*nonce*/, let_it_fly));
         ++n_peer_requests;

@@ -97,16 +97,16 @@ namespace cryptonote
     return MAX_N_TXS;
   }
   //-----------------------------------------------------------------------------------------------------------------------
-  static std::size_t max_n_tx_hashes_per_packet()
+  static std::size_t max_n_tx_hashes_per_packet(int command)
   {
-    static const std::size_t MAX_N_TX_HASHES = get_command_max_bytes(NOTIFY_TX_POOL_HASH::ID) / sizeof(crypto::hash) * 95 / 100; // 95% for overhead
+    const std::size_t MAX_N_TX_HASHES = get_command_max_bytes(command) / sizeof(crypto::hash) * 95 / 100; // 95% for overhead
     CHECK_AND_ASSERT_MES(MAX_N_TX_HASHES > 0, 100/*sane default*/, "MAX_N_TX_HASHES is expected >0, something is wrong.");
     return MAX_N_TX_HASHES;
   }
   //-----------------------------------------------------------------------------------------------------------------------
-  static void shrink_to_fit_hashes_container(std::vector<crypto::hash> &hashes_inout)
+  static void shrink_to_fit_hashes_container(std::vector<crypto::hash> &hashes_inout, int command)
   {
-    static const std::size_t max_n_hashes = max_n_tx_hashes_per_packet();
+    const std::size_t max_n_hashes = max_n_tx_hashes_per_packet(command);
     if (max_n_hashes >= hashes_inout.size())
       return;
 
@@ -128,7 +128,7 @@ namespace cryptonote
                                                                                                               m_no_sync(false),
                                                                                                               m_block_sync_queue_time(0),
                                                                                                               m_block_queue_limit(0),
-                                                                                                              m_request_manager(max_n_txs_per_packet(), P2P_DEFAULT_REQUEST_TIMEOUT, max_n_tx_hashes_per_packet())
+                                                                                                              m_request_manager(max_n_txs_per_packet(), P2P_DEFAULT_REQUEST_TIMEOUT, max_n_tx_hashes_per_packet(NOTIFY_TX_POOL_HASH::ID))
   {
     if(!m_p2p)
       m_p2p = &m_p2p_stub;
@@ -925,7 +925,7 @@ namespace cryptonote
       return 1;
     }
 
-    shrink_to_fit_hashes_container(inv_txes_req.t);
+    shrink_to_fit_hashes_container(inv_txes_req.t, NOTIFY_TX_POOL_HASH::ID);
 
     MLOG_P2P_MESSAGE("-->>NOTIFY_TX_POOL_HASH:" << " txs.size()=" << inv_txes_req.t.size());
     post_notify<NOTIFY_TX_POOL_HASH>(inv_txes_req, context);
@@ -986,6 +986,9 @@ namespace cryptonote
   int t_cryptonote_protocol_handler<t_core>::handle_request_tx_pool_txs(int command, NOTIFY_REQUEST_TX_POOL_TXS::request& arg, cryptonote_connection_context& context)
   {
     MLOG_P2P_MESSAGE("Received NOTIFY_REQUEST_TX_POOL_TXS (" << arg.t.size() << " txes)");
+
+    if (context.m_state == cryptonote_connection_context::state_before_handshake)
+      return 1;
 
     std::vector<blobdata> txs;
 
@@ -1763,7 +1766,8 @@ namespace cryptonote
 
               return 1;
             }
-            else if (bvc.m_added_to_main_chain)
+            // No transaction requests are queued before initial synchronization.
+            else if (bvc.m_added_to_main_chain && m_synchronized)
             {
               block tmp;
               const std::vector<crypto::hash>* tx_hashes_ptr = nullptr;
@@ -1773,8 +1777,7 @@ namespace cryptonote
               }
               else
               {
-                crypto::hash ignore;
-                if (parse_and_validate_block_from_blob(block_entry.block, tmp, &ignore))
+                if (parse_and_validate_block_from_blob(block_entry.block, tmp))
                   tx_hashes_ptr = &tmp.tx_hashes;
               }
               if (tx_hashes_ptr)
@@ -3075,7 +3078,7 @@ skip:
       return false;
     }
 
-    shrink_to_fit_hashes_container(r.hashes);
+    shrink_to_fit_hashes_container(r.hashes, NOTIFY_GET_TXPOOL_COMPLEMENT::ID);
 
     MLOG_P2P_MESSAGE("-->>NOTIFY_GET_TXPOOL_COMPLEMENT: hashes.size()=" << r.hashes.size() );
     const bool sent = post_notify<NOTIFY_GET_TXPOOL_COMPLEMENT>(r, context);

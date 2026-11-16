@@ -337,15 +337,32 @@ namespace
     cryptonote::blockchain_storage storage;
     size_t handled_txs = 0;
     std::vector<bool> tx_results;
+    bool known_top = false;
+
+    bool have_block(const crypto::hash& hash, int* where = nullptr) const
+    {
+      if (!known_top || hash != crypto::null_hash)
+        return false;
+      if (where)
+        *where = HAVE_BLOCK_MAIN_CHAIN;
+      return true;
+    }
 
     mutable size_t complement_calls = 0;
     std::vector<crypto::hash> complement_hashes;
+    std::vector<crypto::hash> pool_hashes;
     std::map<crypto::hash, std::pair<cryptonote::blobdata, cryptonote::relay_method>> pool_txs;
 
     bool get_txpool_complement(const std::vector<crypto::hash>&, std::vector<crypto::hash>& hashes) const
     {
       ++complement_calls;
       hashes = complement_hashes;
+      return true;
+    }
+
+    bool get_pool_transaction_hashes(std::vector<crypto::hash>& hashes, bool = true) const
+    {
+      hashes = pool_hashes;
       return true;
     }
 
@@ -2679,6 +2696,31 @@ TEST_F(tx_relay_protocol_test, complement_uses_hashes_for_v2_peers)
   ASSERT_EQ(1u, endpoint.notifications.size());
   const auto response = endpoint.notifications.front().get<cryptonote::NOTIFY_TX_POOL_HASH>();
   EXPECT_EQ(core.complement_hashes, response.t);
+}
+
+TEST_F(tx_relay_protocol_test, complement_packets_respect_their_command_limits)
+{
+  core.known_top = true;
+  core.pool_hashes.resize(150000);
+  cryptonote::CORE_SYNC_DATA sync{};
+  sync.current_height = core.get_current_blockchain_height();
+  ASSERT_TRUE(protocol.process_payload_sync_data(sync, context, true));
+  ASSERT_EQ(endpoint.notifications.size(), 1u);
+  const auto& notification = endpoint.notifications.front();
+  EXPECT_LE(notification.payload.size(), cryptonote::get_command_max_bytes(cryptonote::NOTIFY_GET_TXPOOL_COMPLEMENT::ID));
+  auto request = notification.get<cryptonote::NOTIFY_GET_TXPOOL_COMPLEMENT>();
+  EXPECT_GT(request.hashes.size(), 80000u);
+  EXPECT_LT(request.hashes.size(), core.pool_hashes.size());
+
+  core.complement_hashes = core.pool_hashes;
+  endpoint.notifications.clear();
+  ASSERT_EQ(notify<cryptonote::NOTIFY_GET_TXPOOL_COMPLEMENT>(request, context), 1);
+  ASSERT_EQ(endpoint.notifications.size(), 1u);
+  const auto& response_notification = endpoint.notifications.front();
+  EXPECT_LE(response_notification.payload.size(), cryptonote::get_command_max_bytes(cryptonote::NOTIFY_TX_POOL_HASH::ID));
+  const auto response = response_notification.get<cryptonote::NOTIFY_TX_POOL_HASH>();
+  EXPECT_FALSE(response.t.empty());
+  EXPECT_LT(response.t.size(), request.hashes.size());
 }
 
 TEST_F(tx_relay_protocol_test, complement_ignored_for_legacy_peers)

@@ -412,6 +412,14 @@ namespace rpc
       return;
     }
 
+    if (tx_blob.size() > get_max_tx_size())
+    {
+      MERROR("[SendRawTx]: tx blob too big: " << tx_blob.size());
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "too big";
+      return;
+    }
+
     tx_verification_context tvc = AUTO_VAL_INIT(tvc);
 
     cryptonote::transaction tx{};
