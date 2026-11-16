@@ -1738,6 +1738,11 @@ class TransferTest():
         assert any(t.tx_hash == txid and t.subaddr_index.major == 1 for t in all_accounts.transfers)
         addresses = self.wallet[1].get_address(all_accounts = True).addresses
         assert all(any(a.account_index == major and a.address_index == 0 and a.used for a in addresses) for major in (0, 1))
+        unused = self.wallet[1].create_address(account_index = 0).address
+        addresses = self.wallet[1].get_address(account_index = 0).addresses
+        assert any(a.address_index == 0 and a.used for a in addresses)
+        assert any(a.address == unused and not a.used for a in addresses)
+        assert self.wallet[1].get_address(account_index = 0, subaddresses = [0]).addresses[0].used
 
 if __name__ == '__main__':
     TransferTest().run_test()
