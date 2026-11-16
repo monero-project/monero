@@ -1506,6 +1506,7 @@ namespace wallet_rpc
     uint64_t height;
     uint64_t timestamp;
     uint64_t amount;
+    bool amount_incomplete = false; // outgoing amount may be a lower bound, not all of its inputs are known
     amounts_container amounts;
     uint64_t fee;
     uint64_t change_amount;
@@ -1527,6 +1528,7 @@ namespace wallet_rpc
       KV_SERIALIZE(height)
       KV_SERIALIZE(timestamp)
       KV_SERIALIZE(amount)
+      KV_SERIALIZE_OPT(amount_incomplete, false)
       KV_SERIALIZE(amounts)
       KV_SERIALIZE(fee)
       KV_SERIALIZE_OPT(change_amount, (uint64_t)0)

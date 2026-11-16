@@ -296,6 +296,7 @@ namespace cryptonote
       std::string note;
       std::string unlocked;
       bool selected = true;
+      uint64_t debit = 0; // what a confirmed outgoing transfer took from the balance: recorded inputs minus change
     };
     bool get_transfers(std::vector<std::string>& args_, std::vector<transfer_view>& transfers, bool include_history = false);
 
