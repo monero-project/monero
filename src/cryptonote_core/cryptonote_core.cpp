@@ -1010,13 +1010,14 @@ namespace cryptonote
       const uint64_t end = start_offset + count - 1;
       m_blockchain_storage.for_blocks_range(start_offset, end,
         [this, &emission_amount, &total_fee_amount](uint64_t, const crypto::hash& hash, const block& b){
-      std::vector<transaction> txs;
-      std::vector<crypto::hash> missed_txs;
       uint64_t coinbase_amount = get_outs_money_amount(b.miner_tx);
-      this->get_transactions(b.tx_hashes, txs, missed_txs, true);
       uint64_t tx_fee_amount = 0;
-      for(const auto& tx: txs)
+      for (const auto& tx_hash : b.tx_hashes)
       {
+        blobdata tx_blob;
+        CHECK_AND_ASSERT_THROW_MES(m_blockchain_storage.get_db().get_pruned_tx_blob(tx_hash, tx_blob), "Transaction not found: " << tx_hash);
+        transaction tx;
+        CHECK_AND_ASSERT_THROW_MES(parse_and_validate_tx_base_from_blob(tx_blob, tx), "Invalid transaction: " << tx_hash);
         tx_fee_amount += get_tx_fee(tx);
       }
       

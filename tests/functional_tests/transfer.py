@@ -222,6 +222,9 @@ class TransferTest():
 
         daemon.generateblocks('42ey1afDFnn4886T7196doS9GPMzexD9gXpsZJDwVjeRVdFCSoHnv7KPbBeGpzJBzHRCAs9UxqeoyFQMYbqSWYTfJJQAWDm', 1)
         res = daemon.getlastblockheader()
+        coinbase_sum = daemon.get_coinbase_tx_sum(height, 1)
+        assert coinbase_sum.fee_amount == fee
+        assert coinbase_sum.emission_amount + coinbase_sum.fee_amount == res.block_header.reward
         running_balances[0] += res.block_header.reward
         self.wallet[0].refresh()
 
