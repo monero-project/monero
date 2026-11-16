@@ -666,6 +666,35 @@ TEST(wallet_pool, does_not_duplicate_genesis_after_zero_offset_rebuild)
         EXPECT_EQ(original[i], chain[i]) << i;
 }
 
+TEST(wallet_pool, fast_refresh_rejects_start_height_past_hashchain_end)
+{
+    tools::wallet2 *wallet = nullptr;
+    const auto reply = [&](const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request &,
+        cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response &response)
+    {
+        response.start_height = response.current_height = 1;
+    };
+    const auto hash_reply = [&](const cryptonote::COMMAND_RPC_GET_HASHES_FAST::request &,
+        cryptonote::COMMAND_RPC_GET_HASHES_FAST::response &response)
+    {
+        response.start_height = 11;
+        response.current_height = 50;
+        response.m_block_ids.resize(20, crypto::rand<crypto::hash>());
+        wallet->stop();
+    };
+    tools::wallet2 w(cryptonote::MAINNET, 1, true,
+        std::unique_ptr<epee::net_utils::http::http_client_factory>(
+            new pool_http_client_factory(reply, {}, hash_reply)));
+    wallet = &w;
+    wallet_pool_test::prepare_refresh(w);
+
+    uint64_t fetched = 0;
+    bool received = false;
+    w.refresh(true, 50, fetched, received, false);
+
+    EXPECT_EQ(1, wallet_pool_test::hashchain(w).size());
+}
+
 TEST(wallet_pool, retries_pool_after_password_failure)
 {
     size_t queries = 0;
