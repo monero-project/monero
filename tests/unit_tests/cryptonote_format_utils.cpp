@@ -410,3 +410,40 @@ TEST(cn_format_utils, tx_extra_merge_mining_tag_store_load)
         }
     }
 }
+
+TEST(cn_format_utils, generate_key_image_helper_additional_derivations_stay_aligned)
+{
+    // An additional tx pubkey that is not a valid point makes generate_key_derivation()
+    // fail for that entry. The derivations must stay index-aligned with the pubkeys
+    // anyway, because is_out_to_acc_precomp() indexes them by the output index.
+    cryptonote::account_base acc;
+    acc.generate();
+    const cryptonote::account_keys &keys = acc.get_keys();
+    hw::device &hwdev = hw::get_device("default");
+
+    crypto::public_key tx_pub_key, additional_tx_pub_key;
+    crypto::secret_key tx_sec_key, additional_tx_sec_key;
+    crypto::generate_keys(tx_pub_key, tx_sec_key);
+    crypto::generate_keys(additional_tx_pub_key, additional_tx_sec_key);
+
+    // The output we own sits at index 1, derived from the additional pubkey there.
+    crypto::key_derivation derivation;
+    ASSERT_TRUE(hwdev.generate_key_derivation(additional_tx_pub_key, keys.m_view_secret_key, derivation));
+    crypto::public_key out_key;
+    ASSERT_TRUE(crypto::derive_public_key(derivation, 1, keys.m_account_address.m_spend_public_key, out_key));
+
+    std::unordered_map<crypto::public_key, cryptonote::subaddress_index> subaddresses;
+    subaddresses[keys.m_account_address.m_spend_public_key] = {0, 0};
+
+    crypto::public_key invalid_pub_key = crypto::null_pkey;
+    reinterpret_cast<unsigned char*>(&invalid_pub_key)[31] = 0x7f;
+    crypto::key_derivation unused;
+    ASSERT_FALSE(hwdev.generate_key_derivation(invalid_pub_key, keys.m_view_secret_key, unused));
+
+    const std::vector<crypto::public_key> additional_tx_pub_keys = {invalid_pub_key, additional_tx_pub_key};
+
+    cryptonote::keypair in_ephemeral;
+    crypto::key_image ki;
+    ASSERT_TRUE(cryptonote::generate_key_image_helper(keys, subaddresses, out_key, tx_pub_key,
+        additional_tx_pub_keys, 1, in_ephemeral, ki, hwdev));
+}
