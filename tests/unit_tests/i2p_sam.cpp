@@ -1346,7 +1346,6 @@ TEST(i2p_sam, control_socket_ignores_stale_connect_after_session_drops)
     std::this_thread::sleep_for(std::chrono::milliseconds{5});
   }
 
-  net::sam::client::async_close{client}();
   work.reset();
   io.stop();
   for (auto& thread : client_threads)
