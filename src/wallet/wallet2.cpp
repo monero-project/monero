@@ -29,6 +29,7 @@
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
 #include <algorithm>
+#include <array>
 #include <numeric>
 #include <optional>
 #include <string>
@@ -7229,13 +7230,46 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   // 4. store new cache file
   // 5. remove old cache file
 
-  // Avoid canonicalizing paths when explicitly saving to the current wallet file.
+  std::string target_keys_file = m_keys_file;
+  std::string target_wallet_file = m_wallet_file;
+  std::string target_mms_file = m_mms_file;
+  if (!path.empty())
+    do_prepare_file_names(path, target_keys_file, target_wallet_file, target_mms_file);
+
+  // The cache filename itself can end in ".keys". Keep an explicit save to it in place.
   bool same_file = had_old_wallet_files && (path.empty() || path == m_wallet_file);
   if (had_old_wallet_files && !same_file)
   {
-    const std::string canonical_old_path = boost::filesystem::canonical(m_wallet_file).string();
-    const std::string canonical_new_path = boost::filesystem::weakly_canonical(path).string();
-    same_file = canonical_old_path == canonical_new_path;
+    THROW_WALLET_EXCEPTION_IF(!boost::filesystem::exists(m_wallet_file),
+      error::wallet_internal_error, "Cannot move wallet when cache file is missing");
+    const auto old_cache = boost::filesystem::absolute(m_wallet_file);
+    const auto old_keys = boost::filesystem::absolute(m_keys_file);
+    const auto new_cache = boost::filesystem::absolute(target_wallet_file);
+    const auto new_keys = boost::filesystem::absolute(target_keys_file);
+    boost::system::error_code ec;
+    const auto same_entry = [&ec](const boost::filesystem::path &old_file, const boost::filesystem::path &new_file) {
+      return old_file.filename() == new_file.filename() &&
+        boost::filesystem::weakly_canonical(old_file.parent_path()) ==
+          boost::filesystem::weakly_canonical(new_file.parent_path()) &&
+        boost::filesystem::equivalent(old_file, new_file, ec);
+    };
+    same_file = same_entry(old_cache, new_cache) && same_entry(old_keys, new_keys);
+    if (!same_file)
+    {
+      const std::array<boost::filesystem::path, 2> old_files{{old_cache, old_keys}};
+      const std::array<boost::filesystem::path, 2> new_files{{
+        boost::filesystem::weakly_canonical(new_cache),
+        boost::filesystem::weakly_canonical(new_keys)
+      }};
+      for (const auto &old_file : old_files)
+      {
+        for (const auto &new_file : new_files)
+        {
+          THROW_WALLET_EXCEPTION_IF(boost::filesystem::equivalent(old_file, new_file, ec),
+            error::wallet_internal_error, "Destination wallet files overlap the current wallet");
+        }
+      }
+    }
   }
 
   THROW_WALLET_EXCEPTION_IF(m_is_background_wallet && !same_file, error::wallet_internal_error,
@@ -7276,7 +7310,7 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
   boost::optional<wallet2::cache_file_data> cache_file_data = get_cache_file_data();
   THROW_WALLET_EXCEPTION_IF(cache_file_data == boost::none, error::wallet_internal_error, "failed to generate wallet cache data");
 
-  const std::string new_file = same_file ? m_wallet_file + ".new" : path;
+  const std::string new_file = same_file ? m_wallet_file + ".new" : target_wallet_file;
   const std::string old_file = m_wallet_file;
   const std::string old_keys_file = m_keys_file;
   const std::string old_address_file = m_wallet_file + ".address.txt";
@@ -7284,7 +7318,9 @@ void wallet2::store_to(const std::string &path, const epee::wipeable_string &pas
 
   if (!same_file)
   {
-    prepare_file_names(path);
+    m_keys_file = std::move(target_keys_file);
+    m_wallet_file = std::move(target_wallet_file);
+    m_mms_file = std::move(target_mms_file);
   }
 
   if (!same_file || force_rewrite_keys)
