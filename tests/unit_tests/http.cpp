@@ -1292,6 +1292,46 @@ TEST(HTTP_Auth, RFC7616_SHA256_Vector)
   EXPECT_STREQ(expected_response, response.c_str());
 }
 
+TEST(HTTP_Server_Auth, ResponseComparison)
+{
+  const http::login user{"foo", "bar"};
+  const std::string uri{"/some_foo_thing"};
+
+  const auto accepted = [&] (std::string (*mutate)(std::string)) {
+    http::http_server_auth auth{user, rng};
+    const auto challenge = auth.get_response(make_request(fields{}));
+    if (!challenge || !is_unauthorized(*challenge))
+      return false;
+
+    const auto parsed = parse_response(*challenge);
+    const std::string& nonce = parsed.at(0).at(u8"nonce");
+    const std::string auth_code = md5_hex(
+      boost::join(std::vector<std::string>{md5_hex(get_a1(user, parsed)), nonce, md5_hex(get_a2(uri))}, u8":")
+    );
+
+    const auto request = make_request({
+      {u8"nonce", quoted(nonce)},
+      {u8"realm", quoted(parsed[0].at(u8"realm"))},
+      {u8"response", quoted(mutate(auth_code))},
+      {u8"uri", quoted(uri)},
+      {u8"username", quoted(user.username)}
+    }, uri);
+    return !auth.get_response(request);
+  };
+
+  EXPECT_TRUE(accepted([] (std::string s) { return s; }));
+  EXPECT_TRUE(accepted([] (std::string s) {
+    for (char& c : s)
+      if (c >= 'a' && c <= 'f')
+        c -= 'a' - 'A';
+    return s;
+  }));
+  EXPECT_FALSE(accepted([] (std::string s) { s.front() = (s.front() == '0' ? '1' : '0'); return s; }));
+  EXPECT_FALSE(accepted([] (std::string s) { s.back() = (s.back() == '0' ? '1' : '0'); return s; }));
+  EXPECT_FALSE(accepted([] (std::string s) { s.resize(s.size() - 2); return s; }));
+  EXPECT_FALSE(accepted([] (std::string s) { return s + "00"; }));
+}
+
 TEST(HTTP_Auth, RequestTargetBinding)
 {
   const struct

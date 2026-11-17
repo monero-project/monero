@@ -580,7 +580,13 @@ namespace
       template<typename Result>
       bool check(const Result& result) const
       {
-        return boost::equals(request.response, result, ascii_iequal);
+        // compare the whole expected response so timing does not reveal a matching prefix
+        if (std::size_t(request.response.size()) != result.size())
+          return false;
+        unsigned char diff = 0;
+        for (std::size_t i = 0; i < result.size(); ++i)
+          diff |= static_cast<unsigned char>(ascii_tolower(request.response[i]) ^ ascii_tolower(result[i]));
+        return diff == 0;
       }
 
       template<typename Digest>
