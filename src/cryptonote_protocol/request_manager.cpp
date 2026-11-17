@@ -101,8 +101,7 @@ void request_manager::cancel_peer_requests(const boost::uuids::uuid &peer_id) {
 
   const auto stats = m_connection_stats.find(peer_id);
   if (stats != m_connection_stats.end()) {
-    // Exclude canceled requests from the failure-rate denominator.
-    stats->second.n_total_requests -= stats->second.in_flight_requests.load();
+    stats->second.last_scored_nonce = stats->second.cur_nonce;
     stats->second.in_flight_requests = 0;
   }
 }
@@ -120,22 +119,13 @@ std::unordered_set<boost::uuids::uuid> request_manager::remove_stale_requests() 
       continue;
     }
 
-    MINFO("Removing stale request for tx " << it->tx_hash 
+    MINFO("Removing stale request for tx " << it->tx_hash
           << " from peer " << it->peer_id
           << ", age: " << elapsed.count() << "ms");
 
-    const auto &peer_id = it->peer_id;
-
-    if (m_connection_stats[peer_id].in_flight_requests > 0)
-      --m_connection_stats[peer_id].in_flight_requests;
-
-    // If this peer has missed too many requests, we want to drop it
-    if (this->missed_request(peer_id, 1)) {
-      drop_peers_out.insert(peer_id);
-    }
-
-    --m_connection_stats[peer_id].n_queued_requests;
-    it = m_requested_txs.erase(it);
+    if (record_round(it->peer_id, it->nonce, true))
+      drop_peers_out.insert(it->peer_id);
+    it = erase_tx_request(it, m_requested_txs);
     ++removed;
   }
 
@@ -187,7 +177,6 @@ request_manager::tx_request_t request_manager::enqueue_requests(const std::vecto
       CHECK_AND_ASSERT_MES(r, tx_req, "Failed to fly tx request for tx " << tx_hash);
     }
 
-    ++m_connection_stats[peer_id].n_total_requests;
     ++m_connection_stats[peer_id].in_flight_requests;
 
     tx_req.tx_hashes.push_back(tx_hash);
@@ -212,7 +201,6 @@ request_manager::tx_request_t request_manager::fly_available_requests(const boos
     const bool r = fly_tx_req(it, by_peer, tx_req.nonce);
     CHECK_AND_ASSERT_MES(r, tx_req, "Failed to fly available tx request");
 
-    ++m_connection_stats[peer_id].n_total_requests;
     ++m_connection_stats[peer_id].in_flight_requests;
 
     tx_req.tx_hashes.push_back(it->tx_hash);
@@ -266,6 +254,7 @@ bool request_manager::start_processing_txs(const boost::uuids::uuid &peer_id, co
     const bool r = start_processing_tx_req(it, by_peer_and_nonce);
     CHECK_AND_ASSERT_MES(r, false, "Failed to mark tx request as processing");
   }
+  record_round(peer_id, nonce, false);
   return true;
 }
 
@@ -288,19 +277,25 @@ bool request_manager::finish_processing_txs(const boost::uuids::uuid &peer_id, c
   return req_removed;
 }
 
-bool request_manager::missed_request(const boost::uuids::uuid &peer_id, const std::size_t n_missed_reqs) {
-  std::lock_guard<std::recursive_mutex> lock(m_mutex);
-  if ((m_connection_stats[peer_id].missed + n_missed_reqs) > m_connection_stats[peer_id].missed)
-    m_connection_stats[peer_id].missed += n_missed_reqs;
-  const size_t n_total_reqs = m_connection_stats[peer_id].n_total_requests;
+bool request_manager::record_round(const boost::uuids::uuid &peer_id, uint64_t nonce, bool timed_out) {
+  auto& stats = m_connection_stats.at(peer_id);
+  const uint64_t issued = stats.cur_nonce;
+  // The first reply or timeout settles all requests already sent on this connection.
+  // Compare distances from the latest nonce so the cutoff also works across wraparound.
+  if (issued - nonce >= issued - stats.last_scored_nonce)
+    return false;
+  stats.last_scored_nonce = issued;
+  ++stats.completed_rounds;
+  if (!timed_out)
+    return false;
+  ++stats.missed_rounds;
+  if (stats.completed_rounds < P2P_MIN_SAMPLE_SIZE_FOR_DROPPING)
+    return false;
 
-  // Return false if we don't have enough samples
-  if (n_total_reqs < P2P_MIN_SAMPLE_SIZE_FOR_DROPPING) return false;
-
-  const size_t percent = (m_connection_stats[peer_id].missed * 100) / n_total_reqs;
+  const uint64_t percent = (stats.missed_rounds * 100) / stats.completed_rounds;
   MINFO("Peer " << peer_id
-        << " has missed " << m_connection_stats[peer_id].missed << " out of "
-        << n_total_reqs << " total requests (" << percent << "%)");
+        << " has missed " << stats.missed_rounds << " out of " << stats.completed_rounds
+        << " tx request rounds (" << percent << "%)");
   return percent > P2P_REQUEST_FAILURE_THRESHOLD_PERCENTAGE;
 }
 

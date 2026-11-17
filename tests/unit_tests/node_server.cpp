@@ -2739,6 +2739,30 @@ TEST_F(tx_relay_protocol_test, complement_ignored_for_legacy_peers)
   }
 }
 
+TEST_F(tx_relay_protocol_test, stem_receipt_preserves_queued_public_request)
+{
+  const cryptonote::transaction tx{};
+  cryptonote::NOTIFY_TX_POOL_HASH::request inventory{};
+  inventory.t = {cryptonote::get_transaction_hash(tx)};
+  context.m_state = context_type::state_synchronizing;
+  ASSERT_EQ(1, notify<cryptonote::NOTIFY_TX_POOL_HASH>(inventory, context));
+  ASSERT_TRUE(endpoint.notifications.empty());
+
+  cryptonote::NOTIFY_NEW_TRANSACTIONS::request stem{};
+  stem.dandelionpp_fluff = false;
+  stem.txs = {cryptonote::tx_to_blob(tx)};
+  core.tx_results = {true};
+  ASSERT_EQ(1, notify<cryptonote::NOTIFY_NEW_TRANSACTIONS>(stem, other_context));
+  ASSERT_EQ(1u, core.handled_txs);
+
+  context.set_state_normal();
+  context.m_tx_request_notification = 1;
+  ++context.m_callback_request_count;
+  ASSERT_TRUE(protocol.on_callback(context));
+  ASSERT_EQ(1u, endpoint.notifications.size());
+  EXPECT_EQ(inventory.t, endpoint.notifications.front().get<cryptonote::NOTIFY_REQUEST_TX_POOL_TXS>().t);
+}
+
 TEST_F(tx_relay_protocol_test, inventory_does_not_reveal_private_transactions)
 {
   const cryptonote::relay_method methods[] = {

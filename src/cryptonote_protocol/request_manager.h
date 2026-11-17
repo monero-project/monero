@@ -66,8 +66,9 @@ private:
   struct connection_statistics
   {
     std::atomic<uint64_t> cur_nonce = 0;
-    std::atomic<size_t> n_total_requests = 0;
-    std::atomic<size_t> missed = 0;
+    uint64_t last_scored_nonce = 0;
+    uint64_t completed_rounds = 0;
+    uint64_t missed_rounds = 0;
     std::atomic<size_t> in_flight_requests = 0;
     std::atomic<size_t> n_queued_requests = 0;
   };
@@ -133,8 +134,8 @@ private:
   template<typename T, typename U>
   T erase_tx_request(T &it, U &container);
 
-  // Return true if we should drop the peer because it exceeded threshold for allowed missed reqs
-  bool missed_request(const boost::uuids::uuid &peer_id, const std::size_t n_missed_reqs = 1);
+  // Called under m_mutex. Returns true if this timeout warrants dropping the peer.
+  bool record_round(const boost::uuids::uuid &peer_id, uint64_t nonce, bool timed_out);
 
   // Return true if *any* peer has the provided tx hash request in flight
   bool request_is_in_flight(const crypto::hash &tx_hash) const;

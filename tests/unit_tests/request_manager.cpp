@@ -31,8 +31,6 @@
 #include "cryptonote_protocol/request_manager.h"
 
 #include <boost/uuid/uuid.hpp>
-#include <chrono>
-#include <thread>
 
 static boost::uuids::uuid uuid_from_char(char a)
 {
@@ -95,23 +93,30 @@ TEST(request_manager, cancel_syncing_peer_requests)
     EXPECT_EQ(req_manager.enqueue_requests({crypto::hash{4}}, peer).tx_hashes.size(), 1);
 }
 //----------------------------------------------------------------------------------------------------------------------
-TEST(request_manager, canceled_requests_preserve_completed_history)
+TEST(request_manager, canceled_or_satisfied_requests_preserve_completed_history)
 {
     const size_t sample_size = P2P_MIN_SAMPLE_SIZE_FOR_DROPPING;
-    request_manager req_manager(sample_size, 0);
+    request_manager req_manager(1, 0);
     const auto peer = uuid_from_char(1);
-    std::vector<crypto::hash> hashes;
+    const crypto::hash hash{1};
+    for (size_t i = 0; i + 2 < sample_size; ++i)
+    {
+        ASSERT_EQ(req_manager.enqueue_requests({hash}, peer).tx_hashes.size(), 1);
+        EXPECT_TRUE(req_manager.remove_stale_requests().empty());
+    }
+
     for (size_t i = 0; i < sample_size; ++i)
-      hashes.push_back(crypto::hash{static_cast<char>(i)});
-
-    // Record misses just below the sample threshold.
-    ASSERT_EQ(req_manager.enqueue_requests({hashes.begin(), hashes.end() - 1}, peer).tx_hashes.size(), sample_size - 1);
+    {
+        ASSERT_EQ(req_manager.enqueue_requests({hash}, peer).tx_hashes.size(), 1);
+        req_manager.cancel_peer_requests(peer);
+        const auto resumed = req_manager.fly_available_requests(peer);
+        ASSERT_EQ(resumed.tx_hashes.size(), 1);
+        ASSERT_TRUE(req_manager.remove_request(hash)); // obtained elsewhere
+        EXPECT_FALSE(req_manager.start_processing_txs(peer, resumed.nonce, 0));
+    }
+    ASSERT_EQ(req_manager.enqueue_requests({hash}, peer).tx_hashes.size(), 1);
     EXPECT_TRUE(req_manager.remove_stale_requests().empty());
-
-    ASSERT_EQ(req_manager.enqueue_requests(hashes, peer).tx_hashes.size(), sample_size);
-    req_manager.cancel_peer_requests(peer);
-    EXPECT_TRUE(req_manager.remove_stale_requests().empty());
-    ASSERT_EQ(req_manager.enqueue_requests({hashes.back()}, peer).tx_hashes.size(), 1);
+    ASSERT_EQ(req_manager.enqueue_requests({hash}, peer).tx_hashes.size(), 1);
     EXPECT_EQ(req_manager.remove_stale_requests().count(peer), 1);
 }
 //----------------------------------------------------------------------------------------------------------------------
@@ -132,8 +137,8 @@ TEST(request_manager, deferred_requests_wait_for_resume)
     EXPECT_GT(resumed.nonce, deferred.nonce);
     EXPECT_EQ(std::unordered_set<crypto::hash>(resumed.tx_hashes.begin(), resumed.tx_hashes.end()),
         std::unordered_set<crypto::hash>(hashes.begin(), hashes.end()));
-    // Only the resumed requests count toward the failure rate.
-    EXPECT_EQ(req_manager.remove_stale_requests().count(peer), 1);
+    EXPECT_TRUE(req_manager.remove_stale_requests().empty());
+    EXPECT_FALSE(req_manager.remove_request(hashes.front()));
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(request_manager, deferred_requests_do_not_block_other_peers)
@@ -185,40 +190,18 @@ TEST(request_manager, canceled_requests_preserve_queue_limit)
 TEST(request_manager, multiple_peers)
 {
     const uint8_t MAX_IN_FLIGHT = 4;
-    const int64_t TIMEOUT_MS = 10;
-    request_manager req_manager(MAX_IN_FLIGHT, TIMEOUT_MS);
+    request_manager req_manager(MAX_IN_FLIGHT, 0);
 
-    // 1. Add 1 for each peer
     for (char i = 0; i < MAX_IN_FLIGHT; ++i)
     {
         const crypto::hash hash{i};
         const boost::uuids::uuid peer = uuid_from_char(i);
 
-        // Success case
         ASSERT_EQ(req_manager.enqueue_requests({hash}, peer).tx_hashes.size(), 1);
-
-        // Can't re-add
         ASSERT_EQ(req_manager.enqueue_requests({hash}, peer).tx_hashes.size(), 0);
     }
 
-    // 2. No stale requests and none available
-    {
-        const auto drop_peers = req_manager.remove_stale_requests();
-        ASSERT_TRUE(drop_peers.empty());
-        for (uint8_t i = 0; i < MAX_IN_FLIGHT; ++i)
-        {
-            const boost::uuids::uuid peer = uuid_from_char(i);
-            const auto tx_hashes = req_manager.fly_available_requests(peer).tx_hashes;
-            ASSERT_TRUE(tx_hashes.empty());
-        }
-    }
-
-    // 3. Sleep to let requests timeout
-    MINFO("Sleeping for 20ms to let requests timeout");
-    std::this_thread::sleep_for(std::chrono::milliseconds{TIMEOUT_MS * 2});
-
-    // 4. Re-add the same ones for each peer, but in reverse. The hashes
-    //    should get queued for each peer
+    // Queue a second source for each hash while the first request is in flight.
     for (char i = 0; i < MAX_IN_FLIGHT; ++i)
     {
         const crypto::hash hash{i};
@@ -226,11 +209,9 @@ TEST(request_manager, multiple_peers)
         ASSERT_EQ(req_manager.enqueue_requests({hash}, peer).tx_hashes.size(), 0);
     }
 
-    // 5. Remove stale requests
     const auto drop_peers = req_manager.remove_stale_requests();
     ASSERT_TRUE(drop_peers.empty());
 
-    // 6. Available reqs should be all the tx hashes from step 4
     for (char i = 0; i < MAX_IN_FLIGHT; ++i)
     {
         const crypto::hash hash{i};
@@ -240,49 +221,39 @@ TEST(request_manager, multiple_peers)
         ASSERT_EQ(tx_hashes.size(), 1);
         ASSERT_EQ(tx_hashes.front(), hash);
     }
-
-    // 7. Remove peers
-    for (uint8_t i = 0; i < MAX_IN_FLIGHT; ++i)
-    {
-        const boost::uuids::uuid peer = uuid_from_char(i);
-        req_manager.remove_peer(peer);
-    }
 }
 //----------------------------------------------------------------------------------------------------------------------
-TEST(request_manager, drop_peers)
+TEST(request_manager, overlapping_requests_count_as_one_missed_round)
 {
     const uint8_t MAX_IN_FLIGHT = P2P_MIN_SAMPLE_SIZE_FOR_DROPPING;
-    const int64_t TIMEOUT_MS = 10;
-    request_manager req_manager(MAX_IN_FLIGHT, TIMEOUT_MS);
+    request_manager req_manager(MAX_IN_FLIGHT, 0);
 
     const boost::uuids::uuid peer{};
 
-    // 1. Add many requests
+    const auto answered = req_manager.enqueue_requests({crypto::hash{0}}, peer);
+    ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{1}}, peer).tx_hashes.size(), 1);
+    ASSERT_TRUE(req_manager.start_processing_txs(peer, answered.nonce, 0));
+    ASSERT_TRUE(req_manager.finish_processing_txs(peer, answered.nonce));
+    EXPECT_TRUE(req_manager.remove_stale_requests().empty());
+
     for (char i = 0; i < MAX_IN_FLIGHT; ++i)
         ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{i}}, peer).tx_hashes.size(), 1);
 
-    // 2. Sleep to let requests timeout
-    MINFO("Sleeping for 20ms to let requests timeout");
-    std::this_thread::sleep_for(std::chrono::milliseconds{TIMEOUT_MS * 2});
-
-    // 3. Remove stale requests
-    const auto drop_peers = req_manager.remove_stale_requests();
-    ASSERT_EQ(drop_peers.size(), 1);
-    ASSERT_EQ(drop_peers.count(peer), 1);
-
-    // 4. Remove peers
-    req_manager.remove_peer(peer);
+    EXPECT_TRUE(req_manager.remove_stale_requests().empty());
+    for (size_t round = 3; round <= P2P_MIN_SAMPLE_SIZE_FOR_DROPPING; ++round)
+    {
+        ASSERT_EQ(req_manager.enqueue_requests({crypto::hash{1}}, peer).tx_hashes.size(), 1);
+        EXPECT_EQ(req_manager.remove_stale_requests().count(peer), round == P2P_MIN_SAMPLE_SIZE_FOR_DROPPING);
+    }
 }
 //----------------------------------------------------------------------------------------------------------------------
 TEST(request_manager, dont_rm_processing_txs)
 {
     const uint8_t MAX_IN_FLIGHT = P2P_MIN_SAMPLE_SIZE_FOR_DROPPING;
-    const int64_t TIMEOUT_MS = 10;
-    request_manager req_manager(MAX_IN_FLIGHT, TIMEOUT_MS);
+    request_manager req_manager(MAX_IN_FLIGHT, 0);
 
     const boost::uuids::uuid peer{};
 
-    // 1. Add many requests
     std::vector<crypto::hash> init_hashes;
     init_hashes.reserve(MAX_IN_FLIGHT);
     for (char i = 0; i < MAX_IN_FLIGHT; ++i)
@@ -291,18 +262,11 @@ TEST(request_manager, dont_rm_processing_txs)
     ASSERT_EQ(tx_req.tx_hashes, init_hashes);
     ASSERT_EQ(tx_req.nonce, 1);
 
-    // 2. Protect requests until the response is processed.
     ASSERT_TRUE(req_manager.start_processing_txs(peer, tx_req.nonce, init_hashes.size() - 1));
 
-    // 3. Sleep to let requests timeout
-    MINFO("Sleeping for 20ms to let requests timeout");
-    std::this_thread::sleep_for(std::chrono::milliseconds{TIMEOUT_MS * 2});
-
-    // 4. There should be no stale requests.
     const auto drop_peers = req_manager.remove_stale_requests();
     ASSERT_EQ(drop_peers.size(), 0);
 
-    // 5. Complete received transactions and release the omitted request.
     for (auto it = init_hashes.begin(); it != init_hashes.end() - 1; ++it)
         ASSERT_TRUE(req_manager.remove_request(*it));
     ASSERT_TRUE(req_manager.finish_processing_txs(peer, tx_req.nonce));
@@ -314,12 +278,10 @@ TEST(request_manager, dont_rm_processing_txs)
 TEST(request_manager, dont_rm_processing_txs_enqueue_overage)
 {
     const uint8_t MAX_IN_FLIGHT = 2;
-    const int64_t TIMEOUT_MS = 10;
-    request_manager req_manager(MAX_IN_FLIGHT, TIMEOUT_MS);
+    request_manager req_manager(MAX_IN_FLIGHT, 0);
 
     const boost::uuids::uuid peer{};
 
-    // 1. Enqueue 1 more request than max allowed in flight
     const uint8_t TOTAL_TXS = MAX_IN_FLIGHT + 1;
     std::vector<crypto::hash> init_hashes;
     init_hashes.reserve(TOTAL_TXS);
@@ -329,32 +291,20 @@ TEST(request_manager, dont_rm_processing_txs_enqueue_overage)
     ASSERT_EQ(tx_req.tx_hashes, std::vector<crypto::hash>(init_hashes.begin(), init_hashes.begin() + MAX_IN_FLIGHT));
     ASSERT_EQ(tx_req.nonce, 1);
 
-    // 2. Remove 1 req to make room for the last one
     ASSERT_TRUE(req_manager.remove_request(init_hashes.front()));
 
-    // 3. Now fly the last one
     const auto tx_req2 = req_manager.fly_available_requests(peer);
     ASSERT_EQ(tx_req2.tx_hashes, std::vector<crypto::hash>{init_hashes.back()});
     ASSERT_EQ(tx_req2.nonce, 2);
 
-    // 4. Indicate that we're processing Step 3's tx
     ASSERT_TRUE(req_manager.start_processing_txs(peer, tx_req2.nonce, tx_req2.tx_hashes.size()));
 
-    // 5. Sleep to let requests timeout
-    MINFO("Sleeping for 20ms to let requests timeout");
-    std::this_thread::sleep_for(std::chrono::milliseconds{TIMEOUT_MS * 2});
-
-    // 6. The processing tx from step 4 should still be present, since it's processing and shouldn't have been rm'd.
-    //    init_hashes.at(1) should have timed out and rm'd. Since this is only the first stale tx req rm'd, the peer
-    //    is not expected to drop.
+    // Only the request outside the response being validated should expire.
     static_assert(P2P_MIN_SAMPLE_SIZE_FOR_DROPPING > 1);
     const auto drop_peers = req_manager.remove_stale_requests();
     ASSERT_EQ(drop_peers.size(), 0);
     ASSERT_FALSE(req_manager.remove_request(init_hashes.at(1)));
     ASSERT_TRUE(req_manager.remove_request(init_hashes.back()));
-
-    // 7. Remove peer
-    req_manager.remove_peer(peer);
 }
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
