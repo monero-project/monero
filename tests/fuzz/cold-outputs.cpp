@@ -26,12 +26,16 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+#include <cstdlib>
+
 #include "include_base_utils.h"
 #include "file_io_utils.h"
 #include "cryptonote_basic/blobdatatype.h"
 #include "cryptonote_basic/cryptonote_basic.h"
 #include "cryptonote_basic/cryptonote_format_utils.h"
+#include "serialization/binary_utils.h"
 #include "wallet/wallet2.h"
+#include "wallet/wallet2_basic/wallet2_serialization.h"
 #include "fuzzer.h"
 
 class wallet_accessor_test
@@ -48,6 +52,7 @@ public:
 };
 
 static tools::wallet2 *wallet = NULL;
+static std::string wallet_snapshot;
 
 BEGIN_INIT_SIMPLE_FUZZER()
   static tools::wallet2 local_wallet(cryptonote::TESTNET, /*kdf_rounds=*/1, /*unattended=*/true);
@@ -61,9 +66,15 @@ BEGIN_INIT_SIMPLE_FUZZER()
   wallet->init("", boost::none, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
   wallet->set_subaddress_lookahead(1, 1);
   wallet->generate("", "", spendkey, true, false);
+  if (!::serialization::dump_binary(*wallet, wallet_snapshot))
+    std::abort();
 END_INIT_SIMPLE_FUZZER()
 
 BEGIN_SIMPLE_FUZZER()
+  // An import can mutate the wallet even when it subsequently throws.
+  if (!::serialization::parse_binary(wallet_snapshot, *wallet))
+    std::abort();
+
   const size_t n_outputs = wallet_accessor_test::import_outputs(*wallet, {buf, len});
   std::cout << boost::lexical_cast<std::string>(n_outputs) << " outputs imported" << std::endl;
 END_SIMPLE_FUZZER()
