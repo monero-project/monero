@@ -24,14 +24,35 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
+// Keep file offsets and inode numbers 64-bit on 32-bit POSIX systems.
+#ifndef _WIN32
+#define _FILE_OFFSET_BITS 64
+#endif
+
 #include "file_io_utils.h"
 
+#include <algorithm>
+#include <array>
+#include <cerrno>
+#include <climits>
+#include <cstdio>
+#include <cstring>
 #include <fstream>
+#include <ostream>
+#include <streambuf>
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/operations.hpp>
 #ifdef _WIN32
+#include <fcntl.h>
+#include <io.h>
 #include <windows.h>
+#include "scope_guard.h"
 #include "string_tools.h"
+#else
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #endif
 
 // On Windows there is a problem with non-ASCII characters in path and file names
@@ -60,6 +81,91 @@ namespace epee
 {
 namespace file_io_utils
 {
+	namespace
+	{
+		bool write_all(const int fd, const char* data, size_t size)
+		{
+			while (size != 0)
+			{
+				const size_t chunk = std::min<size_t>(size, INT_MAX);
+#ifdef _WIN32
+				const int written = _write(fd, data, static_cast<unsigned int>(chunk));
+#else
+				const ssize_t written = write(fd, data, chunk);
+#endif
+				if (written < 0)
+				{
+					if (errno == EINTR)
+						continue;
+					return false;
+				}
+				if (written == 0)
+				{
+					errno = EIO;
+					return false;
+				}
+				data += written;
+				size -= static_cast<size_t>(written);
+			}
+			return true;
+		}
+
+		class file_streambuf final : public std::streambuf
+		{
+		public:
+			explicit file_streambuf(const int fd)
+				: fd_(fd)
+			{
+				setp(buffer_.data(), buffer_.data() + buffer_.size());
+			}
+
+		protected:
+			int_type overflow(const int_type ch) override
+			{
+				if (!flush())
+					return traits_type::eof();
+				if (!traits_type::eq_int_type(ch, traits_type::eof()))
+				{
+					*pptr() = traits_type::to_char_type(ch);
+					pbump(1);
+				}
+				return traits_type::not_eof(ch);
+			}
+
+			int sync() override
+			{
+				return flush() ? 0 : -1;
+			}
+
+			pos_type seekoff(const off_type off, const std::ios_base::seekdir direction, const std::ios_base::openmode mode) override
+			{
+				if (!(mode & std::ios_base::out) || direction != std::ios_base::cur || off != 0)
+					return pos_type(off_type(-1));
+
+#ifdef _WIN32
+				const __int64 position = _lseeki64(fd_, 0, SEEK_CUR);
+#else
+				const off_t position = lseek(fd_, 0, SEEK_CUR);
+#endif
+				if (position < 0)
+					return pos_type(off_type(-1));
+				return pos_type(static_cast<off_type>(position) + static_cast<off_type>(pptr() - pbase()));
+			}
+
+		private:
+			bool flush()
+			{
+				const std::ptrdiff_t size = pptr() - pbase();
+				if (size <= 0)
+					return true;
+				pbump(-static_cast<int>(size));
+				return write_all(fd_, buffer_.data(), static_cast<size_t>(size));
+			}
+
+			const int fd_;
+			std::array<char, 16384> buffer_;
+		};
+	}
  
 	bool is_file_exist(const std::string& path)
 	{
@@ -75,60 +181,165 @@ namespace file_io_utils
 	}
 
 
-	bool save_string_to_file(const std::string& path_to_file, const std::string& str)
+namespace detail
+{
+	bool save_fd_to_file(const std::string& path_to_file, const std::function<bool(int)>& writer, file_mode create_mode)
 	{
 #ifdef _WIN32
-                std::wstring wide_path;
-                try { wide_path = string_tools::utf8_to_utf16(path_to_file); } catch (...) { return false; }
-                HANDLE file_handle = CreateFileW(wide_path.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-                if (file_handle == INVALID_HANDLE_VALUE)
-                    return false;
-                DWORD bytes_written;
-                DWORD bytes_to_write = (DWORD)str.size();
-                BOOL result = WriteFile(file_handle, str.data(), bytes_to_write, &bytes_written, NULL);
-                CloseHandle(file_handle);
-                if (bytes_written != bytes_to_write)
-                    result = FALSE;
-                return result;
-#else
-		try
+		(void)create_mode;
+		std::wstring wide_path;
+		try { wide_path = string_tools::utf8_to_utf16(path_to_file); } catch (...) { return false; }
+		HANDLE file_handle = CreateFileW(wide_path.c_str(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+		if (file_handle == INVALID_HANDLE_VALUE)
+			return false;
+		const int file_fd = _open_osfhandle(reinterpret_cast<intptr_t>(file_handle), _O_WRONLY | _O_BINARY);
+		if (file_fd < 0)
 		{
-			std::ofstream fstream;
-			fstream.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-			fstream.open(path_to_file, std::ios_base::binary | std::ios_base::out | std::ios_base::trunc);
-			fstream << str;
-			fstream.close();
-			return true;
+			const int error = errno;
+			CloseHandle(file_handle);
+			errno = error;
+			return false;
 		}
-
-		catch(...)
+		// The CRT descriptor now owns file_handle; _close(file_fd) closes both.
+#else
+		errno = 0;
+		struct stat st;
+		int result;
+		do
+		{
+			result = lstat(path_to_file.c_str(), &st);
+		} while (result != 0 && errno == EINTR);
+		if (result == 0)
+		{
+			if (S_ISLNK(st.st_mode) || !S_ISREG(st.st_mode))
+				return false;
+		}
+		else if (errno != ENOENT)
 		{
 			return false;
 		}
+
+#ifdef O_NOFOLLOW
+		const int flags = O_WRONLY | O_CREAT | O_NOFOLLOW;
+#else
+		const int flags = O_WRONLY | O_CREAT;
 #endif
+		int file_fd;
+		do
+		{
+			file_fd = open(path_to_file.c_str(), flags, create_mode);
+		} while (file_fd < 0 && errno == EINTR);
+		if (file_fd < 0)
+			return false;
+
+		do
+		{
+			result = fstat(file_fd, &st);
+		} while (result != 0 && errno == EINTR);
+		if (result != 0 || !S_ISREG(st.st_mode))
+		{
+			const int error = result != 0 ? errno : EINVAL;
+			close(file_fd);
+			errno = error;
+			return false;
+		}
+
+		do
+		{
+			result = ftruncate(file_fd, 0);
+		} while (result != 0 && errno == EINTR);
+		if (result != 0)
+		{
+			const int error = errno;
+			close(file_fd);
+			errno = error;
+			return false;
+		}
+#endif
+
+		errno = 0;
+		bool writer_result = false;
+		try
+		{
+			writer_result = writer(file_fd);
+		}
+		catch (...)
+		{
+			if (errno == 0)
+				errno = EIO;
+		}
+		const int writer_error = errno;
+#ifdef _WIN32
+		const int close_result = _close(file_fd);
+#else
+		const int close_result = close(file_fd);
+#endif
+		const int close_error = errno;
+		if (!writer_result)
+			errno = writer_error ? writer_error : (close_result != 0 ? close_error : EIO);
+		else if (close_result != 0)
+			errno = close_error;
+		return writer_result && close_result == 0;
+	}
+}
+
+
+	bool save_stream_to_file(const std::string& path_to_file, const std::function<bool(std::ostream&)>& writer, file_mode create_mode)
+	{
+		return detail::save_fd_to_file(path_to_file, [&writer](const int fd)
+		{
+			file_streambuf buffer{fd};
+			std::ostream stream{&buffer};
+			const bool result = writer(stream);
+			if (!result)
+				return false;
+			stream.flush();
+			return stream.good();
+		}, create_mode);
+	}
+
+
+	bool save_string_to_file(const std::string& path_to_file, const std::string& str, file_mode create_mode)
+	{
+		return detail::save_fd_to_file(path_to_file, [&str](const int fd)
+		{
+			return write_all(fd, str.data(), str.size());
+		}, create_mode);
 	}
 
 
 	bool load_file_to_string(const std::string& path_to_file, std::string& target_str, size_t max_size)
 	{
 #ifdef _WIN32
-                std::wstring wide_path;
-                try { wide_path = string_tools::utf8_to_utf16(path_to_file); } catch (...) { return false; }
-                HANDLE file_handle = CreateFileW(wide_path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-                if (file_handle == INVALID_HANDLE_VALUE)
-                    return false;
-                DWORD file_size = GetFileSize(file_handle, NULL);
-                if ((file_size == INVALID_FILE_SIZE) || (uint64_t)file_size > (uint64_t)max_size) {
-                    CloseHandle(file_handle);
-                    return false;
-                }
-                target_str.resize(file_size);
-                DWORD bytes_read;
-                BOOL result = ReadFile(file_handle, &target_str[0], file_size, &bytes_read, NULL);
-                CloseHandle(file_handle);
-                if (bytes_read != file_size)
-                    result = FALSE;
-                return result;
+		try
+		{
+			const std::wstring wide_path = string_tools::utf8_to_utf16(path_to_file);
+			const HANDLE file_handle = CreateFileW(wide_path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+			if (file_handle == INVALID_HANDLE_VALUE)
+				return false;
+			const scope_guard close_file([file_handle](){ CloseHandle(file_handle); });
+
+			LARGE_INTEGER file_size;
+			if (!GetFileSizeEx(file_handle, &file_size) || file_size.QuadPart < 0 ||
+				static_cast<uint64_t>(file_size.QuadPart) > max_size ||
+				static_cast<uint64_t>(file_size.QuadPart) > target_str.max_size())
+				return false;
+			target_str.resize(static_cast<size_t>(file_size.QuadPart));
+
+			for (size_t offset = 0; offset < target_str.size();)
+			{
+				const DWORD chunk = static_cast<DWORD>(std::min<size_t>(target_str.size() - offset, 1024 * 1024));
+				DWORD bytes_read = 0;
+				if (!ReadFile(file_handle, &target_str[offset], chunk, &bytes_read, NULL) || bytes_read == 0)
+					return false;
+				offset += bytes_read;
+			}
+			return true;
+		}
+		catch (...)
+		{
+			return false;
+		}
 #else
 		try
 		{
