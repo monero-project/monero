@@ -1608,6 +1608,15 @@ TEST(HTTP, Parse_Header_Line)
   EXPECT_EQ("X!#$%&'*+-.^_`|~", name);
   EXPECT_EQ("value", value);
 
+  ASSERT_TRUE(http::detail::parse_header_line("X-Test: a\tb \xc3\xa9", name, value));
+  EXPECT_EQ("a\tb \xc3\xa9", value);
+
+  EXPECT_FALSE(http::detail::parse_header_line("Origin: http://a\rSet-Cookie: x=1\r", name, value));
+  EXPECT_FALSE(http::detail::parse_header_line("Origin: http://a\r\r", name, value));
+  EXPECT_FALSE(http::detail::parse_header_line(boost::string_view("X-Test: a\0b", 11), name, value));
+  EXPECT_FALSE(http::detail::parse_header_line("X-Test: a\x01" "b", name, value));
+  EXPECT_FALSE(http::detail::parse_header_line("X-Test: a\x7f" "b", name, value));
+
   EXPECT_FALSE(http::detail::parse_header_line("", name, value));
   EXPECT_FALSE(http::detail::parse_header_line("Host : example.com", name, value));
   EXPECT_FALSE(http::detail::parse_header_line(" Content-Length: 1", name, value));
@@ -1770,6 +1779,21 @@ TEST(HTTP, Server_Rejects_Malformed_Later_Header)
   EXPECT_TRUE(capture.requests.empty());
 }
 
+TEST(HTTP, Server_Rejects_Control_Character_In_Header_Value)
+{
+  const auto capture = feed_http_request(
+    "GET / HTTP/1.1\r\n"
+    "Host: example.com\r\n"
+    "Origin: http://a\rSet-Cookie: injected=1\r\n"
+    "\r\n"
+  );
+
+  ASSERT_EQ(1u, capture.results.size());
+  EXPECT_FALSE(capture.results.front());
+  EXPECT_TRUE(capture.requests.empty());
+  EXPECT_EQ(std::string::npos, capture.sent.find("injected"));
+}
+
 TEST(HTTP, Server_Keeps_Unknown_First_Header)
 {
   const auto capture = feed_http_request(
@@ -1811,6 +1835,22 @@ TEST(HTTP, Client_Rejects_Malformed_Response_Header)
   const bool result = client.test(
     "HTTP/1.1 200 OK\r\n"
     "Bad Header Without Colon\r\n"
+    "Content-Length: 0\r\n"
+    "\r\n",
+    std::chrono::milliseconds(1000)
+  );
+
+  EXPECT_FALSE(result);
+  EXPECT_EQ(0u, client.headers_seen);
+  EXPECT_TRUE(client.disconnected);
+}
+
+TEST(HTTP, Client_Rejects_Control_Character_In_Response_Header)
+{
+  test_http_client client;
+  const bool result = client.test(
+    "HTTP/1.1 200 OK\r\n"
+    "X-Test: a\rContent-Length: 5\r\n"
     "Content-Length: 0\r\n"
     "\r\n",
     std::chrono::milliseconds(1000)
