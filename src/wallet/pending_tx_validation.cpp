@@ -129,6 +129,15 @@ static void sanity_check_unsigned_tx(const wallet2::tx_construction_data &tx,
 {
     sanity_check_tx_construction_data(tx);
 
+    // Legacy ring signing aborts on invalid ring member keys.
+    if (!tx.use_rct)
+    {
+        for (const auto &src: tx.sources)
+            for (const auto &output: src.outputs)
+                CHECK_AND_ASSERT_THROW_MES(crypto::check_key(rct::rct2pk(output.second.dest)),
+                    "sanity_check_unsigned_tx: invalid ring member public key");
+    }
+
     const auto &change = tx.change_dts;
     const bool pays_change = std::any_of(tx.splitted_dsts.begin(), tx.splitted_dsts.end(),
         [&change](const cryptonote::tx_destination_entry &dest) {
