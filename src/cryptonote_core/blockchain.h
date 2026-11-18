@@ -1255,6 +1255,7 @@ namespace cryptonote
 
 
     bool m_batch_success;
+    bool m_update_pruning;
 
     TxpoolNotifyCallback m_txpool_notifier;
     mutable std::mutex m_txpool_notifier_mutex;
