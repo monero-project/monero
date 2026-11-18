@@ -50,10 +50,11 @@ TEST(peer_list, peer_list_general)
   ADD_GRAY_NODE(MAKE_IPV4_ADDRESS(123,43,12,4, 8080), 121241, 34345);
   ADD_GRAY_NODE(MAKE_IPV4_ADDRESS(123,43,12,5, 8080), 121241, 34345);
 
-  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,1, 8080), 121241, 34345);
-  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,2, 8080), 121241, 34345);
-  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,3, 8080), 121241, 34345);
-  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,4, 8080), 121241, 34345);
+  const int64_t now = time(nullptr);
+  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,1, 8080), 121241, now);
+  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,2, 8080), 121241, now);
+  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,3, 8080), 121241, now);
+  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,4, 8080), 121241, now);
 
   size_t gray_list_size = plm.get_gray_peers_count();
   ASSERT_EQ(gray_list_size, 1);
@@ -274,4 +275,20 @@ TEST(peerlist_storage, store)
   EXPECT_EQ(0u, types.anchor[1].adr.template as<net::tor_address>().port());
   EXPECT_EQ(24u, types.anchor[1].id);
   EXPECT_EQ(22u, types.anchor[1].first_seen);
+}
+
+TEST(peer_list, peerlist_head_skips_stale_peers)
+{
+  nodetool::peerlist_manager plm;
+  ASSERT_TRUE(plm.init(nodetool::peerlist_types{}, false));
+  const int64_t now = time(nullptr);
+
+  const epee::net_utils::network_address fresh = MAKE_IPV4_ADDRESS(123,43,12,1, 8080);
+  ADD_WHITE_NODE(fresh, 1, now - 60 * 60);
+  ADD_WHITE_NODE(MAKE_IPV4_ADDRESS(123,43,12,2, 8080), 2, now - 31 * 24 * 60 * 60);
+
+  std::vector<nodetool::peerlist_entry> head;
+  ASSERT_TRUE(plm.get_peerlist_head(head, true));
+  ASSERT_EQ(1u, head.size());
+  EXPECT_EQ(fresh, head[0].adr);
 }
