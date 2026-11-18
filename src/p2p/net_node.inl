@@ -2942,14 +2942,8 @@ namespace nodetool
         {
           pe.adr = epee::net_utils::ipv6_network_address(na.as<epee::net_utils::ipv6_network_address>().ip(), port_l);
         }
-        time_t last_seen;
-        time(&last_seen);
-        pe.last_seen = static_cast<int64_t>(last_seen);
-        pe.id = peer_id_l;
-        pe.pruning_seed = context.m_pruning_seed;
-        pe.rpc_port = context.m_rpc_port;
-        pe.rpc_credits_per_hash = context.m_rpc_credits_per_hash;
-        this->m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.append_with_peer_white(pe);
+        this->m_network_zones.at(context.m_remote_address.get_zone()).m_peerlist.set_peer_just_seen(
+          peer_id_l, pe.adr, context.m_pruning_seed, context.m_rpc_port, context.m_rpc_credits_per_hash);
         LOG_DEBUG_CC(context, "PING SUCCESS " << context.m_remote_address.host_str() << ":" << port_l);
       });
     }
