@@ -1653,27 +1653,37 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   CHECK_AND_ASSERT_MES(diffic, false, "difficulty overhead.");
 
   std::vector<tx_block_template_backlog_entry> selected_backlog;
-  if (!m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins,
-    b.major_version, /*overpick=*/0, include_sensitive, selected_backlog))
-  {
-    return false;
-  }
-  pool_cookie = m_tx_pool.cookie();
-
-  // collect TXID list and total stats
   uint64_t txs_weight = 0;
   uint64_t fee = 0;
-  b.tx_hashes.reserve(selected_backlog.size());
-  for (const tx_block_template_backlog_entry &e : selected_backlog)
+  const auto select_backlog = [&](uint64_t coinbase_weight) -> bool
   {
-    CHECK_AND_ASSERT_MES(std::numeric_limits<uint64_t>::max() - e.weight >= txs_weight,
+    if (!m_tx_pool.get_block_template_backlog(median_weight, already_generated_coins,
+      b.major_version, /*overpick=*/0, include_sensitive, selected_backlog, coinbase_weight))
+      return false;
+    pool_cookie = m_tx_pool.cookie();
+
+    // Collect TXID list and total stats, replacing any previous selection.
+    txs_weight = 0;
+    fee = 0;
+    b.tx_hashes.clear();
+    b.tx_hashes.reserve(selected_backlog.size());
+    for (const tx_block_template_backlog_entry &e : selected_backlog)
+    {
+      CHECK_AND_ASSERT_MES(std::numeric_limits<uint64_t>::max() - e.weight >= txs_weight,
+        false, "Overflow in block weight calculation");
+      CHECK_AND_ASSERT_MES(std::numeric_limits<uint64_t>::max() - e.fee >= fee,
+        false, "Overflow in block total fee calculation");
+      txs_weight += e.weight;
+      fee += e.fee;
+      b.tx_hashes.push_back(e.id);
+    }
+    CHECK_AND_ASSERT_MES(std::numeric_limits<uint64_t>::max() - coinbase_weight >= txs_weight,
       false, "Overflow in block weight calculation");
-    CHECK_AND_ASSERT_MES(std::numeric_limits<uint64_t>::max() - e.fee >= fee,
-      false, "Overflow in block total fee calculation");
-    txs_weight += e.weight;
-    fee += e.fee;
-    b.tx_hashes.push_back(e.id);
-  }
+    cumulative_weight = txs_weight + coinbase_weight;
+    return true;
+  };
+  if (!select_backlog(0))
+    return false;
 
   /*
    two-phase miner transaction generation: we don't know exact block weight until we prepare block, but we don't know reward until we know
@@ -1682,28 +1692,19 @@ bool Blockchain::create_block_template(block& b, const crypto::hash *from_block,
   //make blocks coin-base tx looks close to real coinbase tx to get truthful blob weight
   uint8_t hf_version = b.major_version;
   size_t max_outs = hf_version >= 4 ? 1 : 11;
-  cumulative_weight = txs_weight;
   for (size_t try_count = 0; try_count != 10; ++try_count)
   {
+    // If the coinbase pushes the block over the limit, reserve its weight and
+    // select again so smaller transactions can fill the space left by larger ones.
+    if (cumulative_weight > 2 * std::max(median_weight, get_min_block_weight(hf_version)))
+    {
+      if (!select_backlog(cumulative_weight - txs_weight))
+        return false;
+    }
+
     const bool miner_tx_made = construct_miner_tx(height, median_weight, already_generated_coins,
       cumulative_weight, fee, miner_address, b.miner_tx, ex_nonce, max_outs, hf_version);
-
-    // On miner tx creation failure, if we have txs to pop, try that...
-    if (!miner_tx_made)
-    {
-      CHECK_AND_ASSERT_MES(!b.tx_hashes.empty(),
-        false, "Failed to create miner transaction, but have no non-miner txs to pop");
-      assert(selected_backlog.size() == b.tx_hashes.size());
-      b.tx_hashes.pop_back();
-      const tx_block_template_backlog_entry &backlog_entry = selected_backlog.back();
-      assert(txs_weight >= backlog_entry.weight);
-      txs_weight -= backlog_entry.weight;
-      assert(fee >= backlog_entry.fee);
-      fee -= backlog_entry.fee;
-      selected_backlog.pop_back();
-      cumulative_weight = txs_weight;
-      continue;
-    }
+    CHECK_AND_ASSERT_MES(miner_tx_made, false, "Failed to construct miner transaction");
 
     size_t coinbase_weight = get_transaction_weight(b.miner_tx);
     if (coinbase_weight > cumulative_weight - txs_weight)

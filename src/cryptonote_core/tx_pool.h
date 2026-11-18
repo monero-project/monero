@@ -254,15 +254,15 @@ namespace cryptonote
      * @param overpick if >0, the ratio over the optimal weight for which to limit total weight of `selected_backlog`
      * @param include_sensitive return stempool (only if m_mine_stem_txes), anonymity-pool, and unrelayed txes
      * @param[out] selected_backlog potential (TXID, weight, fee) tuples, in descending preference order
+     * @param coinbase_weight weight reserved for the coinbase transaction, included in weight and reward calculations
      *
      * Not all transactions in the pool will be returned for performance, consensus, and/or
      * profitability reasons. If there are too many transactions in the pool, only the
      * highest-paying / oldest transactions will be returned - but enough for the miner to create a
      * full block. Transactions which do not pass validation rules for the next block are also
-     * filtered out. However, @warning, `selected_backlog` may also contain *too many entries*, even
-     * when `overpick_ratio` == 0, such that block weight limit is surpassed after including the
-     * coinbase transaction. In this case, it is a good idea to pop candidates from the back of the
-     * list until the weight is within the limit.
+     * filtered out. If the coinbase transaction exceeds `coinbase_weight`, `selected_backlog` may
+     * contain too many entries even when `overpick` == 0. In this case, select the backlog again
+     * with the actual coinbase weight reserved.
      *
      * The target limit is calculated as (1 + `overpick`) * optimal weight. So for example, an
      * `overpick` value of 0.1 will try to fill `selected_backlog` so that it's total weight is 110%
@@ -279,7 +279,8 @@ namespace cryptonote
       uint8_t hf_version,
       float overpick,
       bool include_sensitive,
-      std::vector<tx_block_template_backlog_entry> &selected_backlog);
+      std::vector<tx_block_template_backlog_entry> &selected_backlog,
+      uint64_t coinbase_weight = 0);
 
     /**
      * @brief get a list of all transactions in the pool
