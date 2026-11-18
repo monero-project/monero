@@ -1,5 +1,10 @@
 # The Current/Future Status of ZMQ in Monero
 
+**Exposing Monero's ZMQ RPC or ZMQ PUB endpoint to untrusted clients is unsafe.**
+Bind to a loopback address or restrict network access to trusted clients.
+This also applies when using `--restricted-zmq-rpc`, which limits the RPC
+methods a connected client can call.
+
 ## ZMQ Pub/Sub
 Client `ZMQ_SUB` sockets must "subscribe" to topics before it receives any data.
 This allows filtering on the server side, so network traffic is reduced. Monero

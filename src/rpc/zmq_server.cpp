@@ -35,6 +35,7 @@
 #include <system_error>
 
 #include "byte_slice.h"
+#include "net/parse.h"
 #include "rpc/message.h"
 #include "rpc/zmq_pub.h"
 
@@ -50,6 +51,24 @@ namespace
   constexpr const std::int64_t max_frame_size = net::zmq::max_message_size;
   constexpr const std::chrono::seconds linger_timeout{2}; // wait period for pending out messages
   constexpr const int ipv6_option = 1;
+
+  bool is_local_endpoint(void* socket, boost::string_ref address)
+  {
+    if (address.starts_with("ipc://") || address.starts_with("inproc://"))
+      return true;
+
+    // Ask libzmq which IP it bound, including for interface names and wildcards.
+    char endpoint[256];
+    std::size_t size = sizeof(endpoint);
+    if (zmq_getsockopt(socket, ZMQ_LAST_ENDPOINT, endpoint, &size) != 0)
+      return false;
+
+    const net::scheme_and_authority bound{endpoint};
+    if (bound.scheme != "tcp")
+      return false;
+    const auto ip = net::get_network_address(bound.authority, 0);
+    return ip && ip->is_loopback();
+  }
 
   net::zmq::socket init_socket(void* context, int type, epee::span<const std::string> addresses)
   {
@@ -91,6 +110,11 @@ namespace
         return nullptr;
       }
       MINFO("ZMQ now listening at " << address);
+      if (!is_local_endpoint(out.get(), address))
+      {
+        MWARNING("[ZMQ " << (type == ZMQ_REP ? "RPC" : "PUB") << " at " << address << "] "
+          "Exposing this ZMQ endpoint to untrusted clients is unsafe.");
+      }
     }
 
     return out;
