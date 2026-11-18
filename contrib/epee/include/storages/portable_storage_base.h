@@ -61,7 +61,6 @@
 #define SERIALIZE_TYPE_STRING               10
 #define SERIALIZE_TYPE_BOOL                 11
 #define SERIALIZE_TYPE_OBJECT               12
-#define SERIALIZE_TYPE_ARRAY                13
 
 #define SERIALIZE_FLAG_ARRAY              0x80
 
@@ -141,7 +140,7 @@ namespace epee
     };
 
 
-    typedef  boost::make_recursive_variant<
+    typedef  boost::variant<
       array_entry_t<section>, 
       array_entry_t<uint64_t>, 
       array_entry_t<uint32_t>, 
@@ -154,9 +153,8 @@ namespace epee
       array_entry_t<double>, 
       array_entry_t<bool>, 
       array_entry_t<std::string>,
-      array_entry_t<section>, 
-      array_entry_t<boost::recursive_variant_> 
-    >::type array_entry;
+      array_entry_t<section>
+    > array_entry;
 
     typedef boost::variant<uint64_t, uint32_t, uint16_t, uint8_t, int64_t, int32_t, int16_t, int8_t, double, bool, std::string, section, array_entry> storage_entry;
 
