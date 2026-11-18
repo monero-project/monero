@@ -102,7 +102,7 @@ TEST(fcmp_pp, verify_from_file)
         // Collect the FCMP++ verify inputs
         std::vector<fcmp_pp::FcmpPpVerifyInput> fcmp_pp_verify_inputs;
         fcmp_pp_verify_inputs.reserve(n_proofs);
-        for (std::size_t i = 0; i < n_proofs; ++i)
+        for (std::size_t j = 0; j < n_proofs; ++j)
         {
             fcmp_pp_verify_inputs.emplace_back(fcmp_pp::fcmp_pp_verify_input_new(
                     signable_tx_hash,
@@ -112,6 +112,14 @@ TEST(fcmp_pp, verify_from_file)
                     pseudo_outs,
                     key_images
                 ));
+        }
+
+        // Test direct verify call with all proofs once
+        if (i == 0)
+        {
+            LOG_PRINT_L1("Verifying " << n_proofs << " FCMP++ txs");
+            ASSERT_TRUE(fcmp_pp::verify(fcmp_pp_verify_inputs));
+            LOG_PRINT_L1("Successfully verified " << n_proofs << " FCMP++ txs");
         }
 
         // Verify FCMP++ 128-in proofs in parallel using the batch verifier
