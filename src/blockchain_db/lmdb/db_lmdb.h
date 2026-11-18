@@ -287,7 +287,7 @@ public:
 
   uint64_t get_tx_block_height(const crypto::hash& h) const override;
 
-  uint64_t total_outputs() const;
+  uint64_t total_outputs() const override;
 
   uint64_t get_num_outputs(const uint64_t& amount) const override;
 
@@ -470,7 +470,7 @@ private:
 
   void del_tree_meta(const uint64_t block_idx) override;
 
-  std::vector<fcmp_pp::UnifiedOutput> get_unified_output_by_id(const std::vector<uint64_t> &unified_ids) const;
+  std::vector<fcmp_pp::UnifiedOutput> get_unified_outputs_by_id(const std::vector<uint64_t> &unified_ids) const;
 
   // Hard fork
   void set_hard_fork_version(uint64_t height, uint8_t version) override;

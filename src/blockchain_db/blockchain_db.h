@@ -549,7 +549,8 @@ private:
   virtual std::vector<crypto::ec_point> grow_with_tree_extension(const fcmp_pp::CompressedTreeExtension &tree_extension) = 0;
 
   /**
-   * @brief trim the leaves from the tree to the new number of leaf tuples
+   * @brief trim the leaves from the tree to the new number of leaf tuples. The block `trim_block_idx`
+   * must be the latest block appended to the tree.
    *
    * @param new_n_leaf_tuples the expected number of leaf tuples in the tree after trimming
    * @param trim_block_idx the block idx being trimmed
@@ -664,7 +665,7 @@ private:
    * @brief handle the FCMP++ curve tree as the provided block_idx enters the chain. This handles
    * saving staged locked outputs to the db, and advancing the FCMP++ tree.
    *
-   * @param block_idx the block being entering the chain
+   * @param block_idx the block entering the chain
    * @param first_unified_id the first unified id of the first new default locked output from the block entering the chain
    * @param miner_tx the block's miner transaction
    * @param txs the block's non-miner transactions
@@ -726,7 +727,8 @@ protected:
   void advance_tree(const uint64_t block_idx, const std::vector<fcmp_pp::UnifiedOutput> &known_new_outputs);
 
   /**
-   * @brief trim a block's worth of data from the tree, placing locked outputs back in the db
+   * @brief trim a block's worth of data from the tree, placing locked outputs back in the db. When popping a block,
+   * this should be called before removing the block's transactions.
    */
   void trim_block();
 
