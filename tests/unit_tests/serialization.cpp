@@ -33,7 +33,6 @@
 #include <cstdio>
 #include <iostream>
 #include <vector>
-#include <boost/foreach.hpp>
 #include <boost/archive/portable_binary_iarchive.hpp>
 #include <boost/type_traits/make_unsigned.hpp>
 #include "cryptonote_basic/cryptonote_basic.h"
@@ -394,7 +393,7 @@ namespace
   std::vector<T> linearize_vector2(const std::vector< std::vector<T> >& vec_vec)
   {
     std::vector<T> res;
-    BOOST_FOREACH(const auto& vec, vec_vec)
+    for (const auto& vec : vec_vec)
     {
       res.insert(res.end(), vec.begin(), vec.end());
     }

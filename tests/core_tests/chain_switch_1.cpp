@@ -181,7 +181,7 @@ bool gen_chain_switch_1::check_split_switched(cryptonote::core& c, size_t ev_ind
   CHECK_EQ(2, c.get_alternative_blocks_count());
 
   // Some blocks that were in main chain are in alt chain now
-  BOOST_FOREACH(block b, alt_blocks)
+  for (const block &b : alt_blocks)
   {
     CHECK_TEST_CONDITION(m_chain_1.end() != std::find(m_chain_1.begin(), m_chain_1.end(), b));
   }

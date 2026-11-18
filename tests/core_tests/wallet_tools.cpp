@@ -219,7 +219,7 @@ void wallet_tools::gen_block_data(block_tracker &bt, const cryptonote::block *bl
   vtx.push_back(&(bl->miner_tx));
   height = boost::get<txin_gen>(*bl->miner_tx.vin.begin()).height;
 
-  BOOST_FOREACH(const crypto::hash &h, bl->tx_hashes) {
+  for (const crypto::hash &h : bl->tx_hashes) {
           const map_hash2tx_t::const_iterator cit = mtx.find(h);
           CHECK_AND_ASSERT_THROW_MES(mtx.end() != cit, "block contains an unknown tx hash @ " << height << ", " << h);
           vtx.push_back(cit->second);
@@ -237,7 +237,7 @@ void wallet_tools::gen_block_data(block_tracker &bt, const cryptonote::block *bl
   o_indices.reserve(bl->tx_hashes.size() + 1);
 
   size_t cur = 0;
-  BOOST_FOREACH(const transaction *tx, vtx){
+  for (const transaction *tx : vtx){
           cur += 1;
           o_indices.emplace_back();
           bt.process(bl, tx, cur - 1);
