@@ -734,7 +734,7 @@ namespace
         std::string out(fvalue);
 
         const auto algorithm = boost::range::join(
-          Digest::name, (i == 0 ? boost::string_ref{} : sess_algo)
+          Digest::name, (i == 0 ? sess_algo : boost::string_ref{})
         );
         add_field(out, u8"algorithm", algorithm);
         add_field(out, u8"realm", quoted_(auth_realm));

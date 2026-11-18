@@ -59,7 +59,7 @@ monerod_extra = [
   ["--proxy", "127.0.0.1:1", "--no-sync"],
   ["--add-exclusive-node", "127.0.0.1:18283"],
   ["--add-exclusive-node", "127.0.0.1:18282"],
-  ["--rpc-login", "md5_lover:Z1ON0101", "--rpc-restricted-bind-port", "18194", "--offline"],
+  ["--rpc-login", "md5_lover:Z1ON0101", "--rpc-restricted-bind-port", "18194", "--disable-md5", "--offline"],
 ]
 wallet_base = [builddir + "/bin/monero-wallet-rpc", "--wallet-dir", WALLET_DIRECTORY, "--rpc-bind-port", "wallet_port", "--rpc-ssl", "disabled", "--daemon-ssl", "disabled", "--log-level", "1", "--allow-mismatched-daemon-version"]
 wallet_extra = [
@@ -69,7 +69,7 @@ wallet_extra = [
   ["--daemon-port", "18180", "--disable-rpc-login"],
   ["--daemon-port", "18182", "--disable-rpc-login", "--no-dns"],
   ["--offline", "--disable-rpc-login"],
-  ["--daemon-port", "18184", "--daemon-login", "md5_lover:Z1ON0101", "--rpc-login", "kyle:reveille"],
+  ["--daemon-port", "18184", "--daemon-login", "md5_lover:Z1ON0101", "--rpc-login", "kyle:reveille", "--disable-md5"],
   ["--offline", "--disable-rpc-login", "--generate-from-json", WALLET_DIRECTORY + "/polyseed.json"],
 ]
 

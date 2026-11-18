@@ -171,6 +171,7 @@ class HttpDigestAuthTest():
         res = self.daemon.get_height()
         self.daemon.pop_blocks(res.height - 1)
         self.daemon.flush_txpool()
+        assert self.daemon.get_blocks_fast(1, []).current_height == 1
 
     def create_wallet(self):
         print('Connecting to wallet server with RPC digest authentication required...')
