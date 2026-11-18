@@ -2963,6 +2963,7 @@ bool Blockchain::check_tx_inputs(transaction& tx,
   crypto::hash& max_used_block_id,
   tx_verification_context &tvc,
   crypto::hash &valid_input_verification_id_inout,
+  crypto::hash &invalid_input_verification_id_inout,
   bool kept_by_block) const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
@@ -2979,7 +2980,7 @@ bool Blockchain::check_tx_inputs(transaction& tx,
 #endif
 
   TIME_MEASURE_START(a);
-  bool res = check_tx_inputs(tx, tvc, valid_input_verification_id_inout, &max_used_block_height);
+  bool res = check_tx_inputs(tx, tvc, valid_input_verification_id_inout, invalid_input_verification_id_inout, &max_used_block_height);
   TIME_MEASURE_FINISH(a);
   if(m_show_time_stats)
   {
@@ -3263,6 +3264,7 @@ bool Blockchain::expand_transaction_2(transaction &tx, const crypto::hash &tx_pr
 bool Blockchain::check_tx_inputs(transaction& tx,
   tx_verification_context &tvc,
   crypto::hash &valid_input_verification_id_inout,
+  crypto::hash &invalid_input_verification_id_inout,
   uint64_t* pmax_used_block_height) const
 {
   PERF_TIMER(check_tx_inputs);
@@ -3458,10 +3460,9 @@ bool Blockchain::check_tx_inputs(transaction& tx,
   const crypto::hash txid = get_transaction_hash(tx);
 
   // Try skipping verification if input verification ID matches a previously valid ID
-  crypto::hash calculated_input_verification_id = crypto::null_hash;
+  const crypto::hash calculated_input_verification_id = make_input_verification_id(get_transaction_hash(tx), pubkeys);
   if (valid_input_verification_id_inout != crypto::null_hash)
   {
-    calculated_input_verification_id = make_input_verification_id(get_transaction_hash(tx), pubkeys);
     if (calculated_input_verification_id == valid_input_verification_id_inout)
     {
       MDEBUG("Valid verID hit for tx " << txid << ", skipping input verification...");
@@ -3478,18 +3479,24 @@ bool Blockchain::check_tx_inputs(transaction& tx,
     MDEBUG("No previously valid verID provided for tx " << txid << ", continuing to input verification as normal...");
   }
 
-  // Verify ring signature input proofs
   valid_input_verification_id_inout = crypto::null_hash;
+  assert(calculated_input_verification_id != crypto::null_hash);
+  if (invalid_input_verification_id_inout == calculated_input_verification_id)
+  {
+    MDEBUG("Tx inputs already determined invalid for " << txid);
+    return false;
+  }
+
+  // Verify ring signature input proofs
   if (!ver_input_proofs_rings(tx, pubkeys))
   {
     MERROR_VER("Failed to verify input ring signatures for tx " << txid);
+    invalid_input_verification_id_inout = calculated_input_verification_id;
     return false;
   }
 
   // At this point, we've succeeded at input verification, so set `valid_input_verification_id_inout`
-  valid_input_verification_id_inout = (calculated_input_verification_id == crypto::null_hash)
-    ? make_input_verification_id(get_transaction_hash(tx), pubkeys)
-    : calculated_input_verification_id;
+  valid_input_verification_id_inout = calculated_input_verification_id;
 
   MDEBUG("Input verification for tx " << txid << " succeeded. Setting verID to " << valid_input_verification_id_inout);
 
@@ -4186,7 +4193,8 @@ leave:
     {
       // validate that transaction inputs and the keys spending them are correct.
       tx_verification_context tvc;
-      if(!check_tx_inputs(tx, tvc, valid_input_verification_id))
+      crypto::hash invalid_input_verification_id{crypto::null_hash};
+      if(!check_tx_inputs(tx, tvc, valid_input_verification_id, invalid_input_verification_id))
       {
         MERROR_VER("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
 

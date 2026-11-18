@@ -662,6 +662,7 @@ private:
     bool check_tx_inputs(const std::function<cryptonote::transaction&(void)> &get_tx,
       const crypto::hash &txid,
       crypto::hash &valid_input_verification_id_inout,
+      crypto::hash &invalid_input_verification_id_inout,
       uint64_t &max_used_block_height,
       crypto::hash &max_used_block_id,
       tx_verification_context &tvc,
@@ -680,6 +681,14 @@ private:
     bool m_mine_stem_txes;
 
     mutable std::unordered_map<crypto::hash, std::tuple<bool, tx_verification_context, uint64_t, crypto::hash>> m_input_cache;
+
+    /*
+      If a tx enters the pool but has an invalid input verification ID (e.g. a reorged transaction that may eventually
+      become correct), we save its invalid input verID so we don't re-attempt expensive verification we know will fail.
+      An invalid ID may only be saved for a tx that exists in the pool. This cache can eventually be removed if we
+      modify how the alt block handling protocol inserts invalid input txs into the pool.
+    */
+    mutable std::unordered_map<crypto::hash/*tx_hash*/, crypto::hash> m_invalid_input_verification_ids;
 
     std::unordered_map<crypto::hash, transaction> m_parsed_tx_cache;
 
