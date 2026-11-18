@@ -75,7 +75,7 @@ namespace cryptonote
     void add_blocks(uint64_t height, std::vector<cryptonote::block_complete_entry> bcel, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, float rate, size_t size, uint64_t sync_size);
     bool add_blocks(uint64_t height, uint64_t nblocks, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, boost::posix_time::ptime time = boost::date_time::min_date_time);
     void flush_spans(const boost::uuids::uuid &connection_id, bool all = false);
-    void flush_stale_spans(const std::set<boost::uuids::uuid> &live_connections);
+    void flush_stale_spans(const std::set<boost::uuids::uuid> &stale_connections);
     bool remove_span(uint64_t start_block_height, std::vector<crypto::hash> *hashes = NULL);
     void remove_spans(const boost::uuids::uuid &connection_id, uint64_t start_block_height);
     uint64_t get_max_block_height() const;
