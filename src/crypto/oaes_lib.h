@@ -50,7 +50,7 @@ extern "C" {
 #	endif
 #else
 #	define OAES_API
-#endif // WIN32
+#endif // _WIN32
 
 #define OAES_VERSION "0.8.1"
 #define OAES_BLOCK_SIZE 16

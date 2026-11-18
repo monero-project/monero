@@ -48,7 +48,7 @@
 #include <sstream>
 #include <unordered_map>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <boost/locale.hpp>
 #endif
 
@@ -404,7 +404,7 @@ uint64_t Wallet::maximumAllowedAmount()
 }
 
 void Wallet::init(const char *argv0, const char *default_log_base_name, const std::string &log_path, bool console) {
-#ifdef WIN32
+#ifdef _WIN32
     // Activate UTF-8 support for Boost filesystem classes on Windows
     std::locale::global(boost::locale::generator().generate(""));
     boost::filesystem::path::imbue(std::locale());

@@ -63,7 +63,7 @@ using namespace epee;
 #include "memwipe.h"
 #include "net/http_client.h"                        // epee::net_utils::...
 
-#ifdef WIN32
+#ifdef _WIN32
   #include <windows.h>
   #include <shlobj.h>
 #else
@@ -133,7 +133,7 @@ namespace tools
 
   private_file private_file::create(std::string name, uint32_t extra_flags)
   {
-#ifdef WIN32
+#ifdef _WIN32
     struct close_handle
     {
       void operator()(HANDLE handle) const noexcept
@@ -244,7 +244,7 @@ namespace tools
         return {};
       }
     }
-#ifdef WIN32
+#ifdef _WIN32
     return create(filename);
 #else
     return create(filename, O_EXCL);
@@ -263,7 +263,7 @@ namespace tools
 
   file_locker::file_locker(const std::string &filename)
   {
-#ifdef WIN32
+#ifdef _WIN32
     m_fd = INVALID_HANDLE_VALUE;
     std::wstring filename_wide;
     try
@@ -312,7 +312,7 @@ namespace tools
   {
     if (locked())
     {
-#ifdef WIN32
+#ifdef _WIN32
       CloseHandle(m_fd);
 #else
       close(m_fd);
@@ -321,7 +321,7 @@ namespace tools
   }
   bool file_locker::locked() const
   {
-#ifdef WIN32
+#ifdef _WIN32
     return m_fd != INVALID_HANDLE_VALUE;
 #else
     return m_fd != -1;
@@ -329,7 +329,7 @@ namespace tools
   }
 
 
-#ifdef WIN32
+#ifdef _WIN32
   std::string get_special_folder_path(int nfolder, bool iscreate)
   {
     WCHAR psz_path[MAX_PATH] = L"";
@@ -362,7 +362,7 @@ namespace tools
     // Unix & Mac: ~/.CRYPTONOTE_NAME
     std::string config_folder;
 
-#ifdef WIN32
+#ifdef _WIN32
     config_folder = get_special_folder_path(CSIDL_COMMON_APPDATA, true) + "\\" + CRYPTONOTE_NAME;
 #else
     std::string pathRet;
@@ -403,7 +403,7 @@ namespace tools
   std::error_code replace_file(const std::string& old_name, const std::string& new_name)
   {
     int code;
-#if defined(WIN32)
+#if defined(_WIN32)
     // Maximizing chances for success
     std::wstring wide_replacement_name;
     try { wide_replacement_name = string_tools::utf8_to_utf16(old_name); }

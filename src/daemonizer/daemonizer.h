@@ -66,7 +66,7 @@ namespace daemonizer
     };
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 #  include "daemonizer/windows_daemonizer.inl"
 #else
 #  include "daemonizer/posix_daemonizer.inl"
