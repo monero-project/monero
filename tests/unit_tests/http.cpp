@@ -144,12 +144,14 @@ public:
       throw_on_header = false;
       throw std::runtime_error("simulated failure while processing response");
     }
-    return true;
+    return !stop_on_header;
   }
 
   bool handle_target_data(std::string& piece) override
   {
     body_seen += piece;
+    if (stop_on_body)
+      return false;
     return http::http_simple_client_template<dummy_client>::handle_target_data(piece);
   }
 
@@ -158,6 +160,8 @@ public:
   unsigned headers_seen = 0;
   bool disconnected = false;
   bool throw_on_header = false;
+  bool stop_on_header = false;
+  bool stop_on_body = false;
 };
 
 class capturing_http_handler final : public http::i_http_server_handler<epee::net_utils::connection_context_base>
@@ -1863,8 +1867,11 @@ TEST(HTTP, Client_Accepts_Fragmented_Response_Header)
 
 TEST(HTTP, Client_Accepts_Max_Response_Header)
 {
+  // Beast limits a single field to 64 KiB
   test_http_client client;
-  std::string response = "HTTP/1.1 200 OK\r\nX-Test: ";
+  std::string response = "HTTP/1.1 200 OK\r\nX-Test-1: ";
+  response.append(50000, 'a');
+  response += "\r\nX-Test-2: ";
   const std::string suffix = "\r\nContent-Length: 0\r\n\r\n";
   response.append(100000 - response.size() - suffix.size(), 'a');
   response += suffix;
@@ -1873,6 +1880,19 @@ TEST(HTTP, Client_Accepts_Max_Response_Header)
   EXPECT_TRUE(client.test(response, std::chrono::milliseconds(1000)));
   EXPECT_EQ(1u, client.headers_seen);
   EXPECT_FALSE(client.disconnected);
+}
+
+TEST(HTTP, Client_Rejects_Oversized_Response_Field)
+{
+  test_http_client client;
+  std::string response = "HTTP/1.1 200 OK\r\nX-Test: ";
+  response.append(70000, 'a');
+  response += "\r\nContent-Length: 0\r\n\r\n";
+
+  EXPECT_FALSE(client.test(response, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(0u, client.headers_seen);
+  EXPECT_TRUE(client.disconnected);
+  EXPECT_TRUE(client.test("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n", std::chrono::milliseconds(1000)));
 }
 
 TEST(HTTP, Client_Rejects_Completed_Oversized_Response_Header)
@@ -1976,52 +1996,377 @@ TEST(HTTP, Client_Recovers_From_Exception_During_Response_Processing)
 TEST(HTTP, Client_Rejects_Oversized_Chunk_Header)
 {
   const std::string header = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n";
-  const std::string oversized(100001, '0');
 
   test_http_client incomplete;
-  const std::string incomplete_response = header + oversized + std::string(100000, 'a');
-  EXPECT_FALSE(incomplete.test(incomplete_response, std::chrono::milliseconds(1000)));
-  EXPECT_EQ(7u, dummy_client::recv_calls);
+  EXPECT_FALSE(incomplete.test(header + std::string(100001, '0') + std::string(100000, 'a'),
+    std::chrono::milliseconds(1000)));
+  EXPECT_EQ(1u, dummy_client::recv_calls);
+  EXPECT_TRUE(incomplete.disconnected);
   EXPECT_TRUE(incomplete.test(header + "1\r\na\r\n0\r\n\r\n", std::chrono::milliseconds(1000)));
+  EXPECT_EQ("a", incomplete.body_seen);
 
-  test_http_client terminal;
-  const std::string terminal_response = header + "0\r\n" + std::string(100001, '\r') + std::string(100000, 'a');
-  EXPECT_FALSE(terminal.test(terminal_response, std::chrono::milliseconds(1000)));
-  EXPECT_EQ(7u, dummy_client::recv_calls);
-
-  test_http_client separators;
-  const std::string separators_response = header + "1\r\na" + std::string(100001, '\r') + std::string(100000, 'a');
-  EXPECT_FALSE(separators.test(separators_response, std::chrono::milliseconds(1000)));
-  EXPECT_EQ(7u, dummy_client::recv_calls);
-
-  test_http_client valid_separators;
-  EXPECT_TRUE(valid_separators.test(header + "1\r\na" + std::string(99999, '\r') + "1\r\nb\r\n0\r\n\r\n",
+  test_http_client extension;
+  EXPECT_FALSE(extension.test(header + "1;" + std::string(100000, 'x') + "\r\na\r\n0\r\n\r\n",
     std::chrono::milliseconds(1000)));
-  EXPECT_EQ("ab", valid_separators.body_seen);
+  EXPECT_TRUE(extension.disconnected);
 
-  test_http_client excessive_separators;
-  EXPECT_FALSE(excessive_separators.test(header + "1\r\na" + std::string(100000, '\r') + "1\r\nb\r\n0\r\n\r\n",
+  test_http_client trailer;
+  EXPECT_FALSE(trailer.test(header + "1\r\na\r\n0\r\nX-Trailer: " + std::string(100000, 'x') + "\r\n\r\n",
     std::chrono::milliseconds(1000)));
-  EXPECT_TRUE(excessive_separators.disconnected);
+  EXPECT_TRUE(trailer.disconnected);
 
   test_http_client valid;
-  EXPECT_TRUE(valid.test(header + "1\r\na\r\n0\r\n\r\n", std::chrono::milliseconds(1000)));
+  EXPECT_TRUE(valid.test(header + "1;name=value\r\na\r\n0\r\nX-Trailer: 1\r\n\r\n", std::chrono::milliseconds(1000)));
+  EXPECT_EQ("a", valid.body_seen);
+  EXPECT_FALSE(valid.disconnected);
 
   test_http_client large_body;
   EXPECT_TRUE(large_body.test(header + "186a1\r\n" + std::string(100001, 'a') + "\r\n0\r\n\r\n",
     std::chrono::milliseconds(1000)));
+  EXPECT_EQ(std::string(100001, 'a'), large_body.body_seen);
 }
 
-TEST(HTTP, Client_Drops_Chunked_Trailing_Bytes)
+TEST(HTTP, Client_Accepts_Chunked_Spellings)
+{
+  for (const std::string encoding : {"chunked", "CHUNKED", " chunked ", "chunked,", ", chunked"})
+  {
+    test_http_client client;
+    EXPECT_TRUE(client.test("HTTP/1.1 200 OK\r\nTransfer-Encoding: " + encoding + "\r\n\r\n1\r\na\r\n0\r\n\r\n",
+      std::chrono::milliseconds(1000))) << encoding;
+    EXPECT_EQ("a", client.body_seen) << encoding;
+  }
+}
+
+namespace
+{
+struct parser_handler final : http::i_response_handler
+{
+  bool on_header(const http::http_response_info&) override { return true; }
+  bool handle_target_data(std::string& piece) override
+  {
+    body += piece;
+    return true;
+  }
+  std::string body;
+};
+
+// Each piece is a separate read
+http::response_parser::status put_pieces(const std::vector<std::string>& pieces, std::string* body = nullptr)
+{
+  http::http_response_info info;
+  parser_handler handler;
+  http::response_parser parser{info, handler, false};
+  auto status = http::response_parser::status::need_more;
+  for (const std::string& piece : pieces)
+  {
+    status = parser.put(piece);
+    if (status != http::response_parser::status::need_more)
+      break;
+  }
+  if (body)
+    *body = std::move(handler.body);
+  return status;
+}
+
+std::vector<std::string> split_every(const std::string& s, const std::size_t size)
+{
+  std::vector<std::string> out;
+  for (std::size_t i = 0; i < s.size(); i += size)
+    out.push_back(s.substr(i, size));
+  return out;
+}
+} // anonymous
+
+TEST(HTTP, Client_Limits_Header_Across_Reads)
+{
+  // complete fields, each in its own read; before Boost 1.87, Beast doesn't count these
+  std::vector<std::string> pieces{"HTTP/1.1 200 OK\r\n"};
+  const std::string field = "X: " + std::string(997, 'a') + "\r\n";
+  for (std::size_t i = 0; i < 101; ++i)
+    pieces.push_back(field);
+  pieces.push_back("Content-Length: 0\r\n\r\n");
+  EXPECT_EQ(http::response_parser::status::failed, put_pieces(pieces));
+
+  // just under the limit, a few bytes per read
+  std::string header = "HTTP/1.1 200 OK\r\nContent-Length: 1\r\nX: ";
+  header.append(50'000, 'a').append("\r\nY: ");
+  header.append(100'000 - 4 - header.size(), 'a').append("\r\n\r\n");
+  std::string body;
+  EXPECT_EQ(http::response_parser::status::done, put_pieces(split_every(header + "b", 7), &body));
+  EXPECT_EQ("b", body);
+}
+
+TEST(HTTP, Client_Limits_Chunk_Metadata_Across_Reads)
+{
+  const std::string header = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n";
+
+  // an unfinished chunk extension
+  std::vector<std::string> extension{header, "1;"};
+  for (std::size_t i = 0; i < 101; ++i)
+    extension.push_back(std::string(1'000, 'x'));
+  EXPECT_EQ(http::response_parser::status::failed, put_pieces(extension));
+
+  // trailer fields, each in its own read
+  std::vector<std::string> trailer{header, "1\r\na\r\n0\r\n"};
+  const std::string field = "X: " + std::string(997, 'a') + "\r\n";
+  for (std::size_t i = 0; i < 101; ++i)
+    trailer.push_back(field);
+  trailer.push_back("\r\n");
+  EXPECT_EQ(http::response_parser::status::failed, put_pieces(trailer));
+
+  // a small trailer and a large body, a few bytes per read
+  std::string body;
+  const std::string response = header + "186a1\r\n" + std::string(100001, 'a') + "\r\n0\r\nX: 1\r\n\r\n";
+  EXPECT_EQ(http::response_parser::status::done, put_pieces(split_every(response, 5), &body));
+  EXPECT_EQ(std::string(100001, 'a'), body);
+}
+
+TEST(HTTP, Client_Rejects_Malformed_Chunk_Separators)
+{
+  const std::string header = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n";
+
+  // RFC 9112, 7.1
+  for (const std::string separator : {"", "\r", "\n", "\r\r\n", "\r\n\r\n"})
+  {
+    test_http_client client;
+    EXPECT_FALSE(client.test(header + "1\r\na" + separator + "1\r\nb\r\n0\r\n\r\n",
+      std::chrono::milliseconds(1000))) << "separator size " << separator.size();
+    EXPECT_TRUE(client.disconnected);
+  }
+
+  test_http_client client;
+  EXPECT_FALSE(client.test(header + "x\r\na\r\n0\r\n\r\n", std::chrono::milliseconds(1000)));
+  EXPECT_TRUE(client.disconnected);
+}
+
+TEST(HTTP, Client_Rejects_Trailing_Bytes)
 {
   const std::string header = "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n";
   test_http_client client;
 
-  ASSERT_TRUE(client.test(header + "1\r\na\r\n0\r\n\r\n1\r\nx\r\n0\r\n\r\n", std::chrono::milliseconds(1000)));
-  EXPECT_EQ("a", client.body_seen);
+  EXPECT_FALSE(client.test(header + "1\r\na\r\n0\r\n\r\n1\r\nx\r\n0\r\n\r\n", std::chrono::milliseconds(1000)));
+  EXPECT_TRUE(client.disconnected);
   client.set_server("daemon-b", "18081", boost::none);
   ASSERT_TRUE(client.test(header + "1\r\nb\r\n0\r\n\r\n", std::chrono::milliseconds(1000)));
   EXPECT_EQ("b", client.body_seen);
+
+  test_http_client pipelined;
+  EXPECT_FALSE(pipelined.test(
+    "HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\na"
+    "HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\nb",
+    std::chrono::milliseconds(1000)
+  ));
+  EXPECT_TRUE(pipelined.disconnected);
+}
+
+TEST(HTTP, Client_Rejects_Truncated_Body)
+{
+  test_http_client content_length;
+  EXPECT_FALSE(content_length.test(
+    "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nabc",
+    std::chrono::milliseconds(1000)
+  ));
+  EXPECT_TRUE(content_length.disconnected);
+
+  test_http_client chunked;
+  EXPECT_FALSE(chunked.test(
+    "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabc\r\n",
+    std::chrono::milliseconds(1000)
+  ));
+  EXPECT_TRUE(chunked.disconnected);
+
+  test_http_client header;
+  EXPECT_FALSE(header.test("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n", std::chrono::milliseconds(1000)));
+  EXPECT_EQ(0u, header.headers_seen);
+  EXPECT_TRUE(header.disconnected);
+
+  test_http_client empty;
+  EXPECT_FALSE(empty.test("", std::chrono::milliseconds(1000)));
+  EXPECT_TRUE(empty.disconnected);
+}
+
+TEST(HTTP, Client_Reads_Close_Delimited_Body)
+{
+  test_http_client client;
+  ASSERT_TRUE(client.test(
+    "HTTP/1.1 200 OK\r\nConnection: close\r\n\r\nabc",
+    std::chrono::milliseconds(1000)
+  ));
+  EXPECT_EQ("abc", client.body_seen);
+  EXPECT_TRUE(client.disconnected);
+
+  test_http_client http10;
+  ASSERT_TRUE(http10.test("HTTP/1.0 200 OK\r\n\r\nabc", std::chrono::milliseconds(1000)));
+  EXPECT_EQ("abc", http10.body_seen);
+  EXPECT_TRUE(http10.disconnected);
+}
+
+TEST(HTTP, Client_Disconnects_Unless_Keep_Alive)
+{
+  test_http_client close;
+  ASSERT_TRUE(close.test(
+    "HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
+    std::chrono::milliseconds(1000)
+  ));
+  EXPECT_TRUE(close.disconnected);
+
+  test_http_client http10;
+  ASSERT_TRUE(http10.test("HTTP/1.0 200 OK\r\nContent-Length: 0\r\n\r\n", std::chrono::milliseconds(1000)));
+  EXPECT_TRUE(http10.disconnected);
+
+  test_http_client http10_keep_alive;
+  ASSERT_TRUE(http10_keep_alive.test(
+    "HTTP/1.0 200 OK\r\nConnection: keep-alive\r\nContent-Length: 0\r\n\r\n",
+    std::chrono::milliseconds(1000)
+  ));
+  EXPECT_FALSE(http10_keep_alive.disconnected);
+
+  test_http_client http11;
+  ASSERT_TRUE(http11.test("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n", std::chrono::milliseconds(1000)));
+  EXPECT_FALSE(http11.disconnected);
+}
+
+TEST(HTTP, Client_Skips_Interim_Response)
+{
+  test_http_client client;
+  ASSERT_TRUE(client.test(
+    "HTTP/1.1 100 Continue\r\n\r\n"
+    "HTTP/1.1 103 Early Hints\r\nLink: </style.css>\r\n\r\n"
+    "HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\na",
+    std::chrono::milliseconds(1000)
+  ));
+  EXPECT_EQ(1u, client.headers_seen);
+  EXPECT_EQ(200, client.last_headers.m_response_code);
+  EXPECT_TRUE(client.last_headers.m_header_info.m_etc_fields.empty());
+  EXPECT_EQ("a", client.body_seen);
+}
+
+TEST(HTTP, Client_Reads_Response_Header)
+{
+  test_http_client client;
+  ASSERT_TRUE(client.test(
+    "HTTP/1.1 404 Not Found\r\n"
+    "Content-Type:  application/json \r\n"
+    "Content-Length: 2\r\n"
+    "WWW-Authenticate: Digest realm=\"x\"\r\n"
+    "\r\n"
+    "{}",
+    std::chrono::milliseconds(1000)
+  ));
+  const http::http_response_info& info = client.last_headers;
+  EXPECT_EQ(404, info.m_response_code);
+  EXPECT_EQ("Not Found", info.m_response_comment);
+  EXPECT_EQ(1, info.m_http_ver_hi);
+  EXPECT_EQ(1, info.m_http_ver_lo);
+  EXPECT_EQ("application/json", info.m_header_info.m_content_type);
+  EXPECT_EQ("2", info.m_header_info.m_content_length);
+  ASSERT_EQ(1u, info.m_header_info.m_etc_fields.size());
+  EXPECT_EQ("WWW-Authenticate", info.m_header_info.m_etc_fields.front().first);
+  EXPECT_EQ("Digest realm=\"x\"", info.m_header_info.m_etc_fields.front().second);
+  EXPECT_EQ("{}", client.body_seen);
+
+  test_http_client no_body;
+  ASSERT_TRUE(no_body.test("HTTP/1.1 204 No Content\r\n\r\n", std::chrono::milliseconds(1000)));
+  EXPECT_EQ(204, no_body.last_headers.m_response_code);
+  EXPECT_FALSE(no_body.disconnected);
+}
+
+TEST(HTTP, Client_Rejects_Bad_Framing)
+{
+  for (const std::string header : {
+         "Transfer-Encoding: gzip\r\n",
+         "Transfer-Encoding: chunked, gzip\r\n",
+         "Transfer-Encoding: gzip, chunked\r\n",
+         "Transfer-Encoding: gzip\r\nTransfer-Encoding: chunked\r\n",
+         "Content-Length: 1\r\nContent-Length: 2\r\n",
+         "Content-Length: -1\r\n",
+         "Content-Length: 1x\r\n",
+         "Content-Length: 18446744073709551616\r\n",
+       })
+  {
+    test_http_client client;
+    EXPECT_FALSE(client.test("HTTP/1.1 200 OK\r\n" + header + "\r\na", std::chrono::milliseconds(1000)))
+      << header;
+    EXPECT_EQ(0u, client.headers_seen) << header;
+    EXPECT_TRUE(client.disconnected) << header;
+  }
+
+  for (const std::string status : {"HTTP/1.1 20 OK", "HTTP/1.1 2000 OK", "HTTP/x.1 200 OK", "HTTP/1.1 200OK",
+                                   "HTTP/1.1 099 OK", "HTTP/1.1 000 OK"})
+  {
+    test_http_client client;
+    EXPECT_FALSE(client.test(status + "\r\nContent-Length: 0\r\n\r\n", std::chrono::milliseconds(1000)))
+      << status;
+    EXPECT_TRUE(client.disconnected) << status;
+  }
+}
+
+TEST(HTTP, Client_Stops_On_Handler)
+{
+  const std::string response = "HTTP/1.1 200 OK\r\nContent-Length: 3\r\n\r\nabc";
+
+  test_http_client header;
+  header.stop_on_header = true;
+  EXPECT_FALSE(header.test(response, std::chrono::milliseconds(1000)));
+  EXPECT_EQ(1u, header.headers_seen);
+  EXPECT_TRUE(header.body_seen.empty());
+  EXPECT_TRUE(header.disconnected);
+
+  test_http_client body;
+  body.stop_on_body = true;
+  EXPECT_FALSE(body.test(response, std::chrono::milliseconds(1000)));
+  EXPECT_EQ("abc", body.body_seen);
+  EXPECT_TRUE(body.disconnected);
+}
+
+TEST(HTTP, Client_Request_Header)
+{
+  const http::fields_list fields{{"Content-Type", "application/json"}, {"X-Test", ""}};
+  EXPECT_EQ(
+    "POST /json_rpc HTTP/1.1\r\n"
+    "Host: node.example\r\n"
+    "Content-Length: 5\r\n"
+    "Content-Type: application/json\r\n"
+    "X-Test: \r\n"
+    "Authorization: Digest x\r\n"
+    "\r\n",
+    http::make_request_header("POST", "/json_rpc", "node.example", 5, fields,
+                              std::make_pair(std::string{"Authorization"}, std::string{"Digest x"}))
+  );
+
+  EXPECT_EQ(
+    "GET /get_info?x=1 HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Length: 0\r\n\r\n",
+    http::make_request_header("GET", "/get_info?x=1", "127.0.0.1", 0, {}, boost::none)
+  );
+}
+
+TEST(HTTP, Client_Request_Header_Rejects_Injection)
+{
+  const auto header = [](boost::string_ref method, boost::string_ref uri, boost::string_ref host,
+                         const http::fields_list& fields)
+  {
+    return http::make_request_header(method, uri, host, 0, fields, boost::none);
+  };
+
+  EXPECT_FALSE(header("GET", "/", "host", {}).empty());
+  EXPECT_TRUE(header("", "/", "host", {}).empty());
+  EXPECT_TRUE(header("GET /x", "/", "host", {}).empty());
+  EXPECT_TRUE(header("GET", "", "host", {}).empty());
+  EXPECT_TRUE(header("GET", "/ HTTP/1.1\r\nX-Evil: 1\r\n\r\nGET /", "host", {}).empty());
+  EXPECT_TRUE(header("GET", "/a b", "host", {}).empty());
+  EXPECT_TRUE(header("GET", "/", "host\r\nX-Evil: 1", {}).empty());
+  EXPECT_TRUE(header("GET", "/", "host", {{"X-Test", "a\r\nX-Evil: 1"}}).empty());
+  EXPECT_TRUE(header("GET", "/", "host", {{"X-Test", "a\nb"}}).empty());
+  EXPECT_TRUE(header("GET", "/", "host", {{"X-Test", std::string{"a\0b", 3}}}).empty());
+  EXPECT_TRUE(header("GET", "/", "host", {{"X Test", "a"}}).empty());
+  EXPECT_TRUE(header("GET", "/", "host", {{"X-Test:", "a"}}).empty());
+  EXPECT_TRUE(header("GET", "/", "host", {{"", "a"}}).empty());
+  EXPECT_TRUE(http::make_request_header("GET", "/", "host", 0, {},
+    std::make_pair(std::string{"Authorization"}, std::string{"a\r\nb"})).empty());
+
+  // Beast throws on a value too large to store, as from a Digest response to a large challenge
+  EXPECT_TRUE(http::make_request_header("GET", "/", "host", 0, {},
+    std::make_pair(std::string{"Authorization"}, "Digest " + std::string(70'000, 'a'))).empty());
 }
 
 TEST(HTTP, Add_Field)
