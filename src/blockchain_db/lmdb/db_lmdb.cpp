@@ -2388,7 +2388,8 @@ void BlockchainLMDB::open(const std::string& filename, const int db_flags)
   auto get_result = mdb_get(txn, m_properties, &k, &v);
   if(get_result == MDB_SUCCESS)
   {
-    const uint32_t db_version = *(const uint32_t*)v.mv_data;
+    uint32_t db_version;
+    memcpy(&db_version, v.mv_data, sizeof(db_version));
     if (db_version > VERSION)
     {
       MWARNING("Existing lmdb database was made by a later version (" << db_version << "). We don't know how it will change yet.");
