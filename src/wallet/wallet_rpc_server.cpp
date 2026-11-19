@@ -819,6 +819,23 @@ namespace tools
         else
           address_indices = req.address_index;
 
+        std::vector<bool> used_subaddresses;
+        if (!req.all_accounts && req.address_index.empty() && address_indices.size() > 1)
+        {
+          used_subaddresses.resize(address_indices.size());
+          size_t remaining = address_indices.size();
+          for (const auto& td : transfers)
+          {
+            const auto minor = td.m_subaddr_index.minor;
+            if (td.m_subaddr_index.major == account && minor < used_subaddresses.size() && !used_subaddresses[minor])
+            {
+              used_subaddresses[minor] = true;
+              if (--remaining == 0)
+                break;
+            }
+          }
+        }
+
         for (uint32_t i : address_indices)
         {
           THROW_WALLET_EXCEPTION_IF(i >= m_wallet->get_num_subaddresses(account), error::address_index_outofbound);
@@ -829,8 +846,12 @@ namespace tools
           info.label = m_wallet->get_subaddress_label(index);
           info.account_index = index.major;
           info.address_index = index.minor;
-          info.used = req.all_accounts ? used_addresses.count(index) != 0 :
-            std::find_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) { return td.m_subaddr_index == index; }) != transfers.end();
+          if (req.all_accounts)
+            info.used = used_addresses.count(index) != 0;
+          else if (!used_subaddresses.empty())
+            info.used = used_subaddresses[i];
+          else
+            info.used = std::find_if(transfers.begin(), transfers.end(), [&](const tools::wallet2::transfer_details& td) { return td.m_subaddr_index == index; }) != transfers.end();
         }
       }
       res.address = m_wallet->get_subaddress_as_str({req.all_accounts ? 0 : req.account_index, 0});
