@@ -159,6 +159,7 @@ namespace cryptonote
   bool get_output_public_key(const cryptonote::tx_out& out, crypto::public_key& output_public_key);
   boost::optional<crypto::view_tag> get_output_view_tag(const cryptonote::tx_out& out);
   bool commitment_is_in_rct_signatures(const transaction_prefix& tx);
+  bool has_transparent_amounts(const transaction_prefix& tx);
   bool get_commitment(const transaction& tx, const std::size_t o_idx, const std::unordered_map<uint64_t, rct::key> &transparent_amount_commitments, rct::key &c_out);
   bool check_inputs_types_supported(const transaction& tx);
   bool check_outs_valid(const transaction& tx);
