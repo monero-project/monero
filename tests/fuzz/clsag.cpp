@@ -48,5 +48,7 @@ BEGIN_SIMPLE_FUZZER()
   if (!serialization::parse_binary(blob, sig))
     return 0;
 
+  // The signing key image is omitted from the serialized signature.
+  sig.I = clsag_s.I;
   verRctCLSAGSimple(message, sig, pubs, Cout);
 END_SIMPLE_FUZZER()

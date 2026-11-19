@@ -11,9 +11,9 @@ else:
   second = [sys.argv[2]]
 
 print('running: ', first)
-S0 = subprocess.check_output(first, stderr=subprocess.STDOUT)
+S0 = subprocess.check_output(first, stderr=sys.stderr)
 print('running: ', second)
-S1 = subprocess.check_output(second, stderr=subprocess.STDOUT)
+S1 = subprocess.check_output(second, stderr=sys.stderr)
 print('comparing')
 if S0 != S1:
   sys.exit(1)

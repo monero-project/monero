@@ -296,7 +296,8 @@ static void fuzz_tx_proof(FuzzedDataProvider &fdp)
   }
   catch (const std::exception &)
   {
-    // e.g. "No funds received in this tx" when every amount to the proof address is zero.
+    // Accept a proof-generation exception only when the expected amount is zero.
+    FUZZ_CHECK(expected_received == 0);
     return;
   }
 

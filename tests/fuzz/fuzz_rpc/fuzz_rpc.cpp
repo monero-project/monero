@@ -22,8 +22,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   constexpr bool is_safe_mode = false;
 #endif
 
-  // Retrieve a list of all fuzz targets
-  auto fuzz_targets = get_fuzz_targets(is_safe_mode);
+  const auto fuzz_targets = get_fuzz_targets(is_safe_mode);
+  // The handler map can have gaps in its keys when endpoints are removed.
+  std::vector<int> available_selectors;
+  available_selectors.reserve(fuzz_targets.size());
+  for (const auto& target : fuzz_targets) {
+    available_selectors.push_back(target.first);
+  }
 
   // Disable fatal exits for logging.
   el::Loggers::addFlag(el::LoggingFlag::DisableApplicationAbortOnFatalLog);
@@ -33,13 +38,13 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 
   // Randomly choose multiple fuzz_targets to fuzz
   unsigned rpc_messages_to_send = provider.ConsumeIntegralInRange<unsigned>(1, 16);
-  std::vector<unsigned> selectors;
+  std::vector<int> selectors;
   if (is_safe_mode) {
     selectors.reserve(rpc_messages_to_send);
   } else {
     selectors.reserve(rpc_messages_to_send + priority_fuzz_targets.size());
-    for (unsigned i = 0; i < priority_fuzz_targets.size(); ++i) {
-        selectors.push_back(i);
+    for (const auto& target : priority_fuzz_targets) {
+      selectors.push_back(target.first);
     }
 
     // Randomly shuffle the selectors for priority fuzz targets
@@ -51,8 +56,8 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 
   // Randomly select rpc functions to call
   for (unsigned i = 0; i < rpc_messages_to_send && provider.remaining_bytes() >= 2; ++i) {
-    unsigned selector = provider.ConsumeIntegralInRange<unsigned>(0, fuzz_targets.size() - 1);
-    selectors.push_back(selector);
+    const auto index = provider.ConsumeIntegralInRange<unsigned>(0, available_selectors.size() - 1);
+    selectors.push_back(available_selectors[index]);
   }
 
   // Initialise core and core_rpc_server
@@ -70,10 +75,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     return 0;
   }
 
-  for (unsigned selector : selectors) {
+  for (int selector : selectors) {
     try {
       // Fuzz the target function
-      fuzz_targets[selector](*rpc_handler->rpc, provider);
+      fuzz_targets.at(selector)(*rpc_handler->rpc, provider);
     } catch (const std::runtime_error&) {
       // Known runtime_error thrown from monero
     } catch (const cryptonote::DB_ERROR& e) {

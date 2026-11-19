@@ -15102,12 +15102,18 @@ size_t wallet2::import_outputs(const std::tuple<uint64_t, uint64_t, std::vector<
   return m_transfers.size();
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::has_output_export_magic(epee::span<const uint8_t> data)
+{
+  constexpr size_t magiclen = sizeof(OUTPUT_EXPORT_FILE_MAGIC) - 1;
+  return data.size() >= magiclen && memcmp(data.data(), OUTPUT_EXPORT_FILE_MAGIC, magiclen) == 0;
+}
+//----------------------------------------------------------------------------------------------------
 size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
 {
   PERF_TIMER(import_outputs_from_str);
   std::string data = outputs_st;
-  const size_t magiclen = strlen(OUTPUT_EXPORT_FILE_MAGIC);
-  if (data.size() < magiclen || memcmp(data.data(), OUTPUT_EXPORT_FILE_MAGIC, magiclen))
+  constexpr size_t magiclen = sizeof(OUTPUT_EXPORT_FILE_MAGIC) - 1;
+  if (!has_output_export_magic(epee::strspan<uint8_t>(data)))
   {
     THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Bad magic from outputs"));
   }
@@ -15136,16 +15142,21 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
     THROW_WALLET_EXCEPTION(error::wallet_internal_error, std::string("Outputs from are for a different account"));
   }
 
+  auto body = epee::strspan<uint8_t>(data);
+  body.remove_prefix(headerlen);
+  return import_outputs_from_archive(body);
+}
+//----------------------------------------------------------------------------------------------------
+size_t wallet2::import_outputs_from_archive(epee::span<const uint8_t> body)
+{
   size_t imported_outputs = 0;
   bool loaded = false;
   try
   {
-    std::string body(data, headerlen);
-
     std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::exported_transfer_details>> new_outputs;
     try
     {
-      binary_archive<false> ar{epee::strspan<std::uint8_t>(body)};
+      binary_archive<false> ar{body};
       if (::serialization::serialize(ar, new_outputs))
         if (::serialization::check_stream_state(ar))
           loaded = true;
@@ -15158,7 +15169,7 @@ size_t wallet2::import_outputs_from_str(const std::string &outputs_st)
       std::tuple<uint64_t, uint64_t, std::vector<tools::wallet2::transfer_details>> outputs;
       try
       {
-        binary_archive<false> ar{epee::strspan<std::uint8_t>(body)};
+        binary_archive<false> ar{body};
         if (::serialization::serialize(ar, outputs))
           if (::serialization::check_stream_state(ar))
             loaded = true;

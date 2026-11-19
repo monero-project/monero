@@ -142,7 +142,7 @@ static uint32_t lcg_seed = 0;
 
 static uint32_t lcg()
 {
-  lcg_seed = (lcg_seed * 0x100000001b3 + 0xcbf29ce484222325) & 0xffffffff;
+  lcg_seed = (lcg_seed * 0x100000001b3ULL + 0xcbf29ce484222325ULL) & 0xffffffff;
   return lcg_seed;
 }
 
