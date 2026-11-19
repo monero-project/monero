@@ -42,7 +42,6 @@
 #include <boost/range/algorithm/find_if.hpp>
 #include <boost/range/iterator_range_core.hpp>
 #include <boost/range/join.hpp>
-#include <boost/optional/optional.hpp>
 #include <boost/spirit/include/karma_generate.hpp>
 #include <boost/spirit/include/karma_uint.hpp>
 #include <boost/spirit/include/qi_alternative.hpp>
@@ -138,14 +137,14 @@ namespace
     };
 
     template<typename... T>
-    boost::optional<std::array<char, DigestSize * 2>> operator()(const T&... args) const
+    std::optional<std::array<char, DigestSize * 2>> operator()(const T&... args) const
     {
       std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> ctx(EVP_MD_CTX_new(), &EVP_MD_CTX_free);
       if (!ctx)
-        return boost::none;
+        return std::nullopt;
 
       if (EVP_DigestInit_ex(ctx.get(), DigestFunc(), nullptr) != 1)
-        return boost::none;
+        return std::nullopt;
 
       bool ok = true;
       boost::fusion::for_each(std::tie(args...), [&] (const auto& arg) {
@@ -153,11 +152,11 @@ namespace
       });
 
       if (!ok)
-        return boost::none;
+        return std::nullopt;
 
       std::array<std::uint8_t, DigestSize> digest{{}};
       if (EVP_DigestFinal_ex(ctx.get(), digest.data(), nullptr) != 1)
-        return boost::none;
+        return std::nullopt;
       return epee::to_hex::array(digest);
     }
   };
@@ -442,7 +441,7 @@ namespace
       , username() {
     }
 
-    static boost::optional<auth_message> parse(const boost::string_ref request)
+    static std::optional<auth_message> parse(const boost::string_ref request)
     {
       struct parser
       {
@@ -519,7 +518,7 @@ namespace
           fields = field_table >> skip_whitespace >> equal_sign >> skip_whitespace;
         }
 
-        boost::optional<auth_message> operator()(const boost::string_ref request) const
+        std::optional<auth_message> operator()(const boost::string_ref request) const
         { 
           namespace qi = boost::spirit::qi;
            
@@ -528,7 +527,7 @@ namespace
 
           if (!qi::parse(current, end, header))
           {
-            return boost::none;
+            return std::nullopt;
           }
 
           auth_message info{};
@@ -539,11 +538,11 @@ namespace
           {
             if (!qi::parse(current, end, fields, field) || !field(*this, current, end, info))
             {
-              return boost::none;
+              return std::nullopt;
             }
             qi::parse(current, end, skip_whitespace);
           } while (qi::parse(current, end, qi::char_(comma) >> skip_whitespace));
-          return boost::make_optional(current == end, info);
+          return (current == end) ? std::optional(info) : std::optional<auth_message>();
         }
 
       private:
@@ -564,13 +563,13 @@ namespace
     struct has_valid_response
     {
       template<typename Digest, typename Result>
-      boost::optional<Result> generate_old_response(Digest digest, const Result& key, const Result& auth) const
+      std::optional<Result> generate_old_response(Digest digest, const Result& key, const Result& auth) const
       {
         return digest(key, u8":", request.nonce, u8":", auth);
       }
 
       template<typename Digest, typename Result>
-      boost::optional<Result> generate_new_response(Digest digest, const Result& key, const Result& auth) const
+      std::optional<Result> generate_new_response(Digest digest, const Result& key, const Result& auth) const
       {
         return digest(
           key, u8":", request.nonce, u8":", request.nc, u8":", request.cnonce, u8":", request.qop, u8":", auth
@@ -624,13 +623,13 @@ namespace
       const bool disable_md5;
     };
 
-    boost::optional<std::uint32_t> counter() const
+    std::optional<std::uint32_t> counter() const
     {
       namespace qi = boost::spirit::qi;
       using hex = qi::uint_parser<std::uint32_t, 16>;
       std::uint32_t value = 0;
       const bool converted = qi::parse(nc.begin(), nc.end(), hex{}, value);
-      return boost::make_optional(converted, value);
+      return converted ? std::optional(value) : std::optional<std::uint32_t>();
     }
 
     struct server_parameters
@@ -778,7 +777,7 @@ namespace epee
         : user(session{std::move(credentials)}), rng(std::move(r)), disable_md5(disable_md5_) {
       }
 
-      boost::optional<http_response_info> http_server_auth::do_get_response(const http_request_info& request)
+      std::optional<http_response_info> http_server_auth::do_get_response(const http_request_info& request)
       {
         assert(user);
         using field = std::pair<std::string, std::string>;
@@ -795,7 +794,7 @@ namespace epee
           switch (auth_message::verify(request.m_http_method_str, request.m_URI, auth->second, *user, disable_md5))
           {
           case auth_message::kPass:
-            return boost::none;
+            return std::nullopt;
 
           case auth_message::kStale:
             is_stale = true;
@@ -832,7 +831,7 @@ namespace epee
         return first_auth ? kParseFailure : kBadPassword;
       }
 
-      boost::optional<std::pair<std::string, std::string>> http_client_auth::do_get_auth_field(
+      std::optional<std::pair<std::string, std::string>> http_client_auth::do_get_auth_field(
         const boost::string_ref method, const boost::string_ref uri)
       {
         assert(user);
@@ -841,11 +840,11 @@ namespace epee
           ++(user->counter);
           std::string auth = user->server.generator(*user, method, uri);
           if (auth.empty())
-            return boost::none;
+            return std::nullopt;
 
           return std::make_pair(std::string(client_auth_field), std::move(auth));
         }
-        return boost::none;
+        return std::nullopt;
       }
     }
   }

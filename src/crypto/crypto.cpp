@@ -35,6 +35,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <random>
+#include <boost/optional.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/lock_guard.hpp>
 #include <boost/shared_ptr.hpp>

@@ -44,6 +44,7 @@
 #include <cassert>
 #include <map>
 #include <memory>
+#include <optional>
 #include <condition_variable>
 
 #include <boost/asio/post.hpp>
@@ -53,7 +54,6 @@
 #include <boost/array.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/thread/thread.hpp>
-#include <boost/optional.hpp>
 #include "byte_slice.h"
 #include "net_utils_base.h"
 #include "scope_guard.h"
@@ -154,7 +154,7 @@ namespace net_utils
     bool start_internal(
       bool is_income,
       bool is_multithreaded,
-      boost::optional<network_address> real_remote,
+      std::optional<network_address> real_remote,
       std::string initial_data = {},
       t_connection_context* context_out = nullptr
     );

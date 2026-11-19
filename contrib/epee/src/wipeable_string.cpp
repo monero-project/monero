@@ -26,7 +26,6 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <boost/optional/optional.hpp>
 #include <limits>
 #include <string.h>
 #include "memwipe.h"
@@ -200,11 +199,11 @@ void wipeable_string::split(std::vector<wipeable_string> &fields) const
   }
 }
 
-boost::optional<epee::wipeable_string> wipeable_string::parse_hexstr() const
+std::optional<epee::wipeable_string> wipeable_string::parse_hexstr() const
 {
   if (size() % 2 != 0)
-    return boost::none;
-  boost::optional<epee::wipeable_string> res = epee::wipeable_string("");
+    return std::nullopt;
+  std::optional<epee::wipeable_string> res = epee::wipeable_string("");
   const size_t len = size();
   const char *d = data();
   res->grow(0, len / 2);
@@ -213,11 +212,11 @@ boost::optional<epee::wipeable_string> wipeable_string::parse_hexstr() const
     char c = atolower(d[i]);
     const char *ptr0 = strchr(hex, c);
     if (!ptr0)
-      return boost::none;
+      return std::nullopt;
     c = atolower(d[i+1]);
     const char *ptr1 = strchr(hex, c);
     if (!ptr1)
-      return boost::none;
+      return std::nullopt;
     res->push_back(((ptr0-hex)<<4) | (ptr1-hex));
   }
   return res;

@@ -323,7 +323,7 @@ BEGIN_INIT_SIMPLE_FUZZER()
   {
     crypto::secret_key spendkey;
     epee::string_tools::hex_to_pod(w.second, spendkey);
-    w.first->init("", boost::none, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+    w.first->init("", std::nullopt, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
     w.first->set_subaddress_lookahead(2, 3);
     w.first->generate("", "", spendkey, true, false);
   }

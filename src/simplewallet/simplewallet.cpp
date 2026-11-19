@@ -4128,7 +4128,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
 
       if (m_restore_multisig_wallet)
       {
-        const boost::optional<epee::wipeable_string> parsed = m_electrum_seed.parse_hexstr();
+        const std::optional<epee::wipeable_string> parsed = m_electrum_seed.parse_hexstr();
         if (!parsed)
         {
           fail_msg_writer() << tr("Multisig seed failed verification");
@@ -5632,7 +5632,7 @@ bool simple_wallet::set_daemon(const std::vector<std::string>& args)
 
     std::string trusted;
 
-    boost::optional<epee::net_utils::http::login> daemon_login = boost::none;
+    std::optional<epee::net_utils::http::login> daemon_login = std::nullopt;
     std::string proxy_address;
     bool proxy_explicitly_set = false;
     for (size_t i = 1; i < args.size(); ++i)
