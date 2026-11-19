@@ -32,7 +32,8 @@ Common `host-platform-triplets` for cross compilation are:
 
 - `i686-w64-mingw32` for Win32
 - `x86_64-w64-mingw32` for Win64
-- `x86_64-apple-darwin` for MacOSX x86_64
+- `x86_64-apple-darwin` for macOS x86_64
+- `arm64-apple-darwin` for macOS ARM 64 bit
 - `arm-linux-gnueabihf` for Linux ARM 32 bit
 - `aarch64-linux-gnu` for Linux ARM 64 bit
 - `riscv64-linux-gnu` for Linux RISCV 64 bit
@@ -55,7 +56,7 @@ Additional targets:
 
 ```
 download: run 'make download' to fetch all sources without building them
-download-osx: run 'make download-osx' to fetch all sources needed for osx builds
+download-osx: run 'make download-osx' to fetch all sources needed for macOS builds
 download-win: run 'make download-win' to fetch all sources needed for win builds
 download-linux: run 'make download-linux' to fetch all sources needed for linux builds
 ```
