@@ -895,6 +895,7 @@ TEST(ban, file_banlist)
     boost::program_options::command_line_parser({
       "--data-dir",
       node_dir.string(),
+      "--offline",
       "--ban-list",
       (unit_test::data_dir / "node" / "banlist_1.txt").string()
     }).options([]{
