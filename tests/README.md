@@ -45,7 +45,6 @@ To run the same tests on a release build, replace `debug` with `release`.
 
 # Functional tests
 
-[TODO]
 Functional tests are located under the `tests/functional_tests` directory.
 
 Building all the tests requires installing the following dependencies:

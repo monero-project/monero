@@ -142,9 +142,6 @@ bool isFat32(const wchar_t* root_path)
 int main(int argc, char const * argv[])
 {
   try {
-
-    // TODO parse the debug options like set log level right here at start
-
     tools::on_startup();
 
     epee::string_tools::set_module_name_and_folder(argv[0]);
