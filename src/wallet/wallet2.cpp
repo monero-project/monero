@@ -4088,12 +4088,22 @@ void wallet2::update_pool_state_from_pool_data(bool incremental, const std::vect
   payments_tx_hashes.reserve(m_unconfirmed_payments.size());
   for (const auto &p: m_unconfirmed_payments)
     payments_tx_hashes.insert(p.second.m_pd.m_tx_hash);
+  std::unordered_map<crypto::hash, bool> double_spend_seen;
   for (const auto &pool_tx: added_pool_txs)
   {
-    if (accept_pool_tx_for_processing(std::get<1>(pool_tx), payments_tx_hashes))
+    const crypto::hash &txid = std::get<1>(pool_tx);
+    if (payments_tx_hashes.count(txid))
+      double_spend_seen.emplace(txid, std::get<2>(pool_tx));
+    if (accept_pool_tx_for_processing(txid, payments_tx_hashes))
     {
       process_txs.push_back(pool_tx);
     }
+  }
+  for (auto &payment : m_unconfirmed_payments)
+  {
+    const auto it = double_spend_seen.find(payment.second.m_pd.m_tx_hash);
+    if (it != double_spend_seen.end())
+      payment.second.m_double_spend_seen |= it->second;
   }
 
   MTRACE("update_pool_state_from_pool_data end");
