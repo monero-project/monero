@@ -211,11 +211,11 @@ boost::optional<epee::wipeable_string> wipeable_string::parse_hexstr() const
   for (size_t i = 0; i < len; i += 2)
   {
     char c = atolower(d[i]);
-    const char *ptr0 = strchr(hex, c);
+    const char *ptr0 = (const char*)memchr(hex, c, sizeof(hex) - 1);
     if (!ptr0)
       return boost::none;
     c = atolower(d[i+1]);
-    const char *ptr1 = strchr(hex, c);
+    const char *ptr1 = (const char*)memchr(hex, c, sizeof(hex) - 1);
     if (!ptr1)
       return boost::none;
     res->push_back(((ptr0-hex)<<4) | (ptr1-hex));
