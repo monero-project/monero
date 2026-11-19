@@ -195,6 +195,9 @@ TEST(wipeable_string, parse_hexstr)
   ASSERT_TRUE(boost::none == epee::wipeable_string("0000000000000000x").parse_hexstr());
   ASSERT_TRUE(boost::none == epee::wipeable_string("0").parse_hexstr());
   ASSERT_TRUE(boost::none == epee::wipeable_string("000").parse_hexstr());
+  ASSERT_TRUE(boost::none == epee::wipeable_string("\0\0", 2).parse_hexstr());
+  ASSERT_TRUE(boost::none == epee::wipeable_string("0\0", 2).parse_hexstr());
+  ASSERT_TRUE(boost::none == epee::wipeable_string("\0" "0", 2).parse_hexstr());
 
   ASSERT_TRUE((s = epee::wipeable_string("").parse_hexstr()) != boost::none);
   ASSERT_TRUE(*s == "");
