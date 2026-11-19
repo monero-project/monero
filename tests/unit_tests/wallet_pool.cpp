@@ -570,6 +570,43 @@ TEST(wallet_pool, retries_pool_after_stopped_refresh)
     EXPECT_EQ(2, wallet_pool_test::pool_query_time(w));
 }
 
+TEST(wallet_pool, retries_pool_after_suspended_refresh)
+{
+    for (const bool has_pool_tx : {false, true})
+    {
+        tools::wallet2 *wallet = nullptr;
+        size_t queries = 0;
+        cryptonote::transaction pool_tx;
+        const auto reply = [&](const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request &request,
+            cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response &response)
+        {
+            EXPECT_EQ(queries == 0 ? 1 : 0, request.pool_info_since);
+            response.start_height = response.current_height = 1;
+            if (has_pool_tx)
+                add_pool_payment(response, pool_tx);
+            if (queries++ == 0)
+                wallet->suspend_refresh();
+        };
+        tools::wallet2 w(cryptonote::MAINNET, 1, true,
+            std::unique_ptr<epee::net_utils::http::http_client_factory>(new pool_http_client_factory(reply)));
+        wallet = &w;
+        wallet_pool_test::prepare_refresh(w);
+        pool_tx = make_pool_payment(w);
+        pool_callback callback;
+        w.callback(&callback);
+
+        EXPECT_EQ(!has_pool_tx, w.refresh_with_status(true));
+        EXPECT_EQ(0, callback.pool_receipts);
+        EXPECT_EQ(0, wallet_pool_test::pool_query_time(w));
+
+        w.resume_refresh();
+        EXPECT_TRUE(w.refresh_with_status(true));
+        EXPECT_EQ(2, queries);
+        EXPECT_EQ(has_pool_tx ? 1 : 0, callback.pool_receipts);
+        EXPECT_EQ(2, wallet_pool_test::pool_query_time(w));
+    }
+}
+
 TEST(wallet_pool, restores_hashchain_after_incomplete_rebuild)
 {
     const auto path = boost::filesystem::temp_directory_path() /
