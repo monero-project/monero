@@ -35,6 +35,7 @@
 #include <boost/optional/optional.hpp>
 #include <boost/thread/future.hpp>
 #include <boost/utility/string_ref.hpp>
+#include <algorithm>
 #include <chrono>
 #include <utility>
 #include <tuple>
@@ -80,7 +81,7 @@ namespace
         return std::int64_t{out};
     }
 
-    bool start_socks(std::shared_ptr<net::socks::client> client, const net::socks::endpoint& proxy, const boost::asio::ip::tcp::endpoint& proxy_address, const epee::net_utils::network_address& remote)
+    bool start_socks(std::shared_ptr<net::socks::client> client, const net::socks::endpoint& proxy, const epee::net_utils::network_address& remote)
     {
         CHECK_AND_ASSERT_MES(client != nullptr, false, "Unexpected null client");
 
@@ -109,7 +110,7 @@ namespace
         }
 
         const bool sent =
-            set && net::socks::client::connect_and_send(std::move(client), proxy_address);
+            set && net::socks::client::connect_and_send(std::move(client), proxy.address);
         CHECK_AND_ASSERT_MES(sent, false, "Unexpected failure to init socks client");
         return true;
     }
@@ -248,6 +249,13 @@ namespace nodetool
                 return boost::none;
             }
 
+            if (std::any_of(endpoint->resolved_addresses.begin(), endpoint->resolved_addresses.end(),
+                [&endpoint](const ip::tcp::endpoint& address) { return address != endpoint->address; }))
+            {
+                MCERROR("global", "Hostname for --" << arg_tx_proxy.name << " resolves to multiple addresses; use an IP address or a hostname with one address");
+                return boost::none;
+            }
+
             proxies.back().address = std::move(*endpoint);
         }
 
@@ -372,8 +380,11 @@ namespace nodetool
     }
 
     boost::optional<boost::asio::ip::tcp::socket>
-    socks_connect_attempt(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const boost::asio::ip::tcp::endpoint& proxy_address, const epee::net_utils::network_address& remote)
+    socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const epee::net_utils::network_address& remote)
     {
+        if (stop_signal)
+            return boost::none;
+
         using socket_type = net::socks::client::stream_type::socket;
         using client_result = std::pair<boost::system::error_code, socket_type>;
 
@@ -397,7 +408,7 @@ namespace nodetool
                 boost::asio::ip::tcp::socket{service}, proxy.ver, notify{std::move(socks_promise)}
              );
             close_client.self = client;
-            if (!start_socks(std::move(client), proxy, proxy_address, remote))
+            if (!start_socks(std::move(client), proxy, remote))
                 return boost::none;
         }
 
@@ -406,7 +417,7 @@ namespace nodetool
         {
             if (socks_connect_timeout < std::chrono::steady_clock::now() - start)
             {
-                MERROR("Timeout on socks connect (" << proxy_address << " to " << remote.str() << ")");
+                MERROR("Timeout on socks connect (" << proxy.address << " to " << remote.str() << ")");
                 return boost::none;
             }
 
@@ -423,7 +434,7 @@ namespace nodetool
                 return {std::move(result.second)};
             }
 
-            MERROR("Failed to make socks connection to " << remote.str() << " (via " << proxy_address << "): " << result.first.message());
+            MERROR("Failed to make socks connection to " << remote.str() << " (via " << proxy.address << "): " << result.first.message());
         }
         catch (boost::broken_promise const&)
         {}
@@ -493,20 +504,4 @@ namespace nodetool
         return boost::none;
     }
 
-    boost::optional<boost::asio::ip::tcp::socket>
-    socks_connect_internal(const std::atomic<bool>& stop_signal, boost::asio::io_context& service, const net::socks::endpoint& proxy, const epee::net_utils::network_address& remote)
-    {
-        if (proxy.resolved_addresses.empty())
-            return socks_connect_attempt(stop_signal, service, proxy, proxy.address, remote);
-
-        for (const auto& address : proxy.resolved_addresses)
-        {
-            if (stop_signal)
-                break;
-            auto socket = socks_connect_attempt(stop_signal, service, proxy, address, remote);
-            if (socket)
-                return socket;
-        }
-        return boost::none;
-    }
 }
