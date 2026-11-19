@@ -101,6 +101,14 @@ namespace net_utils
 						return false;
 				}
 
+				// RFC 9110 5.5: only VCHAR, obs-text, SP and HTAB, so no bare CR or NUL
+				for(char c : value)
+				{
+					const unsigned char u = static_cast<unsigned char>(c);
+					if((u < 0x20 && c != '\t') || u == 0x7f)
+						return false;
+				}
+
 				return true;
 			}
 		}
