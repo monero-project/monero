@@ -1075,21 +1075,26 @@ namespace cryptonote
     return outputs_amount;
   }
   //---------------------------------------------------------------
-  bool get_output_public_key(const cryptonote::tx_out& out, crypto::public_key& output_public_key)
+  bool get_output_public_key(const txout_target_v& target, crypto::public_key& output_public_key)
   {
     // before HF_VERSION_VIEW_TAGS, outputs with public keys are of type txout_to_key
     // after HF_VERSION_VIEW_TAGS, outputs with public keys are of type txout_to_tagged_key
-    if (out.target.type() == typeid(txout_to_key))
-      output_public_key = boost::get< txout_to_key >(out.target).key;
-    else if (out.target.type() == typeid(txout_to_tagged_key))
-      output_public_key = boost::get< txout_to_tagged_key >(out.target).key;
+    if (target.type() == typeid(txout_to_key))
+      output_public_key = boost::get< txout_to_key >(target).key;
+    else if (target.type() == typeid(txout_to_tagged_key))
+      output_public_key = boost::get< txout_to_tagged_key >(target).key;
     else
     {
-      LOG_ERROR("Unexpected output target type found: " << out.target.type().name());
+      LOG_ERROR("Unexpected output target type found: " << target.type().name());
       return false;
     }
 
     return true;
+  }
+  //---------------------------------------------------------------
+  bool get_output_public_key(const tx_out& out, crypto::public_key& output_public_key)
+  {
+    return get_output_public_key(out.target, output_public_key);
   }
   //---------------------------------------------------------------
   boost::optional<crypto::view_tag> get_output_view_tag(const cryptonote::tx_out& out)

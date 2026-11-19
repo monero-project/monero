@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -45,6 +45,8 @@
 #include "bulletproofs.h"
 #include "bulletproof_plus.h"
 #include "rct2.h"
+#include "reorg_over_hf.h"
+
 /************************************************************************/
 /*                                                                      */
 /************************************************************************/

@@ -1,4 +1,4 @@
-// Copyright (c) 2014-2024, The Monero Project
+// Copyright (c) 2014-2026, The Monero Project
 // 
 // All rights reserved.
 // 
@@ -291,6 +291,9 @@ int main(int argc, char* argv[])
 
     GENERATE_AND_PLAY(gen_block_low_coinbase);
 
+    GENERATE_AND_PLAY(gen_reorg_over_hf_1)
+    GENERATE_AND_PLAY(gen_reorg_over_hf_2)
+
     el::Level level = (failed_tests.empty() ? el::Level::Info : el::Level::Error);
     if (!list_tests)
     {
@@ -301,7 +304,7 @@ int main(int argc, char* argv[])
     if (!failed_tests.empty())
     {
       MLOG(level, "FAILED TESTS:");
-      BOOST_FOREACH(auto test_name, failed_tests)
+      for (const std::string &test_name : failed_tests)
       {
         MLOG(level, "  " << test_name);
       }

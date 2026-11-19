@@ -155,8 +155,8 @@ private:
  * for the pool supplement if hf_version matches, and we cache that version on success.
  *
  * @param tx single transaction to verify
- * @param pool_supplement pool supplement to verify
- * @param tvc relevant flags will be set for if/why verification failed
+ * @param[inout] pool_supplement pool supplement to verify
+ * @param[inout] tvc relevant flags will be set for if/why verification failed
  * @param hf_version Hard fork version to run rules against
  * @return true if all relevant transactions verify, false otherwise
  */

@@ -156,7 +156,8 @@ namespace cryptonote
   bool parse_and_validate_block_from_blob(const blobdata_ref& b_blob, block& b, crypto::hash &block_hash);
   bool get_inputs_money_amount(const transaction& tx, uint64_t& money);
   uint64_t get_outs_money_amount(const transaction& tx);
-  bool get_output_public_key(const cryptonote::tx_out& out, crypto::public_key& output_public_key);
+  bool get_output_public_key(const txout_target_v& target, crypto::public_key& output_public_key);
+  bool get_output_public_key(const tx_out& out, crypto::public_key& output_public_key);
   boost::optional<crypto::view_tag> get_output_view_tag(const cryptonote::tx_out& out);
   bool commitment_is_in_rct_signatures(const transaction_prefix& tx);
   bool has_transparent_amounts(const transaction_prefix& tx);
