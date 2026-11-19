@@ -38,34 +38,52 @@ namespace daemon_args
 {
   std::string const WINDOWS_SERVICE_NAME = "Monero Daemon";
 
-  const command_line::arg_descriptor<std::string, false, true, 2> arg_config_file = {
+  const command_line::arg_descriptor<std::string, false, true, 4> arg_config_file = {
     "config-file"
   , "Specify configuration file"
   , (daemonizer::get_default_data_dir() / std::string(CRYPTONOTE_NAME ".conf")).string()
-  , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
-  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
-      if (testnet_stagenet[0] && defaulted)
+  , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on, &cryptonote::arg_numista_testnet_on, &cryptonote::arg_mainnet_on }}
+  , [](std::array<bool, 4> selected_networks, bool defaulted, std::string val)->std::string {
+      if (selected_networks[0] && defaulted)
         return (daemonizer::get_default_data_dir() / "testnet" /
                 std::string(CRYPTONOTE_NAME ".conf")).string();
-      else if (testnet_stagenet[1] && defaulted)
+      else if (selected_networks[1] && defaulted)
         return (daemonizer::get_default_data_dir() / "stagenet" /
                 std::string(CRYPTONOTE_NAME ".conf")).string();
-      return val;
+      else if (selected_networks[2] && defaulted)
+        return (daemonizer::get_default_data_dir() / "numista-testnet" /
+                std::string(CRYPTONOTE_NAME ".conf")).string();
+      else if (selected_networks[3] && defaulted)
+        return (daemonizer::get_default_data_dir() /
+                std::string(CRYPTONOTE_NAME ".conf")).string();
+      return defaulted
+        ? (daemonizer::get_default_data_dir() / "numista-testnet" /
+           std::string(CRYPTONOTE_NAME ".conf")).string()
+        : val;
     }
   };
-  const command_line::arg_descriptor<std::string, false, true, 2> arg_log_file = {
+  const command_line::arg_descriptor<std::string, false, true, 4> arg_log_file = {
     "log-file"
   , "Specify log file"
   , (daemonizer::get_default_data_dir() / std::string(CRYPTONOTE_NAME ".log")).string()
-  , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
-  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
-      if (testnet_stagenet[0] && defaulted)
+  , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on, &cryptonote::arg_numista_testnet_on, &cryptonote::arg_mainnet_on }}
+  , [](std::array<bool, 4> selected_networks, bool defaulted, std::string val)->std::string {
+      if (selected_networks[0] && defaulted)
         return (daemonizer::get_default_data_dir() / "testnet" /
                 std::string(CRYPTONOTE_NAME ".log")).string();
-      else if (testnet_stagenet[1] && defaulted)
+      else if (selected_networks[1] && defaulted)
         return (daemonizer::get_default_data_dir() / "stagenet" /
                 std::string(CRYPTONOTE_NAME ".log")).string();
-      return val;
+      else if (selected_networks[2] && defaulted)
+        return (daemonizer::get_default_data_dir() / "numista-testnet" /
+                std::string(CRYPTONOTE_NAME ".log")).string();
+      else if (selected_networks[3] && defaulted)
+        return (daemonizer::get_default_data_dir() /
+                std::string(CRYPTONOTE_NAME ".log")).string();
+      return defaulted
+        ? (daemonizer::get_default_data_dir() / "numista-testnet" /
+           std::string(CRYPTONOTE_NAME ".log")).string()
+        : val;
     }
   };
   const command_line::arg_descriptor<std::size_t> arg_max_log_file_size = {
@@ -115,17 +133,21 @@ namespace daemon_args
       , "127.0.0.1"
   };
 
-  const command_line::arg_descriptor<std::string, false, true, 2> arg_zmq_rpc_bind_port = {
+  const command_line::arg_descriptor<std::string, false, true, 4> arg_zmq_rpc_bind_port = {
     "zmq-rpc-bind-port"
   , "Port for ZMQ RPC server to listen on"
   , std::to_string(config::ZMQ_RPC_DEFAULT_PORT)
-  , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
-  , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
-      if (testnet_stagenet[0] && defaulted)
+  , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on, &cryptonote::arg_numista_testnet_on, &cryptonote::arg_mainnet_on }}
+  , [](std::array<bool, 4> selected_networks, bool defaulted, std::string val)->std::string {
+      if (selected_networks[0] && defaulted)
         return std::to_string(config::testnet::ZMQ_RPC_DEFAULT_PORT);
-      if (testnet_stagenet[1] && defaulted)
+      if (selected_networks[1] && defaulted)
         return std::to_string(config::stagenet::ZMQ_RPC_DEFAULT_PORT);
-      return val;
+      if (selected_networks[2] && defaulted)
+        return std::to_string(config::numista_testnet::ZMQ_RPC_DEFAULT_PORT);
+      if (selected_networks[3] && defaulted)
+        return std::to_string(config::ZMQ_RPC_DEFAULT_PORT);
+      return defaulted ? std::to_string(config::numista_testnet::ZMQ_RPC_DEFAULT_PORT) : val;
     }
   };
   const command_line::arg_descriptor<std::vector<std::string>> arg_zmq_pub = {

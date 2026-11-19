@@ -4033,12 +4033,15 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
   const std::string wallet_dir = command_line::get_arg(vm, arg_wallet_dir);
   const bool testnet = tools::wallet2::has_testnet_option(vm);
   const bool stagenet = tools::wallet2::has_stagenet_option(vm);
-  if (testnet && stagenet)
+  const bool numista_testnet = tools::wallet2::has_numista_testnet_option(vm);
+  const bool mainnet = tools::wallet2::has_mainnet_option(vm);
+  if (testnet + stagenet + numista_testnet + mainnet > 1)
   {
-    fail_msg_writer() << tr("Can't specify more than one of --testnet and --stagenet");
+    fail_msg_writer() << tr("Can't specify more than one network option");
     return false;
   }
-  const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
+  const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET
+    : mainnet ? MAINNET : NUMISTA_TESTNET;
 
   epee::wipeable_string multisig_keys;
   epee::wipeable_string password;
@@ -4780,7 +4783,8 @@ bool simple_wallet::try_connect_to_daemon(bool silent, uint32_t* version)
         fail_msg_writer() << tr("wallet failed to connect to daemon: ") << m_wallet->get_daemon_address() << ". " <<
           boost::format(tr("Daemon either is not started or the wrong port, wrong daemon login credentials or wrong proxy was passed. "
           "Please make sure a %sdaemon is running or change the daemon settings using the 'set_daemon' command."))
-            % (m_wallet->nettype() == TESTNET ? "testnet " : m_wallet->nettype() == STAGENET ? "stagenet " : "");
+            % (m_wallet->nettype() == NUMISTA_TESTNET ? "Numista testnet "
+              : m_wallet->nettype() == TESTNET ? "testnet " : m_wallet->nettype() == STAGENET ? "stagenet " : "");
     }
     return false;
   }
@@ -6623,7 +6627,9 @@ void simple_wallet::check_for_inactivity_lock(bool user)
         tools::msg_writer() << tr("Filename: ") << m_wallet->get_wallet_file();
         tools::msg_writer() << tr("Network type: ") << (
           m_wallet->nettype() == cryptonote::TESTNET ? tr("Testnet") :
-          m_wallet->nettype() == cryptonote::STAGENET ? tr("Stagenet") : tr("Mainnet")
+          m_wallet->nettype() == cryptonote::NUMISTA_TESTNET ? tr("Numista testnet")
+          : m_wallet->nettype() == cryptonote::STAGENET ? tr("Stagenet")
+          : m_wallet->nettype() == cryptonote::TESTNET ? tr("Testnet") : tr("Mainnet")
         );
       }
       try
@@ -10125,7 +10131,9 @@ bool simple_wallet::wallet_info(const std::vector<std::string> &args)
   message_writer() << tr("Wallet Type: ") << type;
   message_writer() << tr("Network type: ") << (
     m_wallet->nettype() == cryptonote::TESTNET ? tr("Testnet") :
-    m_wallet->nettype() == cryptonote::STAGENET ? tr("Stagenet") : tr("Mainnet"));
+    m_wallet->nettype() == cryptonote::NUMISTA_TESTNET ? tr("Numista testnet")
+    : m_wallet->nettype() == cryptonote::STAGENET ? tr("Stagenet")
+    : m_wallet->nettype() == cryptonote::TESTNET ? tr("Testnet") : tr("Mainnet"));
   message_writer() << tr("Daemon-Address: ") << m_wallet->get_daemon_address();
   message_writer() << tr("Daemon-Proxy: ") << m_wallet->get_proxy();
   if (ms_status.multisig_is_active)

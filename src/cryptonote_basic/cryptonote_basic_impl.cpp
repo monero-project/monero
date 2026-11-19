@@ -269,6 +269,8 @@ namespace cryptonote {
       return "stagenet";
     case FAKECHAIN:
       return "fakechain";
+    case NUMISTA_TESTNET:
+      return "Numista testnet";
     default:
       return "unknown";
     };

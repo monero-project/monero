@@ -267,16 +267,20 @@ struct options {
   const command_line::arg_descriptor<bool> daemon_ssl_allow_chained = {"daemon-ssl-allow-chained", tools::wallet2::tr("Allow user (via --daemon-ssl-ca-certificates) chain certificates for daemon RPC"), false};
   const command_line::arg_descriptor<bool> testnet = {"testnet", tools::wallet2::tr("For testnet. Daemon must also be launched with --testnet flag"), false};
   const command_line::arg_descriptor<bool> stagenet = {"stagenet", tools::wallet2::tr("For stagenet. Daemon must also be launched with --stagenet flag"), false};
-  const command_line::arg_descriptor<std::string, false, true, 2> shared_ringdb_dir = {
+  const command_line::arg_descriptor<bool> numista_testnet = {"numista-testnet", tools::wallet2::tr("For the isolated Numista testnet. Daemon must also be launched with --numista-testnet"), false};
+  const command_line::arg_descriptor<bool> mainnet = {"mainnet", tools::wallet2::tr("For Monero mainnet. Daemon must also be launched with --mainnet"), false};
+  const command_line::arg_descriptor<std::string, false, true, 4> shared_ringdb_dir = {
     "shared-ringdb-dir", tools::wallet2::tr("Set shared ring database path"),
     get_default_ringdb_path(),
-    {{ &testnet, &stagenet }},
-    [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
-      if (testnet_stagenet[0])
+    {{ &testnet, &stagenet, &numista_testnet, &mainnet }},
+    [](std::array<bool, 4> selected_networks, bool defaulted, std::string val)->std::string {
+      if (selected_networks[0])
         return (boost::filesystem::path(val) / "testnet").string();
-      else if (testnet_stagenet[1])
+      else if (selected_networks[1])
         return (boost::filesystem::path(val) / "stagenet").string();
-      return val;
+      else if (selected_networks[2])
+        return (boost::filesystem::path(val) / "numista-testnet").string();
+      return defaulted ? (boost::filesystem::path(val) / "numista-testnet").string() : val;
     }
   };
   const command_line::arg_descriptor<uint64_t> kdf_rounds = {"kdf-rounds", tools::wallet2::tr("Number of rounds for the key derivation function"), 1};
@@ -351,7 +355,10 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
 {
   const bool testnet = command_line::get_arg(vm, opts.testnet);
   const bool stagenet = command_line::get_arg(vm, opts.stagenet);
-  const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
+  const bool numista_testnet = command_line::get_arg(vm, opts.numista_testnet);
+  const bool mainnet = command_line::get_arg(vm, opts.mainnet);
+  const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET
+    : mainnet ? MAINNET : NUMISTA_TESTNET;
   const uint64_t kdf_rounds = command_line::get_arg(vm, opts.kdf_rounds);
   THROW_WALLET_EXCEPTION_IF(kdf_rounds == 0, tools::error::wallet_internal_error, "KDF rounds must not be 0");
 
@@ -588,7 +595,10 @@ std::pair<std::unique_ptr<tools::wallet2>, tools::password_container> generate_f
 {
   const bool testnet = command_line::get_arg(vm, opts.testnet);
   const bool stagenet = command_line::get_arg(vm, opts.stagenet);
-  const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET : MAINNET;
+  const bool numista_testnet = command_line::get_arg(vm, opts.numista_testnet);
+  const bool mainnet = command_line::get_arg(vm, opts.mainnet);
+  const network_type nettype = testnet ? TESTNET : stagenet ? STAGENET
+    : mainnet ? MAINNET : NUMISTA_TESTNET;
 
   /* GET_FIELD_FROM_JSON_RETURN_ON_ERROR Is a generic macro that can return
   false. Gcc will coerce this into unique_ptr(nullptr), but clang correctly
@@ -1349,6 +1359,16 @@ bool wallet2::has_stagenet_option(const boost::program_options::variables_map& v
   return command_line::get_arg(vm, options().stagenet);
 }
 
+bool wallet2::has_numista_testnet_option(const boost::program_options::variables_map& vm)
+{
+  return command_line::get_arg(vm, options().numista_testnet);
+}
+
+bool wallet2::has_mainnet_option(const boost::program_options::variables_map& vm)
+{
+  return command_line::get_arg(vm, options().mainnet);
+}
+
 bool wallet2::has_password_option(const boost::program_options::variables_map& vm)
 {
   return command_line::has_arg(vm, options().password);
@@ -1395,6 +1415,8 @@ void wallet2::init_options(boost::program_options::options_description& desc_par
   command_line::add_arg(desc_params, opts.daemon_ssl_allow_chained);
   command_line::add_arg(desc_params, opts.testnet);
   command_line::add_arg(desc_params, opts.stagenet);
+  command_line::add_arg(desc_params, opts.numista_testnet);
+  command_line::add_arg(desc_params, opts.mainnet);
   command_line::add_arg(desc_params, opts.shared_ringdb_dir);
   command_line::add_arg(desc_params, opts.kdf_rounds);
   mms::message_store::init_options(desc_params);
@@ -3648,9 +3670,11 @@ void wallet2::refresh(bool trusted_daemon, uint64_t start_height, uint64_t & blo
 //----------------------------------------------------------------------------------------------------
 void check_block_hard_fork_version(cryptonote::network_type nettype, uint8_t hf_version, uint64_t height, bool &wallet_is_outdated, bool &daemon_is_outdated)
 {
-  const size_t wallet_num_hard_forks = nettype == TESTNET ? num_testnet_hard_forks
+  const size_t wallet_num_hard_forks = nettype == NUMISTA_TESTNET ? num_numista_testnet_hard_forks
+    : nettype == TESTNET ? num_testnet_hard_forks
     : nettype == STAGENET ? num_stagenet_hard_forks : num_mainnet_hard_forks;
-  const hardfork_t *wallet_hard_forks = nettype == TESTNET ? testnet_hard_forks
+  const hardfork_t *wallet_hard_forks = nettype == NUMISTA_TESTNET ? numista_testnet_hard_forks
+    : nettype == TESTNET ? testnet_hard_forks
     : nettype == STAGENET ? stagenet_hard_forks : mainnet_hard_forks;
 
   wallet_is_outdated = hf_version > wallet_hard_forks[wallet_num_hard_forks-1].version;
@@ -5453,8 +5477,10 @@ bool wallet2::load_keys_buf(const std::string& keys_buf, const epee::wipeable_st
     // The network type given in the program argument is inconsistent with the network type saved in the wallet
     THROW_WALLET_EXCEPTION_IF(static_cast<uint8_t>(m_nettype) != field_nettype, error::wallet_internal_error,
     (boost::format("%s wallet cannot be opened as %s wallet")
-    % (field_nettype == 0 ? "Mainnet" : field_nettype == 1 ? "Testnet" : "Stagenet")
-    % (m_nettype == MAINNET ? "mainnet" : m_nettype == TESTNET ? "testnet" : "stagenet")).str());
+    % (field_nettype == MAINNET ? "Mainnet" : field_nettype == TESTNET ? "Testnet"
+      : field_nettype == STAGENET ? "Stagenet" : field_nettype == NUMISTA_TESTNET ? "Numista testnet" : "Unknown")
+    % (m_nettype == MAINNET ? "mainnet" : m_nettype == TESTNET ? "testnet"
+      : m_nettype == STAGENET ? "stagenet" : "Numista testnet")).str());
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, segregate_pre_fork_outputs, int, Int, false, true);
     m_segregate_pre_fork_outputs = field_segregate_pre_fork_outputs;
     GET_FIELD_FROM_JSON_RETURN_ON_ERROR(json, key_reuse_mitigation2, int, Int, false, true);
@@ -6764,9 +6790,11 @@ bool wallet2::check_version(uint32_t *version, bool *wallet_is_outdated, bool *d
 //----------------------------------------------------------------------------------------------------
 bool wallet2::check_hard_fork_version(cryptonote::network_type nettype, const std::vector<std::pair<uint8_t, uint64_t>> &daemon_hard_forks, const uint64_t height, const uint64_t target_height, bool *wallet_is_outdated, bool *daemon_is_outdated)
 {
-  const size_t wallet_num_hard_forks = nettype == TESTNET ? num_testnet_hard_forks
+  const size_t wallet_num_hard_forks = nettype == NUMISTA_TESTNET ? num_numista_testnet_hard_forks
+    : nettype == TESTNET ? num_testnet_hard_forks
     : nettype == STAGENET ? num_stagenet_hard_forks : num_mainnet_hard_forks;
-  const hardfork_t *wallet_hard_forks = nettype == TESTNET ? testnet_hard_forks
+  const hardfork_t *wallet_hard_forks = nettype == NUMISTA_TESTNET ? numista_testnet_hard_forks
+    : nettype == TESTNET ? testnet_hard_forks
     : nettype == STAGENET ? stagenet_hard_forks : mainnet_hard_forks;
 
   // First check if wallet or daemon is outdated (whether either are unaware of
@@ -7972,7 +8000,8 @@ bool wallet2::is_tx_spendtime_unlocked(uint64_t unlock_time, uint64_t block_heig
     catch(...) { adjusted_time = time(NULL); } // use local time if no daemon to report blockchain time
     // XXX: this needs to be fast, so we'd need to get the starting heights
     // from the daemon to be correct once voting kicks in
-    uint64_t v2height = m_nettype == TESTNET ? 624634 : m_nettype == STAGENET ? 32000  : 1009827;
+    uint64_t v2height = m_nettype == NUMISTA_TESTNET ? 1
+      : m_nettype == TESTNET ? 624634 : m_nettype == STAGENET ? 32000 : 1009827;
     uint64_t leeway = block_height < v2height ? CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V1 : CRYPTONOTE_LOCKED_TX_ALLOWED_DELTA_SECONDS_V2;
     if(adjusted_time + leeway >= unlock_time)
       return true;
@@ -13573,10 +13602,12 @@ uint64_t wallet2::get_daemon_blockchain_target_height(string &err)
 
 uint64_t wallet2::get_approximate_blockchain_height(uint64_t t) const
 {
-  const size_t wallet_num_hard_forks = m_nettype == TESTNET  ? num_testnet_hard_forks
+  const size_t wallet_num_hard_forks = m_nettype == NUMISTA_TESTNET ? num_numista_testnet_hard_forks
+                                     : m_nettype == TESTNET  ? num_testnet_hard_forks
                                      : m_nettype == STAGENET ? num_stagenet_hard_forks
                                      :                         num_mainnet_hard_forks;
-  const hardfork_t *wallet_hard_forks = m_nettype == TESTNET  ? testnet_hard_forks
+  const hardfork_t *wallet_hard_forks = m_nettype == NUMISTA_TESTNET ? numista_testnet_hard_forks
+                                      : m_nettype == TESTNET  ? testnet_hard_forks
                                       : m_nettype == STAGENET ? stagenet_hard_forks
                                       :                         mainnet_hard_forks;
   // time of latest fork
@@ -13605,7 +13636,8 @@ uint64_t wallet2::get_approximate_blockchain_height(uint64_t t) const
     }
   }
   // testnet and stagenet got some huge rollbacks, so the estimation is way off
-  const uint64_t approximate_rolled_back_blocks = m_nettype == TESTNET ? 26600 : m_nettype == STAGENET ? 48600 : 33600;
+  const uint64_t approximate_rolled_back_blocks = m_nettype == NUMISTA_TESTNET ? 0
+    : m_nettype == TESTNET ? 26600 : m_nettype == STAGENET ? 48600 : 33600;
   if (approx_blockchain_height > approximate_rolled_back_blocks)
     approx_blockchain_height -= approximate_rolled_back_blocks;
   LOG_PRINT_L2("Calculated blockchain height: " << approx_blockchain_height);
@@ -16073,6 +16105,8 @@ std::vector<std::pair<uint64_t, uint64_t>> wallet2::estimate_backlog(uint64_t mi
 //----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_segregation_fork_height() const
 {
+  if (m_nettype == NUMISTA_TESTNET)
+    return 0;
   if (m_nettype == TESTNET)
     return TESTNET_SEGREGATION_FORK_HEIGHT;
   if (m_nettype == STAGENET)

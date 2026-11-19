@@ -48,6 +48,7 @@
 #define TX_EXTRA_NONCE                      0x02
 #define TX_EXTRA_MERGE_MINING_TAG           0x03
 #define TX_EXTRA_TAG_ADDITIONAL_PUBKEYS     0x04
+#define TX_EXTRA_TAG_NUMISTA_ASSET          0x05
 #define TX_EXTRA_MYSTERIOUS_MINERGATE_TAG   0xDE
 
 #define TX_EXTRA_NONCE_PAYMENT_ID           0x00
@@ -183,11 +184,54 @@ namespace cryptonote
     END_SERIALIZE()
   };
 
+  enum class numista_asset_action : uint8_t
+  {
+    register_username = 1,
+    create_asset = 2,
+    mint = 3,
+    transfer = 4
+  };
+
+  enum class numista_asset_type : uint8_t
+  {
+    collectible = 1,
+    fungible = 2
+  };
+
+  struct tx_extra_numista_asset
+  {
+    uint8_t version = 1;
+    numista_asset_action action = numista_asset_action::register_username;
+    crypto::hash asset_id = crypto::null_hash;
+    numista_asset_type asset_type = numista_asset_type::collectible;
+    uint64_t max_supply = 0;
+    uint64_t amount = 0;
+    crypto::hash metadata_hash = crypto::null_hash;
+    std::string username;
+    std::string recipient_username;
+    crypto::public_key asset_key = crypto::null_pkey;
+    crypto::signature signature = {};
+
+    BEGIN_SERIALIZE()
+      FIELD(version)
+      VARINT_FIELD(action)
+      FIELD(asset_id)
+      VARINT_FIELD(asset_type)
+      VARINT_FIELD(max_supply)
+      VARINT_FIELD(amount)
+      FIELD(metadata_hash)
+      FIELD(username)
+      FIELD(recipient_username)
+      FIELD(asset_key)
+      FIELD(signature)
+    END_SERIALIZE()
+  };
+
   // tx_extra_field format, except tx_extra_padding and tx_extra_pub_key:
   //   varint tag;
   //   varint size;
   //   varint data[];
-  typedef boost::variant<tx_extra_padding, tx_extra_pub_key, tx_extra_nonce, tx_extra_merge_mining_tag, tx_extra_additional_pub_keys, tx_extra_mysterious_minergate> tx_extra_field;
+  typedef boost::variant<tx_extra_padding, tx_extra_pub_key, tx_extra_nonce, tx_extra_merge_mining_tag, tx_extra_additional_pub_keys, tx_extra_numista_asset, tx_extra_mysterious_minergate> tx_extra_field;
 }
 
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_padding, TX_EXTRA_TAG_PADDING);
@@ -195,4 +239,5 @@ VARIANT_TAG(binary_archive, cryptonote::tx_extra_pub_key, TX_EXTRA_TAG_PUBKEY);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_nonce, TX_EXTRA_NONCE);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_merge_mining_tag, TX_EXTRA_MERGE_MINING_TAG);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_additional_pub_keys, TX_EXTRA_TAG_ADDITIONAL_PUBKEYS);
+VARIANT_TAG(binary_archive, cryptonote::tx_extra_numista_asset, TX_EXTRA_TAG_NUMISTA_ASSET);
 VARIANT_TAG(binary_archive, cryptonote::tx_extra_mysterious_minergate, TX_EXTRA_MYSTERIOUS_MINERGATE_TAG);

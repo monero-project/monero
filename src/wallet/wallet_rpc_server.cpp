@@ -5325,9 +5325,11 @@ public:
     {
       const bool testnet = tools::wallet2::has_testnet_option(vm);
       const bool stagenet = tools::wallet2::has_stagenet_option(vm);
-      if (testnet && stagenet)
+      const bool numista_testnet = tools::wallet2::has_numista_testnet_option(vm);
+      const bool mainnet = tools::wallet2::has_mainnet_option(vm);
+      if (testnet + stagenet + numista_testnet + mainnet > 1)
       {
-        MERROR(tools::wallet_rpc_server::tr("Can't specify more than one of --testnet and --stagenet"));
+        MERROR(tools::wallet_rpc_server::tr("Can't specify more than one network option"));
         return false;
       }
 

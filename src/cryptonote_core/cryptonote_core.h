@@ -62,10 +62,12 @@ namespace cryptonote
      const size_t long_term_block_weight_window;
    };
 
-  extern const command_line::arg_descriptor<std::string, false, true, 3> arg_data_dir;
+  extern const command_line::arg_descriptor<std::string, false, true, 5> arg_data_dir;
   extern const command_line::arg_descriptor<bool, false> arg_testnet_on;
   extern const command_line::arg_descriptor<bool, false> arg_stagenet_on;
   extern const command_line::arg_descriptor<bool, false> arg_regtest_on;
+  extern const command_line::arg_descriptor<bool, false> arg_numista_testnet_on;
+  extern const command_line::arg_descriptor<bool, false> arg_mainnet_on;
   extern const command_line::arg_descriptor<difficulty_type> arg_fixed_difficulty;
   extern const command_line::arg_descriptor<bool> arg_offline;
   extern const command_line::arg_descriptor<size_t> arg_block_download_max_size;
@@ -279,8 +281,8 @@ namespace cryptonote
      /**
       * @brief resolves the network type based on command line arguments
       * @param vm variables map
-      * @return network type corresponding to arg_{testnet,stagenet,regtest}_on, defaulting to MAINNET
-      * @throw std::runtime_error if more than 1 of arg_{testnet,stagenet,regtest}_on is present
+      * @return network type corresponding to the selected network flag, defaulting to MAINNET
+      * @throw std::runtime_error if more than one network flag is present
       * @throw boost::bad_any_cast if arg_{testnet,stagenet,regtest}_on weren't added to vm
       */
      static network_type get_network_type_from_args(const boost::program_options::variables_map& vm);

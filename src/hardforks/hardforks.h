@@ -50,3 +50,6 @@ extern const size_t num_testnet_hard_forks;
 
 extern const hardfork_t stagenet_hard_forks[];
 extern const size_t num_stagenet_hard_forks;
+
+extern const hardfork_t numista_testnet_hard_forks[];
+extern const size_t num_numista_testnet_hard_forks;

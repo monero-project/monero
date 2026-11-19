@@ -126,3 +126,9 @@ const hardfork_t stagenet_hard_forks[] = {
   { 16, 1151720, 0, 1656629118 },
 };
 const size_t num_stagenet_hard_forks = sizeof(stagenet_hard_forks) / sizeof(stagenet_hard_forks[0]);
+
+const hardfork_t numista_testnet_hard_forks[] = {
+  { 1, 0, 0, 1795085410 },
+  { 17, 1, 0, 1795085411 },
+};
+const size_t num_numista_testnet_hard_forks = sizeof(numista_testnet_hard_forks) / sizeof(numista_testnet_hard_forks[0]);

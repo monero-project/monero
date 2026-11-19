@@ -49,6 +49,7 @@ set(cryptonote_basic_sources
   connection_context.cpp
   cryptonote_basic_impl.cpp
   cryptonote_format_utils.cpp
+  numista_assets.cpp
   difficulty.cpp
   hardfork.cpp
   merge_mining.cpp

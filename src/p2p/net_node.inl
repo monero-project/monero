@@ -563,8 +563,11 @@ namespace nodetool
     bool testnet = command_line::get_arg(vm, cryptonote::arg_testnet_on);
     bool stagenet = command_line::get_arg(vm, cryptonote::arg_stagenet_on);
     bool regtest = command_line::get_arg(vm, cryptonote::arg_regtest_on);
+    bool numista_testnet = command_line::get_arg(vm, cryptonote::arg_numista_testnet_on);
+    bool mainnet = command_line::get_arg(vm, cryptonote::arg_mainnet_on);
     const bool pad_txs = command_line::get_arg(vm, arg_pad_transactions);
-    m_nettype = testnet ? cryptonote::TESTNET : stagenet ? cryptonote::STAGENET : regtest ? cryptonote::FAKECHAIN : cryptonote::MAINNET;
+    m_nettype = testnet ? cryptonote::TESTNET : stagenet ? cryptonote::STAGENET
+      : regtest ? cryptonote::FAKECHAIN : mainnet ? cryptonote::MAINNET : cryptonote::NUMISTA_TESTNET;
 
     network_zone& public_zone = m_network_zones[epee::net_utils::zone::public_];
     public_zone.m_connect = &public_connect;
@@ -1010,7 +1013,7 @@ namespace nodetool
       full_addrs.insert("88.99.195.15:38080");
       full_addrs.insert("5.104.84.64:38080");
     }
-    else if (m_nettype == cryptonote::FAKECHAIN)
+    else if (m_nettype == cryptonote::FAKECHAIN || m_nettype == cryptonote::NUMISTA_TESTNET)
     {
     }
     else
@@ -1040,7 +1043,7 @@ namespace nodetool
     {
       return get_ip_seed_nodes();
     }
-    if (m_nettype == cryptonote::FAKECHAIN)
+    if (m_nettype == cryptonote::FAKECHAIN || m_nettype == cryptonote::NUMISTA_TESTNET)
     {
       return {};
     }

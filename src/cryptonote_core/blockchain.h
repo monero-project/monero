@@ -52,6 +52,7 @@
 #include "string_tools.h"
 #include "rolling_median.h"
 #include "cryptonote_basic/cryptonote_basic.h"
+#include "cryptonote_basic/numista_assets.h"
 #include "common/powerof.h"
 #include "common/util.h"
 #include "cryptonote_protocol/cryptonote_protocol_defs.h"
@@ -649,6 +650,8 @@ namespace cryptonote
       crypto::hash &invalid_input_verification_id_inout,
       bool kept_by_block = false) const;
 
+    bool check_numista_asset_tx(const transaction& tx) const;
+
     /**
      * @brief get fee quantization mask
      *
@@ -1181,6 +1184,8 @@ namespace cryptonote
     BlockchainDB* m_db;
 
     tx_memory_pool& m_tx_pool;
+    numista_asset_ledger m_numista_assets;
+    crypto::public_key m_numista_asset_issuer_key = crypto::public_key{};
 
     mutable epee::critical_section m_blockchain_lock; // TODO: add here reader/writer lock
 
@@ -1359,6 +1364,8 @@ namespace cryptonote
       crypto::hash &valid_input_verification_id_inout,
       crypto::hash &invalid_input_verification_id_inout,
       uint64_t* pmax_used_block_height = NULL) const;
+
+    bool rebuild_numista_asset_state();
 
     /**
      * @brief performs a blockchain reorganization according to the longest chain rule

@@ -3122,17 +3122,21 @@ namespace cryptonote
 #endif
   }
   //------------------------------------------------------------------------------------------------------------------------------
-  const command_line::arg_descriptor<std::string, false, true, 2> core_rpc_server::arg_rpc_bind_port = {
+  const command_line::arg_descriptor<std::string, false, true, 4> core_rpc_server::arg_rpc_bind_port = {
       "rpc-bind-port"
     , "Port for RPC server"
     , std::to_string(config::RPC_DEFAULT_PORT)
-    , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
-    , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
-        if (testnet_stagenet[0] && defaulted)
+    , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on, &cryptonote::arg_numista_testnet_on, &cryptonote::arg_mainnet_on }}
+    , [](std::array<bool, 4> selected_networks, bool defaulted, std::string val)->std::string {
+        if (selected_networks[0] && defaulted)
           return std::to_string(config::testnet::RPC_DEFAULT_PORT);
-        else if (testnet_stagenet[1] && defaulted)
+        else if (selected_networks[1] && defaulted)
           return std::to_string(config::stagenet::RPC_DEFAULT_PORT);
-        return val;
+        else if (selected_networks[2] && defaulted)
+          return std::to_string(config::numista_testnet::RPC_DEFAULT_PORT);
+        else if (selected_networks[3] && defaulted)
+          return std::to_string(config::RPC_DEFAULT_PORT);
+        return defaulted ? std::to_string(config::numista_testnet::RPC_DEFAULT_PORT) : val;
       }
     };
 

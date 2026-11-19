@@ -219,6 +219,8 @@ private:
 
     static bool has_testnet_option(const boost::program_options::variables_map& vm);
     static bool has_stagenet_option(const boost::program_options::variables_map& vm);
+    static bool has_numista_testnet_option(const boost::program_options::variables_map& vm);
+    static bool has_mainnet_option(const boost::program_options::variables_map& vm);
     static bool has_password_option(const boost::program_options::variables_map& vm);
     static bool has_offline_option(const boost::program_options::variables_map& vm);
     static bool has_dns_option(const boost::program_options::variables_map& vm);

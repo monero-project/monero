@@ -126,30 +126,38 @@ namespace nodetool
 {
     const command_line::arg_descriptor<std::string> arg_p2p_bind_ip        = {"p2p-bind-ip", "Interface for p2p network protocol (IPv4)", "0.0.0.0"};
     const command_line::arg_descriptor<std::string> arg_p2p_bind_ipv6_address        = {"p2p-bind-ipv6-address", "Interface for p2p network protocol (IPv6)", "::"};
-    const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port = {
+    const command_line::arg_descriptor<std::string, false, true, 4> arg_p2p_bind_port = {
         "p2p-bind-port"
       , "Port for p2p network protocol (IPv4)"
       , std::to_string(config::P2P_DEFAULT_PORT)
-      , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
-      , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
-          if (testnet_stagenet[0] && defaulted)
+      , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on, &cryptonote::arg_numista_testnet_on, &cryptonote::arg_mainnet_on }}
+      , [](std::array<bool, 4> selected_networks, bool defaulted, std::string val)->std::string {
+          if (selected_networks[0] && defaulted)
             return std::to_string(config::testnet::P2P_DEFAULT_PORT);
-          else if (testnet_stagenet[1] && defaulted)
+          else if (selected_networks[1] && defaulted)
             return std::to_string(config::stagenet::P2P_DEFAULT_PORT);
-          return val;
+          else if (selected_networks[2] && defaulted)
+            return std::to_string(config::numista_testnet::P2P_DEFAULT_PORT);
+          else if (selected_networks[3] && defaulted)
+            return std::to_string(config::P2P_DEFAULT_PORT);
+          return defaulted ? std::to_string(config::numista_testnet::P2P_DEFAULT_PORT) : val;
         }
       };
-    const command_line::arg_descriptor<std::string, false, true, 2> arg_p2p_bind_port_ipv6 = {
+    const command_line::arg_descriptor<std::string, false, true, 4> arg_p2p_bind_port_ipv6 = {
         "p2p-bind-port-ipv6"
       , "Port for p2p network protocol (IPv6)"
       , std::to_string(config::P2P_DEFAULT_PORT)
-      , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on }}
-      , [](std::array<bool, 2> testnet_stagenet, bool defaulted, std::string val)->std::string {
-          if (testnet_stagenet[0] && defaulted)
+      , {{ &cryptonote::arg_testnet_on, &cryptonote::arg_stagenet_on, &cryptonote::arg_numista_testnet_on, &cryptonote::arg_mainnet_on }}
+      , [](std::array<bool, 4> selected_networks, bool defaulted, std::string val)->std::string {
+          if (selected_networks[0] && defaulted)
             return std::to_string(config::testnet::P2P_DEFAULT_PORT);
-          else if (testnet_stagenet[1] && defaulted)
+          else if (selected_networks[1] && defaulted)
             return std::to_string(config::stagenet::P2P_DEFAULT_PORT);
-          return val;
+          else if (selected_networks[2] && defaulted)
+            return std::to_string(config::numista_testnet::P2P_DEFAULT_PORT);
+          else if (selected_networks[3] && defaulted)
+            return std::to_string(config::P2P_DEFAULT_PORT);
+          return defaulted ? std::to_string(config::numista_testnet::P2P_DEFAULT_PORT) : val;
         }
       };
 

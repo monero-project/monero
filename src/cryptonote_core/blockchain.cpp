@@ -295,9 +295,22 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   m_nettype = test_options != NULL ? FAKECHAIN : nettype;
   m_offline = offline;
   m_fixed_difficulty = fixed_difficulty;
+  m_numista_asset_issuer_key = crypto::public_key{};
+  const char* issuer_key_hex = m_nettype == NUMISTA_TESTNET
+    ? config::numista_testnet::NUMISTA_ASSET_ISSUER_PUBLIC_KEY_HEX
+    : config::NUMISTA_ASSET_ISSUER_PUBLIC_KEY_HEX;
+  if (issuer_key_hex[0] != '\0'
+    && !epee::string_tools::hex_to_pod(issuer_key_hex, m_numista_asset_issuer_key))
+  {
+    MERROR("Invalid Numista asset issuer public key in chain configuration");
+    return false;
+  }
+  m_numista_assets = numista_asset_ledger(m_numista_asset_issuer_key);
   if (m_hardfork == nullptr)
   {
-    if (m_nettype ==  FAKECHAIN || m_nettype == STAGENET)
+    if (m_nettype == FAKECHAIN || m_nettype == STAGENET)
+      m_hardfork = new HardFork(*db, 1, 0);
+    else if (m_nettype == NUMISTA_TESTNET)
       m_hardfork = new HardFork(*db, 1, 0);
     else if (m_nettype == TESTNET)
       m_hardfork = new HardFork(*db, 1, testnet_hard_fork_version_1_till);
@@ -318,6 +331,11 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
   {
     for (size_t n = 0; n < num_stagenet_hard_forks; ++n)
       m_hardfork->add_fork(stagenet_hard_forks[n].version, stagenet_hard_forks[n].height, stagenet_hard_forks[n].threshold, stagenet_hard_forks[n].time);
+  }
+  else if (m_nettype == NUMISTA_TESTNET)
+  {
+    for (size_t n = 0; n < num_numista_testnet_hard_forks; ++n)
+      m_hardfork->add_fork(numista_testnet_hard_forks[n].version, numista_testnet_hard_forks[n].height, numista_testnet_hard_forks[n].threshold, numista_testnet_hard_forks[n].time);
   }
   else
   {
@@ -428,6 +446,12 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
     m_tx_pool.on_blockchain_dec(top_block_height, top_block_hash);
   }
 
+  if (!rebuild_numista_asset_state())
+  {
+    MERROR("Failed to reconstruct Numista asset state from the canonical blockchain");
+    return false;
+  }
+
   if (test_options && test_options->long_term_block_weight_window)
   {
     m_long_term_block_weights_window = test_options->long_term_block_weight_window;
@@ -527,6 +551,76 @@ bool Blockchain::deinit()
   return true;
 }
 //------------------------------------------------------------------
+bool Blockchain::check_numista_asset_tx(const transaction& tx) const
+{
+  CRITICAL_REGION_LOCAL1(m_blockchain_lock);
+
+  bool has_asset_operation = false;
+  if (!has_numista_asset_operation(tx.extra, has_asset_operation))
+    return false;
+  if (!has_asset_operation)
+    return true;
+  if (get_current_hard_fork_version() < HF_VERSION_NUMISTA_ASSETS)
+    return false;
+
+  numista_asset_ledger candidate = m_numista_assets;
+  std::string error;
+  if (!candidate.apply_tx_extra(tx.extra, &error))
+  {
+    MDEBUG("Rejecting invalid Numista asset transaction: " << error);
+    return false;
+  }
+  return true;
+}
+//------------------------------------------------------------------
+bool Blockchain::rebuild_numista_asset_state()
+{
+  CRITICAL_REGION_LOCAL1(m_blockchain_lock);
+
+  numista_asset_ledger rebuilt(m_numista_asset_issuer_key);
+  const uint64_t chain_height = m_db->height();
+  for (uint64_t height = 0; height < chain_height; ++height)
+  {
+    const block block = m_db->get_block_from_height(height);
+    bool has_asset_operation = false;
+    if (!has_numista_asset_operation(block.miner_tx.extra, has_asset_operation) || has_asset_operation)
+    {
+      MERROR("Invalid Numista asset operation in miner transaction at height " << height);
+      return false;
+    }
+
+    for (const crypto::hash& tx_hash : block.tx_hashes)
+    {
+      transaction tx;
+      if (!m_db->get_tx(tx_hash, tx))
+      {
+        MERROR("Failed to load transaction " << tx_hash << " while rebuilding Numista asset state");
+        return false;
+      }
+      if (!has_numista_asset_operation(tx.extra, has_asset_operation))
+      {
+        MERROR("Malformed transaction extra in transaction " << tx_hash << " while rebuilding Numista asset state");
+        return false;
+      }
+      if (!has_asset_operation)
+        continue;
+      if (block.major_version < HF_VERSION_NUMISTA_ASSETS)
+      {
+        MERROR("Numista asset operation found before activation at height " << height);
+        return false;
+      }
+      std::string error;
+      if (!rebuilt.apply_tx_extra(tx.extra, &error))
+      {
+        MERROR("Invalid Numista asset operation in transaction " << tx_hash << " at height " << height << ": " << error);
+        return false;
+      }
+    }
+  }
+  m_numista_assets = std::move(rebuilt);
+  return true;
+}
+//------------------------------------------------------------------
 // This function removes blocks from the top of blockchain.
 // It starts a batch and calls private method pop_block_from_blockchain().
 void Blockchain::pop_blocks(uint64_t nblocks, const bool keep_txs)
@@ -553,6 +647,8 @@ void Blockchain::pop_blocks(uint64_t nblocks, const bool keep_txs)
     LOG_ERROR("Error when popping blocks after processing " << i << " blocks: " << e.what());
     if (stop_batch)
       m_db->batch_abort();
+    if (!rebuild_numista_asset_state())
+      LOG_ERROR("Failed to restore Numista asset state after aborted block pop batch");
     return;
   }
 
@@ -587,7 +683,7 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
   const uint8_t previous_hf_version = get_current_hard_fork_version();
   try
   {
-    m_db->pop_block(popped_block, keep_txs ? &popped_txs : nullptr);
+    m_db->pop_block(popped_block, &popped_txs);
   }
   // anything that could cause this to throw is likely catastrophic,
   // so we re-throw
@@ -604,6 +700,13 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
 
   // make sure the hard fork object updates its current version
   m_hardfork->on_block_popped(1);
+
+  for (const transaction& tx : popped_txs)
+  {
+    std::string error;
+    if (!m_numista_assets.revert_tx_extra(tx.extra, &error))
+      CHECK_AND_ASSERT_THROW_MES(false, "Failed to revert Numista asset state while popping block: " << error);
+  }
 
   // return transactions from popped block to the tx_pool
   size_t pruned = 0;
@@ -3859,6 +3962,7 @@ bool Blockchain::handle_block_to_main_chain(const block& bl, const crypto::hash&
   TIME_MEASURE_START(t1);
 
   static bool seen_future_version = false;
+  bool miner_has_asset_operation = false;
 
   db_rtxn_guard rtxn_guard(m_db);
   uint64_t blockchain_height;
@@ -3889,6 +3993,14 @@ leave:
   if (!m_hardfork->check(bl))
   {
     MERROR_VER("Block with id: " << id << std::endl << "has old version: " << (unsigned)bl.major_version << std::endl << "current: " << (unsigned)hf_version);
+    bvc.m_verifivation_failed = true;
+    goto leave;
+  }
+
+  if (!has_numista_asset_operation(bl.miner_tx.extra, miner_has_asset_operation)
+    || miner_has_asset_operation)
+  {
+    MERROR_VER("Miner transaction contains an invalid Numista asset operation");
     bvc.m_verifivation_failed = true;
     goto leave;
   }
@@ -4081,6 +4193,7 @@ leave:
   txs.reserve(bl.tx_hashes.size());
   txs_meta.reserve(bl.tx_hashes.size());
   txpool_events.reserve(bl.tx_hashes.size());
+  numista_asset_ledger candidate_numista_assets = m_numista_assets;
   for (const crypto::hash& tx_id : bl.tx_hashes)
   {
     TIME_MEASURE_START(aa);
@@ -4187,6 +4300,29 @@ leave:
     t_dblspnd += dd;
     TIME_MEASURE_START(cc);
 
+    bool has_asset_operation = false;
+    if (!has_numista_asset_operation(tx.extra, has_asset_operation)
+      || (has_asset_operation && hf_version < HF_VERSION_NUMISTA_ASSETS))
+    {
+      MERROR_VER("Transaction has malformed or pre-activation Numista asset data");
+      bvc.m_verifivation_failed = true;
+      add_block_as_invalid(bl, id);
+      return_txs_to_pool();
+      return false;
+    }
+    if (has_asset_operation)
+    {
+      std::string asset_error;
+      if (!candidate_numista_assets.apply_tx_extra(tx.extra, &asset_error))
+      {
+        MERROR_VER("Invalid Numista asset operation in transaction " << tx_id << ": " << asset_error);
+        bvc.m_verifivation_failed = true;
+        add_block_as_invalid(bl, id);
+        return_txs_to_pool();
+        return false;
+      }
+    }
+
 #if defined(PER_BLOCK_CHECKPOINT)
     if (!fast_check)
 #endif
@@ -4271,6 +4407,7 @@ leave:
       uint64_t long_term_block_weight = get_next_long_term_block_weight(block_weight);
       cryptonote::blobdata bd = cryptonote::block_to_blob(bl);
       new_height = m_db->add_block(std::make_pair(bl, std::move(bd)), block_weight, long_term_block_weight, cumulative_difficulty, already_generated_coins, txs, transparent_amount_commitments);
+      m_numista_assets = std::move(candidate_numista_assets);
     }
     catch (const KEY_IMAGE_EXISTS& e)
     {

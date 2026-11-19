@@ -86,6 +86,16 @@ namespace cryptonote
   , "Run in a regression testing mode."
   , false
   };
+  const command_line::arg_descriptor<bool, false> arg_numista_testnet_on = {
+    "numista-testnet"
+  , "Run on the isolated Numista testnet."
+  , false
+  };
+  const command_line::arg_descriptor<bool, false> arg_mainnet_on = {
+    "mainnet"
+  , "Run on Monero mainnet instead of the default Numista testnet."
+  , false
+  };
   const command_line::arg_descriptor<bool> arg_keep_fakechain = {
     "keep-fakechain"
   , "Don't delete any existing database when in fakechain mode."
@@ -96,19 +106,23 @@ namespace cryptonote
   , "Fixed difficulty used for testing."
   , 0
   };
-  const command_line::arg_descriptor<std::string, false, true, 3> arg_data_dir = {
+  const command_line::arg_descriptor<std::string, false, true, 5> arg_data_dir = {
     "data-dir"
   , "Specify data directory"
   , tools::get_default_data_dir()
-  , {{ &arg_testnet_on, &arg_stagenet_on, &arg_regtest_on }}
-  , [](std::array<bool, 3> nets, bool defaulted, std::string val)->std::string {
+  , {{ &arg_testnet_on, &arg_stagenet_on, &arg_regtest_on, &arg_numista_testnet_on, &arg_mainnet_on }}
+  , [](std::array<bool, 5> nets, bool defaulted, std::string val)->std::string {
       if (nets[0])
         return (boost::filesystem::path(val) / "testnet").string();
       else if (nets[1])
         return (boost::filesystem::path(val) / "stagenet").string();
       else if (nets[2])
         return (boost::filesystem::path(val) / "fake").string();
-      return val;
+      else if (nets[3])
+        return (boost::filesystem::path(val) / "numista-testnet").string();
+      else if (nets[4])
+        return val;
+      return (boost::filesystem::path(val) / "numista-testnet").string();
     }
   };
   const command_line::arg_descriptor<bool> arg_offline = {
@@ -314,6 +328,8 @@ namespace cryptonote
     command_line::add_arg(desc, arg_testnet_on);
     command_line::add_arg(desc, arg_stagenet_on);
     command_line::add_arg(desc, arg_regtest_on);
+    command_line::add_arg(desc, arg_numista_testnet_on);
+    command_line::add_arg(desc, arg_mainnet_on);
     command_line::add_arg(desc, arg_keep_fakechain);
     command_line::add_arg(desc, arg_fixed_difficulty);
     command_line::add_arg(desc, arg_dns_checkpoints);
@@ -345,9 +361,12 @@ namespace cryptonote
     const bool testnet = command_line::get_arg(vm, arg_testnet_on);
     const bool stagenet = command_line::get_arg(vm, arg_stagenet_on);
     const bool regtest = command_line::get_arg(vm, arg_regtest_on);
-    if (testnet + stagenet + regtest > 1)
+    const bool numista_testnet = command_line::get_arg(vm, arg_numista_testnet_on);
+    const bool mainnet = command_line::get_arg(vm, arg_mainnet_on);
+    if (testnet + stagenet + regtest + numista_testnet + mainnet > 1)
       throw std::runtime_error("More than one network type argument was specified");
-    return testnet ? TESTNET : stagenet ? STAGENET : regtest ? FAKECHAIN : MAINNET;
+    return testnet ? TESTNET : stagenet ? STAGENET : regtest ? FAKECHAIN
+      : mainnet ? MAINNET : NUMISTA_TESTNET;
   }
   //-----------------------------------------------------------------------------------------------
   bool core::handle_command_line(const boost::program_options::variables_map& vm)

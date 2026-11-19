@@ -242,6 +242,14 @@ namespace cryptonote
     // assume failure during verification steps until success is certain
     tvc.m_verifivation_failed = true;
 
+    if (!kept_by_block && !m_blockchain.check_numista_asset_tx(tx))
+    {
+      LOG_PRINT_L1("transaction " << id << " failed Numista asset consensus validation");
+      tvc.m_verifivation_failed = true;
+      tvc.m_no_drop_offense = true;
+      return false;
+    }
+
     time_t receive_time = time(nullptr);
 
     crypto::hash max_used_block_id = null_hash;

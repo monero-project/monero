@@ -30,6 +30,8 @@
 
 #pragma once
 
+#include "cryptonote_config_numista_production.h"
+
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -198,7 +200,15 @@ static_assert(CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT >= BLOCKS_SYNCHRONIZING
 #define HF_VERSION_BULLETPROOF_PLUS             15
 #define HF_VERSION_VIEW_TAGS                    15
 #define HF_VERSION_2021_SCALING                 15
-#define MAX_HF_VERSION                          16 // max version supported by code, not necessarily activated/enabled
+#define HF_VERSION_NUMISTA_ASSETS                17
+#define MAX_HF_VERSION                          17 // max version supported by code, not necessarily activated/enabled
+
+namespace config
+{
+  // Consensus parameter. Set to the 64-character public key hex before activating
+  // Numista asset operations on a Numista network. Empty disables issuer operations.
+  static const char NUMISTA_ASSET_ISSUER_PUBLIC_KEY_HEX[] = "";
+}
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 #define CRYPTONOTE_SCALING_2021_FEE_ROUNDING_PLACES 2
@@ -307,6 +317,24 @@ namespace config
     std::string const GENESIS_TX = "013c01ff0001ffffffffffff0302df5d56da0c7d643ddd1ce61901c7bdc5fb1738bfe39fbe69c28a3a7032729c0f2101168d0c4ca86fb55a4cf6a36d31431be1c53a3bd7411bb24e8832410289fa6f3b";
     uint32_t const GENESIS_NONCE = 10002;
   }
+
+  namespace numista_testnet
+  {
+    uint64_t const CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX = 153;
+    uint64_t const CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX = 154;
+    uint64_t const CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX = 163;
+    uint16_t const P2P_DEFAULT_PORT = 48080;
+    uint16_t const RPC_DEFAULT_PORT = 48081;
+    uint16_t const ZMQ_RPC_DEFAULT_PORT = 48082;
+    boost::uuids::uuid const NETWORK_ID = {{
+      0x4e, 0x55, 0x4d, 0x49, 0x53, 0x54, 0x41, 0x00,
+      0x54, 0x45, 0x53, 0x54, 0x00, 0x00, 0x00, 0x01
+    }};
+    std::string const GENESIS_TX = testnet::GENESIS_TX;
+    uint32_t const GENESIS_NONCE = 10003;
+    // Consensus-fixed; an empty key disables issuer-authorized asset operations.
+    const char NUMISTA_ASSET_ISSUER_PUBLIC_KEY_HEX[] = "938c1029985ba0e3d91d26f76491abd99dae405dd1caf959a6f5de73a94fe55b";
+  }
 }
 
 namespace cryptonote
@@ -317,6 +345,7 @@ namespace cryptonote
     TESTNET,
     STAGENET,
     FAKECHAIN,
+    NUMISTA_TESTNET,
     UNDEFINED = 255
   };
   struct config_t
@@ -366,12 +395,24 @@ namespace cryptonote
       ::config::stagenet::GENESIS_TX,
       ::config::stagenet::GENESIS_NONCE
     };
+    static const config_t numista_testnet = {
+      ::config::numista_testnet::CRYPTONOTE_PUBLIC_ADDRESS_BASE58_PREFIX,
+      ::config::numista_testnet::CRYPTONOTE_PUBLIC_INTEGRATED_ADDRESS_BASE58_PREFIX,
+      ::config::numista_testnet::CRYPTONOTE_PUBLIC_SUBADDRESS_BASE58_PREFIX,
+      ::config::numista_testnet::P2P_DEFAULT_PORT,
+      ::config::numista_testnet::RPC_DEFAULT_PORT,
+      ::config::numista_testnet::ZMQ_RPC_DEFAULT_PORT,
+      ::config::numista_testnet::NETWORK_ID,
+      ::config::numista_testnet::GENESIS_TX,
+      ::config::numista_testnet::GENESIS_NONCE
+    };
     switch (nettype)
     {
       case MAINNET: return mainnet;
       case TESTNET: return testnet;
       case STAGENET: return stagenet;
       case FAKECHAIN: return mainnet;
+      case NUMISTA_TESTNET: return numista_testnet;
       default: throw std::runtime_error("Invalid network type");
     }
   };
