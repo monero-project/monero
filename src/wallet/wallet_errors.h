@@ -888,8 +888,8 @@ namespace tools
     //----------------------------------------------------------------------------------------------------
     struct get_histogram_error : public wallet_rpc_error
     {
-      explicit get_histogram_error(std::string&& loc, const std::string& request)
-        : wallet_rpc_error(std::move(loc), "failed to get output histogram", request)
+      explicit get_histogram_error(std::string&& loc, const std::string& reason)
+        : wallet_rpc_error(std::move(loc), "failed to get output histogram: " + reason, "get_output_histogram")
       {
       }
     };

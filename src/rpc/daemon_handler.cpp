@@ -52,6 +52,7 @@ constexpr auto restricted_histogram_cutoff = std::chrono::hours{3 * 24};
 constexpr size_t restricted_max_txs = 100;
 constexpr size_t restricted_max_key_images = 5000;
 constexpr size_t restricted_max_block_headers = 1000;
+constexpr size_t restricted_max_histogram_amounts = 100;
 }
 
 namespace cryptonote
@@ -844,6 +845,12 @@ namespace rpc
     {
       res.status = Message::STATUS_FAILED;
       res.error_details = "Restricted RPC will not serve histograms on the whole blockchain. Use your own node.";
+      return;
+    }
+    if (m_restricted && amounts > restricted_max_histogram_amounts)
+    {
+      res.status = Message::STATUS_FAILED;
+      res.error_details = "Too many amounts requested in restricted mode";
       return;
     }
 
