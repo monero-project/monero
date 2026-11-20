@@ -55,6 +55,7 @@ define $(package)_postprocess_cmds
     ! -name asio \
     ! -name assert \
     ! -name atomic \
+    ! -name beast \
     ! -name bimap \
     ! -name bind \
     ! -name chrono \
@@ -103,6 +104,7 @@ define $(package)_postprocess_cmds
     ! -name serialization \
     ! -name smart_ptr \
     ! -name spirit \
+    ! -name static_string \
     ! -name system \
     ! -name thread \
     ! -name tuple \
