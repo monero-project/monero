@@ -2326,6 +2326,8 @@ namespace tools
       return true;
     }
 
+    std::unordered_set<crypto::hash> processed_ids;
+
     for (auto & payment_id_str : req.payment_ids)
     {
       crypto::hash payment_id;
@@ -2360,6 +2362,10 @@ namespace tools
         er.message = "Payment ID has invalid format: " + payment_id_str;
         return false;
       }
+
+      // short and zero-padded long spellings of one ID parse to the same hash
+      if (!processed_ids.insert(payment_id).second)
+        continue;
 
       std::list<wallet2::payment_details> payment_list;
       m_wallet->get_payments(payment_id, payment_list, req.min_block_height);
