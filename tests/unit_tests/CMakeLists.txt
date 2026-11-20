@@ -60,6 +60,7 @@ set(unit_tests_sources
   hashchain.cpp
   hmac_keccak.cpp
   http.cpp
+  http_client_tcp.cpp
   keccak.cpp
   levin.cpp
   logging.cpp
