@@ -123,10 +123,12 @@ namespace cryptonote
       * @param tvc metadata about the transaction's validity
       * @param tx_relay how the transaction was received
       * @param relayed whether or not the transaction was relayed to us
+      * @param origin P2P ingress zone, or invalid for non-P2P submissions
       *
       * @return true if the transaction was accepted, false otherwise
       */
-     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
+     bool handle_incoming_tx(const blobdata& tx_blob, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
+       epee::net_utils::zone origin = epee::net_utils::zone::invalid);
 
     /**
       * @brief handles a single incoming block
@@ -936,9 +938,11 @@ namespace cryptonote
       * @param tx_weight the weight of the transaction
       * @param tx_relay how the transaction was received
       * @param relayed whether or not the transaction was relayed to us
+      * @param origin P2P ingress zone, or invalid for non-P2P submissions
       *
       */
-     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed);
+     bool add_new_tx(transaction& tx, const crypto::hash& tx_hash, const cryptonote::blobdata &blob, size_t tx_weight, tx_verification_context& tvc, relay_method tx_relay, bool relayed,
+       epee::net_utils::zone origin);
 
      /**
       * @brief add a new transaction to the transaction pool

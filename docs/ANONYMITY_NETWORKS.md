@@ -26,6 +26,9 @@ network. The transaction will not be broadcast unless an anonymity connection
 is made or until `monerod` is shutdown and restarted with only public
 connections enabled.
 
+Transactions over Tor/I2P are sent only on outbound connections and accepted
+only on inbound connections.
+
 Anonymity networks can also be used with `monero-wallet-cli` and
 `monero-wallet-rpc` - the wallets will connect to a daemon through a proxy. The
 daemon must provide a hidden service for the RPC itself, which is separate from
