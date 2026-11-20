@@ -33,10 +33,16 @@
 #include <iomanip>
 #include <boost/uuid/uuid.hpp>
 #include <boost/serialization/version.hpp>
+#include <boost/variant/variant.hpp>
+#include <string>
+#include <sstream>
+#include <utility>
+
 #include "serialization/keyvalue_serialization.h"
 #include "net/net_utils_base.h"
 #include "net/tor_address.h" // needed for serialization
 #include "net/i2p_address.h" // needed for serialization
+#include "net/net_ssl.h"
 #include "misc_language.h"
 #include "string_tools.h"
 #include "time_helper.h"
@@ -48,17 +54,110 @@ namespace nodetool
   typedef boost::uuids::uuid uuid;
   typedef uint64_t peerid_type;
 
+  // The current modes/versions for p2p encryption
+  constexpr uint8_t emode_ssl_autodetect = 0;
+  constexpr uint8_t emode_disabled = 1;
+  constexpr uint8_t emode_ssl_enabled = 2;
+
   static inline std::string peerid_to_string(peerid_type peer_id)
   {
     std::ostringstream s;
     s << std::hex << peer_id;
     return epee::string_tools::pad_string(s.str(), 16, '0', true);
   }
+
+  
+  inline constexpr uint8_t get_encryption_mode(const epee::net_utils::ssl_support_t support) noexcept
+  {
+    switch (support)
+    {
+      case epee::net_utils::ssl_support_t::e_ssl_support_enabled:
+        return emode_ssl_enabled;
+      case epee::net_utils::ssl_support_t::e_ssl_support_disabled:
+        return emode_disabled;
+      default:
+      case epee::net_utils::ssl_support_t::e_ssl_support_autodetect:
+        break;
+    }
+    return emode_ssl_autodetect;
+  }
+
+  struct ssl_parameters
+  {
+    using ssl_support_t = epee::net_utils::ssl_support_t;
+    using ssl_options_t = epee::net_utils::ssl_options_t;
+
+    std::string cert_finger;
+    uint8_t mode;
+
+    ssl_parameters(std::string cert_finger, ssl_support_t mode);
+    explicit ssl_parameters(std::string cert_finger, const uint8_t mode = emode_ssl_enabled);
+
+    ssl_parameters() noexcept
+      : cert_finger(), mode(emode_ssl_autodetect)
+    {}
+
+    BEGIN_KV_SERIALIZE_MAP()
+      KV_SERIALIZE(mode)
+      KV_SERIALIZE(cert_finger)
+      if (!is_store)
+        sanitize();
+    END_KV_SERIALIZE_MAP()
+
+    bool operator==(const ssl_parameters& rhs) const noexcept
+    { return mode == rhs.mode && cert_finger == rhs.cert_finger; }
+
+    void sanitize();
+    ssl_options_t get_p2p_encryption() const;
+  };
+
+  template<typename T>
+  inline epee::net_utils::ssl_options_t get_p2p_encryption(const T& peer) 
+  {
+    if (peer.local_ssl.mode != emode_ssl_autodetect)
+      return peer.local_ssl.get_p2p_encryption(); // force user CLI setting
+    else if (peer.peer_ssl.mode == emode_disabled)
+      return epee::net_utils::ssl_support_t::e_ssl_support_disabled;
+    return epee::net_utils::ssl_support_t::e_ssl_support_autodetect;
+    /* We ignore fingerprints from the peer for now (and maybe permanently).
+      The issue is when a certificate needs to be rotated - we either block
+      that ip+port permanently (due to fingerprint failures), or open ourselves
+      to a MitM. */
+  }
+
   
   template<typename AddressType>
   struct peerlist_entry_base
   {
+    peerlist_entry_base()
+      : adr(),
+        local_ssl(),
+        peer_ssl(),
+        id(0),
+        last_seen(0),
+        pruning_seed(0),
+        rpc_port(0),
+        rpc_credits_per_hash(0)
+    {}
+
+    peerlist_entry_base(AddressType addr_in, peerid_type id_in, int64_t last_seen_in = 0)
+      : peerlist_entry_base()
+    {
+      adr = std::move(addr_in);
+      id = id_in;
+      last_seen = last_seen_in;
+    }
+
+    template<typename T>
+    void copy_ssl_to(T& dest) const
+    {
+      dest.local_ssl = local_ssl;
+      dest.peer_ssl = peer_ssl;
+    }
+
     AddressType adr;
+    ssl_parameters local_ssl; //!< user cli settings
+    ssl_parameters peer_ssl;  //!< tofu settings
     peerid_type id;
     int64_t last_seen;
     uint32_t pruning_seed;
@@ -72,23 +171,36 @@ namespace nodetool
       KV_SERIALIZE_OPT(pruning_seed, (uint32_t)0)
       KV_SERIALIZE_OPT(rpc_port, (uint16_t)0)
       KV_SERIALIZE_OPT(rpc_credits_per_hash, (uint32_t)0)
+      /* Do not serialize `local_ssl` (privacy leak), and do not serialize
+        `peer_ssl` (observed ssl parameters directly from outgoing connection).
+        Eventually it may be worth adding `third_ssl` for relaying ssl
+        parameters of peers, which has lowest precedence. */
     END_KV_SERIALIZE_MAP()
-
-    BEGIN_SERIALIZE()
-      FIELD(adr)
-      FIELD(id)
-      VARINT_FIELD(last_seen)
-      VARINT_FIELD(pruning_seed)
-      VARINT_FIELD(rpc_port)
-      VARINT_FIELD(rpc_credits_per_hash)
-    END_SERIALIZE()
   };
   typedef peerlist_entry_base<epee::net_utils::network_address> peerlist_entry;
 
   template<typename AddressType>
   struct anchor_peerlist_entry_base
   {
+    anchor_peerlist_entry_base()
+      : adr(),
+        local_ssl(),
+        peer_ssl(),
+        id(0),
+        first_seen(0)
+    {}
+
+    anchor_peerlist_entry_base(AddressType addr_in, peerid_type id_in, int64_t first_seen_in = 0)
+      : anchor_peerlist_entry_base()
+    {
+      adr = std::move(addr_in);
+      id = id_in;
+      first_seen = first_seen_in;
+    }
+
     AddressType adr;
+    ssl_parameters local_ssl; //!< user cli settings
+    ssl_parameters peer_ssl;  //!< tofu settings
     peerid_type id;
     int64_t first_seen;
 
@@ -96,13 +208,8 @@ namespace nodetool
       KV_SERIALIZE(adr)
       KV_SERIALIZE(id)
       KV_SERIALIZE(first_seen)
+      // see `peerlist_entry_base` comments about ssl serialization
     END_KV_SERIALIZE_MAP()
-
-    BEGIN_SERIALIZE()
-      FIELD(adr)
-      FIELD(id)
-      VARINT_FIELD(first_seen)
-    END_SERIALIZE()
   };
   typedef anchor_peerlist_entry_base<epee::net_utils::network_address> anchor_peerlist_entry;
 
@@ -137,9 +244,9 @@ namespace nodetool
     END_KV_SERIALIZE_MAP()
 
     std::chrono::milliseconds ping_connection_timeout;
+    std::chrono::milliseconds connection_timeout;
     uint32_t max_out_connection_count;
     uint32_t max_in_connection_count;
-    uint32_t connection_timeout;
     uint32_t handshake_interval;
     uint32_t packet_max_size;
     uint32_t config_id;
@@ -148,7 +255,8 @@ namespace nodetool
 
   struct basic_node_data
   {
-    uuid network_id;                   
+    ssl_parameters ssl;
+    uuid network_id;
     uint32_t my_port;
     uint16_t rpc_port;
     uint32_t rpc_credits_per_hash;
@@ -162,6 +270,7 @@ namespace nodetool
       KV_SERIALIZE_OPT(rpc_port, (uint16_t)(0))
       KV_SERIALIZE_OPT(rpc_credits_per_hash, (uint32_t)0)
       KV_SERIALIZE_OPT(support_flags, (uint32_t)0)
+      KV_SERIALIZE_OPT(ssl, ssl_parameters{})
     END_KV_SERIALIZE_MAP()
   };
   

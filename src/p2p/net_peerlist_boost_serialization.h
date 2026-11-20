@@ -39,7 +39,8 @@
 #include "net/i2p_address.h"
 #include "p2p/p2p_protocol_defs.h"
 
-BOOST_CLASS_VERSION(nodetool::peerlist_entry, 3)
+BOOST_CLASS_VERSION(nodetool::peerlist_entry, 4)
+BOOST_CLASS_VERSION(nodetool::anchor_peerlist_entry, 1)
 
 namespace boost
 {
@@ -211,6 +212,12 @@ namespace boost
     {
       boost::serialization::split_free(a, na, ver);
     }
+    template <class Archive, class ver_type>
+    inline void serialize(Archive &a,  nodetool::ssl_parameters& ssl, const ver_type)
+    {
+      a & ssl.cert_finger;
+      a & ssl.mode;
+    }
 
     template <class Archive, class ver_type>
     inline void serialize(Archive &a,  nodetool::peerlist_entry& pl, const ver_type ver)
@@ -239,6 +246,18 @@ namespace boost
         return;
       }
       a & pl.rpc_credits_per_hash;
+
+      if (ver < 4)
+      {
+        if (!typename Archive::is_saving())
+        {
+          pl.local_ssl = nodetool::ssl_parameters{};
+          pl.peer_ssl = nodetool::ssl_parameters{};
+        }
+        return;
+      }
+      a & pl.local_ssl;
+      a & pl.peer_ssl;
     }
 
     template <class Archive, class ver_type>
@@ -247,6 +266,17 @@ namespace boost
       a & pl.adr;
       a & pl.id;
       a & pl.first_seen;
+      if (ver < 1)
+      {
+        if (!typename Archive::is_saving())
+        {
+          pl.local_ssl = nodetool::ssl_parameters{};
+          pl.peer_ssl = nodetool::ssl_parameters{};
+        }
+        return;
+      }
+      a & pl.local_ssl;
+      a & pl.peer_ssl;
     }
   }
 }

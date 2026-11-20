@@ -103,7 +103,7 @@ connection_basic_pimpl::connection_basic_pimpl(const std::string &name) : m_thro
 int connection_basic_pimpl::m_default_tos;
 
 // methods:
-connection_basic::connection_basic(boost::asio::io_context &io_context, boost::asio::ip::tcp::socket&& sock, std::shared_ptr<connection_basic_shared_state> state, ssl_support_t ssl_support)
+connection_basic::connection_basic(boost::asio::io_context &io_context, boost::asio::ip::tcp::socket&& sock, std::shared_ptr<connection_basic_shared_state> state)
 	:
 	m_state(std::move(state)),
 	mI( new connection_basic_pimpl("peer") ),
@@ -111,8 +111,7 @@ connection_basic::connection_basic(boost::asio::io_context &io_context, boost::a
 	socket_(io_context, get_context(m_state.get())),
 	m_want_close_connection(false),
 	m_was_shutdown(false),
-	m_is_multithreaded(false),
-	m_ssl_support(ssl_support)
+	m_is_multithreaded(false)
 {
 	// add nullptr checks if removed
 	assert(m_state != nullptr); // release runtime check in get_context
@@ -128,7 +127,7 @@ connection_basic::connection_basic(boost::asio::io_context &io_context, boost::a
 	_note("Spawned connection #"<<mI->m_peer_number<<" to " << remote_addr_str << " currently we have sockets count:" << m_state->sock_count);
 }
 
-connection_basic::connection_basic(boost::asio::io_context &io_context, std::shared_ptr<connection_basic_shared_state> state, ssl_support_t ssl_support)
+connection_basic::connection_basic(boost::asio::io_context &io_context, std::shared_ptr<connection_basic_shared_state> state)
 	:
 	m_state(std::move(state)),
 	mI( new connection_basic_pimpl("peer") ),
@@ -136,8 +135,7 @@ connection_basic::connection_basic(boost::asio::io_context &io_context, std::sha
 	socket_(io_context, get_context(m_state.get())),
 	m_want_close_connection(false),
 	m_was_shutdown(false),
-	m_is_multithreaded(false),
-	m_ssl_support(ssl_support)
+	m_is_multithreaded(false)
 {
 	// add nullptr checks if removed
 	assert(m_state != nullptr); // release runtime check in get_context
@@ -157,6 +155,23 @@ connection_basic::~connection_basic() noexcept(false) {
 	std::string remote_addr_str = "?";
 	try { boost::system::error_code e; remote_addr_str = socket().remote_endpoint(e).address().to_string(); } catch(...){} ;
 	_note("Destructing connection #"<<mI->m_peer_number << " to " << remote_addr_str);
+}
+
+void connection_basic::connect_error(const std::chrono::milliseconds timeout, const boost::system::error_code error)
+{
+  if (!socket().is_open())
+    return;
+
+  boost::system::error_code ignore{};
+  const auto endpoint = socket().remote_endpoint(ignore);
+  if (error)
+    _dbg3("Failed connection to " << endpoint << " (" << error.message() << ")");
+  else if (std::chrono::milliseconds{0} < timeout)
+    _dbg3("Failed connection to " << endpoint << " because of timeout (" << timeout.count() << " ms)");
+  else
+    _dbg3("Failed connection to " << endpoint << " because of exception");
+  socket().shutdown(boost::asio::ip::tcp::socket::shutdown_both, ignore);
+  socket().close(ignore);
 }
 
 void connection_basic::set_rate_up_limit(uint64_t limit) {
