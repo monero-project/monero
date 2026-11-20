@@ -1,11 +1,11 @@
 # Anonymity Networks with Monero
 
 Currently only Tor and I2P have been integrated into Monero. The usage of
-these networks is still considered experimental - there are a few pessimistic
-cases where privacy is leaked. The design is intended to maximize privacy of
+these networks is still considered somewhat experimental - there are a few pessimistic
+cases where privacy may be leaked. The design is intended to maximize privacy of
 the source of a transaction by broadcasting it over an anonymity network, while
 relying on IPv4 for the remainder of messages to make surrounding node attacks
-(via sybil) more difficult.
+(via Sybil) more difficult.
 
 
 ## Behavior
@@ -23,7 +23,7 @@ will only be sent to peers on anonymity networks. If an anonymity network is
 enabled but no peers over an anonymity network are available, an error is
 logged and the transaction is kept for future broadcasting over an anonymity
 network. The transaction will not be broadcast unless an anonymity connection
-is made or until `monerod` is shutdown and restarted with only public
+is made or until `monerod` is shut down and restarted with only public
 connections enabled.
 
 Anonymity networks can also be used with `monero-wallet-cli` and
@@ -44,8 +44,8 @@ with additional exclusive IPv4 address(es).
 
 ### Blockchain sync
 
-Monerod does not support synchronizing the blockchain over onion or I2P hidden services.
-You may sync the blockchain using a SOCKS4 proxy. Monerod will connect to IPv4
+`monerod` does not support synchronizing the blockchain over onion or I2P hidden services.
+You may sync the blockchain using a SOCKS proxy. `monerod` will connect to IPv4
 nodes using this proxy to sync the blockchain.
 
 ```bash
@@ -62,7 +62,7 @@ You may use the below options with or without `--proxy`.
 #### Outbound Connections
 
 Connecting to an anonymous address requires the command line option
-`--tx-proxy` which tells `monerod` the ip/port of a socks proxy provided by a
+`--tx-proxy` which tells `monerod` the ip/port of a SOCKS proxy provided by a
 separate process. On most systems the configuration will look like:
 
 ```bash
@@ -71,9 +71,9 @@ monerod \
     --tx-proxy i2p,127.0.0.1:4447
 ```
 
-which tells `monerod` to connect to ".onion" P2P addresses using a socks
+which tells `monerod` to connect to ".onion" P2P addresses using a SOCKS
 proxy at IP 127.0.0.1 port 9050 with a max of 10 outgoing connections and
-".b32.i2p" P2P addresses using a socks proxy at IP 127.0.0.1 port 4447
+".i2p" P2P addresses using a SOCKS proxy at IP 127.0.0.1 port 4447
 with the default max outgoing connections.
 
 If desired, peers can be manually specified:
@@ -134,8 +134,17 @@ monero-wallet-cli \
 The proxy must match the address type - a Tor proxy will not work properly with
 I2P addresses, etc.
 
-I2P hidden service (b32.i2p) and Tor Hidden service (.onion) addresses provide the information necessary to authenticate and
-encrypt the connection from end-to-end. If desired, SSL can also be applied to
+If the wallet's `--daemon-address` is a loopback address (e.g. `127.0.0.1`) that
+forwards to a daemon you do not control (e.g. a local port forwarded to a
+third-party hidden service), use `--untrusted-daemon`. The wallet assumes a
+daemon on a loopback address is trusted, and may otherwise send it sensitive
+requests (such as key images during a spent-status rescan).
+
+I2P Base32 (`.b32.i2p`) and Tor hidden service (`.onion`) addresses provide the information necessary to authenticate and
+encrypt the connection from end-to-end. Human-readable I2P names (`.i2p`) are
+resolved through the I2P router's address book, so they are only as trustworthy
+as that name-to-destination mapping; use the `.b32.i2p` form when authentication
+matters. If desired, SSL can also be applied to
 the connection with `--daemon-address https://5tymba6faziy36md5ffy42vatbjzlye4vyr3gyz6lcvdfximnvwpmwqd.onion` which
 requires a server certificate that is signed by a "root" certificate on the
 machine running the wallet. Alternatively, `--daemon-ssl-certificate` can be used to
@@ -150,12 +159,16 @@ encryption, or bypassed with `--daemon-ssl-allow-any-cert`.
 #### Tor & I2P
 
 Options `--add-exclusive-node`, `--add-priority-node`, and `--add-peer` recognize ".onion" and
-".b32.i2p" addresses, and will properly forward those addresses to the proxy
+".i2p" addresses, and will properly forward those addresses to the proxy
 provided with `--tx-proxy tor,...` or `--tx-proxy i2p,...`.
 
 Option `--anonymous-inbound` also recognizes ".onion" and ".b32.i2p" addresses,
 and will automatically be sent out to outgoing Tor/I2P connections so the peer
-can distribute the address to its other peers.
+can distribute the address to its other peers. The address is advertised
+verbatim, so always use the ".b32.i2p" form for I2P: a human-readable ".i2p"
+name can only be dialed by peers whose routers have their own mapping for it,
+and some `monerod` versions reject peer lists containing such names and drop
+the connection.
 
 #### Configuration
 
@@ -195,7 +208,7 @@ monerod
 
 ### Connect to IPv4 Nodes Over Clearnet and Relay Transactions via Tor
 
-Monerod will connect to IPv4 nodes via clearnet, revealing to your ISP
+`monerod` will connect to IPv4 nodes via clearnet, revealing to your ISP
 that you are running a Monero node, but your transactions will be relayed over
 Tor.
 
@@ -208,7 +221,7 @@ monerod --tx-proxy tor,127.0.0.1:9050,10
 ### Connect To IPv4 Nodes Over Tor Only
 
 This configuration does not connect to hidden services or accept incoming
-connections. Your ISP will see that you are running Tor, but not Monerod.
+connections. Your ISP will see that you are running Tor, but not `monerod`.
 
 ```bash
 sudo apt install tor # Or install Tor some other way
@@ -218,7 +231,7 @@ monerod --proxy 127.0.0.1:9050 --p2p-bind-ip 127.0.0.1
 
 ### Connect to IPv4 Nodes Over Tor and Connect to Hidden Services
 
-Your ISP will see that you are running Tor and I2P, but not Monerod. Transactions
+Your ISP will see that you are running Tor and I2P, but not `monerod`. Transactions
 will be relayed to hidden services. Your node will not accept any incoming
 connections (including from Tor and I2P).
 
@@ -244,8 +257,18 @@ monerod --proxy 127.0.0.1:9050 \
 
 ### Connect Exclusively to Hidden Services (avoid IPv4 entirely)
 
-This configuration is not currently supported. Monerod relies on IPv4 to sync
+This configuration is not currently supported. `monerod` relies on IPv4 to sync
 the blockchain to make Sybil attacks more difficult.
+
+### Using Tor on Tails
+
+Tails routes outgoing TCP traffic through Tor by default. To have `monerod`
+use Tor's SOCKS proxy explicitly via its built-in proxy support instead, use
+`--proxy`, for example:
+
+```bash
+./monerod --proxy 127.0.0.1:9050 --data-dir /home/amnesia/Persistent/.bitmonero
+```
 
 ## Privacy Limitations
 
