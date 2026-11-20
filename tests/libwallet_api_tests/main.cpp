@@ -31,6 +31,7 @@
 #include "gtest/gtest.h"
 
 #include "wallet/api/wallet2_api.h"
+#include "wallet/api/wallet.h"
 #include "wallet/wallet2.h"
 #include "include_base_utils.h"
 #include "common/util.h"
@@ -98,6 +99,21 @@ std::string RING_DATABASE_DIR;
 
 
 using namespace Consts;
+
+class WalletApiAccessorTest
+{
+public:
+    static std::pair<size_t, size_t> lookahead(const Monero::Wallet *wallet)
+    {
+        return static_cast<const Monero::WalletImpl *>(wallet)->m_wallet->get_subaddress_lookahead();
+    }
+
+    static bool scans(const Monero::Wallet *wallet, const cryptonote::subaddress_index &index)
+    {
+        const auto &wallet2 = *static_cast<const Monero::WalletImpl *>(wallet)->m_wallet;
+        return bool(wallet2.get_subaddress_index(wallet2.get_subaddress(index)));
+    }
+};
 
 static void configure_wallet(Monero::Wallet *wallet)
 {
@@ -702,6 +718,62 @@ TEST_F(WalletManagerTest, WalletSubaddresses)
     ASSERT_TRUE(wmgr->closeWallet(wallet));
 }
 
+TEST_F(WalletManagerTest, ViewOnlyKeepsCustomLookaheadAndAccounts)
+{
+    const std::string view_path = std::string(WALLET_NAME) + "_viewonly_lookahead";
+    Utils::deleteWallet(view_path);
+
+    Monero::Wallet *source = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
+    ASSERT_NE(nullptr, source);
+    ASSERT_EQ(Monero::Wallet::Status_Ok, source->status());
+    source->addSubaddress(0, "Unused recipient");
+    source->addSubaddressAccount("Private account");
+    source->addSubaddress(1, "Private address");
+    source->setSubaddressLookahead(1, 201);
+    const cryptonote::subaddress_index distant{0, 200};
+    ASSERT_TRUE(WalletApiAccessorTest::scans(source, distant));
+    ASSERT_TRUE(source->createWatchOnly(view_path, WALLET_PASS, WALLET_LANG));
+
+    Monero::Wallet *view = wmgr->openWallet(view_path, WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_NE(nullptr, view);
+    ASSERT_EQ(Monero::Wallet::Status_Ok, view->status());
+    EXPECT_EQ(source->numSubaddressAccounts(), view->numSubaddressAccounts());
+    EXPECT_EQ(source->numSubaddresses(0), view->numSubaddresses(0));
+    EXPECT_EQ(source->numSubaddresses(1), view->numSubaddresses(1));
+    EXPECT_TRUE(view->getSubaddressLabel(0, 1).empty());
+    EXPECT_TRUE(view->getSubaddressLabel(1, 1).empty());
+    EXPECT_NE("Private account", view->getSubaddressLabel(1, 0));
+    EXPECT_EQ(WalletApiAccessorTest::lookahead(source), WalletApiAccessorTest::lookahead(view));
+    EXPECT_TRUE(WalletApiAccessorTest::scans(view, distant));
+    ASSERT_TRUE(wmgr->closeWallet(view));
+    ASSERT_TRUE(wmgr->closeWallet(source));
+}
+
+TEST_F(WalletManagerTest, ViewOnlyScansIssuedSubaddresses)
+{
+    const std::string view_path = std::string(WALLET_NAME) + "_viewonly_issued";
+    Utils::deleteWallet(view_path);
+
+    Monero::Wallet *source = wmgr->createWallet(WALLET_NAME, WALLET_PASS, WALLET_LANG, WALLET_NETWORK_TYPE);
+    ASSERT_NE(nullptr, source);
+    ASSERT_EQ(Monero::Wallet::Status_Ok, source->status());
+    for (size_t i = 0; i < 200; ++i)
+        source->addSubaddress(0, "Private recipient");
+
+    const cryptonote::subaddress_index issued{0, 200};
+    ASSERT_EQ(201u, source->numSubaddresses(0));
+    ASSERT_TRUE(WalletApiAccessorTest::scans(source, issued));
+    ASSERT_TRUE(source->createWatchOnly(view_path, WALLET_PASS, WALLET_LANG));
+
+    Monero::Wallet *view = wmgr->openWallet(view_path, WALLET_PASS, WALLET_NETWORK_TYPE);
+    ASSERT_NE(nullptr, view);
+    ASSERT_EQ(Monero::Wallet::Status_Ok, view->status());
+    EXPECT_EQ(source->numSubaddresses(0), view->numSubaddresses(0));
+    EXPECT_TRUE(WalletApiAccessorTest::scans(view, issued));
+    EXPECT_TRUE(view->getSubaddressLabel(0, 200).empty());
+    ASSERT_TRUE(wmgr->closeWallet(view));
+    ASSERT_TRUE(wmgr->closeWallet(source));
+}
 
 TEST_F(WalletTest1, WalletGeneratesPaymentId)
 {
