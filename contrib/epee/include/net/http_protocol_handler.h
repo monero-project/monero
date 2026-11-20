@@ -30,7 +30,7 @@
 #ifndef _HTTP_SERVER_H_
 #define _HTTP_SERVER_H_
 
-#include <boost/optional/optional.hpp>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include "net_utils_base.h"
@@ -57,7 +57,7 @@ namespace net_utils
 			std::string m_folder;
 			std::vector<std::string> m_access_control_origins;
 			std::unordered_map<std::string, std::size_t> m_connections;
-			boost::optional<login> m_user;
+			std::optional<login> m_user;
 			size_t m_max_content_length{std::numeric_limits<size_t>::max()};
 			std::size_t m_connection_count{0};
 			std::size_t m_max_public_ip_connections{3};

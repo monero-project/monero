@@ -128,7 +128,7 @@ void mock_daemon::init()
   m_rpc_server.nettype(m_network_type);
 
   CHECK_AND_ASSERT_THROW_MES(m_protocol.init(m_vm), "Failed to initialize cryptonote protocol.");
-  CHECK_AND_ASSERT_THROW_MES(m_rpc_server.init(m_vm, false, main_rpc_port, false), "Failed to initialize RPC server.");
+  CHECK_AND_ASSERT_THROW_MES(m_rpc_server.init(m_vm, false, main_rpc_port), "Failed to initialize RPC server.");
 
   if (m_start_p2p)
     CHECK_AND_ASSERT_THROW_MES(m_server.init(m_vm), "Failed to initialize p2p server.");
@@ -136,7 +136,7 @@ void mock_daemon::init()
   if(m_http_client.is_connected())
     m_http_client.disconnect();
 
-  CHECK_AND_ASSERT_THROW_MES(m_http_client.set_server(rpc_addr(), boost::none, epee::net_utils::ssl_support_t::e_ssl_support_disabled), "RPC client init fail");
+  CHECK_AND_ASSERT_THROW_MES(m_http_client.set_server(rpc_addr(), std::nullopt, epee::net_utils::ssl_support_t::e_ssl_support_disabled), "RPC client init fail");
 }
 
 void mock_daemon::deinit()

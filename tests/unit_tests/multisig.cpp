@@ -81,7 +81,7 @@ static void make_wallet(unsigned int idx, tools::wallet2 &wallet)
 
   try
   {
-    wallet.init("", boost::none, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+    wallet.init("", std::nullopt, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
     wallet.set_subaddress_lookahead(1, 1);
     wallet.generate("", "", spendkey, true, false);
     ASSERT_TRUE(test_addresses[idx].address == wallet.get_account().get_public_address_str(cryptonote::TESTNET));
@@ -523,7 +523,7 @@ TEST(multisig, reload_after_intermediate_exchange)
   crypto::secret_key spendkey;
   ASSERT_TRUE(epee::string_tools::hex_to_pod(test_addresses[0].spendkey, spendkey));
 
-  wallets[0].init("", boost::none, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+  wallets[0].init("", std::nullopt, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
   wallets[0].set_subaddress_lookahead(1, 1);
   wallets[0].generate(wallet_path.string(), password, spendkey, true, false);
   for (size_t i = 1; i < wallets.size(); ++i)
@@ -551,7 +551,7 @@ TEST(multisig, reload_after_intermediate_exchange)
   wallets[0].deinit();
 
   tools::wallet2 reopened;
-  reopened.init("", boost::none, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+  reopened.init("", std::nullopt, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
   ASSERT_NO_THROW(reopened.load(wallet_path.string(), password));
   EXPECT_TRUE(reopened.get_multisig_status().multisig_is_active);
   EXPECT_FALSE(reopened.get_multisig_status().is_ready);

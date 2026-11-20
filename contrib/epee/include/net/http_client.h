@@ -30,7 +30,6 @@
 #include <ctype.h>
 #include <boost/shared_ptr.hpp>
 #include <boost/regex.hpp>
-#include <boost/optional/optional.hpp>
 #include <boost/utility/string_ref.hpp>
 #include <algorithm>
 #include <cctype>
@@ -127,7 +126,7 @@ namespace net_utils
 
 			using abstract_http_client::set_server;
 
-			void set_server(std::string host, std::string port, boost::optional<login> user, ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect) override
+			void set_server(std::string host, std::string port, std::optional<login> user, ssl_options_t ssl_options = ssl_support_t::e_ssl_support_autodetect) override
 			{
 				CRITICAL_REGION_LOCAL(m_lock);
 				disconnect();

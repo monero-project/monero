@@ -28,8 +28,6 @@
 
 #pragma once
 
-#include <boost/optional/optional.hpp>
-
 #include "common/http_connection.h"
 #include "common/scoped_message_writer.h"
 #include "rpc/core_rpc_server_commands_defs.h"
@@ -49,7 +47,7 @@ namespace tools
     t_rpc_client(
         uint32_t ip
       , uint16_t port
-      , boost::optional<epee::net_utils::http::login> user
+      , std::optional<epee::net_utils::http::login> user
       , epee::net_utils::ssl_options_t ssl_options
       )
       : m_http_client{}

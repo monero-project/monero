@@ -244,7 +244,7 @@ std::string WalletManagerImpl::errorString() const
 
 void WalletManagerImpl::setDaemonAddress(const std::string &address)
 {
-    m_http_client.set_server(address, boost::none);
+    m_http_client.set_server(address, std::nullopt);
 }
 
 bool WalletManagerImpl::connected(uint32_t *version)

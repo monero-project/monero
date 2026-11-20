@@ -405,7 +405,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   THROW_WALLET_EXCEPTION_IF(!daemon_address.empty() && !daemon_host.empty() && 0 != daemon_port,
       tools::error::wallet_internal_error, tools::wallet2::tr("can't specify daemon host or port more than once"));
 
-  boost::optional<epee::net_utils::http::login> login{};
+  std::optional<epee::net_utils::http::login> login{};
   if (command_line::has_arg(vm, opts.daemon_login))
   {
     auto parsed = tools::login::parse(
@@ -489,7 +489,7 @@ std::unique_ptr<tools::wallet2> make_basic(const boost::program_options::variabl
   if (daemon_override)
   {
     daemon_address = daemon_override->address;
-    login = boost::none;
+    login = std::nullopt;
     if (!daemon_override->username.empty() || !daemon_override->password.empty())
       login.emplace(daemon_override->username, daemon_override->password);
     proxy = daemon_override->proxy;
@@ -1448,7 +1448,7 @@ std::unique_ptr<wallet2> wallet2::make_dummy(const boost::program_options::varia
 }
 
 //----------------------------------------------------------------------------------------------------
-bool wallet2::set_daemon(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, bool trusted_daemon, epee::net_utils::ssl_options_t ssl_options, const std::string& proxy)
+bool wallet2::set_daemon(std::string daemon_address, std::optional<epee::net_utils::http::login> daemon_login, bool trusted_daemon, epee::net_utils::ssl_options_t ssl_options, const std::string& proxy)
 {
   boost::lock_guard<boost::recursive_mutex> lock(m_daemon_rpc_mutex);
 
@@ -1505,7 +1505,7 @@ std::string wallet2::get_proxy() const
   return m_proxy;
 }
 //----------------------------------------------------------------------------------------------------
-bool wallet2::init(std::string daemon_address, boost::optional<epee::net_utils::http::login> daemon_login, const std::string &proxy_address, uint64_t upper_transaction_weight_limit, bool trusted_daemon, epee::net_utils::ssl_options_t ssl_options)
+bool wallet2::init(std::string daemon_address, std::optional<epee::net_utils::http::login> daemon_login, const std::string &proxy_address, uint64_t upper_transaction_weight_limit, bool trusted_daemon, epee::net_utils::ssl_options_t ssl_options)
 {
   m_checkpoints.init_default_checkpoints(m_nettype);
   m_is_initialized = true;

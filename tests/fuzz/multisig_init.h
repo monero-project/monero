@@ -45,7 +45,7 @@ static void multisig_init_make_wallet(tools::wallet2 &wallet, const char *spendk
   crypto::secret_key spendkey;
   CHECK_AND_ASSERT_THROW_MES(epee::string_tools::hex_to_pod(spendkey_hex, spendkey), "Bad spend key");
 
-  wallet.init("", boost::none, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+  wallet.init("", std::nullopt, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
   wallet.set_subaddress_lookahead(1, 1);
   wallet.generate("", "", spendkey, true, false);
 }

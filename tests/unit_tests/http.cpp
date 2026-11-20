@@ -2019,7 +2019,7 @@ TEST(HTTP, Client_Drops_Chunked_Trailing_Bytes)
 
   ASSERT_TRUE(client.test(header + "1\r\na\r\n0\r\n\r\n1\r\nx\r\n0\r\n\r\n", std::chrono::milliseconds(1000)));
   EXPECT_EQ("a", client.body_seen);
-  client.set_server("daemon-b", "18081", boost::none);
+  client.set_server("daemon-b", "18081", std::nullopt);
   ASSERT_TRUE(client.test(header + "1\r\nb\r\n0\r\n\r\n", std::chrono::milliseconds(1000)));
   EXPECT_EQ("b", client.body_seen);
 }

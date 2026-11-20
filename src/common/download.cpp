@@ -188,7 +188,7 @@ namespace tools
       epee::net_utils::ssl_support_t ssl = u_c.schema == "https" ? epee::net_utils::ssl_support_t::e_ssl_support_enabled : epee::net_utils::ssl_support_t::e_ssl_support_disabled;
       uint16_t port = u_c.port ? u_c.port : ssl == epee::net_utils::ssl_support_t::e_ssl_support_enabled ? 443 : 80;
       MDEBUG("Connecting to " << u_c.host << ":" << port);
-      client.set_server(u_c.host, std::to_string(port), boost::none, ssl);
+      client.set_server(u_c.host, std::to_string(port), std::nullopt, ssl);
       if (!client.connect(std::chrono::seconds(30)))
       {
         boost::lock_guard<boost::mutex> lock(control->mutex);
