@@ -273,6 +273,8 @@ if (NOT (CMAKE_SYSTEM_NAME MATCHES "kOpenBSD.*|OpenBSD.*") AND NOT OSSFUZZ)
 endif()
 
 if (MINGW)
+  add_definitions(-DBOOST_ASIO_HAS_PTHREADS=1)
+
   function(export_all_symbols)
     unset(TMP)
     add_linker_flag_if_supported(-Wl,--export-all-symbols TMP)
