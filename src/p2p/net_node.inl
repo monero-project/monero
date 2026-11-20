@@ -190,7 +190,8 @@ namespace nodetool
     }
   }
   //-----------------------------------------------------------------------------------
-  inline bool append_net_address(std::vector<epee::net_utils::network_address> & seed_nodes, std::string const & addr, uint16_t default_port);
+  template<typename Resolver = boost::asio::ip::tcp::resolver>
+  bool append_net_address(std::vector<epee::net_utils::network_address>& addresses, const std::string& addr, uint16_t default_port, bool allow_dns);
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
   void node_server<t_payload_net_handler>::init_options(boost::program_options::options_description& desc)
@@ -591,40 +592,23 @@ namespace nodetool
 
     if (command_line::has_arg(vm, arg_p2p_add_peer))
     {
-      std::vector<std::string> perrs = command_line::get_arg(vm, arg_p2p_add_peer);
-      for(const std::string& pr_str: perrs)
+      std::vector<epee::net_utils::network_address> peers;
+      if (!parse_peers_and_add_to_container(vm, arg_p2p_add_peer, peers))
+        return false;
+      for (auto& addr : peers)
       {
-        nodetool::peerlist_entry pe = AUTO_VAL_INIT(pe);
+        nodetool::peerlist_entry pe{};
+        pe.adr = std::move(addr);
         pe.id = crypto::rand<uint64_t>();
-        const uint16_t default_port = cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT;
-        expect<epee::net_utils::network_address> adr = net::get_network_address(pr_str, default_port);
-        if (adr)
-        {
-          add_zone(adr->get_zone());
-          pe.adr = std::move(*adr);
-          m_command_line_peers.push_back(std::move(pe));
-          continue;
-        }
-        CHECK_AND_ASSERT_MES(
-          adr == net::error::unsupported_address, false, "Bad address (\"" << pr_str << "\"): " << adr.error().message()
-        );
-
-        std::vector<epee::net_utils::network_address> resolved_addrs;
-        bool r = append_net_address(resolved_addrs, pr_str, default_port);
-        CHECK_AND_ASSERT_MES(r, false, "Failed to parse or resolve address from string: " << pr_str);
-        for (const epee::net_utils::network_address& addr : resolved_addrs)
-        {
-          pe.id = crypto::rand<uint64_t>();
-          pe.adr = addr;
-          m_command_line_peers.push_back(pe);
-        }
+        m_command_line_peers.push_back(std::move(pe));
       }
     }
 
-    if (command_line::has_arg(vm,arg_p2p_add_exclusive_node))
+    if (!command_line::is_arg_defaulted(vm, arg_p2p_add_exclusive_node))
     {
       if (!parse_peers_and_add_to_container(vm, arg_p2p_add_exclusive_node, m_exclusive_peers))
         return false;
+      CHECK_AND_ASSERT_MES(m_offline || !m_exclusive_peers.empty(), false, "No usable peers for --add-exclusive-node");
     }
 
     if (command_line::has_arg(vm, arg_p2p_add_priority_node))
@@ -950,23 +934,45 @@ namespace nodetool
     return true;
   }
   //-----------------------------------------------------------------------------------
-  inline bool append_net_address(
-      std::vector<epee::net_utils::network_address> & seed_nodes
+  template<typename Resolver>
+  bool append_net_address(
+      std::vector<epee::net_utils::network_address>& addresses
     , std::string const & addr
     , uint16_t default_port
+    , bool allow_dns
     )
   {
     using namespace boost::asio;
 
-    // Split addr string into host string and port string
+    auto parsed = net::get_network_address(addr, default_port);
+    if (parsed)
+    {
+      addresses.push_back(std::move(*parsed));
+      return true;
+    }
     std::string host;
     std::string port = std::to_string(default_port);
     net::get_network_address_host_and_port(addr, host, port);
+    const bool named_service = parsed == net::error::invalid_port &&
+      port.find_first_not_of("0123456789") != std::string::npos;
+    CHECK_AND_ASSERT_MES(parsed == net::error::unsupported_address || named_service, false,
+      "Bad address (\"" << addr << "\"): " << parsed.error().message());
+    if (!allow_dns)
+    {
+      MWARNING("Skipping peer '" << addr << "' because local resolution is disabled with --proxy. "
+        "Use a numeric IP address and port or explicitly permit local DNS with --proxy-allow-dns-leaks.");
+      return true;
+    }
+
+    std::string normalized_host = boost::to_lower_copy(host);
+    boost::trim_right_if(normalized_host, boost::is_any_of("."));
+    CHECK_AND_ASSERT_MES(!tools::is_privacy_preserving_network(normalized_host), false,
+      "Cannot resolve Tor or I2P peer with local DNS: " << addr);
     MINFO("Resolving node address: host=" << host << ", port=" << port);
 
     boost::system::error_code ec;
     io_context io_srv;
-    ip::tcp::resolver resolver(io_srv);
+    Resolver resolver(io_srv);
     const auto results = resolver.resolve(host, port, boost::asio::ip::tcp::resolver::canonical_name, ec);
     CHECK_AND_ASSERT_MES(!ec && !results.empty(), false, "Failed to resolve host name '" << host << "': " << ec.message() << ':' << ec.value());
 
@@ -976,13 +982,13 @@ namespace nodetool
       if (endpoint.address().is_v4())
       {
         epee::net_utils::network_address na{epee::net_utils::ipv4_network_address{boost::asio::detail::socket_ops::host_to_network_long(endpoint.address().to_v4().to_uint()), endpoint.port()}};
-        seed_nodes.push_back(na);
+        addresses.push_back(na);
         MINFO("Added node: " << na.str());
       }
       else
       {
         epee::net_utils::network_address na{epee::net_utils::ipv6_network_address{endpoint.address().to_v6(), endpoint.port()}};
-        seed_nodes.push_back(na);
+        addresses.push_back(na);
         MINFO("Added node: " << na.str());
       }
     }
@@ -1044,7 +1050,7 @@ namespace nodetool
     {
       return {};
     }
-    if (!m_enable_dns_seed_nodes)
+    if (!m_allow_dns)
     {
       // TODO: a domain can be set through socks, so that the remote side does the lookup for the DNS seed nodes.
       m_fallback_seed_nodes_added.test_and_set();
@@ -1195,18 +1201,24 @@ namespace nodetool
   template<class t_payload_net_handler>
   bool node_server<t_payload_net_handler>::init(const boost::program_options::variables_map& vm, const std::string& proxy, bool proxy_dns_leaks_allowed)
   {
+    boost::optional<net::socks::endpoint> proxy_endpoint;
+    if (!proxy.empty())
+    {
+      auto endpoint = net::socks::endpoint::get(proxy);
+      CHECK_AND_ASSERT_MES(endpoint, false, "Failed to parse proxy: " << proxy << " - " << endpoint.error().message());
+      proxy_endpoint = std::move(*endpoint);
+    }
+
+    m_allow_dns = !proxy_endpoint || proxy_dns_leaks_allowed;
     bool res = handle_command_line(vm);
     CHECK_AND_ASSERT_MES(res, false, "Failed to handle command line");
-    if (proxy.size())
+    m_enable_dns_blocklist &= m_allow_dns;
+    if (proxy_endpoint)
     {
-      const auto endpoint = net::socks::endpoint::get(proxy);
-      CHECK_AND_ASSERT_MES(endpoint, false, "Failed to parse proxy: " << proxy << " - " << endpoint.error().message());
       network_zone& public_zone = m_network_zones[epee::net_utils::zone::public_];
       public_zone.m_connect = &socks_connect;
-      public_zone.m_proxy_address = *endpoint;
+      public_zone.m_proxy_address = std::move(*proxy_endpoint);
       public_zone.m_can_pingback = false;
-      m_enable_dns_seed_nodes &= proxy_dns_leaks_allowed;
-      m_enable_dns_blocklist &= proxy_dns_leaks_allowed;
     }
 
     if (m_nettype == cryptonote::TESTNET)
@@ -2166,7 +2178,7 @@ namespace nodetool
               for (const auto &peer: get_ip_seed_nodes())
               {
                 MDEBUG("Fallback seed node: " << peer);
-                append_net_address(server.m_seed_nodes, peer, cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT);
+                append_net_address(server.m_seed_nodes, peer, cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT, m_allow_dns);
               }
             }
             if (current_index == server.m_seed_nodes.size() - 1)
@@ -3055,7 +3067,7 @@ namespace nodetool
   }
 
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::is_priority_node(const epee::net_utils::network_address& na)
+  bool node_server<t_payload_net_handler>::is_priority_node(const epee::net_utils::network_address& na) const
   {
     return (std::find(m_priority_peers.begin(), m_priority_peers.end(), na) != m_priority_peers.end()) || (std::find(m_exclusive_peers.begin(), m_exclusive_peers.end(), na) != m_exclusive_peers.end());
   }
@@ -3081,25 +3093,17 @@ namespace nodetool
   template<class t_payload_net_handler> template <class Container>
   bool node_server<t_payload_net_handler>::parse_peers_and_add_to_container(const boost::program_options::variables_map& vm, const command_line::arg_descriptor<std::vector<std::string> > & arg, Container& container)
   {
-    std::vector<std::string> perrs = command_line::get_arg(vm, arg);
-
-    for(const std::string& pr_str: perrs)
+    std::vector<epee::net_utils::network_address> addresses;
+    const uint16_t default_port = cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT;
+    for (const auto& peer : command_line::get_arg(vm, arg))
     {
-      const uint16_t default_port = cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT;
-      expect<epee::net_utils::network_address> adr = net::get_network_address(pr_str, default_port);
-      if (adr)
-      {
-        add_zone(adr->get_zone());
-        container.push_back(std::move(*adr));
-        continue;
-      }
-      std::vector<epee::net_utils::network_address> resolved_addrs;
-      bool r = append_net_address(resolved_addrs, pr_str, default_port);
-      CHECK_AND_ASSERT_MES(r, false, "Failed to parse or resolve address from string: " << pr_str);
-      for (const epee::net_utils::network_address& addr : resolved_addrs)
-      {
-        container.push_back(addr);
-      }
+      if (!append_net_address(addresses, peer, default_port, m_allow_dns))
+        return false;
+    }
+    for (auto& addr : addresses)
+    {
+      add_zone(addr.get_zone());
+      container.push_back(std::move(addr));
     }
 
     return true;
