@@ -47,6 +47,9 @@
 #define CRYPTONOTE_BLOCK_FUTURE_TIME_LIMIT              60*60*2
 #define CRYPTONOTE_DEFAULT_TX_SPENDABLE_AGE             10
 
+#define FCMP_RELATIVE_LOCK                              1
+#define FCMP_RELATIVE_LOCK_DURATION                     2160
+
 #define BLOCKCHAIN_TIMESTAMP_CHECK_WINDOW               60
 
 // MONEY_SUPPLY - total number coins to be generated
@@ -198,7 +201,12 @@ static_assert(CURRENCY_PROTOCOL_MAX_OBJECT_REQUEST_COUNT >= BLOCKS_SYNCHRONIZING
 #define HF_VERSION_BULLETPROOF_PLUS             15
 #define HF_VERSION_VIEW_TAGS                    15
 #define HF_VERSION_2021_SCALING                 15
-#define MAX_HF_VERSION                          16 // max version supported by code, not necessarily activated/enabled
+#define MAX_HF_VERSION                          16 // max version supported by code, not necessarily activated/enabled TODO: FCMP++
+#define HF_VERSION_FCMP_PLUS_PLUS               17
+#define HF_VERSION_CARROT                       17
+#define HF_VERSION_REJECT_UNMIXABLE_V1          17
+#define HF_VERSION_REJECT_UNLOCK_TIME           17
+#define HF_VERSION_RELATIVE_LOCK                18
 
 #define PER_KB_FEE_QUANTIZATION_DECIMALS        8
 #define CRYPTONOTE_SCALING_2021_FEE_ROUNDING_PLACES 2
@@ -274,6 +282,7 @@ namespace config
   const constexpr char HASH_KEY_MULTISIG_TX_PRIVKEYS_SEED[] = "multisig_tx_privkeys_seed";
   const constexpr char HASH_KEY_MULTISIG_TX_PRIVKEYS[] = "multisig_tx_privkeys";
   const constexpr char HASH_KEY_TXHASH_AND_MIXRING[] = "txhash_and_mixring";
+  const constexpr char HASH_KEY_TXHASH_AND_TREE_ROOT[] = "txhash_and_tree_root";
 
   // Multisig
   const uint32_t MULTISIG_MAX_SIGNERS{16};
