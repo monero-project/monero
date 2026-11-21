@@ -818,14 +818,16 @@ void CurveTrees<C1, C2>::outputs_to_leaves(std::vector<UnifiedOutput> &&new_outp
     };
     std::vector<Boolean> valid_outputs(new_outputs.size(), False);
 
+    // Declared before the waiter; queued jobs write to it
+    std::vector<PreLeafTuple> pre_leaves;
+    pre_leaves.resize(new_outputs.size());
+
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter waiter(tpool);
     const std::size_t n_threads = std::max<std::size_t>(1, tpool.get_max_concurrency());
 
     TIME_MEASURE_START(convert_valid_leaves);
     // Step 1. Multithreaded convert valid outputs into Edwards derivatives needed to get Wei coordinates
-    std::vector<PreLeafTuple> pre_leaves;
-    pre_leaves.resize(new_outputs.size());
     const std::size_t LEAF_CONVERT_BATCH_SIZE = std::max<std::size_t>(1, (new_outputs.size() / n_threads));
     for (std::size_t i = 0; i < new_outputs.size(); i += LEAF_CONVERT_BATCH_SIZE)
     {
@@ -926,11 +928,13 @@ void CurveTrees<C1, C2>::outputs_to_leaves(std::vector<UnifiedOutput> &&new_outp
     CHECK_AND_ASSERT_THROW_MES(flattened_leaves_out.size() == (2 * n_valid_leaf_points),
         "unexpected size of flattened leaves");
 
+    // Declared after the buffers its jobs read
+    tools::threadpool::waiter derivation_waiter(tpool);
     const std::size_t DERIVATION_BATCH_SIZE = std::max<std::size_t>(1, (n_valid_leaf_points / n_threads));
     for (std::size_t i = 0; i < n_valid_leaf_points; i += DERIVATION_BATCH_SIZE)
     {
         const std::size_t end = std::min(n_valid_leaf_points, i + DERIVATION_BATCH_SIZE);
-        tpool.submit(&waiter,
+        tpool.submit(&derivation_waiter,
                 [
                     &batch_inv_res,
                     &one_plus_y_vec,
@@ -960,7 +964,7 @@ void CurveTrees<C1, C2>::outputs_to_leaves(std::vector<UnifiedOutput> &&new_outp
             );
     }
 
-    CHECK_AND_ASSERT_THROW_MES(waiter.wait(), "failed to convert outputs to wei coords");
+    CHECK_AND_ASSERT_THROW_MES(derivation_waiter.wait(), "failed to convert outputs to wei coords");
     TIME_MEASURE_FINISH(get_selene_scalars);
 
     // Step 5. Set valid tuples to be stored in the db
