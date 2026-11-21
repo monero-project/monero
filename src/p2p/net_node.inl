@@ -1895,7 +1895,7 @@ namespace nodetool
     MDEBUG("Looking at " << peers_size << " port-deduplicated peers out of " << total_peers_size
       << ", i.e. dropping " << (total_peers_size - peers_size));
 
-    std::set<uint64_t> tried_peers;  // all peers ever tried
+    std::set<epee::net_utils::network_address> tried_addresses;
 
     // Outer try loop, with up to 3 attempts to actually connect to a suitable randomly chosen candidate
     size_t outer_loop_count = 0;
@@ -2018,7 +2018,7 @@ namespace nodetool
         for (const peerlist_entry &peer : candidate_peers) {
           if (filtered.size() >= limit)
             break;
-          if (tried_peers.count(peer.id))
+          if (tried_addresses.count(peer.adr))
             // Already tried, not a possible candidate
             continue;
 
@@ -2069,11 +2069,7 @@ namespace nodetool
 
       // We have our final candidate for this pass of the outer try loop
       const peerlist_entry &candidate = filtered.at(random_index);
-
-      if (tried_peers.count(candidate.id))
-        // Already tried, don't try that one again
-        continue;
-      tried_peers.insert(candidate.id);
+      tried_addresses.insert(candidate.adr);
 
       _note("Considering connecting (out) to " << (use_white_list ? "white" : "gray") << " list peer: " <<
           peerid_to_string(candidate.id) << " " << candidate.adr.str() << ", pruning seed " << epee::string_tools::to_string_hex(candidate.pruning_seed) <<
