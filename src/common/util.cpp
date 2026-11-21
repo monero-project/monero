@@ -66,9 +66,14 @@ using namespace epee;
 #ifdef _WIN32
   #include <windows.h>
   #include <shlobj.h>
+  #include <aclapi.h>
 #else
+  #include <fcntl.h>
   #include <sys/file.h>
   #include <sys/stat.h>
+#endif
+#ifdef __APPLE__
+  #include <sys/acl.h>
 #endif
 
 #include <boost/filesystem/path.hpp>
@@ -131,9 +136,9 @@ namespace tools
   private_file::private_file(std::FILE* handle, std::string&& filename) noexcept
     : m_handle(handle), m_filename(std::move(filename)) {}
 
-  private_file private_file::create(std::string name, uint32_t extra_flags)
-  {
 #ifdef _WIN32
+  namespace
+  {
     struct close_handle
     {
       void operator()(HANDLE handle) const noexcept
@@ -142,33 +147,116 @@ namespace tools
       }
     };
 
-    std::unique_ptr<void, close_handle> process = nullptr;
+    /*! Access to a file written by `save_private_file`. A file created by an elevated process is
+        owned by `BUILTIN\Administrators`; `WRITE_DAC` lets the same user's non-elevated process
+        reapply the DACL in `secure_private_file`. */
+    constexpr DWORD saved_private_file_access =
+      READ_CONTROL | WRITE_DAC | FILE_GENERIC_READ | FILE_GENERIC_WRITE | DELETE;
+
+    //! \return DACL granting `access` to the process user only, OR `nullptr` on error.
+    std::unique_ptr<char[]> make_owner_only_dacl(const DWORD access)
     {
-      HANDLE temp{};
-      const bool fail = OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, std::addressof(temp)) == 0;
-      process.reset(temp);
-      if (fail)
-        return {};
+      std::unique_ptr<void, close_handle> process = nullptr;
+      {
+        HANDLE temp{};
+        const bool fail = OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, std::addressof(temp)) == 0;
+        process.reset(temp);
+        if (fail)
+          return nullptr;
+      }
+
+      // `TokenOwner` is `BUILTIN\Administrators` in an elevated token, which the same user's
+      // non-elevated token can't use; grant access to the user instead.
+      DWORD sid_size = 0;
+      GetTokenInformation(process.get(), TokenUser, nullptr, 0, std::addressof(sid_size));
+      if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+        return nullptr;
+
+      std::unique_ptr<char[]> sid{new char[sid_size]};
+      if (!GetTokenInformation(process.get(), TokenUser, sid.get(), sid_size, std::addressof(sid_size)))
+        return nullptr;
+
+      const PSID psid = reinterpret_cast<const PTOKEN_USER>(sid.get())->User.Sid;
+      const DWORD daclSize =
+        sizeof(ACL) + sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(psid) - sizeof(DWORD);
+
+      std::unique_ptr<char[]> dacl{new char[daclSize]};
+      if (!InitializeAcl(reinterpret_cast<PACL>(dacl.get()), daclSize, ACL_REVISION))
+        return nullptr;
+
+      // the ACE holds a copy of the SID, so `sid` can be freed
+      if (!AddAccessAllowedAce(reinterpret_cast<PACL>(dacl.get()), ACL_REVISION, access, psid))
+        return nullptr;
+
+      return dacl;
     }
 
-    DWORD sid_size = 0;
-    GetTokenInformation(process.get(), TokenOwner, nullptr, 0, std::addressof(sid_size));
-    if (GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+    //! Applies a protected DACL granting `saved_private_file_access` to the process user only
+    std::error_code set_owner_only_dacl(const std::wstring& name)
+    {
+      const std::unique_ptr<char[]> dacl = make_owner_only_dacl(saved_private_file_access);
+      if (!dacl)
+        return std::error_code(GetLastError(), std::system_category());
+
+      // `PROTECTED_DACL_SECURITY_INFORMATION` also drops ACEs inherited from the directory
+      const DWORD result = SetNamedSecurityInfoW(
+        const_cast<LPWSTR>(name.c_str()), SE_FILE_OBJECT,
+        DACL_SECURITY_INFORMATION | PROTECTED_DACL_SECURITY_INFORMATION,
+        nullptr, nullptr, reinterpret_cast<PACL>(dacl.get()), nullptr
+      );
+      return std::error_code(result, std::system_category());
+    }
+  }
+#else
+  namespace
+  {
+    /*! Limits the regular file `fd` to owner read/write, regardless of the umask. On macOS, this
+        also removes the ACL entries a file inherits from its directory (which take precedence over
+        the mode). Only changes what isn't already right; a read-only filesystem, or ZFS with
+        `aclmode=restricted`, refuses the change even when it would be a no-op. */
+    std::error_code restrict_to_owner(const int fd)
+    {
+      struct stat st{};
+      if (fstat(fd, std::addressof(st)) != 0)
+        return std::error_code(errno, std::system_category());
+      if (!S_ISREG(st.st_mode))
+        return std::make_error_code(std::errc::invalid_argument);
+      if ((st.st_mode & 07777) != (S_IRUSR | S_IWUSR) && fchmod(fd, S_IRUSR | S_IWUSR) != 0)
+        return std::error_code(errno, std::system_category());
+#ifdef __APPLE__
+      const acl_t acl = acl_get_fd_np(fd, ACL_TYPE_EXTENDED);
+      if (!acl)
+      {
+        // no ACL, or no ACL support on this filesystem
+        if (errno == ENOENT || errno == ENOTSUP || errno == EOPNOTSUPP)
+          return {};
+        return std::error_code(errno, std::system_category());
+      }
+      acl_entry_t entry{};
+      const bool has_entries = acl_get_entry(acl, ACL_FIRST_ENTRY, std::addressof(entry)) == 0;
+      acl_free(acl);
+      if (!has_entries)
+        return {};
+
+      const acl_t empty = acl_init(0);
+      if (!empty)
+        return std::error_code(errno, std::system_category());
+      const int result = acl_set_fd_np(fd, empty, ACL_TYPE_EXTENDED);
+      const int error = errno;
+      acl_free(empty);
+      if (result != 0)
+        return std::error_code(error, std::system_category());
+#endif
       return {};
+    }
+  }
+#endif
 
-    std::unique_ptr<char[]> sid{new char[sid_size]};
-    if (!GetTokenInformation(process.get(), TokenOwner, sid.get(), sid_size, std::addressof(sid_size)))
-      return {};
-
-    const PSID psid = reinterpret_cast<const PTOKEN_OWNER>(sid.get())->Owner;
-    const DWORD daclSize =
-      sizeof(ACL) + sizeof(ACCESS_ALLOWED_ACE) + GetLengthSid(psid) - sizeof(DWORD);
-
-    const std::unique_ptr<char[]> dacl{new char[daclSize]};
-    if (!InitializeAcl(reinterpret_cast<PACL>(dacl.get()), daclSize, ACL_REVISION))
-      return {};
-
-    if (!AddAccessAllowedAce(reinterpret_cast<PACL>(dacl.get()), ACL_REVISION, (READ_CONTROL | FILE_GENERIC_READ | DELETE), psid))
+  private_file private_file::create(std::string name, uint32_t extra_flags)
+  {
+#ifdef _WIN32
+    const std::unique_ptr<char[]> dacl = make_owner_only_dacl(READ_CONTROL | FILE_GENERIC_READ | DELETE);
+    if (!dacl)
       return {};
 
     SECURITY_DESCRIPTOR descriptor{};
@@ -176,6 +264,10 @@ namespace tools
       return {};
 
     if (!SetSecurityDescriptorDacl(std::addressof(descriptor), true, reinterpret_cast<PACL>(dacl.get()), false))
+      return {};
+
+    // block inheritable ACEs
+    if (!SetSecurityDescriptorControl(std::addressof(descriptor), SE_DACL_PROTECTED, SE_DACL_PROTECTED))
       return {};
 
     SECURITY_ATTRIBUTES attributes{sizeof(SECURITY_ATTRIBUTES), std::addressof(descriptor), false};
@@ -425,6 +517,108 @@ namespace tools
     code = ok ? 0 : errno;
 #endif
     return std::error_code(code, std::system_category());
+  }
+
+  std::error_code save_private_file(const std::string& filename, const std::string& data)
+  {
+    // Unique per call; concurrent saves never write to, rename or remove each other's file.
+    boost::system::error_code unique_ec;
+    const boost::filesystem::path suffix = boost::filesystem::unique_path("%%%%%%%%%%%%%%%%", unique_ec);
+    if (unique_ec)
+      return std::error_code(unique_ec.value(), std::system_category());
+    const std::string temp_name = filename + ".tmp-" + suffix.string();
+
+#ifdef _WIN32
+    std::wstring wide_temp_name;
+    try { wide_temp_name = string_tools::utf8_to_utf16(temp_name); }
+    catch (...) { return std::make_error_code(std::errc::invalid_argument); }
+
+    const std::unique_ptr<char[]> dacl = make_owner_only_dacl(saved_private_file_access);
+    if (!dacl)
+      return std::error_code(GetLastError(), std::system_category());
+
+    SECURITY_DESCRIPTOR descriptor{};
+    if (!InitializeSecurityDescriptor(std::addressof(descriptor), SECURITY_DESCRIPTOR_REVISION) ||
+        !SetSecurityDescriptorDacl(std::addressof(descriptor), true, reinterpret_cast<PACL>(dacl.get()), false) ||
+        !SetSecurityDescriptorControl(std::addressof(descriptor), SE_DACL_PROTECTED, SE_DACL_PROTECTED)) // block inheritable ACEs
+      return std::error_code(GetLastError(), std::system_category());
+
+    SECURITY_ATTRIBUTES attributes{sizeof(SECURITY_ATTRIBUTES), std::addressof(descriptor), false};
+    std::unique_ptr<void, close_handle> file{
+      CreateFileW(wide_temp_name.c_str(), GENERIC_WRITE, 0, std::addressof(attributes), CREATE_NEW, FILE_ATTRIBUTE_NORMAL, nullptr)
+    };
+    if (file.get() == INVALID_HANDLE_VALUE)
+    {
+      file.release();
+      return std::error_code(GetLastError(), std::system_category());
+    }
+
+    std::error_code ec{};
+    DWORD written = 0;
+    if (!WriteFile(file.get(), data.data(), DWORD(data.size()), std::addressof(written), nullptr) || written != data.size() ||
+        !FlushFileBuffers(file.get()))
+      ec = std::error_code(GetLastError(), std::system_category());
+    file.reset();
+#else
+    const int fd = open(temp_name.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR);
+    if (fd < 0)
+      return std::error_code(errno, std::system_category());
+
+    std::error_code ec = restrict_to_owner(fd);
+    for (std::size_t offset = 0; !ec && offset < data.size();)
+    {
+      const ssize_t written = write(fd, data.data() + offset, data.size() - offset);
+      if (written < 0)
+      {
+        if (errno == EINTR)
+          continue;
+        ec = std::error_code(errno, std::system_category());
+        break;
+      }
+      offset += written;
+    }
+    if (!ec && fsync(fd) != 0)
+      ec = std::error_code(errno, std::system_category());
+    if (close(fd) != 0 && !ec)
+      ec = std::error_code(errno, std::system_category());
+#endif
+
+    if (!ec)
+      ec = replace_file(temp_name, filename);
+    if (ec)
+    {
+#ifdef _WIN32
+      DeleteFileW(wide_temp_name.c_str()); // the same wide path it was created with
+#else
+      unlink(temp_name.c_str());
+#endif
+    }
+    return ec;
+  }
+
+  std::error_code secure_private_file(const std::string& filename)
+  {
+#ifdef _WIN32
+    std::wstring wide_name;
+    try { wide_name = string_tools::utf8_to_utf16(filename); }
+    catch (...) { return std::make_error_code(std::errc::invalid_argument); }
+
+    const DWORD attributes = GetFileAttributesW(wide_name.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+      return std::error_code(GetLastError(), std::system_category());
+    if (attributes & FILE_ATTRIBUTE_DIRECTORY)
+      return std::make_error_code(std::errc::invalid_argument);
+
+    return set_owner_only_dacl(wide_name);
+#else
+    const int fd = open(filename.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0)
+      return std::error_code(errno, std::system_category());
+
+    const std::error_code ec = restrict_to_owner(fd);
+    close(fd);
+    return ec;
+#endif
   }
 
   static bool unbound_built_with_threads()
