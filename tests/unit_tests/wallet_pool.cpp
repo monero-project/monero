@@ -511,6 +511,145 @@ TEST(wallet_pool, fetches_full_v1_transaction_for_tx_proof)
     EXPECT_EQ(0, full_requests);
 }
 
+namespace
+{
+    class reserve_proof_http_client : public net::http::client
+    {
+        epee::net_utils::http::http_response_info response;
+        transaction_reply tx_reply;
+
+    public:
+        explicit reserve_proof_http_client(const transaction_reply &tx_reply) : tx_reply(tx_reply) {}
+
+        bool connect(std::chrono::milliseconds timeout) override { return true; }
+        bool is_connected(bool *ssl) override
+        {
+            if (ssl)
+                *ssl = false;
+            return true;
+        }
+
+        bool invoke(const boost::string_ref uri, const boost::string_ref method, const boost::string_ref body,
+            std::chrono::milliseconds timeout, const epee::net_utils::http::http_response_info **result,
+            const epee::net_utils::http::fields_list &headers) override
+        {
+            response.m_response_code = 200;
+            if (uri == "/json_rpc")
+            {
+                epee::json_rpc::response<cryptonote::COMMAND_RPC_GET_VERSION::response, epee::json_rpc::dummy_error> version = AUTO_VAL_INIT(version);
+                version.jsonrpc = "2.0";
+                version.result.status = CORE_RPC_STATUS_OK;
+                version.result.version = CORE_RPC_VERSION;
+                version.result.current_height = 1;
+                version.result.target_height = 1;
+                response.m_body = epee::serialization::store_t_to_json(version);
+            }
+            else if (uri == "/is_key_image_spent")
+            {
+                cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::request request = AUTO_VAL_INIT(request);
+                EXPECT_TRUE(epee::serialization::load_t_from_json(request, std::string(body.data(), body.size())));
+                cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::response spent = AUTO_VAL_INIT(spent);
+                spent.status = CORE_RPC_STATUS_OK;
+                spent.spent_status.resize(request.key_images.size(), cryptonote::COMMAND_RPC_IS_KEY_IMAGE_SPENT::UNSPENT);
+                response.m_body = epee::serialization::store_t_to_json(spent);
+            }
+            else
+            {
+                EXPECT_EQ("/gettransactions", uri);
+                cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request request = AUTO_VAL_INIT(request);
+                EXPECT_TRUE(epee::serialization::load_t_from_json(request, std::string(body.data(), body.size())));
+                cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response txs = AUTO_VAL_INIT(txs);
+                txs.status = CORE_RPC_STATUS_OK;
+                if (!tx_reply(request, txs))
+                    return false;
+                response.m_body = epee::serialization::store_t_to_json(txs);
+            }
+            *result = &response;
+            return true;
+        }
+    };
+
+    class reserve_proof_http_client_factory : public epee::net_utils::http::http_client_factory
+    {
+        transaction_reply tx_reply;
+
+    public:
+        explicit reserve_proof_http_client_factory(const transaction_reply &tx_reply) : tx_reply(tx_reply) {}
+
+        std::unique_ptr<epee::net_utils::http::abstract_http_client> create() override
+        {
+            return std::unique_ptr<epee::net_utils::http::abstract_http_client>(new reserve_proof_http_client(tx_reply));
+        }
+    };
+}
+
+TEST(wallet_pool, fetches_full_v1_transaction_for_reserve_proof)
+{
+    cryptonote::transaction tx;
+    crypto::hash txid;
+    size_t pruned_requests = 0;
+    size_t full_requests = 0;
+    bool forged_pruned_transaction = false;
+    const auto tx_reply = [&](const cryptonote::COMMAND_RPC_GET_TRANSACTIONS::request &request,
+        cryptonote::COMMAND_RPC_GET_TRANSACTIONS::response &response)
+    {
+        EXPECT_EQ(1, request.txs_hashes.size());
+        EXPECT_EQ(epee::string_tools::pod_to_hex(txid), request.txs_hashes.front());
+        ++(request.prune ? pruned_requests : full_requests);
+        response.txs.emplace_back();
+        auto &entry = response.txs.back();
+        entry.tx_hash = epee::string_tools::pod_to_hex(txid);
+        entry.prunable_hash = epee::string_tools::pod_to_hex(crypto::null_hash);
+        auto reply_tx = tx;
+        // a malicious daemon claims the requested txid for a v1 prefix paying a larger amount
+        if (request.prune && forged_pruned_transaction)
+            reply_tx.vout[0].amount = 1000000;
+        auto blob = cryptonote::tx_to_blob(reply_tx);
+        if (request.prune)
+        {
+            EXPECT_TRUE(cryptonote::prune_transaction_blob(blob));
+            entry.pruned_as_hex = epee::string_tools::buff_to_hex_nodelimer(blob);
+        }
+        else
+            entry.as_hex = epee::string_tools::buff_to_hex_nodelimer(blob);
+        return true;
+    };
+
+    tools::wallet2 wallet(cryptonote::MAINNET, 1, true,
+        std::unique_ptr<epee::net_utils::http::http_client_factory>(new reserve_proof_http_client_factory(tx_reply)));
+    wallet.set_offline(true);
+    wallet.generate("", "");
+    wallet.init("", boost::none, "", 0, true, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+    wallet.allow_mismatched_daemon_version(true);
+    const auto &address = wallet.get_account().get_keys().m_account_address;
+    tx = make_pool_payment(wallet);
+    tx.signatures.resize(1);
+    tx.signatures[0].resize(1);
+    ASSERT_EQ(1, tx.version);
+    txid = cryptonote::get_transaction_hash(tx);
+    wallet_pool_test::scan_transaction(wallet, tx);
+    ASSERT_EQ(8, wallet.balance_all(true));
+
+    const auto proof = wallet.get_reserve_proof(boost::none, "v1 reserve");
+    ASSERT_EQ(0, proof.find("ReserveProofV2"));
+    wallet.set_offline(false);
+
+    uint64_t total = 0;
+    uint64_t spent = 0;
+    EXPECT_TRUE(wallet.check_reserve_proof(address, "v1 reserve", proof, total, spent));
+    EXPECT_EQ(8, total);
+    EXPECT_EQ(0, spent);
+    EXPECT_EQ(2, pruned_requests);
+    EXPECT_EQ(1, full_requests);
+
+    forged_pruned_transaction = true;
+    total = spent = 0;
+    EXPECT_TRUE(wallet.check_reserve_proof(address, "v1 reserve", proof, total, spent));
+    EXPECT_EQ(8, total);
+    EXPECT_EQ(4, pruned_requests);
+    EXPECT_EQ(2, full_requests);
+}
+
 TEST(wallet_pool, advances_cursor_on_successful_refresh)
 {
     cryptonote::transaction pool_tx;
