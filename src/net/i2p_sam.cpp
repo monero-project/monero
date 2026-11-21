@@ -35,12 +35,10 @@
 #include <boost/asio/write.hpp>
 #include <boost/asio/read_until.hpp>
 #include <boost/asio/read.hpp>
-#include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 #include <array>
 #include <cctype>
 #include <string>
-#include <fstream>
 
 #include "misc_log_ex.h"
 #include "scope_guard.h"
@@ -149,6 +147,7 @@ namespace sam
     static constexpr const std::chrono::seconds COMMAND_TIMEOUT{P2P_DEFAULT_I2P_SAM_CONNECT_TIMEOUT};
 
     static bool has_prefix(std::string_view line, std::string_view prefix);
+    static std::string key_file_path(const std::string& data_dir);
 
     const boost::system::error_category& error_category() noexcept
     {
@@ -173,7 +172,9 @@ namespace sam
         , reconnect_timer_(socket_.get_executor())
         , reconnect_delay_(RECONNECT_DELAY)
         , accept_inbound_(accept_inbound)
-    {}
+    {
+        set_session_id(random_session_id());
+    }
 
     //! Strip characters that SAM bridges may include with CRLF line endings
     static void strip_newlines(std::string& line)
@@ -333,7 +334,16 @@ namespace sam
         strip_newlines(line);
 
         auto result = parse_result(line);
-        if (result) return done(result);
+        if (result)
+        {
+            const std::string message = get_message(line);
+            if (!message.empty())
+            {
+                if (state_ == state::stream_connect) MDEBUG("I2P router replied " << result.message() << ": " << message);
+                else MWARNING("I2P router replied " << result.message() << ": " << message);
+            }
+            return done(result);
+        }
 
         next_state({});
     }
@@ -431,6 +441,8 @@ namespace sam
 
     void control_socket::async_reconnect(const bool keep_session)
     {
+        if (stopped_) return;
+
         const auto self = shared_from_this();
 
         reconnect_timer_.cancel();
@@ -443,6 +455,9 @@ namespace sam
         {
             session_socket_.close(ec);
             session_established_ = false;
+
+            // The router may not have dropped the old session yet, which would fail with `DUPLICATED_ID`.
+            set_session_id(random_session_id());
         }
 
         line_ = std::make_shared<std::string>(); // a still in-flight read may be holding the old buffer
@@ -462,13 +477,37 @@ namespace sam
             }));
     }
 
-    void control_socket::reconnect_after_error()
+    void control_socket::reconnect_after_error(const boost::system::error_code ec)
     {
         if (stopped_) return;
 
+        // Retrying would only send the same key again.
+        if (accept_inbound_ && state_ == state::session_create && ec == make_error_code(error::invalid_key))
+        {
+            MERROR("I2P router rejected the destination key in " << key_file_path(data_dir_) << "; I2P SAM inbound session stopped until restart");
+            stopped_ = true;
+            return;
+        }
 
         // An outbound-only session has no accept loop to retry.
         async_reconnect(accept_inbound_ && session_established_);
+    }
+
+    void control_socket::async_stop()
+    {
+        const auto self = shared_from_this();
+        boost::asio::dispatch(strand_, [self, this]()
+        {
+            stopped_ = true;
+            ++generation_;
+            session_established_ = false;
+            reconnect_timer_.cancel();
+            deadline_.cancel();
+
+            boost::system::error_code ec;
+            socket_.close(ec);
+            session_socket_.close(ec);
+        });
     }
 
     void control_socket::connect_now()
@@ -608,6 +647,26 @@ namespace sam
         return {};
     }
 
+    std::string get_message(std::string_view line)
+    {
+        static constexpr const std::string_view key{" MESSAGE="};
+
+        const std::size_t pos = line.find(key);
+        if (pos == std::string_view::npos) return {};
+
+        // i2pd doesn't quote this, and also puts it last
+        const std::string_view value = line.substr(pos + key.size());
+        if (value.empty() || value.front() != '"') return std::string{value};
+
+        std::string out;
+        for (std::size_t i = 1; i < value.size() && value[i] != '"'; ++i)
+        {
+            if (value[i] == '\\' && i + 1 < value.size()) ++i;
+            out.push_back(value[i]);
+        }
+        return out;
+    }
+
     boost::system::error_code parse_result_code(std::string_view line)
     {
         std::string result;
@@ -715,7 +774,15 @@ namespace sam
 
     void client::set_session_id(const std::string& id)
     {
-        session_id_ = sanitize_private_key(id);
+        std::string sanitized = sanitize_private_key(id);
+        const std::lock_guard<std::mutex> lock{session_id_lock_};
+        session_id_ = std::move(sanitized);
+    }
+
+    std::string client::session_id() const
+    {
+        const std::lock_guard<std::mutex> lock{session_id_lock_};
+        return session_id_;
     }
 
     bool client::set_connect_command(const net::i2p_address& address)
@@ -791,21 +858,10 @@ namespace sam
     {
         const std::string key_path = key_file_path(data_dir);
 
-        if (!epee::file_io_utils::is_file_exist(key_path))
-            std::ofstream{key_path, std::ios_base::binary | std::ios_base::out};
-
-        boost::system::error_code ec;
-        boost::filesystem::permissions(key_path, boost::filesystem::owner_read | boost::filesystem::owner_write, ec);
+        const std::error_code ec = tools::save_private_file(key_path, private_key);
         if (ec)
         {
-            MERROR("Failed to set permissions for I2P destination key file: " << ec.message());
-            boost::filesystem::remove(key_path, ec);
-            return false;
-        }
-
-        if (!epee::file_io_utils::save_string_to_file(key_path, private_key))
-        {
-            MERROR("Failed to save I2P destination key to " << key_path);
+            MERROR("Failed to save I2P destination key to " << key_path << ": " << ec.message());
             return false;
         }
 
