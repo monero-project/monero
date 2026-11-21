@@ -52,6 +52,15 @@ enum NetworkType : uint8_t {
 
     namespace Utils {
         bool isAddressLocal(const std::string &hostaddr);
+        /*!
+         * \brief onStartup - performs library startup tasks.
+         *
+         * In release (NDEBUG) builds this also disables core dumps on POSIX
+         * systems by setting both the soft and hard RLIMIT_CORE limits to 0.
+         * Lowering the hard limit cannot be undone by an unprivileged process,
+         * so it applies to the entire host process and any children it spawns
+         * afterwards, not just to the wallet library.
+         */
         void onStartup();
     }
 
