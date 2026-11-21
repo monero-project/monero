@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+export LC_ALL=C
+set -e -o pipefail
+
+# Default to building for all supported HOSTs (overridable by environment)
+export HOSTS="${HOSTS:-x86_64-linux-musl
+                       aarch64-linux-musl
+                       riscv64-linux-musl
+                       x86_64-w64-mingw32
+                       x86_64-unknown-freebsd
+                       x86_64-apple-darwin
+                       arm64-apple-darwin
+                       aarch64-linux-android}"
+
+# Source the common prelude, which:
+#   1. Checks if we're at the top directory of the Monero repository
+#   2. Defines a few common functions and variables
+#
+# shellcheck source=libexec/prelude.bash
+source "$(dirname "${BASH_SOURCE[0]}")/libexec/prelude.bash"
+
+# Required non-builtin commands should be invocable
+check_tools cat mkdir make curl git sha256sum
+
+# Allow selecting the container engine
+# To run the build with podman:
+# CONTAINER_ENGINE=podman ./contrib/stagex/stagex-build
+read -r -a container_engine <<< "${CONTAINER_ENGINE:-docker}"
+
+# contrib/depends uses the HOST environment variable as the build target.
+# It will throw an error if this variable is set to an unrecognized target.
+# Ensure the var is unset so calls to contrib/depends further down don't fail.
+unset HOST
+
+# Checkout git submodules if we haven't already
+git submodule update --init --recursive --progress
+
+# The git worktree should not be dirty
+if ! git diff-index --quiet HEAD -- && [ -z "$FORCE_DIRTY_WORKTREE" ]; then
+cat << EOF
+ERR: The current git worktree is dirty, which may lead to broken builds.
+
+     Aborting...
+
+Hint: To make your git worktree clean, You may want to:
+      1. Commit your changes,
+      2. Stash your changes, or
+      3. Set the 'FORCE_DIRTY_WORKTREE' environment variable if you insist on
+         using a dirty worktree
+EOF
+exit 1
+fi
+
+# Determine the maximum number of jobs to run simultaneously (overridable by environment)
+JOBS="${JOBS:-$(nproc)}"
+
+# Usage: host_to_commonname HOST
+#
+#   HOST: The current platform triple we're building for
+#
+host_to_commonname() {
+    case "$1" in
+        *darwin*)  echo osx ;;
+        *mingw*)   echo win ;;
+        *android*) echo android ;;
+        *linux*)   echo linux ;;
+        *freebsd*) echo freebsd ;;
+        *)         exit 1 ;;
+    esac
+}
+
+# Download the depends sources now as we won't have internet access in the build container
+mkdir -p "stagex/depends-sources"
+DEPENDS_SOURCES="${PWD}/stagex/depends-sources"
+for host in $HOSTS; do
+    make -C "${PWD}/contrib/depends" download-"$(host_to_commonname "${host}")" ${V:+V=1} SOURCES_PATH="${DEPENDS_SOURCES}" base_download_dir="${DEPENDS_SOURCES}/download"
+done
+
+# Deterministically build Monero
+# shellcheck disable=SC2153
+for HOST in $HOSTS; do
+
+    # shellcheck disable=SC2030
+    cat << EOF
+INFO: Building ${VERSION:?not set} for platform triple ${HOST:?not set}:
+EOF
+
+    IMAGE="monero/stagex/${HOST}"
+
+    BUILD_ARGS=()
+    case "$HOST" in
+        x86_64-linux-musl)
+            CONTAINERFILE=contrib/stagex/Containerfile.gcc
+            BUILD_ARGS=(--target linux-cross --build-arg TARGET="$HOST" --build-arg LINUX_ARCH=x86_64)
+            ;;
+        aarch64-linux-musl)
+            CONTAINERFILE=contrib/stagex/Containerfile.gcc
+            BUILD_ARGS=(--target linux-cross --build-arg TARGET="$HOST" --build-arg LINUX_ARCH=arm64)
+            ;;
+        riscv64-linux-musl)
+            CONTAINERFILE=contrib/stagex/Containerfile.gcc
+            BUILD_ARGS=(--target linux-cross --build-arg TARGET="$HOST" --build-arg LINUX_ARCH=riscv)
+            ;;
+        x86_64-w64-mingw32)
+            CONTAINERFILE=contrib/stagex/Containerfile.gcc
+            BUILD_ARGS=(--target mingw)
+            ;;
+        *)
+            CONTAINERFILE=contrib/stagex/Containerfile.clang
+            ;;
+    esac
+
+    "${container_engine[@]}" build "${BUILD_ARGS[@]}" \
+        --build-context fcmp_pp_rust=src/fcmp_pp/fcmp_pp_rust \
+        --build-arg JOBS="${JOBS}" \
+        -t "${IMAGE}" \
+        -f "${CONTAINERFILE}" \
+        contrib/stagex
+
+    image_data="$(
+        "${container_engine[@]}" image inspect \
+          --format '{{json .Config}}{{println}}{{range .RootFS.Layers}}{{println .}}{{end}}' \
+          "${IMAGE}"
+    )"
+    stagex_image_hash="$(printf '%s\n' "${image_data}" | sha256sum)"
+    stagex_image_hash="${stagex_image_hash%% *}"
+
+    # Useful for CI environments where you only want to build the container images so they
+    # can be cached.
+    if [[ -v DRY_RUN ]]; then
+        echo "Dry run, exiting.."
+        exit 0
+    fi
+
+    interactive=()
+    if [[ -t 0 && -t 1 ]]; then
+        interactive=(-it)
+    fi
+
+    build_command=(bash contrib/stagex/libexec/build.sh)
+    if [[ -v INTERACTIVE ]]; then
+        build_command=(bash)
+    fi
+
+    "${container_engine[@]}" run \
+        --rm \
+        "${interactive[@]}" \
+        --network=none \
+        --volume "${PWD}:/monero:Z" \
+        --workdir /monero \
+        "${IMAGE}" \
+        HOST="$HOST" \
+        VERSION="$VERSION" \
+        JOBS="$JOBS" \
+        STAGEX_ENVIRONMENT="${stagex_image_hash}" \
+        ${V:+V=1} \
+        "${build_command[@]}"
+
+done
