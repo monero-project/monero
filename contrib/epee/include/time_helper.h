@@ -67,7 +67,7 @@ namespace misc_utils
 		const int seconds = static_cast<int>(tail);
 
 		char tmpbuf[64] = {0};
-		snprintf(tmpbuf, sizeof(tmpbuf) - 1, "d%d.h%d.m%d.s%d", days, hours, minutes, seconds);
+		snprintf(tmpbuf, sizeof(tmpbuf) - 1, "%dd, %dh, %dm, %ds", days, hours, minutes, seconds);
 
 		return tmpbuf;
 	}

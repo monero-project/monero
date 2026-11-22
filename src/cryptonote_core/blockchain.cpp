@@ -375,7 +375,7 @@ bool Blockchain::init(BlockchainDB* db, const network_type nettype, bool offline
     load_compiled_in_block_hashes(get_checkpoints);
 #endif
 
-  MINFO("Blockchain initialized. last block: " << m_db->height() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " time ago, current difficulty: " << get_difficulty_for_next_block());
+  MINFO("Blockchain initialized. last block: " << m_db->height() - 1 << ", " << epee::misc_utils::get_time_interval_string(timestamp_diff) << " ago, current difficulty: " << get_difficulty_for_next_block());
 
   rtxn_guard.stop();
 
