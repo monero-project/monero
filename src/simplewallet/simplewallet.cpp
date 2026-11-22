@@ -4021,6 +4021,11 @@ static bool datestr_to_int(const std::string &heightstr, uint16_t &year, uint8_t
     fail_msg_writer() << tr("bad height parameter: ") << heightstr;
     return false;
   }
+  if (!tools::wallet2::is_valid_restore_date(year, month, day))
+  {
+    fail_msg_writer() << tr("invalid restore date: ") << heightstr;
+    return false;
+  }
   return true;
 }
 //----------------------------------------------------------------------------------------------------
@@ -4615,7 +4620,7 @@ bool simple_wallet::init(const boost::program_options::variables_map& vm)
           try
           {
             if (!datestr_to_int(heightstr, year, month, day))
-              return false;
+              continue;
             m_restore_height = m_wallet->get_blockchain_height_by_date(year, month, day);
             success_msg_writer() << tr("Restore height is: ") << m_restore_height;
             std::string confirm = input_line(tr("Is this okay?"), true);
