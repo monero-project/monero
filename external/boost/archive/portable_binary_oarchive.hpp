@@ -237,12 +237,11 @@ portable_binary_oarchive::save_impl(
         return;
     }
 
-    boost::intmax_t ll;
-    bool negative = (l < 0);
-    if(negative)
-        ll = -l;
-    else
-        ll = l;
+    const bool negative = (l < 0);
+    const boost::uintmax_t magnitude = negative
+        ? boost::uintmax_t(0) - static_cast<boost::uintmax_t>(l)
+        : static_cast<boost::uintmax_t>(l);
+    boost::uintmax_t ll = magnitude;
 
     do{
         ll >>= CHAR_BIT;
@@ -253,10 +252,7 @@ portable_binary_oarchive::save_impl(
         static_cast<signed char>(negative ? -size : size)
     );
 
-    if(negative)
-        ll = -l;
-    else
-        ll = l;
+    ll = magnitude;
     char * cptr = reinterpret_cast<char *>(& ll);
     #if BOOST_ENDIAN_BIG_BYTE
         cptr += (sizeof(boost::intmax_t) - size);

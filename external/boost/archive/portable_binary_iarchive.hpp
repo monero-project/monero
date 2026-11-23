@@ -225,6 +225,7 @@ public:
 //  See http://www.boost.org for updates, documentation, and revision history.
 
 #include <istream>
+#include <limits>
 #include <string>
 
 #include <boost/predef/other/endian.h>
@@ -265,7 +266,8 @@ portable_binary_iarchive::load_impl(boost::intmax_t & l, char maxsize){
     #endif
     reverse_bytes(size, cptr);
     
-    if(negative)
+    // the minimum signed value is already represented correctly after loading.
+    if(negative && l != std::numeric_limits<boost::intmax_t>::min())
         l = -l;
 }
 

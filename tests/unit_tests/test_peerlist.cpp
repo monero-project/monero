@@ -28,6 +28,8 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <cstdint>
+
 #include "gtest/gtest.h"
 
 #include "common/util.h"
@@ -122,7 +124,7 @@ namespace
 
 TEST(peerlist_storage, store)
 {
-
+  constexpr std::uint64_t high_bit_peer_id = std::uint64_t{1} << 63;
   using address_type = epee::net_utils::address_type;
   using zone = epee::net_utils::zone;
 
@@ -135,7 +137,7 @@ TEST(peerlist_storage, store)
     types.white.push_back({epee::net_utils::ipv4_network_address{1000, 10}, 44, 55});
     types.white.push_back({net::tor_address::unknown(), 64, 75});
     types.gray.push_back({net::tor_address::unknown(), 99, 88});
-    types.gray.push_back({epee::net_utils::ipv4_network_address{2000, 20}, 84, 45});
+    types.gray.push_back({epee::net_utils::ipv4_network_address{2000, 20}, high_bit_peer_id, 45});
     types.anchor.push_back({epee::net_utils::ipv4_network_address{999, 654}, 444, 555});
     types.anchor.push_back({net::tor_address::unknown(), 14, 33});
     types.anchor.push_back({net::tor_address::unknown(), 24, 22});
@@ -168,7 +170,7 @@ TEST(peerlist_storage, store)
   ASSERT_EQ(address_type::ipv4, types.gray[0].adr.get_type_id());
   EXPECT_EQ(2000u, types.gray[0].adr.template as<epee::net_utils::ipv4_network_address>().ip());
   EXPECT_EQ(20u, types.gray[0].adr.template as<epee::net_utils::ipv4_network_address>().port());
-  EXPECT_EQ(84u, types.gray[0].id);
+  EXPECT_EQ(high_bit_peer_id, types.gray[0].id);
   EXPECT_EQ(45u, types.gray[0].last_seen);
 
   ASSERT_EQ(1u, types.anchor.size());
@@ -236,7 +238,7 @@ TEST(peerlist_storage, store)
   ASSERT_EQ(address_type::ipv4, types.gray[0].adr.get_type_id());
   EXPECT_EQ(2000u, types.gray[0].adr.template as<epee::net_utils::ipv4_network_address>().ip());
   EXPECT_EQ(20u, types.gray[0].adr.template as<epee::net_utils::ipv4_network_address>().port());
-  EXPECT_EQ(84u, types.gray[0].id);
+  EXPECT_EQ(high_bit_peer_id, types.gray[0].id);
   EXPECT_EQ(45u, types.gray[0].last_seen);
 
   ASSERT_EQ(1u, types.anchor.size());
