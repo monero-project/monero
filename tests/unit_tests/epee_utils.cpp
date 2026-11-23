@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <array>
+#include <atomic>
 #include <boost/predef/other/endian.h>
 #include <boost/endian/conversion.hpp>
 #include <boost/range/algorithm/equal.hpp>
@@ -39,6 +40,7 @@
 #include <iterator>
 #include <string>
 #include <sstream>
+#include <thread>
 #include <vector>
 
 #ifndef _WIN32
@@ -1406,6 +1408,29 @@ TEST(StringTools, GetIpString)
     std::string{"255.255.255.255"},
     epee::string_tools::get_ip_string_from_int32(htonl(0xffffffff))
   );
+}
+
+TEST(StringTools, GetIpStringThreaded)
+{
+  static constexpr const std::uint32_t ips[] = {0x0a010101, 0x0a020202, 0x0a030303, 0x0a040404};
+  static constexpr const char* const strs[] = {"10.1.1.1", "10.2.2.2", "10.3.3.3", "10.4.4.4"};
+
+  std::atomic<unsigned> mismatches{0};
+  std::vector<std::thread> threads;
+  for (std::size_t i = 0; i < 4; ++i)
+  {
+    threads.emplace_back([i, &mismatches] {
+      for (unsigned n = 0; n < 100000; ++n)
+      {
+        if (epee::string_tools::get_ip_string_from_int32(htonl(ips[i])) != strs[i])
+          ++mismatches;
+      }
+    });
+  }
+  for (auto& thread : threads)
+    thread.join();
+
+  EXPECT_EQ(0u, mismatches.load());
 }
 
 TEST(StringTools, GetIpInt32)

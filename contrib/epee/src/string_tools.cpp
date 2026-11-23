@@ -56,7 +56,9 @@
 
 #ifdef _WIN32
 # include <winsock2.h>
+# include <ws2tcpip.h>
 #else
+# include <sys/socket.h>
 # include <arpa/inet.h>
 # include <netinet/in.h>
 #endif
@@ -69,7 +71,9 @@ namespace string_tools
   {
     in_addr adr;
     adr.s_addr = ip;
-    const char* pbuf = inet_ntoa(adr);
+    // inet_ntoa returns a static buffer shared by all threads on some platforms
+    char buf[INET_ADDRSTRLEN];
+    const char* pbuf = inet_ntop(AF_INET, &adr, buf, sizeof(buf));
     if(pbuf)
       return pbuf;
     else
