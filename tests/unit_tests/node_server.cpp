@@ -71,7 +71,8 @@ public:
   virtual bool is_synchronized() const final { return true; }
   void on_synchronized(){}
   void safesyncmode(const bool){}
-  virtual uint64_t get_current_blockchain_height() const final {return 1;}
+  uint64_t current_height = 1;
+  virtual uint64_t get_current_blockchain_height() const final {return current_height;}
   void set_target_blockchain_height(uint64_t) {}
   bool init(const boost::program_options::variables_map& vm) {return true ;}
   bool deinit(){return true;}
@@ -1937,6 +1938,54 @@ namespace
     static_cast<epee::net_utils::connection_context_base&>(context) =
       epee::net_utils::connection_context_base{id, address, false, false};
   }
+}
+
+TEST(cryptonote_protocol_handler, standby_peer_retries_missing_fork_suffix)
+{
+  known_top_test_core core;
+  target_test_p2p p2p;
+  cryptonote::t_cryptonote_protocol_handler<known_top_test_core> handler{core, &p2p};
+  ASSERT_TRUE(handler.init(make_regtest_options(".")));
+  cryptonote::cryptonote_connection_context owner, standby;
+  set_test_address(owner, crypto::rand<boost::uuids::uuid>(), MAKE_IPV4_ADDRESS(203, 0, 113, 1));
+  set_test_address(standby, crypto::rand<boost::uuids::uuid>(), MAKE_IPV4_ADDRESS(203, 0, 113, 2));
+  p2p.connections = {&owner, &standby};
+
+  const auto prefix = crypto::rand<crypto::hash>();
+  const auto next = crypto::rand<crypto::hash>();
+  const auto last = crypto::rand<crypto::hash>();
+  core.target_height = 6;
+  for (auto* peer : p2p.connections)
+  {
+    peer->m_state = cryptonote::cryptonote_connection_context::state_standby;
+    peer->m_callback_request_count = 1;
+    peer->m_expected_heights = {core.main_top, prefix, next};
+    peer->m_needed_objects = {{prefix, 0}, {next, 0}};
+  }
+  owner.m_expected_heights.push_back(last);
+  owner.m_needed_objects.emplace_back(last, 0);
+  owner.m_remote_blockchain_height = core.target_height;
+  owner.m_last_response_height = 3;
+  standby.m_remote_blockchain_height = 3;
+  standby.m_last_response_height = 2;
+
+  ASSERT_TRUE(handler.on_callback(owner));
+  ASSERT_EQ(owner.m_requested_objects.size(), 3u);
+  ASSERT_TRUE(handler.on_callback(standby));
+  ASSERT_EQ(standby.m_state, cryptonote::cryptonote_connection_context::state_standby);
+  EXPECT_TRUE(standby.m_requested_objects.empty());
+
+  core.current_height = 5;
+  core.alt_top = prefix;
+  handler.get_block_queue().foreach([](const cryptonote::block_queue::span &span) {
+    span.time -= boost::posix_time::minutes(1);
+    return true;
+  });
+  ++standby.m_callback_request_count;
+  ASSERT_TRUE(handler.on_callback(standby));
+  EXPECT_EQ(standby.m_expect_height, 2u);
+  EXPECT_EQ(standby.m_requested_objects.size(), 1u);
+  EXPECT_EQ(standby.m_requested_objects.count(next), 1u);
 }
 
 TEST(cryptonote_protocol_handler, hidden_peer_retains_target_but_restores_safe_sync)
