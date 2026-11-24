@@ -246,7 +246,7 @@ int main(int argc, char* argv[])
     if (!failed_tests.empty())
     {
       MLOG(level, "FAILED TESTS:");
-      BOOST_FOREACH(auto test_name, failed_tests)
+      for (const auto &test_name : failed_tests)
       {
         MLOG(level, "  " << test_name);
       }
