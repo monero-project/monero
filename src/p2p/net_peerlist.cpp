@@ -48,7 +48,7 @@ namespace nodetool
 {
   namespace
   {
-    constexpr unsigned CURRENT_PEERLIST_STORAGE_ARCHIVE_VER = 6;
+    constexpr unsigned CURRENT_PEERLIST_STORAGE_ARCHIVE_VER = 7;
  
     struct by_zone
     {
@@ -137,11 +137,21 @@ namespace nodetool
   };
 
   template<typename Archive>
+  void serialize(Archive& a, gray_source_entry& elem, unsigned ver)
+  {
+    a & elem.adr;
+    a & elem.source;
+  }
+
+  template<typename Archive>
   void serialize(Archive& a, peerlist_types& elem, unsigned ver)
   {
     elem.white = load_peers<peerlist_entry>(a, ver);
     elem.gray = load_peers<peerlist_entry>(a, ver);
     elem.anchor = load_peers<anchor_peerlist_entry>(a, ver);
+    // from v7, the source that advertised each gray peer is stored too
+    if (ver >= 7)
+      elem.gray_sources = load_peers<gray_source_entry>(a, ver);
 
     if (ver == 0)
     {
@@ -157,6 +167,7 @@ namespace nodetool
     save_peers(a, boost::range::join(elem.ours.white, elem.other.white));
     save_peers(a, boost::range::join(elem.ours.gray, elem.other.gray));
     save_peers(a, boost::range::join(elem.ours.anchor, elem.other.anchor));
+    save_peers(a, boost::range::join(elem.ours.gray_sources, elem.other.gray_sources));
   }
 
   boost::optional<peerlist_storage> peerlist_storage::open(std::istream& src, const bool new_format)
@@ -180,6 +191,7 @@ namespace nodetool
         std::sort(out.m_types.white.begin(), out.m_types.white.end(), by_zone{});
         std::sort(out.m_types.gray.begin(), out.m_types.gray.end(), by_zone{});
         std::sort(out.m_types.anchor.begin(), out.m_types.anchor.end(), by_zone{});
+        std::sort(out.m_types.gray_sources.begin(), out.m_types.gray_sources.end(), by_zone{});
         return {std::move(out)};
       }
     }
@@ -254,6 +266,7 @@ namespace nodetool
     out.white = do_take_zone(m_types.white, zone);
     out.gray = do_take_zone(m_types.gray, zone);
     out.anchor = do_take_zone(m_types.anchor, zone);
+    out.gray_sources = do_take_zone(m_types.gray_sources, zone);
     return out;
   }
 
@@ -264,10 +277,19 @@ namespace nodetool
     if (!m_peers_white.empty() || !m_peers_gray.empty() || !m_peers_anchor.empty())
       return false;
 
-    add_peers(m_peers_white.get<by_addr>(), std::move(peers.white));
-    add_peers(m_peers_gray.get<by_addr>(), std::move(peers.gray));
-    add_peers(m_peers_anchor.get<by_addr>(), std::move(peers.anchor));
     m_allow_local_ip = allow_local_ip;
+    add_peers(m_peers_anchor.get<by_addr>(), std::move(peers.anchor));
+    std::sort(peers.white.begin(), peers.white.end(), [](const peerlist_entry& a, const peerlist_entry& b) { return a.last_seen > b.last_seen; });
+    for (const peerlist_entry& pe : peers.white)
+      append_with_peer_white(pe, true);
+    std::map<epee::net_utils::network_address, epee::net_utils::network_address> sources;
+    for (const gray_source_entry& s : peers.gray_sources)
+      sources.emplace(s.adr, s.source);
+    for (const peerlist_entry& pe : peers.gray)
+    {
+      const auto source = sources.find(pe.adr);
+      append_with_peer_gray(pe, source == sources.end() ? pe.adr : source->second);
+    }
     return true;
   }
 
@@ -288,6 +310,8 @@ namespace nodetool
     copy_peers(peers.white, m_peers_white.get<by_addr>());
     copy_peers(peers.gray, m_peers_gray.get<by_addr>());
     copy_peers(peers.anchor, m_peers_anchor.get<by_addr>());
+    for (const auto& source : m_gray_sources)
+      peers.gray_sources.push_back({source.first, source.second});
   }
 
   void peerlist_manager::evict_host_from_peerlist(bool use_white, const peerlist_entry& pr)
