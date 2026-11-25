@@ -47,6 +47,7 @@ public:
   void set_offline(bool offline) { m_offline = offline; }
 
   boost::optional<std::string> get_rpc_version(uint32_t &rpc_version, std::vector<std::pair<uint8_t, uint64_t>> &daemon_hard_forks, uint64_t &height, uint64_t &target_height);
+  cryptonote::network_type get_daemon_nettype() const { return m_offline ? cryptonote::UNDEFINED : m_daemon_nettype; }
   boost::optional<std::string> get_height(uint64_t &height);
   void set_height(uint64_t h);
   boost::optional<std::string> get_target_height(uint64_t &height);
@@ -81,6 +82,7 @@ private:
   time_t m_height_time;
   time_t m_target_height_time;
   std::vector<std::pair<uint8_t, uint64_t>> m_daemon_hard_forks;
+  cryptonote::network_type m_daemon_nettype;
 };
 
 }

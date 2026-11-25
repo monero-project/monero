@@ -920,6 +920,9 @@ private:
     RefreshType get_refresh_type() const { return m_refresh_type; }
 
     cryptonote::network_type nettype() const { return m_nettype; }
+    // Network type reported by the daemon's get_version. Populated by check_connection();
+    // UNDEFINED until then, after a daemon change or reconnect, or when offline.
+    cryptonote::network_type get_daemon_nettype() const { return m_node_rpc_proxy.get_daemon_nettype(); }
     bool watch_only() const { return m_watch_only; }
     bool is_background_wallet() const { return m_is_background_wallet; }
     multisig::multisig_account_status get_multisig_status() const;

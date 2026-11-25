@@ -27,6 +27,7 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "node_rpc_proxy.h"
+#include "cryptonote_basic/cryptonote_basic_impl.h"
 #include "rpc/core_rpc_server_commands_defs.h"
 #include "storages/http_abstract_invoke.h"
 
@@ -76,6 +77,7 @@ void NodeRPCProxy::invalidate()
   m_height_time = 0;
   m_target_height_time = 0;
   m_daemon_hard_forks.clear();
+  m_daemon_nettype = cryptonote::UNDEFINED;
 }
 
 boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version, std::vector<std::pair<uint8_t, uint64_t>> &daemon_hard_forks, uint64_t &height, uint64_t &target_height)
@@ -97,6 +99,7 @@ boost::optional<std::string> NodeRPCProxy::get_rpc_version(uint32_t &rpc_version
     m_daemon_hard_forks.clear();
     for (const auto &hf : resp_t.hard_forks)
       m_daemon_hard_forks.push_back(std::make_pair(hf.hf_version, hf.height));
+    m_daemon_nettype = cryptonote::get_network_type_from_name(resp_t.nettype);
     if (resp_t.current_height > 0 || resp_t.target_height > 0)
     {
       m_height = resp_t.current_height;
