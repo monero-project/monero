@@ -42,7 +42,6 @@
 #include <atomic>
 #include <functional>
 #include <limits>
-#include <memory>
 #include <tuple>
 #include <vector>
 
@@ -62,8 +61,6 @@
 
 #undef MONERO_DEFAULT_LOG_CATEGORY
 #define MONERO_DEFAULT_LOG_CATEGORY "net.p2p"
-
-#define MIN_WANTED_SEED_NODES 12
 
 namespace nodetool
 {
@@ -680,8 +677,6 @@ namespace nodetool
 
     if (command_line::has_arg(vm, arg_p2p_seed_node))
     {
-      boost::unique_lock<boost::shared_mutex> lock(public_zone.m_seed_nodes_lock);
-
       if (!parse_peers_and_add_to_container(vm, arg_p2p_seed_node, public_zone.m_seed_nodes))
         return false;
     }
@@ -1077,132 +1072,12 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  std::set<std::string> node_server<t_payload_net_handler>::get_dns_seed_nodes()
-  {
-    if (!m_exclusive_peers.empty() || m_offline)
-    {
-      return {};
-    }
-    if (m_nettype == cryptonote::TESTNET)
-    {
-      return get_ip_seed_nodes();
-    }
-    if (m_nettype == cryptonote::STAGENET)
-    {
-      return get_ip_seed_nodes();
-    }
-    if (m_nettype == cryptonote::FAKECHAIN)
-    {
-      return {};
-    }
-    if (!m_enable_dns_seed_nodes)
-    {
-      // TODO: a domain can be set through socks, so that the remote side does the lookup for the DNS seed nodes.
-      m_fallback_seed_nodes_added.test_and_set();
-      return get_ip_seed_nodes();
-    }
-
-    std::set<std::string> full_addrs;
-
-    // for each hostname in the seed nodes list, attempt to DNS resolve and
-    // add the result addresses as seed nodes
-    // TODO: at some point add IPv6 support, but that won't be relevant
-    // for some time yet.
-
-    struct frame_t
-    {
-      std::vector<std::vector<std::string>> dns_results;
-      boost::mutex sync;
-    };
-
-    const auto frame = std::make_shared<frame_t>();
-    frame->dns_results.resize(m_seed_nodes_list.size());
-
-    // some libc implementation provide only a very small stack
-    // for threads, e.g. musl only gives +- 80kb, which is not
-    // enough to do a resolve with unbound. we request a stack
-    // of 1 mb, which should be plenty
-    boost::thread::attributes thread_attributes;
-    thread_attributes.set_stack_size(1024*1024);
-
-    std::list<boost::thread> dns_threads;
-    uint64_t result_index = 0;
-    const std::weak_ptr<frame_t> frame_weak{frame};
-    for (const std::string& addr_str : m_seed_nodes_list)
-    {
-      boost::thread th = boost::thread(thread_attributes, [frame_weak, addr_str, result_index]
-      {
-        MDEBUG("dns_threads[" << result_index << "] created for: " << addr_str);
-        bool avail, valid;
-        std::vector<std::string> addr_list = tools::DNSResolver::instance().get_ipv4(addr_str, avail, valid);
-        if (avail && !valid)
-        {
-          MWARNING("DNSSEC validation failed for a DNS seed node: " << addr_str << ", ignoring " << addr_list.size() << " results: " << boost::algorithm::join(addr_list, ", "));
-          addr_list.clear();
-        }
-        MINFO("dns_threads[" << result_index << "] addr_str: " << addr_str << "  number of results: " << addr_list.size());
-        const auto frame = frame_weak.lock();
-        if (frame)
-        {
-          const boost::lock_guard<boost::mutex> lock{frame->sync};
-          frame->dns_results.at(result_index) = std::move(addr_list);
-        }
-      });
-
-      dns_threads.push_back(std::move(th));
-      ++result_index;
-    }
-
-    MDEBUG("dns_threads created, now waiting for completion or timeout of " << CRYPTONOTE_DNS_TIMEOUT_MS << "ms");
-    boost::chrono::system_clock::time_point deadline = boost::chrono::system_clock::now() + boost::chrono::milliseconds(CRYPTONOTE_DNS_TIMEOUT_MS);
-    uint64_t i = 0;
-    for (boost::thread& th : dns_threads)
-    {
-      if (! th.try_join_until(deadline))
-      {
-        MWARNING("dns_threads[" << i << "] timed out");
-        th.detach();
-      }
-      ++i;
-    }
-
-    i = 0;
-    const boost::lock_guard<boost::mutex> lock{frame->sync};
-    for (const auto& result : frame->dns_results)
-    {
-      MDEBUG("DNS lookup for " << m_seed_nodes_list[i] << ": " << result.size() << " results");
-      // if no results for node, thread's lookup likely timed out
-      if (result.size())
-      {
-        for (const auto& addr_string : result)
-          full_addrs.insert(addr_string + ":" + std::to_string(cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT));
-      }
-      ++i;
-    }
-
-    // append the fallback nodes if we have too few seed nodes to start with
-    if (full_addrs.size() < MIN_WANTED_SEED_NODES)
-    {
-      if (full_addrs.empty())
-        MINFO("DNS seed node lookup either timed out or failed, falling back to defaults");
-      else
-        MINFO("Not enough DNS seed nodes found, using fallback defaults too");
-
-      for (const auto &peer: get_ip_seed_nodes())
-        full_addrs.insert(peer);
-      m_fallback_seed_nodes_added.test_and_set();
-    }
-
-    return full_addrs;
-  }
-  //-----------------------------------------------------------------------------------
-  template<class t_payload_net_handler>
-  std::set<std::string> node_server<t_payload_net_handler>::get_seed_nodes(epee::net_utils::zone zone)
+  std::set<std::string> node_server<t_payload_net_handler>::get_seed_nodes(epee::net_utils::zone zone) const
   {
     switch (zone)
     {
     case epee::net_utils::zone::public_:
-      return get_dns_seed_nodes();
+      return get_ip_seed_nodes();
     case epee::net_utils::zone::tor:
       if (m_nettype == cryptonote::MAINNET)
       {
@@ -1256,7 +1131,6 @@ namespace nodetool
       public_zone.m_connect = &socks_connect;
       public_zone.m_proxy_address = *endpoint;
       public_zone.m_can_pingback = false;
-      m_enable_dns_seed_nodes &= proxy_dns_leaks_allowed;
       m_enable_dns_blocklist &= proxy_dns_leaks_allowed;
     }
 
@@ -1311,6 +1185,16 @@ namespace nodetool
     m_ssl_support = epee::net_utils::ssl_support_t::e_ssl_support_disabled;
     for (auto& zone : m_network_zones)
     {
+      if (m_exclusive_peers.empty())
+      {
+        const uint16_t default_port = cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT;
+        for (const auto& addr : get_seed_nodes(zone.first))
+        {
+          MDEBUG("Seed node: " << addr);
+          zone.second.m_seed_nodes.push_back(MONERO_UNWRAP(net::get_network_address(addr, default_port)));
+        }
+      }
+
       zone.second.m_net_server.get_config_object().set_handler(this);
       zone.second.m_net_server.get_config_object().m_invoke_timeout = std::chrono::milliseconds{P2P_DEFAULT_INVOKE_TIMEOUT};
 
@@ -2160,76 +2044,33 @@ namespace nodetool
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
-  bool node_server<t_payload_net_handler>::connect_to_seed(epee::net_utils::zone zone)
+  bool node_server<t_payload_net_handler>::connect_to_seed(const network_zone& zone)
   {
-      network_zone& server = m_network_zones.at(zone);
-      boost::upgrade_lock<boost::shared_mutex> seed_nodes_upgrade_lock(server.m_seed_nodes_lock);
+    const auto& seeds = zone.m_seed_nodes;
+    if (seeds.empty())
+      return true;
 
-      if (!server.m_seed_nodes_initialized)
-      {
-        const std::uint16_t default_port = cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT;
-        boost::upgrade_to_unique_lock<boost::shared_mutex> seed_nodes_lock(seed_nodes_upgrade_lock);
-        server.m_seed_nodes_initialized = true;
-        for (const auto& full_addr : get_seed_nodes(zone))
-        {
-          // seeds should have hostname converted to IP already
-          MDEBUG("Seed node: " << full_addr);
-          server.m_seed_nodes.push_back(MONERO_UNWRAP(net::get_network_address(full_addr, default_port)));
-        }
-        MDEBUG("Number of seed nodes: " << server.m_seed_nodes.size());
-      }
+    bool already_connected = false;
+    size_t index = crypto::rand_idx(seeds.size());
+    for (size_t tried = 0; tried < seeds.size(); ++tried)
+    {
+      if (zone.m_net_server.is_stop_signal_sent())
+        return false;
 
-      if (server.m_seed_nodes.empty() || m_offline || !m_exclusive_peers.empty())
+      peerlist_entry peer{};
+      peer.adr = seeds[index];
+      if (is_peer_used(peer))
+        already_connected = true;
+      else if (!is_addr_recently_failed(peer.adr, P2P_FAILED_SEED_ADDR_FORGET_SECONDS) && try_to_connect_and_handshake_with_new_peer(peer.adr, true))
         return true;
 
-      size_t try_count = 0;
-      bool is_connected_to_at_least_one_seed_node = false;
-      size_t current_index = crypto::rand_idx(server.m_seed_nodes.size());
-      while(true)
-      {
-        if(server.m_net_server.is_stop_signal_sent())
-          return false;
+      if (++index == seeds.size())
+        index = 0;
+    }
 
-        peerlist_entry pe_seed{};
-        pe_seed.adr = server.m_seed_nodes[current_index];
-        if (is_peer_used(pe_seed))
-          is_connected_to_at_least_one_seed_node = true;
-        else if (!is_addr_recently_failed(pe_seed.adr, P2P_FAILED_SEED_ADDR_FORGET_SECONDS) && try_to_connect_and_handshake_with_new_peer(pe_seed.adr, true))
-          break;
-        if(++try_count > server.m_seed_nodes.size())
-        {
-          // only IP zone has fallback (to direct IP) seeds
-          if (zone == epee::net_utils::zone::public_ && !m_fallback_seed_nodes_added.test_and_set())
-          {
-            MWARNING("Failed to connect to any of seed peers, trying fallback seeds");
-            current_index = server.m_seed_nodes.size() - 1;
-            {
-              boost::upgrade_to_unique_lock<boost::shared_mutex> seed_nodes_lock(seed_nodes_upgrade_lock);
-
-              for (const auto &peer: get_ip_seed_nodes())
-              {
-                MDEBUG("Fallback seed node: " << peer);
-                append_net_address(server.m_seed_nodes, peer, cryptonote::get_config(m_nettype).P2P_DEFAULT_PORT);
-              }
-            }
-            if (current_index == server.m_seed_nodes.size() - 1)
-            {
-              MWARNING("No fallback seeds, continuing without seeds");
-              break;
-            }
-            // continue for another few cycles
-          }
-          else
-          {
-            if (!is_connected_to_at_least_one_seed_node)
-              MWARNING("Failed to connect to any of seed peers, continuing without seeds");
-            break;
-          }
-        }
-        if(++current_index >= server.m_seed_nodes.size())
-          current_index = 0;
-      }
-      return true;
+    if (!already_connected)
+      MWARNING("Failed to connect to any of seed peers, continuing without seeds");
+    return true;
   }
   //-----------------------------------------------------------------------------------
   template<class t_payload_net_handler>
@@ -2252,7 +2093,7 @@ namespace nodetool
       }
 
       size_t start_conn_count = get_outgoing_connections_count(zone.second);
-      if(!zone.second.m_peerlist.get_white_peers_count() && !connect_to_seed(zone.first))
+      if(!zone.second.m_peerlist.get_white_peers_count() && !connect_to_seed(zone.second))
       {
         continue;
       }
@@ -2306,7 +2147,7 @@ namespace nodetool
       if (start_conn_count == get_outgoing_connections_count(zone.second) && start_conn_count < zone.second.m_config.m_net_config.max_out_connection_count)
       {
         MINFO("Failed to connect to any, trying seeds");
-        if (!connect_to_seed(zone.first))
+        if (!connect_to_seed(zone.second))
           continue;
       }
       one_succeeded = true;

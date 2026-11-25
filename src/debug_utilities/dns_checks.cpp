@@ -42,18 +42,10 @@
 
 namespace po = boost::program_options;
 
-enum lookup_t { LOOKUP_A, LOOKUP_TXT };
-
-static std::vector<std::string> lookup(lookup_t type, const char *hostname)
+static std::vector<std::string> lookup_txt_records(const std::string &hostname)
 {
   bool dnssec_available = false, dnssec_valid = false;
-  std::vector<std::string> res;
-  switch (type)
-  {
-    case LOOKUP_A: res = tools::DNSResolver::instance().get_ipv4(hostname, dnssec_available, dnssec_valid); break;
-    case LOOKUP_TXT: res = tools::DNSResolver::instance().get_txt_record(hostname, dnssec_available, dnssec_valid); break;
-    default: MERROR("Invalid lookup type: " << (int)type); return {};
-  }
+  auto res = tools::DNSResolver::instance().get_txt_record(hostname, dnssec_available, dnssec_valid);
   if (!dnssec_available)
   {
     MWARNING("No DNSSEC for " << hostname);
@@ -68,12 +60,12 @@ static std::vector<std::string> lookup(lookup_t type, const char *hostname)
   return res;
 }
 
-static void lookup(lookup_t type, const std::vector<std::string> hostnames)
+static void check_txt_records(const std::vector<std::string> &hostnames)
 {
   std::vector<std::vector<std::string>> results;
   for (const std::string &hostname: hostnames)
   {
-    auto res = lookup(type, hostname.c_str());
+    auto res = lookup_txt_records(hostname);
     if (!res.empty())
     {
       std::sort(res.begin(), res.end());
@@ -129,20 +121,18 @@ int main(int argc, char* argv[])
   mlog_configure("", true);
   mlog_set_categories("+" MONERO_DEFAULT_LOG_CATEGORY ":INFO");
 
-  lookup(LOOKUP_A, {"seeds.moneroseeds.se", "seeds.moneroseeds.ae.org", "seeds.moneroseeds.ch", "seeds.moneroseeds.li"});
+  check_txt_records({"updates.moneropulse.org", "updates.moneropulse.net", "updates.moneropulse.co", "updates.moneropulse.se", "updates.moneropulse.fr", "updates.moneropulse.de", "updates.moneropulse.ch"});
 
-  lookup(LOOKUP_TXT, {"updates.moneropulse.org", "updates.moneropulse.net", "updates.moneropulse.co", "updates.moneropulse.se", "updates.moneropulse.fr", "updates.moneropulse.de", "updates.moneropulse.ch"});
-
-  lookup(LOOKUP_TXT, {"checkpoints.moneropulse.org", "checkpoints.moneropulse.net", "checkpoints.moneropulse.co", "checkpoints.moneropulse.se"});
+  check_txt_records({"checkpoints.moneropulse.org", "checkpoints.moneropulse.net", "checkpoints.moneropulse.co", "checkpoints.moneropulse.se"});
 
   // those are in the code, but don't seem to actually exist
 #if 0
-  lookup(LOOKUP_TXT, {"testpoints.moneropulse.org", "testpoints.moneropulse.net", "testpoints.moneropulse.co", "testpoints.moneropulse.se");
+  check_txt_records({"testpoints.moneropulse.org", "testpoints.moneropulse.net", "testpoints.moneropulse.co", "testpoints.moneropulse.se"});
 
-  lookup(LOOKUP_TXT, {"stagenetpoints.moneropulse.org", "stagenetpoints.moneropulse.net", "stagenetpoints.moneropulse.co", "stagenetpoints.moneropulse.se"});
+  check_txt_records({"stagenetpoints.moneropulse.org", "stagenetpoints.moneropulse.net", "stagenetpoints.moneropulse.co", "stagenetpoints.moneropulse.se"});
 #endif
 
-  lookup(LOOKUP_TXT, {"segheights.moneropulse.org", "segheights.moneropulse.net", "segheights.moneropulse.co", "segheights.moneropulse.se"});
+  check_txt_records({"segheights.moneropulse.org", "segheights.moneropulse.net", "segheights.moneropulse.co", "segheights.moneropulse.se"});
 
   return 0;
   CATCH_ENTRY_L0("main", 1);
