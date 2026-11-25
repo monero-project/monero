@@ -540,7 +540,16 @@ To run in background:
 ./bin/monerod --log-file monerod.log --detach
 ```
 
-To run as a systemd service, copy [monerod.service](utils/systemd/monerod.service) to `/etc/systemd/system/` and [monerod.conf](utils/conf/monerod.conf) to `/etc/`. The [example service](utils/systemd/monerod.service) assumes that the user `monero` exists and its home is the data directory specified in the [example config](utils/conf/monerod.conf).
+To run as a systemd service, create a `monero` system user, copy `monerod` to `/usr/local/bin/`, [monerod.service](utils/systemd/monerod.service) to `/etc/systemd/system/` and [monerod.conf](utils/conf/monerod.conf) to `/etc/monero/`. systemd creates `/var/lib/monero` and `/var/log/monero`.
+
+To use a data or log directory elsewhere, create it first, owned by `monero` (`install -d -o monero -g monero -m 0750 /path/to/data-dir`), then add it with `systemctl edit monerod`:
+
+```ini
+[Service]
+ReadWritePaths=/path/to/data-dir /path/to/log-dir
+# only if a path is under /home
+ProtectHome=read-only
+```
 
 If you're on Mac, you may need to add the `--max-concurrency 1` option to monero-wallet-cli, and possibly monerod, if you get crashes refreshing.
 
