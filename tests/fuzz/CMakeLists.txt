@@ -139,6 +139,21 @@ target_link_libraries(fcmp-pp-curve-trees_fuzz_tests
 set_property(TARGET fcmp-pp-curve-trees_fuzz_tests
   PROPERTY
     FOLDER "tests")
+
+monero_add_minimal_executable(epee-http-server_fuzz_tests epee-http-server.cpp fuzzer.cpp)
+target_link_libraries(epee-http-server_fuzz_tests
+  PRIVATE
+    epee
+    ${Boost_THREAD_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET epee-http-server_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
 endif()
 
 monero_add_minimal_executable(block_fuzz_tests block.cpp fuzzer.cpp)

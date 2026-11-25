@@ -1,0 +1,10 @@
+fuzzpwGET /json_rpc HTTP/1.1
+Authorization: Digest username="fuzz", realm="monero", nonce="a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5", uri="/json_rpc", algorithm=MD5, response="0123"
+
+
+
+
+
+
+
+
