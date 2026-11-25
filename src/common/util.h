@@ -146,6 +146,19 @@ namespace tools
    */
   std::error_code replace_file(const std::string& old_name, const std::string& new_name);
 
+  /*! \brief Writes `data` to a new file only the process user can access,
+      then atomically replaces `filename` with it.
+
+      Each call writes its own uniquely-named temporary file next to `filename`; concurrent
+      calls don't interfere. A crash before the rename can leave that file behind.
+   */
+  std::error_code save_private_file(const std::string& filename, const std::string& data);
+
+  /*! \brief Restricts an existing file to the process user, as `save_private_file` does for a
+      new one. Follows symlinks. Fails for a directory, or on POSIX for any other non-regular file.
+   */
+  std::error_code secure_private_file(const std::string& filename);
+
   bool sanitize_locale();
 
   bool disable_core_dumps();
