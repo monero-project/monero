@@ -365,6 +365,7 @@ public:
   void block_rtxn_abort() const override;
 
   bool block_rtxn_start(MDB_txn **mtxn, mdb_txn_cursors **mcur) const;
+  bool txn_active_on_this_thread() const;
 
   void pop_block(block& blk, std::vector<transaction>* txs) override;
 
