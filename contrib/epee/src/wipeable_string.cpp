@@ -250,14 +250,21 @@ void wipeable_string::clear()
 wipeable_string &wipeable_string::operator=(wipeable_string &&other)
 {
   if (&other != this)
+  {
+    wipe();
     buffer = std::move(other.buffer);
+  }
   return *this;
 }
 
 wipeable_string &wipeable_string::operator=(const wipeable_string &other)
 {
   if (&other != this)
-    buffer = other.buffer;
+  {
+    std::vector<char> copy(other.buffer);
+    wipe();
+    buffer = std::move(copy);
+  }
   return *this;
 }
 
