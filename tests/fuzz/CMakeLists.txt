@@ -139,6 +139,26 @@ target_link_libraries(fcmp-pp-curve-trees_fuzz_tests
 set_property(TARGET fcmp-pp-curve-trees_fuzz_tests
   PROPERTY
     FOLDER "tests")
+
+monero_add_minimal_executable(txset-file-parse_fuzz_tests txset-file-parse.cpp fuzzer.cpp)
+target_link_libraries(txset-file-parse_fuzz_tests
+  PRIVATE
+    wallet
+    multisig
+    cryptonote_core
+    p2p
+    epee
+    device
+    ${Boost_THREAD_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET txset-file-parse_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
 endif()
 
 monero_add_minimal_executable(block_fuzz_tests block.cpp fuzzer.cpp)
