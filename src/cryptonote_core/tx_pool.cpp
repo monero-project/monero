@@ -1485,6 +1485,7 @@ namespace cryptonote
     CRITICAL_REGION_LOCAL(m_transactions_lock);
     CRITICAL_REGION_LOCAL1(m_blockchain);
     bool changed = false;
+    std::vector<crypto::hash> changed_txids;
     LockedTXN lock(m_blockchain.get_db());
     for(size_t i = 0; i!= tx.vin.size(); i++)
     {
@@ -1505,12 +1506,14 @@ namespace cryptonote
             MDEBUG("Marking " << txid << " as double spending " << itk.k_image);
             meta.double_spend_seen = true;
             changed = true;
+            changed_txids.push_back(txid);
             try
             {
               m_blockchain.update_txpool_tx(txid, meta);
             }
             catch (const std::exception &e)
             {
+              changed_txids.pop_back();
               MERROR("Failed to update tx meta: " << e.what());
               // continue, not fatal
             }
@@ -1518,6 +1521,17 @@ namespace cryptonote
       }
     }
     lock.commit();
+    if (!changed_txids.empty())
+    {
+      // Include updated metadata in incremental pool replies.
+      const time_t now = time(NULL);
+      for (const auto &txid : changed_txids)
+      {
+        const auto it = m_added_txs_by_id.find(txid);
+        if (it != m_added_txs_by_id.end())
+          it->second.receive_time = now;
+      }
+    }
     if (changed)
       ++m_cookie;
   }

@@ -537,6 +537,52 @@ TEST(wallet_pool, advances_cursor_on_successful_refresh)
     EXPECT_EQ(2, wallet_pool_test::pool_query_time(w));
 }
 
+TEST(wallet_pool, updates_double_spend_flag_for_known_incoming_payment_in_full_snapshot)
+{
+    cryptonote::transaction pool_tx;
+    size_t queries = 0;
+    const auto reply = [&](const cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::request &request,
+        cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::response &response)
+    {
+        EXPECT_EQ(cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::BLOCKS_AND_POOL, request.requested_info);
+        response.start_height = response.current_height = 1;
+        response.pool_info_extent = cryptonote::COMMAND_RPC_GET_BLOCKS_FAST::FULL;
+        add_pool_payment(response, pool_tx);
+        response.added_pool_txs.back().double_spend_seen = queries++ == 1;
+    };
+    tools::wallet2 w(cryptonote::MAINNET, 1, true,
+        std::unique_ptr<epee::net_utils::http::http_client_factory>(new pool_http_client_factory(reply)));
+    wallet_pool_test::prepare_refresh(w);
+    pool_tx = make_pool_payment(w);
+    pool_callback callback;
+    w.callback(&callback);
+
+    uint64_t fetched = 0;
+    bool received = false;
+    w.refresh(true, 0, fetched, received);
+    std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> pending;
+    w.get_unconfirmed_payments(pending);
+    ASSERT_EQ(1, pending.size());
+    EXPECT_FALSE(pending.front().second.m_double_spend_seen);
+    EXPECT_EQ(1, callback.pool_receipts);
+
+    w.refresh(true, 0, fetched, received);
+    pending.clear();
+    w.get_unconfirmed_payments(pending);
+    ASSERT_EQ(2, queries);
+    ASSERT_EQ(1, pending.size());
+    EXPECT_TRUE(pending.front().second.m_double_spend_seen);
+    EXPECT_EQ(1, callback.pool_receipts);
+
+    w.refresh(true, 0, fetched, received);
+    pending.clear();
+    w.get_unconfirmed_payments(pending);
+    ASSERT_EQ(3, queries);
+    ASSERT_EQ(1, pending.size());
+    EXPECT_TRUE(pending.front().second.m_double_spend_seen);
+    EXPECT_EQ(1, callback.pool_receipts);
+}
+
 TEST(wallet_pool, retries_pool_after_stopped_refresh)
 {
     tools::wallet2 *wallet = nullptr;
