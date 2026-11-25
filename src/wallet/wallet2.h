@@ -266,7 +266,7 @@ private:
 
     struct tx_scan_info_t
     {
-      cryptonote::keypair in_ephemeral;
+      crypto::public_key output_public_key;
       crypto::key_image ki;
       rct::key mask;
       uint64_t amount;
