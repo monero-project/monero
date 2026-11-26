@@ -289,7 +289,7 @@ namespace nodetool
         m_offline(false),
         is_closing(false),
         m_network_id(),
-        m_enable_dns_seed_nodes(true),
+        m_allow_dns(true),
         max_connections(1)
     {}
     virtual ~node_server();
@@ -314,6 +314,7 @@ namespace nodetool
     size_t get_public_gray_peers_count();
     void get_public_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
     void get_peerlist(std::vector<peerlist_entry>& gray, std::vector<peerlist_entry>& white);
+    bool is_priority_node(const epee::net_utils::network_address& na) const;
 
     void change_max_out_public_peers(size_t count);
     uint32_t get_max_out_public_peers() const;
@@ -418,7 +419,6 @@ namespace nodetool
     bool make_expected_connections_count(network_zone& zone, PeerType peer_type, size_t expected_connections);
     void record_addr_failed(const epee::net_utils::network_address& addr);
     bool is_addr_recently_failed(const epee::net_utils::network_address& addr, time_t forget_seconds = P2P_FAILED_ADDR_FORGET_SECONDS);
-    bool is_priority_node(const epee::net_utils::network_address& na);
     std::set<std::string> get_ip_seed_nodes() const;
     std::set<std::string> get_dns_seed_nodes();
     std::set<std::string> get_seed_nodes(epee::net_utils::zone);
@@ -529,7 +529,7 @@ namespace nodetool
 
     epee::net_utils::ssl_support_t m_ssl_support;
 
-    bool m_enable_dns_seed_nodes;
+    bool m_allow_dns;
     bool m_enable_dns_blocklist;
 
     uint32_t max_connections;
