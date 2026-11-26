@@ -159,7 +159,7 @@ int main(int argc, char* argv[])
 
   EVP_PKEY *pkey;
   X509 *cert;
-  r = epee::net_utils::create_rsa_ssl_certificate(pkey, cert);
+  r = epee::net_utils::create_ssl_certificate(pkey, cert, epee::net_utils::ssl_public_t::ed448);
   if (!r)
   {
     tools::fail_msg_writer() << gencert::tr("Failed to create certificate");

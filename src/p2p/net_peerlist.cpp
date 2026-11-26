@@ -292,7 +292,7 @@ namespace nodetool
 
   void peerlist_manager::evict_host_from_peerlist(bool use_white, const peerlist_entry& pr)
   {
-    filter(use_white, [&pr](const peerlist_entry& pe){ return pe.adr.is_same_host(pr.adr); });
+    filter(use_white, [&pr](const peerlist_entry& pe){ return pe.adr.is_same_host(pr.adr) && pe.local_ssl.mode == emode_ssl_autodetect; });
   }
 }
 

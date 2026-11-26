@@ -55,7 +55,7 @@ namespace nodetool
     virtual ~i_p2p_endpoint() = default;
     virtual bool relay_notify_to_list(int command, epee::levin::message_writer message, std::vector<std::pair<epee::net_utils::zone, boost::uuids::uuid>> connections)=0;
     virtual epee::net_utils::zone send_txs(std::vector<cryptonote::blobdata> txs, const epee::net_utils::zone origin, const boost::uuids::uuid& source, cryptonote::relay_method tx_relay)=0;
-    virtual bool invoke_notify_to_peer(int command, epee::levin::message_writer message, const epee::net_utils::connection_context_base& context)=0;
+    virtual bool invoke_notify_to_peer(int command, epee::levin::message_writer message, const t_connection_context& context)=0;
     virtual bool drop_connection(const epee::net_utils::connection_context_base& context)=0;
     virtual void request_callback(const epee::net_utils::connection_context_base& context)=0;
     virtual uint64_t get_public_connections_count()=0;
@@ -82,7 +82,7 @@ namespace nodetool
     {
       return epee::net_utils::zone::invalid;
     }
-    virtual bool invoke_notify_to_peer(int command, epee::levin::message_writer message, const epee::net_utils::connection_context_base& context)
+    virtual bool invoke_notify_to_peer(int command, epee::levin::message_writer message, const t_connection_context& context)
     {
       return true;
     }
