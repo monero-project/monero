@@ -30,6 +30,7 @@
 // Parts of this file are originally copyright (c) 2006-2013, Andrey N. Sabelnikov, www.sabelnikov.net
 
 #pragma once
+#include <deque>
 #include <unordered_set>
 #include <atomic>
 #include <algorithm>
@@ -101,6 +102,11 @@ namespace cryptonote
     std::vector<std::pair<crypto::hash, uint64_t>> m_needed_objects;
     std::vector<crypto::hash> m_expected_heights;
     std::unordered_set<crypto::hash> m_requested_objects;
+    // Outstanding requests to this peer: block hashes and indexes into each block's
+    // tx_hashes, ordered from oldest request to newest.
+    std::deque<std::pair<crypto::hash, std::vector<uint64_t>>> m_pending_fluffy_missing_txs;
+    // Pending requests are cleared when a new announcement observes a different chain tip.
+    crypto::hash m_pending_fluffy_tip = crypto::null_hash;
     uint64_t m_remote_blockchain_height;
     uint64_t m_last_response_height;
     uint64_t m_expected_heights_start;

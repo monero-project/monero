@@ -148,3 +148,10 @@ struct txpool_stem_loop : txpool_double_spend_base
 
   bool generate(std::vector<test_event_entry>& events) const;
 };
+
+struct fluffy_block_stem_tx : test_chain_unit_base
+{
+  fluffy_block_stem_tx();
+  bool generate(std::vector<test_event_entry>& events) const;
+  bool check_pending_block_resumes(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
+};

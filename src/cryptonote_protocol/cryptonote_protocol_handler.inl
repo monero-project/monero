@@ -38,6 +38,7 @@
 #include <boost/optional/optional.hpp>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
+#include <algorithm>
 #include <cmath>
 #include <list>
 #include <limits>
@@ -76,6 +77,7 @@
   MCINFO(MONERO_DEFAULT_LOG_CATEGORY, context << "[" << epee::string_tools::to_string_hex(context.m_pruning_seed) << "] state: " << x << " in state " << cryptonote::get_protocol_state_string(context.m_state))
 
 #define BLOCK_QUEUE_NSPANS_MINIMUM             10  // minimum number of spans
+#define MAX_PENDING_FLUFFY_BLOCKS               8  // per connection
 #define BLOCK_QUEUE_SIZE_THRESHOLD (100*1024*1024) // MB
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD_STANDBY (5 * 1000000) // microseconds
 #define REQUEST_NEXT_SCHEDULED_SPAN_THRESHOLD (30 * 1000000) // microseconds
@@ -201,7 +203,10 @@ namespace cryptonote
     if (context.m_new_stripe_notification.compare_exchange_strong(notified, not notified))
     {
       if (context.m_state == cryptonote_connection_context::state_normal)
+      {
         context.m_state = cryptonote_connection_context::state_synchronizing;
+        context.m_pending_fluffy_missing_txs.clear();
+      }
     }
 
     if(context.m_state == cryptonote_connection_context::state_synchronizing && context.m_last_request_time == boost::posix_time::not_a_date_time)
@@ -518,6 +523,7 @@ namespace cryptonote
     }
 
     context.m_state = cryptonote_connection_context::state_synchronizing;
+    context.m_pending_fluffy_missing_txs.clear();
     //let the socket to send response to handshake, but request callback, to let send request data after response
     LOG_PRINT_CCONTEXT_L2("requesting callback");
     ++context.m_callback_request_count;
@@ -564,11 +570,31 @@ namespace cryptonote
   }
   //------------------------------------------------------------------------------------------------------------------------
   template<class t_core>
+  void t_cryptonote_protocol_handler<t_core>::discard_stale_pending_fluffy_missing_txs(cryptonote_connection_context& context)
+  {
+    uint64_t height;
+    crypto::hash tip;
+    m_core.get_blockchain_top(height, tip);
+    if (tip != context.m_pending_fluffy_tip)
+    {
+      context.m_pending_fluffy_missing_txs.clear();
+      context.m_pending_fluffy_tip = tip;
+    }
+
+    auto& pending = context.m_pending_fluffy_missing_txs;
+    pending.erase(std::remove_if(pending.begin(), pending.end(),
+      [this](const auto& entry) { return m_core.have_block(entry.first); }), pending.end());
+  }
+  //------------------------------------------------------------------------------------------------------------------------
+  template<class t_core>
   int t_cryptonote_protocol_handler<t_core>::handle_notify_new_fluffy_block(int command, NOTIFY_NEW_FLUFFY_BLOCK::request& arg, cryptonote_connection_context& context)
   {
     // If we are synchronizing the node or setting up this connection, then do nothing
     if(context.m_state != cryptonote_connection_context::state_normal)
       return 1;
+
+    discard_stale_pending_fluffy_missing_txs(context);
+
     if(!is_synchronized()) // can happen if a peer connection goes to normal but another thread still hasn't finished adding queued blocks
     {
       LOG_DEBUG_CC(context, "Received new block while syncing, ignored");
@@ -607,12 +633,6 @@ namespace cryptonote
     MLOG_P2P_MESSAGE(context << "Received NOTIFY_NEW_FLUFFY_BLOCK " << new_block_hash << " (height "
       << new_block_height << ", " << arg.b.txs.size() << " txes, peer's height: " << peer_height << ")");
 
-    // Pause mining while verifying an unknown block to avoid wasted mining cycles.
-    const bool pause_mining = !m_core.have_block(new_block_hash);
-    if (pause_mining)
-      m_core.pause_mine();
-    const epee::scope_guard resume_mine_on_leave([this, pause_mining](){ if (pause_mining) m_core.resume_mine(); });
-
     // This set allows us to quickly sanity check that the block binds all txs contained in this
     // fluffy payload, which means that no extra stowaway txs can be harbored. In the case of a
     // deterministic block verification failure, the peer will be punished accordingly. For other
@@ -650,6 +670,32 @@ namespace cryptonote
       drop_connection(context, false, false);
       return LEVIN_ERROR_CONNECTION;
     }
+
+    const auto pending_missing = std::find_if(context.m_pending_fluffy_missing_txs.begin(),
+      context.m_pending_fluffy_missing_txs.end(),
+      [&new_block_hash](const auto& entry) { return entry.first == new_block_hash; });
+    if (pending_missing != context.m_pending_fluffy_missing_txs.end())
+    {
+      // Resume once the requested transactions are available. Core may discover
+      // other missing transactions if the pool changed while we were waiting.
+      const bool requested_txs_available = std::all_of(pending_missing->second.begin(),
+        pending_missing->second.end(), [&](uint64_t index) {
+          const crypto::hash& txid = new_block.tx_hashes[index];
+          return extra_block_txs.find(txid) != extra_block_txs.end() || m_core.pool_has_tx(txid, relay_category::all);
+        });
+      if (!requested_txs_available)
+      {
+        MDEBUG(context << "Ignoring duplicate fluffy block that does not resolve pending missing transactions: " << new_block_hash);
+        return 1;
+      }
+      context.m_pending_fluffy_missing_txs.erase(pending_missing);
+    }
+
+    // Pause mining while verifying an unknown block to avoid wasted mining cycles.
+    const bool pause_mining = !m_core.have_block(new_block_hash);
+    if (pause_mining)
+      m_core.pause_mine();
+    const epee::scope_guard resume_mine_on_leave([this, pause_mining](){ if (pause_mining) m_core.resume_mine(); });
 
     // try adding block to the blockchain
     block_verification_context bvc = {}; 
@@ -698,6 +744,13 @@ namespace cryptonote
         NOTIFY_REQUEST_FLUFFY_MISSING_TX::request missing_tx_req;
         missing_tx_req.block_hash = new_block_hash;
         missing_tx_req.current_blockchain_height = new_block_height + 1;
+        if (!need_tx_indices.empty())
+        {
+          auto& pending = context.m_pending_fluffy_missing_txs;
+          if (pending.size() >= MAX_PENDING_FLUFFY_BLOCKS)
+            pending.pop_front();
+          pending.emplace_back(new_block_hash, need_tx_indices);
+        }
         missing_tx_req.missing_tx_indices = std::move(need_tx_indices);
 
         // Post NOTIFY_REQUEST_FLUFFY_MISSING_TX request to peer
@@ -724,6 +777,7 @@ namespace cryptonote
       context.m_needed_objects.clear();
       context.m_last_known_hash = crypto::null_hash;
       context.m_state = cryptonote_connection_context::state_synchronizing;
+      context.m_pending_fluffy_missing_txs.clear();
       NOTIFY_REQUEST_CHAIN::request r = {};
       m_core.get_short_chain_history(r.block_ids, context.m_expect_height);
       handler_request_blocks_history( r.block_ids ); // change the limit(?), sleep(?)

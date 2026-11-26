@@ -444,9 +444,9 @@ namespace cryptonote
      /**
       * @copydoc tx_memory_pool::have_tx
       *
-      * @note see tx_memory_pool::have_tx
+      * @note Pass relay_category::all to also include local, forward, and stem transactions.
       */
-     bool pool_has_tx(const crypto::hash &txid) const;
+     bool pool_has_tx(const crypto::hash &txid, relay_category tx_category = relay_category::legacy) const;
 
      /**
       * @copydoc tx_memory_pool::get_transactions
