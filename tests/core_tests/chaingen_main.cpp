@@ -33,6 +33,7 @@
 #include "common/util.h"
 #include "common/command_line.h"
 #include "tx_pool.h"
+#include "block_pow_cache.h"
 #include "transaction_tests.h"
 
 #include <boost/regex.hpp>
@@ -168,6 +169,7 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(txpool_double_spend_keyimage);
     GENERATE_AND_PLAY(txpool_stem_loop);
     GENERATE_AND_PLAY(fluffy_block_stem_tx);
+    GENERATE_AND_PLAY(block_pow_cache);
 
     // Double spend
     GENERATE_AND_PLAY(gen_double_spend_in_tx<false>);

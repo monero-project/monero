@@ -74,6 +74,8 @@ DISABLE_VS_WARNINGS(4267)
 // used to overestimate the block reward when estimating a per kB to use
 #define BLOCK_REWARD_OVERESTIMATE (10 * 1000000000000)
 
+#define MAX_MISSING_TX_POW_CACHE_SIZE 8
+
 /// @brief Parameter for block template backlog fetching: targets total weight 112.5% of the block's limit
 #define DEFAULT_RPC_TX_BACKLOG_OVERPICK 0.125f
 
@@ -3872,6 +3874,12 @@ leave:
     return false;
   }
 
+  if (m_missing_tx_pow_cache_tip != top_hash)
+  {
+    m_missing_tx_pow_cache.clear();
+    m_missing_tx_pow_cache_tip = top_hash;
+  }
+
   // warn users if they're running an old version
   if (!seen_future_version && bl.major_version > m_hardfork->get_ideal_version())
   {
@@ -3934,6 +3942,7 @@ leave:
   // be a parameter?
   // validate proof_of_work versus difficulty target
   bool precomputed = false;
+  bool in_missing_tx_pow_cache = false;
   bool fast_check = false;
 #if defined(PER_BLOCK_CHECKPOINT)
   if (blockchain_height < m_blocks_hash_check.size())
@@ -3957,6 +3966,9 @@ leave:
 #endif
   if (!fast_check)
   {
+    const auto cached = std::find_if(m_missing_tx_pow_cache.begin(), m_missing_tx_pow_cache.end(),
+      [&id](const auto& entry) { return entry.first == id; });
+    in_missing_tx_pow_cache = cached != m_missing_tx_pow_cache.end();
     auto it = m_blocks_longhash_table.find(id);
     if (it != m_blocks_longhash_table.end())
     {
@@ -3964,7 +3976,7 @@ leave:
       proof_of_work = it->second;
     }
     else
-      proof_of_work = get_block_longhash(this, bl, blockchain_height, 0);
+      proof_of_work = in_missing_tx_pow_cache ? cached->second : get_block_longhash(this, bl, blockchain_height, 0);
 
     // validate proof_of_work versus difficulty target
     if(!check_hash(proof_of_work, current_diffic))
@@ -4156,6 +4168,13 @@ leave:
       txs.pop_back(); // We push to the back preemptively. On fail, we need txs & txs_meta to match size
       bvc.m_verifivation_failed = true;
       bvc.m_missing_txs = true;
+      // Retain only verified PoW results. Checkpoint shortcuts do not calculate a hash.
+      if (!fast_check && !in_missing_tx_pow_cache)
+      {
+        if (m_missing_tx_pow_cache.size() >= MAX_MISSING_TX_POW_CACHE_SIZE)
+          m_missing_tx_pow_cache.pop_front();
+        m_missing_tx_pow_cache.emplace_back(id, proof_of_work);
+      }
       return_txs_to_pool();
       return false;
     }

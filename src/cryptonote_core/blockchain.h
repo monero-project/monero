@@ -44,6 +44,7 @@
 #include <boost/multi_index/member.hpp>
 #include <atomic>
 #include <functional>
+#include <deque>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -1191,6 +1192,10 @@ namespace cryptonote
     // metadata containers
     std::unordered_map<crypto::hash, std::unordered_map<crypto::key_image, std::vector<output_data_t>>> m_scan_table;
     std::unordered_map<crypto::hash, crypto::hash> m_blocks_longhash_table;
+    // Verified PoW for blocks awaiting transactions. Restrict reuse to children
+    // of the same tip, which fixes their height and PoW seed.
+    std::deque<std::pair<crypto::hash, crypto::hash>> m_missing_tx_pow_cache;
+    crypto::hash m_missing_tx_pow_cache_tip = crypto::null_hash;
 
     // Keccak hashes for each block and for fast pow checking
     std::vector<std::pair<crypto::hash, crypto::hash>> m_blocks_hash_of_hashes;
