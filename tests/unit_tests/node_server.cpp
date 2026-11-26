@@ -33,6 +33,7 @@
 #include "p2p/net_node.h"
 #include "p2p/net_node.inl"
 #include "cryptonote_core/i_core_events.h"
+#include "cryptonote_basic/cryptonote_format_utils.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.h"
 #include "cryptonote_protocol/cryptonote_protocol_handler.inl"
 #include "net/i2p_address.h"
@@ -99,7 +100,7 @@ public:
   virtual void on_transactions_relayed(epee::span<const cryptonote::blobdata> tx_blobs, cryptonote::relay_method tx_relay) {}
   cryptonote::network_type get_nettype() const { return cryptonote::MAINNET; }
   bool get_pool_transaction(const crypto::hash& id, cryptonote::blobdata& tx_blob, cryptonote::relay_category tx_category) const { return false; }
-  bool pool_has_tx(const crypto::hash &txid) const { return false; }
+  bool pool_has_tx(const crypto::hash &txid, cryptonote::relay_category = cryptonote::relay_category::legacy) const { return false; }
   bool get_blocks(uint64_t start_offset, size_t count, std::vector<std::pair<cryptonote::blobdata, cryptonote::block>>& blocks, std::vector<cryptonote::blobdata>& txs) const { return false; }
   bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<cryptonote::blobdata>& txs, std::vector<crypto::hash>& missed_txs, bool pruned = false) const { return false; }
   bool get_transactions(const std::vector<crypto::hash>& txs_ids, std::vector<cryptonote::transaction>& txs, std::vector<crypto::hash>& missed_txs) const { return false; }
@@ -192,6 +193,148 @@ namespace
     bool accepted;
     cryptonote::cryptonote_connection_context::state state;
     unsigned fail_score;
+  };
+
+  class missing_tx_test_core : public test_core
+  {
+  public:
+    enum class block_result { missing_txs, accepted, already_known };
+    block_result result = block_result::missing_txs;
+    std::vector<crypto::hash> incoming_blocks;
+    std::unordered_set<crypto::hash> pool_txs;
+    std::unordered_set<crypto::hash> known_blocks;
+    crypto::hash tip = crypto::null_hash;
+
+    bool pool_has_tx(const crypto::hash& id, cryptonote::relay_category = cryptonote::relay_category::legacy) const { return pool_txs.count(id); }
+    bool have_block(const crypto::hash& id, int* = nullptr) const { return known_blocks.count(id); }
+    void get_blockchain_top(uint64_t& height, crypto::hash& id) const { height = 0; id = tip; }
+
+    bool handle_single_incoming_block(const cryptonote::blobdata&,
+      const cryptonote::block* block,
+      cryptonote::block_verification_context& bvc,
+      cryptonote::pool_supplement&,
+      bool = true)
+    {
+      incoming_blocks.push_back(cryptonote::get_block_hash(*block));
+      bvc = {};
+      bvc.m_missing_txs = result == block_result::missing_txs;
+      bvc.m_verifivation_failed = bvc.m_missing_txs;
+      bvc.m_added_to_main_chain = result == block_result::accepted;
+      bvc.m_already_exists = result == block_result::already_known;
+      return !bvc.m_missing_txs;
+    }
+  };
+
+  struct missing_tx_test_p2p : nodetool::p2p_endpoint_stub<cryptonote::cryptonote_connection_context>
+  {
+    std::vector<cryptonote::NOTIFY_REQUEST_FLUFFY_MISSING_TX::request> requests;
+
+    bool invoke_notify_to_peer(int command,
+      epee::levin::message_writer writer,
+      const epee::net_utils::connection_context_base&) override
+    {
+      if (command != cryptonote::NOTIFY_REQUEST_FLUFFY_MISSING_TX::ID)
+        return true;
+      const auto message = writer.finalize_notify(command);
+      const size_t header_size = sizeof(epee::levin::message_writer::header);
+      if (message.size() < header_size)
+      {
+        ADD_FAILURE() << "Missing Levin header";
+        return false;
+      }
+      cryptonote::NOTIFY_REQUEST_FLUFFY_MISSING_TX::request request;
+      const bool decoded = epee::serialization::load_t_from_binary(request,
+        epee::span<const uint8_t>{message.data() + header_size, message.size() - header_size});
+      EXPECT_TRUE(decoded);
+      if (decoded)
+        requests.push_back(std::move(request));
+      return decoded;
+    }
+  };
+
+  struct fluffy_test_block
+  {
+    cryptonote::block block;
+    std::vector<cryptonote::tx_blob_entry> txs;
+  };
+
+  fluffy_test_block make_fluffy_test_block(uint32_t nonce = 0)
+  {
+    fluffy_test_block data;
+    auto& block = data.block;
+    block.major_version = 1;
+    block.minor_version = 0;
+    block.timestamp = 1;
+    block.prev_id = crypto::null_hash;
+    block.nonce = nonce;
+    block.miner_tx.version = 1;
+    block.miner_tx.unlock_time = 0;
+    block.miner_tx.vin.push_back(cryptonote::txin_gen{0});
+
+    for (uint64_t height = 1; height <= 2; ++height)
+    {
+      cryptonote::transaction tx;
+      tx.version = 1;
+      tx.unlock_time = 0;
+      tx.vin.push_back(cryptonote::txin_gen{height});
+      cryptonote::blobdata blob;
+      if (!cryptonote::tx_to_blob(tx, blob))
+        throw std::runtime_error("failed to serialize test transaction");
+      block.tx_hashes.push_back(cryptonote::get_transaction_hash(tx));
+      data.txs.push_back({blob, crypto::null_hash});
+    }
+    return data;
+  }
+
+  struct pending_fluffy_fixture : testing::Test
+  {
+    missing_tx_test_core core;
+    missing_tx_test_p2p p2p;
+    cryptonote::t_cryptonote_protocol_handler<missing_tx_test_core> handler{core, &p2p, true};
+    cryptonote::cryptonote_connection_context context;
+    const fluffy_test_block data = make_fluffy_test_block();
+
+    void SetUp() override
+    {
+      static_cast<epee::net_utils::connection_context_base&>(context) =
+        epee::net_utils::connection_context_base{boost::uuids::uuid{},
+          epee::net_utils::network_address{MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 1, 18080)}, false, false};
+      context.m_state = cryptonote::cryptonote_connection_context::state_normal;
+    }
+
+    int receive_block(const cryptonote::block& block, const std::vector<cryptonote::tx_blob_entry>& txs = {})
+    {
+      cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::request request;
+      request.b.block = cryptonote::block_to_blob(block);
+      request.b.txs = txs;
+      request.current_blockchain_height = cryptonote::get_block_height(block) + 1;
+      const auto payload = epee::serialization::store_t_to_binary(request);
+      epee::byte_stream out;
+      bool handled = false;
+      const int result = handler.handle_invoke_map(true, cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::ID,
+        epee::to_span(payload), out, context, handled);
+      EXPECT_TRUE(handled);
+      return result;
+    }
+
+    int receive(const std::vector<cryptonote::tx_blob_entry>& txs = {}) { return receive_block(data.block, txs); }
+    crypto::hash hash() const { return cryptonote::get_block_hash(data.block); }
+
+    void expect_request(size_t index, const crypto::hash& block_hash, const std::vector<uint64_t>& indexes)
+    {
+      ASSERT_LT(index, p2p.requests.size());
+      EXPECT_EQ(p2p.requests[index].block_hash, block_hash);
+      EXPECT_EQ(p2p.requests[index].missing_tx_indices, indexes);
+      EXPECT_EQ(p2p.requests[index].current_blockchain_height, 1u);
+    }
+
+    void start_request(const std::vector<uint64_t>& indexes = {0, 1})
+    {
+      ASSERT_EQ(receive(), 1);
+      ASSERT_EQ(p2p.requests.size(), 1u);
+      expect_request(0, hash(), indexes);
+      EXPECT_EQ(core.incoming_blocks, std::vector<crypto::hash>({hash()}));
+    }
   };
 
   known_top_result process_known_top(known_top_test_core& core, const crypto::hash& top, uint64_t height, bool initial, bool hidden = false)
@@ -324,6 +467,154 @@ TEST(node_server, anonymous_inbound_bind_port)
 
   EXPECT_FALSE(parse("invalid"));
   EXPECT_FALSE(parse("65536"));
+}
+
+TEST_F(pending_fluffy_fixture, duplicate_announcement_is_ignored)
+{
+  ASSERT_NO_FATAL_FAILURE(start_request());
+  EXPECT_EQ(receive(), 1);
+  EXPECT_EQ(core.incoming_blocks, std::vector<crypto::hash>({hash()}));
+  EXPECT_EQ(p2p.requests.size(), 1u);
+}
+
+TEST_F(pending_fluffy_fixture, partial_message_still_waits)
+{
+  ASSERT_NO_FATAL_FAILURE(start_request());
+  EXPECT_EQ(receive({data.txs[0]}), 1);
+  EXPECT_EQ(core.incoming_blocks, std::vector<crypto::hash>({hash()}));
+  EXPECT_EQ(p2p.requests.size(), 1u);
+}
+
+TEST_F(pending_fluffy_fixture, complete_message_resumes_processing)
+{
+  ASSERT_NO_FATAL_FAILURE(start_request());
+  core.result = missing_tx_test_core::block_result::accepted;
+  EXPECT_EQ(receive(data.txs), 1);
+  EXPECT_EQ(core.incoming_blocks, std::vector<crypto::hash>({hash(), hash()}));
+  EXPECT_EQ(p2p.requests.size(), 1u);
+  EXPECT_TRUE(context.m_pending_fluffy_missing_txs.empty());
+}
+
+TEST_F(pending_fluffy_fixture, transactions_arrive_in_pool)
+{
+  ASSERT_NO_FATAL_FAILURE(start_request());
+  core.pool_txs.insert(data.block.tx_hashes.begin(), data.block.tx_hashes.end());
+  core.result = missing_tx_test_core::block_result::accepted;
+  EXPECT_EQ(receive(), 1);
+  EXPECT_EQ(core.incoming_blocks, std::vector<crypto::hash>({hash(), hash()}));
+  EXPECT_EQ(p2p.requests.size(), 1u);
+}
+
+TEST_F(pending_fluffy_fixture, transactions_arrive_in_message_and_pool)
+{
+  ASSERT_NO_FATAL_FAILURE(start_request());
+  core.pool_txs.insert(data.block.tx_hashes[0]);
+  core.result = missing_tx_test_core::block_result::accepted;
+  EXPECT_EQ(receive({data.txs[1]}), 1);
+  EXPECT_EQ(core.incoming_blocks, std::vector<crypto::hash>({hash(), hash()}));
+  EXPECT_EQ(p2p.requests.size(), 1u);
+}
+
+TEST_F(pending_fluffy_fixture, partial_pool_availability_still_waits)
+{
+  ASSERT_NO_FATAL_FAILURE(start_request());
+  core.pool_txs.insert(data.block.tx_hashes[0]);
+  EXPECT_EQ(receive(), 1);
+  EXPECT_EQ(core.incoming_blocks, std::vector<crypto::hash>({hash()}));
+  EXPECT_EQ(p2p.requests.size(), 1u);
+}
+
+TEST_F(pending_fluffy_fixture, pool_eviction_can_start_a_new_request)
+{
+  core.pool_txs.insert(data.block.tx_hashes[0]);
+  ASSERT_NO_FATAL_FAILURE(start_request({1}));
+  core.pool_txs.clear();
+  EXPECT_EQ(receive({data.txs[1]}), 1);
+  EXPECT_EQ(core.incoming_blocks, std::vector<crypto::hash>({hash(), hash()}));
+  ASSERT_EQ(p2p.requests.size(), 2u);
+  // Neither transaction is in the fake pool, so the next request includes both.
+  expect_request(1, hash(), {0, 1});
+}
+
+TEST_F(pending_fluffy_fixture, changed_tip_invalidates_pending_request)
+{
+  ASSERT_NO_FATAL_FAILURE(start_request());
+  // Change the tip hash while keeping its height unchanged.
+  core.tip.data[0] = 1;
+  EXPECT_EQ(receive(), 1);
+  EXPECT_EQ(core.incoming_blocks, std::vector<crypto::hash>({hash(), hash()}));
+  ASSERT_EQ(p2p.requests.size(), 2u);
+  expect_request(1, hash(), {0, 1});
+  EXPECT_EQ(receive(), 1);
+  EXPECT_EQ(core.incoming_blocks.size(), 2u);
+  EXPECT_EQ(p2p.requests.size(), 2u);
+}
+
+TEST_F(pending_fluffy_fixture, block_learned_elsewhere_clears_pending)
+{
+  ASSERT_NO_FATAL_FAILURE(start_request());
+  core.known_blocks.insert(hash());
+  core.result = missing_tx_test_core::block_result::already_known;
+  EXPECT_EQ(receive(), 1);
+  EXPECT_EQ(core.incoming_blocks, std::vector<crypto::hash>({hash(), hash()}));
+  EXPECT_EQ(p2p.requests.size(), 1u);
+  EXPECT_TRUE(context.m_pending_fluffy_missing_txs.empty());
+}
+
+TEST_F(pending_fluffy_fixture, alternating_siblings_are_deduplicated)
+{
+  ASSERT_NO_FATAL_FAILURE(start_request());
+  const auto sibling = make_fluffy_test_block(1);
+  const auto sibling_hash = cryptonote::get_block_hash(sibling.block);
+  ASSERT_NE(hash(), sibling_hash);
+  EXPECT_EQ(receive_block(sibling.block), 1);
+  ASSERT_EQ(p2p.requests.size(), 2u);
+  expect_request(1, sibling_hash, {0, 1});
+  EXPECT_EQ(receive(), 1);
+  EXPECT_EQ(receive_block(sibling.block), 1);
+  EXPECT_EQ(core.incoming_blocks, std::vector<crypto::hash>({hash(), sibling_hash}));
+  EXPECT_EQ(p2p.requests.size(), 2u);
+}
+
+TEST_F(pending_fluffy_fixture, pending_limit_evicts_oldest_request)
+{
+  const size_t limit = MAX_PENDING_FLUFFY_BLOCKS;
+  const auto newest = make_fluffy_test_block(limit);
+  std::vector<crypto::hash> expected_blocks;
+  for (size_t i = 0; i <= limit; ++i)
+  {
+    SCOPED_TRACE(i);
+    const auto next = make_fluffy_test_block(i);
+    const auto next_hash = cryptonote::get_block_hash(next.block);
+    ASSERT_EQ(receive_block(next.block), 1);
+    ASSERT_EQ(p2p.requests.size(), i + 1);
+    expect_request(i, next_hash, {0, 1});
+    expected_blocks.push_back(next_hash);
+    EXPECT_LE(context.m_pending_fluffy_missing_txs.size(), limit);
+  }
+  EXPECT_EQ(receive_block(newest.block), 1);
+  EXPECT_EQ(core.incoming_blocks, expected_blocks);
+  EXPECT_EQ(p2p.requests.size(), limit + 1);
+  EXPECT_EQ(receive(), 1);
+  expected_blocks.push_back(hash());
+  EXPECT_EQ(core.incoming_blocks, expected_blocks);
+  ASSERT_EQ(p2p.requests.size(), limit + 2);
+  expect_request(limit + 1, hash(), {0, 1});
+  EXPECT_EQ(context.m_pending_fluffy_missing_txs.size(), limit);
+}
+
+TEST_F(pending_fluffy_fixture, sync_transition_clears_pending)
+{
+  ASSERT_NO_FATAL_FAILURE(start_request());
+  cryptonote::CORE_SYNC_DATA sync{};
+  sync.top_id.data[0] = 7;
+  sync.current_height = 2;
+  EXPECT_TRUE(handler.process_payload_sync_data(sync, context, false));
+  EXPECT_EQ(context.m_state, cryptonote::cryptonote_connection_context::state_synchronizing);
+  EXPECT_TRUE(context.m_pending_fluffy_missing_txs.empty());
+  EXPECT_EQ(receive(), 1);
+  EXPECT_EQ(core.incoming_blocks, std::vector<crypto::hash>({hash()}));
+  EXPECT_EQ(p2p.requests.size(), 1u);
 }
 
 TEST(node_server, ipv6_peer_group)

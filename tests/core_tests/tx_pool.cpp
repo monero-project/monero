@@ -30,10 +30,14 @@
 
 #include <boost/chrono/chrono.hpp>
 #include <boost/thread/thread_only.hpp>
+#include <boost/uuid/uuid_io.hpp>
 #include <ctime>
 #include <limits>
 #include "blockchain_db/locked_txn.h"
 #include "string_tools.h"
+#include "net/levin_protocol_handler_async.h"
+#include "cryptonote_protocol/cryptonote_protocol_handler.h"
+#include "cryptonote_protocol/cryptonote_protocol_handler.inl"
 
 #define INIT_MEMPOOL_TEST()                                   \
   uint64_t send_amount = 1000;                                \
@@ -716,5 +720,71 @@ bool txpool_stem_loop::generate(std::vector<test_event_entry>& events) const
   events.push_back(tx_0);
   DO_CALLBACK(events, "check_unchanged");
 
+  return true;
+}
+
+fluffy_block_stem_tx::fluffy_block_stem_tx()
+{
+  REGISTER_CALLBACK_METHOD(fluffy_block_stem_tx, check_pending_block_resumes);
+}
+
+bool fluffy_block_stem_tx::generate(std::vector<test_event_entry>& events) const
+{
+  INIT_MEMPOOL_TEST();
+  MAKE_TX(events, tx, miner_account, bob_account, send_amount, blk_0r);
+  DO_CALLBACK(events, "check_pending_block_resumes");
+  MAKE_NEXT_BLOCK_TX1(events, blk_1, blk_0r, miner_account, tx);
+  return true;
+}
+
+bool fluffy_block_stem_tx::check_pending_block_resumes(cryptonote::core& c, size_t ev_index,
+  const std::vector<test_event_entry>& events)
+{
+  const std::string perr_context = "fluffy_block_stem_tx";
+  // Process the following block here before the event runner submits it again.
+  const auto& tx = boost::get<cryptonote::transaction>(events.at(ev_index - 1));
+  const auto& block = boost::get<cryptonote::block>(events.at(ev_index + 1));
+  const crypto::hash txid = cryptonote::get_transaction_hash(tx);
+  const crypto::hash block_hash = cryptonote::get_block_hash(block);
+  // The preceding event added this transaction to the pool. Remove it so the
+  // first block announcement triggers a request for the missing transaction.
+  CHECK_TEST_CONDITION(c.get_blockchain_storage().flush_txes_from_pool({txid}));
+  CHECK_TEST_CONDITION(!c.pool_has_tx(txid, cryptonote::relay_category::all));
+
+  cryptonote::t_cryptonote_protocol_handler<cryptonote::core> handler{c, nullptr, true};
+  cryptonote::cryptonote_connection_context context;
+  context.m_state = cryptonote::cryptonote_connection_context::state_normal;
+  cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::request request;
+  request.b.block = cryptonote::block_to_blob(block);
+  request.current_blockchain_height = cryptonote::get_block_height(block) + 1;
+  const auto payload = epee::serialization::store_t_to_binary(request);
+  auto announce = [&](cryptonote::cryptonote_connection_context& peer) {
+    epee::byte_stream out;
+    bool handled = false;
+    const int result = handler.handle_invoke_map(true, cryptonote::NOTIFY_NEW_FLUFFY_BLOCK::ID,
+      epee::to_span(payload), out, peer, handled);
+    return handled && result == 1;
+  };
+
+  CHECK_TEST_CONDITION(announce(context));
+  CHECK_TEST_CONDITION(!c.have_block(block_hash));
+  CHECK_TEST_CONDITION(context.m_pending_fluffy_missing_txs.size() == 1);
+  cryptonote::cryptonote_connection_context other_peer;
+  other_peer.m_state = cryptonote::cryptonote_connection_context::state_normal;
+  CHECK_TEST_CONDITION(announce(other_peer));
+  CHECK_TEST_CONDITION(other_peer.m_pending_fluffy_missing_txs.size() == 1);
+
+  // A stem transaction is available locally before it is publicly relayed.
+  cryptonote::tx_verification_context tvc{};
+  CHECK_TEST_CONDITION(c.handle_incoming_tx(cryptonote::tx_to_blob(tx), tvc, cryptonote::relay_method::stem, false));
+  CHECK_TEST_CONDITION(!tvc.m_verifivation_failed);
+  CHECK_TEST_CONDITION(!c.pool_has_tx(txid));
+  CHECK_TEST_CONDITION(c.pool_has_tx(txid, cryptonote::relay_category::all));
+
+  CHECK_TEST_CONDITION(announce(other_peer));
+  CHECK_TEST_CONDITION(c.get_block_id_by_height(cryptonote::get_block_height(block)) == block_hash);
+  CHECK_TEST_CONDITION(other_peer.m_pending_fluffy_missing_txs.empty());
+  CHECK_TEST_CONDITION(announce(context));
+  CHECK_TEST_CONDITION(context.m_pending_fluffy_missing_txs.empty());
   return true;
 }
