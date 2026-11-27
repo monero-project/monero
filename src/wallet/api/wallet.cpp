@@ -548,6 +548,21 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
         // Generate view only wallet
         view_wallet->generate(path, password, address, viewkey);
 
+        const auto lookahead = m_wallet->get_subaddress_lookahead();
+        view_wallet->set_subaddress_lookahead(lookahead.first, lookahead.second);
+        // Keep issued addresses in the scan range without copying their labels.
+        const auto num_accounts = m_wallet->get_num_subaddress_accounts();
+        if (num_accounts > 1)
+            view_wallet->expand_subaddresses({static_cast<uint32_t>(num_accounts - 1), 0});
+        for (size_t major = 0; major < num_accounts; ++major)
+        {
+            const auto minor_count = m_wallet->get_num_subaddresses(static_cast<uint32_t>(major));
+            if (minor_count == 0)
+                throw std::runtime_error("subaddress account has no addresses");
+            if (minor_count > 1)
+                view_wallet->expand_subaddresses({static_cast<uint32_t>(major), static_cast<uint32_t>(minor_count - 1)});
+        }
+
         // Preserve complete output metadata
         tools::wallet2::transfer_container transfers;
         m_wallet->get_transfers(transfers);
@@ -577,14 +592,14 @@ bool WalletImpl::createWatchOnly(const std::string &path, const std::string &pas
         uint64_t spent = 0;
         uint64_t unspent = 0;
         view_wallet->import_key_images(key_images.second, key_images.first, spent, unspent, false);
+        if (!view_wallet->path().empty())
+            view_wallet->store_to("", password, true);
         clearStatus();
     } catch (const std::exception &e) {
         LOG_ERROR("Error creating view only wallet: " << e.what());
         setStatusError(e.what());
         return false;
     }
-    // Store wallet
-    view_wallet->store();
     return true;
 }
 
