@@ -270,15 +270,20 @@ namespace cryptonote
     if(!ctx || !ctx->m_remote_address.is_blockable() || disable_rpc_ban)
       return false;
 
+    const auto subnet = nodetool::get_ipv6_ban_subnet(ctx->m_remote_address);
+    const std::string host = subnet ? subnet->host_str() : ctx->m_remote_address.host_str();
     CRITICAL_REGION_LOCAL(m_host_fails_score_lock);
-    uint64_t fails = m_host_fails_score[ctx->m_remote_address.host_str()] += score;
-    MDEBUG("Host " << ctx->m_remote_address.host_str() << " fail score=" << fails);
+    uint64_t fails = m_host_fails_score[host] += score;
+    MDEBUG("Host " << host << " fail score=" << fails);
     if(fails > RPC_IP_FAILS_BEFORE_BLOCK)
     {
-      auto it = m_host_fails_score.find(ctx->m_remote_address.host_str());
+      auto it = m_host_fails_score.find(host);
       CHECK_AND_ASSERT_MES(it != m_host_fails_score.end(), false, "internal error");
       it->second = RPC_IP_FAILS_BEFORE_BLOCK/2;
-      m_p2p.block_host(ctx->m_remote_address);
+      if (subnet)
+        m_p2p.block_subnet(*subnet, P2P_IP_BLOCKTIME, true);
+      else
+        m_p2p.block_host(ctx->m_remote_address);
     }
     return true;
   }

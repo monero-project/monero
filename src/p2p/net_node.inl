@@ -587,15 +587,20 @@ namespace nodetool
     if(!address.is_blockable())
       return false;
 
+    const auto subnet = get_ipv6_ban_subnet(address);
+    const std::string host = subnet ? subnet->host_str() : address.host_str();
     CRITICAL_REGION_LOCAL(m_host_fails_score_lock);
-    uint64_t fails = m_host_fails_score[address.host_str()] += score;
-    MDEBUG("Host " << address.host_str() << " fail score=" << fails);
+    uint64_t fails = m_host_fails_score[host] += score;
+    MDEBUG("Host " << host << " fail score=" << fails);
     if(fails > P2P_IP_FAILS_BEFORE_BLOCK)
     {
-      auto it = m_host_fails_score.find(address.host_str());
+      auto it = m_host_fails_score.find(host);
       CHECK_AND_ASSERT_MES(it != m_host_fails_score.end(), false, "internal error");
       it->second = P2P_IP_FAILS_BEFORE_BLOCK/2;
-      block_host(address);
+      if (subnet)
+        block_subnet(*subnet, P2P_IP_BLOCKTIME, true);
+      else
+        block_host(address);
     }
     return true;
   }
