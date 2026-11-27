@@ -184,6 +184,19 @@ namespace nodetool
     return ip.is_v4_mapped() || ip.is_unspecified();
   }
 
+  inline bool is_valid_remote_peerlist_address(const epee::net_utils::network_address& address)
+  {
+    if (is_forbidden_ipv6_address(address) || address.is_loopback() || address.is_local())
+      return false;
+
+    if (address.get_type_id() != epee::net_utils::address_type::ipv4)
+      return true;
+
+    static const auto shared_address_space = MONERO_UNWRAP(net::get_ipv4_subnet_address("100.64.0.0/10")); // RFC 6598
+    const auto& ipv4 = address.as<epee::net_utils::ipv4_network_address>();
+    return ipv4.ip() != 0 && !shared_address_space.matches(ipv4);
+  }
+
   inline bool should_skip_connect_address(const epee::net_utils::network_address& address, bool use_ipv6)
   {
     if (address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id() && !use_ipv6)
@@ -2405,25 +2418,9 @@ namespace nodetool
   {
     for (size_t i = 0; i < local_peerlist.size(); ++i)
     {
-      bool ignore = false;
       peerlist_entry &be = local_peerlist[i];
-      epee::net_utils::network_address &na = be.adr;
-      if (is_forbidden_ipv6_address(na))
-      {
-        ignore = true;
-      }
-      else if (na.is_loopback() || na.is_local())
-      {
-        ignore = true;
-      }
-      else if (na.get_type_id() == epee::net_utils::ipv4_network_address::get_type_id())
-      {
-        const epee::net_utils::ipv4_network_address &ipv4 = na.as<const epee::net_utils::ipv4_network_address>();
-        if (ipv4.ip() == 0)
-          ignore = true;
-        else if (ipv4.port() == be.rpc_port)
-          ignore = true;
-      }
+      bool ignore = !is_valid_remote_peerlist_address(be.adr) ||
+        (be.adr.get_type_id() == epee::net_utils::address_type::ipv4 && be.adr.port() == be.rpc_port);
       if (be.pruning_seed && (be.pruning_seed < tools::make_pruning_seed(1, CRYPTONOTE_PRUNING_LOG_STRIPES) || be.pruning_seed > tools::make_pruning_seed(1ul << CRYPTONOTE_PRUNING_LOG_STRIPES, CRYPTONOTE_PRUNING_LOG_STRIPES)))
         ignore = true;
       if (ignore)
