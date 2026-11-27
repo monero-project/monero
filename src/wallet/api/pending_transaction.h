@@ -61,6 +61,8 @@ public:
 
 private:
     friend class WalletImpl;
+    bool commitWithRefreshLock();
+    bool commitInternal(const std::string &filename, bool overwrite, bool allow_current_refresh_lock);
     WalletImpl &m_wallet;
 
     int  m_status;
