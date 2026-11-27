@@ -1484,6 +1484,7 @@ uint64_t Blockchain::get_long_term_block_weight_median(uint64_t start_height, si
 uint64_t Blockchain::get_current_cumulative_block_weight_limit() const
 {
   LOG_PRINT_L3("Blockchain::" << __func__);
+  CRITICAL_REGION_LOCAL(m_blockchain_lock);
   return m_current_block_cumul_weight_limit;
 }
 //------------------------------------------------------------------
