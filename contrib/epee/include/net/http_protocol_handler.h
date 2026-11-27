@@ -154,6 +154,7 @@ namespace net_utils
 
 			std::string m_root_path;
 			std::string m_cache;
+			size_t m_header_scan_pos;
 			machine_state m_state;
 			body_transfer_type m_body_transfer_type;
 			bool m_is_stop_handling;
