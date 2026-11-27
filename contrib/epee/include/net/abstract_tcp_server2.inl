@@ -629,19 +629,22 @@ namespace net_utils
         boost::asio::bind_executor(m_strand, on_write)
       );
     else
+    {
+      const auto buf = boost::asio::buffer(
+        m_state.data.write.queue.back().data(),
+        m_state.data.write.queue.back().size()
+      );
       boost::asio::post(
         m_strand,
-        [this, self, on_write]{
+        [this, self, on_write, buf]{
           boost::asio::async_write(
             connection_basic::socket_,
-            boost::asio::buffer(
-              m_state.data.write.queue.back().data(),
-              m_state.data.write.queue.back().size()
-            ),
+            buf,
             boost::asio::bind_executor(m_strand, on_write)
           );
         }
       );
+    }
   }
 
   template<typename T>
