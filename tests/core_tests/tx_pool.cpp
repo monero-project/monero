@@ -477,6 +477,13 @@ bool txpool_double_spend_base::check_changed(cryptonote::core& c, const size_t e
 
   for (const std::pair<const crypto::hash, uint64_t>& hash : m_all_hashes)
   {
+    const bool broadcasted = m_broadcasted_hashes.count(hash.first) != 0;
+    if (c.pool_has_tx(hash.first, cryptonote::relay_category::broadcasted) != broadcasted)
+    {
+      MERROR("Broadcasted membership exposed a hidden tx or omitted a public tx: " << hash.first);
+      return false;
+    }
+
     cryptonote::blobdata tx_blob{};
     if (!c.get_pool_transaction(hash.first, tx_blob, cryptonote::relay_category::all))
     {
