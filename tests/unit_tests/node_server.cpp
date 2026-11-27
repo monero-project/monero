@@ -37,6 +37,7 @@
 #include "cryptonote_protocol/cryptonote_protocol_handler.inl"
 #include "net/i2p_address.h"
 #include "net/tor_address.h"
+#include "rpc/core_rpc_server.h"
 #include "storages/portable_storage_template_helper.h"
 #include "unit_tests_utils.h"
 #include <algorithm>
@@ -726,6 +727,65 @@ TEST(ban, add)
   ASSERT_TRUE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,4), &t));
   ASSERT_FALSE(is_blocked(server,MAKE_IPV4_ADDRESS(1,2,3,5)));
   ASSERT_TRUE(t >= 4);
+}
+
+TEST(ban, automatic_ipv6_subnet)
+{
+  test_core pr_core;
+  cryptonote::t_cryptonote_protocol_handler<test_core> cprotocol(pr_core, NULL);
+  Server server(cprotocol);
+  nodetool::i_p2p_endpoint<decltype(cprotocol)::connection_context>& endpoint = server;
+  const epee::net_utils::ipv6_network_address first{
+    boost::asio::ip::make_address_v6("2001:db8:1:2::1"), 18080};
+  const epee::net_utils::ipv6_network_address second{
+    boost::asio::ip::make_address_v6("2001:db8:1:2::2"), 28080};
+
+  ASSERT_TRUE(endpoint.add_host_fail(first, P2P_IP_FAILS_BEFORE_BLOCK));
+  EXPECT_FALSE(server.is_host_blocked(first, nullptr));
+
+  ASSERT_TRUE(endpoint.add_host_fail(second));
+  EXPECT_TRUE(server.is_host_blocked(first, nullptr));
+  EXPECT_TRUE(server.is_host_blocked(make_ipv6_address("2001:db8:1:2:ffff::1"), nullptr));
+  EXPECT_FALSE(server.is_host_blocked(make_ipv6_address("2001:db8:1:3::1"), nullptr));
+
+  const auto subnet = make_ipv6_subnet("2001:db8:1:2::", 64);
+  ASSERT_TRUE(server.block_subnet(subnet, std::numeric_limits<time_t>::max()));
+  ASSERT_TRUE(endpoint.add_host_fail(second, P2P_IP_FAILS_BEFORE_BLOCK));
+  EXPECT_EQ(std::numeric_limits<time_t>::max(), server.get_blocked_ipv6_subnets().at(subnet));
+}
+
+TEST(ban, rpc_automatic_ipv6_subnet)
+{
+  cryptonote::core core(nullptr);
+  cryptonote::t_cryptonote_protocol_handler<cryptonote::core> protocol(core, nullptr);
+  nodetool::node_server<decltype(protocol)> server(protocol);
+  cryptonote::core_rpc_server rpc(core, server);
+  cryptonote::core_rpc_server::connection_context context;
+  cryptonote::COMMAND_RPC_GET_HASHES_FAST::request request{};
+  cryptonote::COMMAND_RPC_GET_HASHES_FAST::response response{};
+
+  // An empty block locator is rejected before accessing the blockchain database.
+  for (unsigned i = 0; i < RPC_IP_FAILS_BEFORE_BLOCK; ++i)
+  {
+    const epee::net_utils::ipv6_network_address address{
+      boost::asio::ip::make_address_v6(i % 2 ? "2001:db8:1:2::1" : "2001:db8:1:2::2"),
+      static_cast<uint16_t>(18080 + i)};
+    context = {boost::uuids::uuid{}, address, true, false};
+    ASSERT_TRUE(rpc.on_get_hashes(request, response, &context));
+    EXPECT_EQ("Failed", response.status);
+  }
+  EXPECT_TRUE(server.get_blocked_ipv6_subnets().empty());
+
+  ASSERT_TRUE(rpc.on_get_hashes(request, response, &context));
+  EXPECT_TRUE(server.is_host_blocked(make_ipv6_address("2001:db8:1:2::1"), nullptr));
+  EXPECT_TRUE(server.is_host_blocked(make_ipv6_address("2001:db8:1:2:ffff::1"), nullptr));
+  EXPECT_FALSE(server.is_host_blocked(make_ipv6_address("2001:db8:1:3::1"), nullptr));
+
+  const auto subnet = make_ipv6_subnet("2001:db8:1:2::", 64);
+  ASSERT_TRUE(server.block_subnet(subnet, std::numeric_limits<time_t>::max()));
+  for (unsigned i = 0; i < RPC_IP_FAILS_BEFORE_BLOCK; ++i)
+    ASSERT_TRUE(rpc.on_get_hashes(request, response, &context));
+  EXPECT_EQ(std::numeric_limits<time_t>::max(), server.get_blocked_ipv6_subnets().at(subnet));
 }
 
 TEST(ban, limit)

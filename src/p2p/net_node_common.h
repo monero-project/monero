@@ -46,6 +46,17 @@ namespace epee { namespace levin { class message_writer; } }
 namespace nodetool
 {
 
+  inline boost::optional<epee::net_utils::ipv6_network_subnet> get_ipv6_ban_subnet(const epee::net_utils::network_address &address)
+  {
+    if (address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
+    {
+      const auto ip = address.as<const epee::net_utils::ipv6_network_address>().ip();
+      if (epee::net_utils::should_group_ipv6_by_prefix(ip))
+        return epee::net_utils::ipv6_network_subnet{ip, 64};
+    }
+    return boost::none;
+  }
+
   typedef boost::uuids::uuid uuid;
   typedef boost::uuids::uuid net_connection_id;
 
