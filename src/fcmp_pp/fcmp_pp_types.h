@@ -215,6 +215,13 @@ std::size_t fcmp_pp_proof_len(const std::size_t n_inputs, const uint8_t n_layers
 
 // Get the number of inputs included in the FCMP++ verify input
 std::size_t n_inputs_in_fcmp_pp(const FcmpPpVerifyInput &fcmp_pp_verify_input);
+
+struct FcmpVerifyHelperData final
+{
+    TreeRootShared tree_root;
+    std::vector<crypto::key_image> key_images;
+};
+
 //----------------------------------------------------------------------------------------------------------------------
 //----------------------------------------------------------------------------------------------------------------------
 }//namespace fcmp_pp
