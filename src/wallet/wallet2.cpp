@@ -3439,6 +3439,10 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
   size_t txidx = 0;
   crypto::hash prev_block_id;
   bool has_prev_block = m_blockchain.is_in_bounds(start_height - 1);
+  // Use one task per transaction for small refreshes.
+  // For larger refreshes, group transactions to reduce scheduling overhead.
+  constexpr size_t max_cache_batch = 8;
+  const size_t batch_size = num_txes < max_cache_batch * tpool.get_max_concurrency() ? 1 : max_cache_batch;
   tools::threadpool::waiter cache_waiter(tpool);
   if (has_prev_block) {
     prev_block_id = m_blockchain[start_height - 1];
@@ -3464,10 +3468,15 @@ void wallet2::process_parsed_blocks(const uint64_t start_height, const std::vect
     if (m_refresh_type != RefreshNoCoinbase)
       tpool.submit(&cache_waiter, [&, i, txidx](){ cache_tx_data(parsed_blocks[i].block.miner_tx, get_transaction_hash(parsed_blocks[i].block.miner_tx), tx_cache_data[txidx]); });
     ++txidx;
-    for (size_t idx = 0; idx < parsed_blocks[i].txes.size(); ++idx)
+    for (size_t idx = 0; idx < parsed_blocks[i].txes.size();)
     {
-      tpool.submit(&cache_waiter, [&, i, idx, txidx](){ cache_tx_data(parsed_blocks[i].txes[idx], parsed_blocks[i].block.tx_hashes[idx], tx_cache_data[txidx]); });
-      ++txidx;
+      const size_t count = std::min(batch_size, parsed_blocks[i].txes.size() - idx);
+      tpool.submit(&cache_waiter, [&, i, idx, txidx, count] {
+        for (size_t k = 0; k < count; ++k)
+          cache_tx_data(parsed_blocks[i].txes[idx + k], parsed_blocks[i].block.tx_hashes[idx + k], tx_cache_data[txidx + k]);
+      });
+      idx += count;
+      txidx += count;
     }
   }
   THROW_WALLET_EXCEPTION_IF(txidx != num_txes, error::wallet_internal_error, "txidx does not match tx_cache_data size");
@@ -3700,9 +3709,11 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
     boost::mutex error_lock;
     tools::threadpool& tpool = tools::threadpool::getInstanceForCompute();
     tools::threadpool::waiter waiter(tpool);
+    size_t num_txes = 0;
     parsed_blocks.resize(blocks.size());
     for (size_t i = 0; i < blocks.size(); ++i)
     {
+      num_txes += blocks[i].txs.size();
       tpool.submit(&waiter, boost::bind(&wallet2::parse_block_round, this, std::cref(blocks[i].block),
         std::ref(parsed_blocks[i].block), std::ref(parsed_blocks[i].hash), std::ref(parsed_blocks[i].error)), true);
     }
@@ -3734,16 +3745,21 @@ void wallet2::pull_and_parse_next_blocks(bool first, bool try_incremental, uint6
       parsed_blocks[i].o_indices = std::move(o_indices[i]);
     }
 
+    const size_t tx_parse_batch_size = num_txes < 16 * tpool.get_max_concurrency() ? 1 : 16;
     for (size_t i = 0; i < blocks.size(); ++i)
     {
       parsed_blocks[i].txes.resize(blocks[i].txs.size());
-      for (size_t j = 0; j < blocks[i].txs.size(); ++j)
+      for (size_t first = 0; first < blocks[i].txs.size(); first += tx_parse_batch_size)
       {
-        tpool.submit(&waiter, [&, i, j](){
-          if (!parse_and_validate_tx_base_from_blob(blocks[i].txs[j].blob, parsed_blocks[i].txes[j]))
+        const size_t end = std::min(first + tx_parse_batch_size, blocks[i].txs.size());
+        tpool.submit(&waiter, [&, i, first, end](){
+          for (size_t j = first; j < end; ++j)
           {
-            boost::unique_lock<boost::mutex> lock(error_lock);
-            error = true;
+            if (!parse_and_validate_tx_base_from_blob(blocks[i].txs[j].blob, parsed_blocks[i].txes[j]))
+            {
+              boost::unique_lock<boost::mutex> lock(error_lock);
+              error = true;
+            }
           }
         }, true);
       }
