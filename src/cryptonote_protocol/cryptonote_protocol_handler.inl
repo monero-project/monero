@@ -576,10 +576,25 @@ namespace cryptonote
     }
 
     // sanity check block blob size
-    if (!m_core.check_incoming_block_size(arg.b.block))
+    const uint64_t size_limit = m_core.get_incoming_block_size_limit();
+    if (arg.b.block.size() > size_limit)
     {
+      LOG_PRINT_L1("WRONG BLOCK BLOB, sanity check failed on size " << arg.b.block.size() << ", rejected");
       drop_connection(context, false, false);
       return LEVIN_ERROR_CONNECTION;
+    }
+
+    // Block weight includes the transactions, but not the header's list of transaction hashes.
+    uint64_t remaining = size_limit;
+    for (const auto& tx : arg.b.txs)
+    {
+      if (tx.blob.size() > remaining)
+      {
+        // Another branch may have a higher weight limit. Ignore this announcement without penalizing the peer.
+        LOG_DEBUG_CC(context, "Ignoring block announcement with more than " << size_limit << " transaction bytes");
+        return 1;
+      }
+      remaining -= tx.blob.size();
     }
 
     // Parse and quick hash incoming block, dropping the connection on failure

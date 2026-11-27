@@ -206,6 +206,7 @@ namespace cryptonote
       * @return whether or not the block is too big
       */
      bool check_incoming_block_size(const blobdata& block_blob) const;
+     uint64_t get_incoming_block_size_limit() const;
 
      /**
       * @brief get the cryptonote protocol instance

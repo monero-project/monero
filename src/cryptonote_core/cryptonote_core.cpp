@@ -1451,12 +1451,17 @@ namespace cryptonote
     // blob size against the block weight limit, which acts as a sanity check without
     // having to parse/weigh first; in fact, since the block blob is the block header
     // plus the tx hashes, the weight will typically be much larger than the blob size
-    if(block_blob.size() > m_blockchain_storage.get_current_cumulative_block_weight_limit() + BLOCK_SIZE_SANITY_LEEWAY)
+    if(block_blob.size() > get_incoming_block_size_limit())
     {
       LOG_PRINT_L1("WRONG BLOCK BLOB, sanity check failed on size " << block_blob.size() << ", rejected");
       return false;
     }
     return true;
+  }
+  //-----------------------------------------------------------------------------------------------
+  uint64_t core::get_incoming_block_size_limit() const
+  {
+    return m_blockchain_storage.get_current_cumulative_block_weight_limit() + BLOCK_SIZE_SANITY_LEEWAY;
   }
   //-----------------------------------------------------------------------------------------------
   crypto::hash core::get_tail_id() const
