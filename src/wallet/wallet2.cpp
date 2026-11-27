@@ -13464,6 +13464,10 @@ bool wallet2::check_reserve_proof(const cryptonote::account_public_address &addr
 
     THROW_WALLET_EXCEPTION_IF(tx_hash != proof.txid, error::wallet_internal_error, "Failed to get the right transaction from daemon");
 
+    // the hash of a pruned v1 tx comes from the daemon, so fetch the full tx to check it
+    if (tx.version == 1 && tx.pruned)
+      get_tx_for_proof(proof.txid, tx);
+
     THROW_WALLET_EXCEPTION_IF(proof.index_in_tx >= tx.vout.size(), error::wallet_internal_error, "index_in_tx is out of bound");
 
     crypto::public_key output_public_key;
