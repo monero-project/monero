@@ -195,6 +195,23 @@ TEST(cn_format_utils, pruned_transaction_hash_caches_prunable_hash)
     EXPECT_EQ(prunable_hash, cryptonote::get_transaction_prunable_hash(pruned_tx, &pruned_tx_blob_ref));
 }
 
+TEST(cn_format_utils, reject_truncated_final_varint)
+{
+    cryptonote::block original_block;
+    cryptonote::blobdata block_blob = cryptonote::block_to_blob(original_block);
+    ASSERT_FALSE(block_blob.empty());
+    ASSERT_EQ('\0', block_blob.back()); // empty tx_hashes count
+
+    cryptonote::block parsed_block;
+    ASSERT_TRUE(cryptonote::parse_and_validate_block_from_blob(block_blob, parsed_block));
+
+    block_blob.back() = static_cast<char>(0x80);
+    ASSERT_FALSE(cryptonote::parse_and_validate_block_from_blob(block_blob, parsed_block));
+
+    block_blob.pop_back();
+    ASSERT_FALSE(cryptonote::parse_and_validate_block_from_blob(block_blob, parsed_block));
+}
+
 TEST(cn_format_utils, block_longhash_202612_arbitrary_blob)
 {
     const cryptonote::blobdata blob = "not the historical block 202612 hashing blob";

@@ -59,6 +59,8 @@ namespace tools {
     EVARINT_OVERFLOW = -1,
     /* \brief Represents a non-canonical representation */
     EVARINT_REPRESENT = -2,
+    /* \brief Represents a varint truncated before its terminating byte */
+    EVARINT_EOF = -3,
   };
 
   /*! \brief writes a varint to a stream.
@@ -90,29 +92,31 @@ namespace tools {
   /*! \brief reads in the varint that is pointed to by InputIt into write
    */ 
   template<int bits, typename InputIt, typename T>
-    typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value && 0 <= bits && bits <= std::numeric_limits<T>::digits, int>::type
-    read_varint(InputIt &&first, InputIt &&last, T &write) {
+  typename std::enable_if<std::is_integral<T>::value && std::is_unsigned<T>::value && 0 <= bits && bits <= std::numeric_limits<T>::digits, int>::type
+  read_varint(InputIt &&first, InputIt &&last, T &write) {
     int read = 0;
     write = 0;
     for (int shift = 0;; shift += 7) {
       if (first == last) {
-	return read; 
+        // With read > 0, the previous byte had its continuation bit set.
+        // EOF therefore means truncation; preserve 0 for empty input.
+        return read == 0 ? 0 : EVARINT_EOF;
       }
       unsigned char byte = *first;
       ++first;
       ++read;
       if (shift + 7 >= bits && byte >= 1 << (bits - shift)) {
-	return EVARINT_OVERFLOW;
+        return EVARINT_OVERFLOW;
       }
       if (byte == 0 && shift != 0) {
-	return EVARINT_REPRESENT;
+        return EVARINT_REPRESENT;
       }
 
       write |= static_cast<T>(byte & 0x7f) << shift; /* Does the actually placing into write, stripping the first bit */
 
       /* If there is no next */
       if ((byte & 0x80) == 0) {
-	break;
+        break;
       }
     }
     return read;
