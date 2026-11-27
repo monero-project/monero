@@ -776,11 +776,14 @@ namespace levin
 
     auto& zone = zone_;
     boost::asio::dispatch(zone_->strand, [zone, id, is_income] {
-      zone->contexts[id] = {
-        .fluff_txs = {},
-        .flush_time = std::chrono::steady_clock::time_point::max(),
-        .m_is_income = is_income,
-      };
+      zone->p2p->for_connection(id, [&](const detail::p2p_context&) {
+        zone->contexts[id] = {
+          .fluff_txs = {},
+          .flush_time = std::chrono::steady_clock::time_point::max(),
+          .m_is_income = is_income,
+        };
+        return true;
+      });
     });
   }
 
