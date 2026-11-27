@@ -15900,16 +15900,25 @@ bool wallet2::parse_uri_impl(const std::string &uri, const cryptonote::network_t
   return true;
 }
 //----------------------------------------------------------------------------------------------------
+bool wallet2::is_valid_restore_date(uint16_t year, uint8_t month, uint8_t day)
+{
+  if (year == 0 || month < 1 || month > 12 || day < 1)
+    return false;
+
+  static constexpr uint8_t days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  const bool leap_year = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0);
+  return day <= days_in_month[month - 1] + (month == 2 && leap_year);
+}
+//----------------------------------------------------------------------------------------------------
 uint64_t wallet2::get_blockchain_height_by_date(uint16_t year, uint8_t month, uint8_t day)
 {
+  if (!is_valid_restore_date(year, month, day))
+    throw std::runtime_error("invalid restore date");
+
   std::tm date = { 0, 0, 0, 0, 0, 0, 0, 0 };
   date.tm_year = year - 1900;
   date.tm_mon  = month - 1;
   date.tm_mday = day;
-  if (date.tm_mon < 0 || 11 < date.tm_mon || date.tm_mday < 1 || 31 < date.tm_mday)
-  {
-    throw std::runtime_error("month or day out of range");
-  }
 
   uint64_t timestamp_target = std::mktime(&date);
 

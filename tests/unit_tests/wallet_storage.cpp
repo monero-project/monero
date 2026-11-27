@@ -50,6 +50,29 @@ static constexpr const char WALLET_00fd416a_PRIMARY_ADDRESS[] =
 // https://github.com/monero-project/monero/blob/67d190ce7c33602b6a3b804f633ee1ddb7fbb4a1/src/wallet/wallet2.cpp#L156
 static constexpr const char WALLET2_ASCII_OUTPUT_MAGIC[] = "MoneroAsciiDataV1";
 
+TEST(wallet_restore_date, validates_calendar_date)
+{
+    EXPECT_TRUE(tools::wallet2::is_valid_restore_date(2024, 2, 29));
+    EXPECT_FALSE(tools::wallet2::is_valid_restore_date(2025, 2, 29));
+    EXPECT_FALSE(tools::wallet2::is_valid_restore_date(2026, 2, 31));
+    EXPECT_FALSE(tools::wallet2::is_valid_restore_date(2026, 4, 31));
+    EXPECT_TRUE(tools::wallet2::is_valid_restore_date(2026, 4, 30));
+    EXPECT_TRUE(tools::wallet2::is_valid_restore_date(2000, 2, 29));
+    EXPECT_FALSE(tools::wallet2::is_valid_restore_date(1900, 2, 29));
+    EXPECT_FALSE(tools::wallet2::is_valid_restore_date(0, 1, 1));
+
+    tools::wallet2 wallet;
+    try
+    {
+        wallet.get_blockchain_height_by_date(2026, 2, 31);
+        FAIL() << "invalid date was accepted";
+    }
+    catch (const std::runtime_error &e)
+    {
+        EXPECT_STREQ("invalid restore date", e.what());
+    }
+}
+
 class wallet_accessor_test
 {
 public:
