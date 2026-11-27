@@ -2183,6 +2183,11 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
          * the first follow-up byte (this holds sync_mutex the whole time). */
         if (waitReadable(l->ifd) <= 0) break;
         if (read(l->ifd,seq,1) == -1) break;
+
+        /* Alt/Option word movement */
+        if (seq[0] == 'b') { linenoiseEditMoveWordLeft(l); break; }
+        if (seq[0] == 'f') { linenoiseEditMoveWordRight(l); break; }
+
         if (waitReadable(l->ifd) <= 0) break;
         if (read(l->ifd,seq+1,1) == -1) break;
 
@@ -2204,8 +2209,9 @@ char *linenoiseEditFeed(struct linenoiseState *l) {
                     if (plen == 1 && param[0] == '3') {
                         linenoiseEditDelete(l);
                     }
-                } else if (plen == 3 && param[0] == '1' &&
-                           param[1] == ';' && param[2] == '5') {
+                } else if (plen == 3 && param[0] == '1' && param[1] == ';' &&
+                           (param[2] == '5' || param[2] == '3')) {
+                    /* Ctrl (5) or Alt/Option (3) + Right/Left */
                     if (final == 'C') linenoiseEditMoveWordRight(l);
                     if (final == 'D') linenoiseEditMoveWordLeft(l);
                 }
