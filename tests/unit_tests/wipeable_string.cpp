@@ -27,7 +27,6 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#include <boost/optional/optional.hpp>
 #include <string.h>
 #include "gtest/gtest.h"
 
@@ -188,21 +187,21 @@ TEST(wipeable_string, split)
 
 TEST(wipeable_string, parse_hexstr)
 {
-  boost::optional<epee::wipeable_string> s;
+  std::optional<epee::wipeable_string> s;
 
-  ASSERT_TRUE(boost::none == epee::wipeable_string("x").parse_hexstr());
-  ASSERT_TRUE(boost::none == epee::wipeable_string("x0000000000000000").parse_hexstr());
-  ASSERT_TRUE(boost::none == epee::wipeable_string("0000000000000000x").parse_hexstr());
-  ASSERT_TRUE(boost::none == epee::wipeable_string("0").parse_hexstr());
-  ASSERT_TRUE(boost::none == epee::wipeable_string("000").parse_hexstr());
+  ASSERT_TRUE(std::nullopt == epee::wipeable_string("x").parse_hexstr());
+  ASSERT_TRUE(std::nullopt == epee::wipeable_string("x0000000000000000").parse_hexstr());
+  ASSERT_TRUE(std::nullopt == epee::wipeable_string("0000000000000000x").parse_hexstr());
+  ASSERT_TRUE(std::nullopt == epee::wipeable_string("0").parse_hexstr());
+  ASSERT_TRUE(std::nullopt == epee::wipeable_string("000").parse_hexstr());
 
-  ASSERT_TRUE((s = epee::wipeable_string("").parse_hexstr()) != boost::none);
+  ASSERT_TRUE((s = epee::wipeable_string("").parse_hexstr()) != std::nullopt);
   ASSERT_TRUE(*s == "");
-  ASSERT_TRUE((s = epee::wipeable_string("00").parse_hexstr()) != boost::none);
+  ASSERT_TRUE((s = epee::wipeable_string("00").parse_hexstr()) != std::nullopt);
   ASSERT_TRUE(*s == epee::wipeable_string("", 1));
-  ASSERT_TRUE((s = epee::wipeable_string("41").parse_hexstr()) != boost::none);
+  ASSERT_TRUE((s = epee::wipeable_string("41").parse_hexstr()) != std::nullopt);
   ASSERT_TRUE(*s == epee::wipeable_string("A"));
-  ASSERT_TRUE((s = epee::wipeable_string("414243").parse_hexstr()) != boost::none);
+  ASSERT_TRUE((s = epee::wipeable_string("414243").parse_hexstr()) != std::nullopt);
   ASSERT_TRUE(*s == epee::wipeable_string("ABC"));
 }
 

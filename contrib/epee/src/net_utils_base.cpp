@@ -44,11 +44,11 @@ namespace epee { namespace net_utils
 	bool ipv6_network_address::is_loopback() const { return m_address.is_loopback(); }
 	bool ipv6_network_address::is_local() const { return m_address.is_link_local(); }
 
-	boost::optional<ipv4_network_address> get_ipv4_mapped_address(const ipv6_network_address& address)
+	std::optional<ipv4_network_address> get_ipv4_mapped_address(const ipv6_network_address& address)
 	{
 		const boost::asio::ip::address_v6 ip = address.ip();
 		if (!ip.is_v4_mapped())
-			return boost::none;
+			return std::nullopt;
 
 		const boost::asio::ip::address_v4 ipv4 =
 			boost::asio::ip::make_address_v4(boost::asio::ip::v4_mapped, ip);
@@ -164,14 +164,14 @@ namespace epee { namespace net_utils
 		const auto this_id = get_type_id();
 		if (this_id == ipv4_network_address::get_type_id() && other.get_type_id() == ipv6_network_address::get_type_id())
 		{
-			const boost::optional<ipv4_network_address> mapped =
+			const std::optional<ipv4_network_address> mapped =
 				get_ipv4_mapped_address(other.as<const ipv6_network_address>());
 			if (mapped)
 				return is_same_host(*mapped);
 		}
 		else if (this_id == ipv6_network_address::get_type_id() && other.get_type_id() == ipv4_network_address::get_type_id())
 		{
-			const boost::optional<ipv4_network_address> mapped =
+			const std::optional<ipv4_network_address> mapped =
 				get_ipv4_mapped_address(this->as<const ipv6_network_address>());
 			if (mapped)
 				return other.is_same_host(*mapped);
@@ -179,10 +179,10 @@ namespace epee { namespace net_utils
 		return false;
 	}
 
-	boost::optional<ipv4_network_address> get_ipv4_mapped_address(const network_address& address)
+	std::optional<ipv4_network_address> get_ipv4_mapped_address(const network_address& address)
 	{
 		if (address.get_type_id() != ipv6_network_address::get_type_id())
-			return boost::none;
+			return std::nullopt;
 		return get_ipv4_mapped_address(address.as<const ipv6_network_address>());
 	}
 

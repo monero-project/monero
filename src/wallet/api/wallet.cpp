@@ -1073,7 +1073,7 @@ bool WalletImpl::init(const std::string &daemon_address, uint64_t upper_transact
     if(daemon_username != "")
         m_daemon_login.emplace(daemon_username, daemon_password);
     else
-        m_daemon_login = boost::none;
+        m_daemon_login = std::nullopt;
     return doInit(daemon_address, proxy_address, upper_transaction_size_limit, use_ssl);
 }
 

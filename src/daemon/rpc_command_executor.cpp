@@ -161,7 +161,7 @@ t_rpc_command_executor::t_rpc_command_executor(
 {
   if (is_rpc)
   {
-    boost::optional<epee::net_utils::http::login> http_login{};
+    std::optional<epee::net_utils::http::login> http_login{};
     if (login)
       http_login.emplace(login->username, login->password.password());
     m_rpc_client = new tools::t_rpc_client(ip, port, std::move(http_login), ssl_options);

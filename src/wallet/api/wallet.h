@@ -303,7 +303,7 @@ private:
     std::atomic<bool>   m_rebuildWalletCache;
     // cache connection status to avoid unnecessary RPC calls
     mutable std::atomic<bool>   m_is_connected;
-    boost::optional<epee::net_utils::http::login> m_daemon_login{};
+    std::optional<epee::net_utils::http::login> m_daemon_login{};
 };
 
 

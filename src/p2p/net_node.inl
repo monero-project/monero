@@ -1911,7 +1911,7 @@ namespace nodetool
 
     // Local helper method to get the host string, i.e. the pure IP address without port
     const auto get_host_string = [](const epee::net_utils::network_address &address) {
-      const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(address);
+      const std::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(address);
       if (mapped)
         return epee::net_utils::ipv4_network_address(mapped->ip(), 0).host_str();
       return address.host_str();
@@ -1975,7 +1975,7 @@ namespace nodetool
           else if (cntxt.m_remote_address.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
           {
             const epee::net_utils::network_address na = cntxt.m_remote_address;
-            const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(na);
+            const std::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(na);
             if (mapped)
               connected_subnets.insert(mapped->ip() & subnet_mask);
             else
@@ -2033,7 +2033,7 @@ namespace nodetool
             else if (peer.adr.get_type_id() == epee::net_utils::ipv6_network_address::get_type_id())
             {
               const epee::net_utils::network_address na = peer.adr;
-              const boost::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(na);
+              const std::optional<epee::net_utils::ipv4_network_address> mapped = epee::net_utils::get_ipv4_mapped_address(na);
               if (mapped)
               {
                 uint32_t subnet = mapped->ip() & subnet_mask;

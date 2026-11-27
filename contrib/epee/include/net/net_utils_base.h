@@ -32,10 +32,9 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/address_v6.hpp>
-#include <boost/optional/optional.hpp>
 #include <cstddef>
 #include <memory>
-#include <stdexcept>
+#include <optional>
 #include <typeinfo>
 #include <type_traits>
 #include "byte_slice.h"
@@ -276,7 +275,7 @@ namespace net_utils
 	inline bool operator>=(const ipv6_network_address& lhs, const ipv6_network_address& rhs) noexcept
 	{ return !lhs.less(rhs); }
 
-	boost::optional<ipv4_network_address> get_ipv4_mapped_address(const ipv6_network_address& address);
+	std::optional<ipv4_network_address> get_ipv4_mapped_address(const ipv6_network_address& address);
 
 	class network_address
 	{
@@ -404,7 +403,7 @@ namespace net_utils
 		END_KV_SERIALIZE_MAP()
 	};
 
-	boost::optional<ipv4_network_address> get_ipv4_mapped_address(const network_address& address);
+	std::optional<ipv4_network_address> get_ipv4_mapped_address(const network_address& address);
 
 	inline bool operator==(const network_address& lhs, const network_address& rhs)
 	{ return lhs.equal(rhs); }

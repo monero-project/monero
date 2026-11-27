@@ -61,7 +61,7 @@ namespace epee
     bool init(std::function<void(size_t, uint8_t*)> rng, const std::string& bind_port = "0", const std::string& bind_ip = "0.0.0.0",
       const std::string& bind_ipv6_address = "::", bool use_ipv6 = false, bool require_ipv4 = true,
       std::vector<std::string> access_control_origins = std::vector<std::string>(),
-      boost::optional<net_utils::http::login> user = boost::none,
+      std::optional<net_utils::http::login> user = std::nullopt,
       net_utils::ssl_options_t ssl_options = net_utils::ssl_support_t::e_ssl_support_autodetect,
       const std::size_t max_public_ip_connections = DEFAULT_RPC_MAX_CONNECTIONS_PER_PUBLIC_IP,
       const std::size_t max_private_ip_connections = DEFAULT_RPC_MAX_CONNECTIONS_PER_PRIVATE_IP,

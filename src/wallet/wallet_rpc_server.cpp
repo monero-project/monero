@@ -350,8 +350,8 @@ namespace tools
 
     m_vm = vm;
 
-    boost::optional<epee::net_utils::http::login> http_login{};
-    boost::optional<epee::wipeable_string> generated_password{};
+    std::optional<epee::net_utils::http::login> http_login{};
+    std::optional<epee::wipeable_string> generated_password{};
     std::string bind_port = command_line::get_arg(*m_vm, arg_rpc_bind_port);
     const bool disable_auth = command_line::get_arg(*m_vm, arg_disable_rpc_login);
     m_restricted = command_line::get_arg(*m_vm, arg_restricted);
@@ -5164,7 +5164,7 @@ namespace tools
     // apply to the open wallet now; the config also seeds wallets opened/created later
     if (m_wallet)
     {
-      boost::optional<epee::net_utils::http::login> daemon_login{};
+      std::optional<epee::net_utils::http::login> daemon_login{};
       if (!req.username.empty() || !req.password.empty())
         daemon_login.emplace(req.username, req.password);
 

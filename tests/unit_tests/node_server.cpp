@@ -406,7 +406,7 @@ TEST(node_server, ipv4_mapped_ipv6_address)
   const epee::net_utils::network_address mapped{
     epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes}, 18080}
   };
-  const boost::optional<epee::net_utils::ipv4_network_address> ipv4 = epee::net_utils::get_ipv4_mapped_address(mapped);
+  const std::optional<epee::net_utils::ipv4_network_address> ipv4 = epee::net_utils::get_ipv4_mapped_address(mapped);
   ASSERT_TRUE(bool(ipv4));
   EXPECT_EQ("45.155.69.10", ipv4->host_str());
   EXPECT_EQ(18080, ipv4->port());

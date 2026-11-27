@@ -365,7 +365,7 @@ namespace trezor{
         MDEBUG("Bridge host: " << m_bridge_host);
       }
 
-      m_http_client.set_server(m_bridge_host, boost::none, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
+      m_http_client.set_server(m_bridge_host, std::nullopt, epee::net_utils::ssl_support_t::e_ssl_support_disabled);
     }
 
   std::string BridgeTransport::get_path() const {
@@ -484,7 +484,7 @@ namespace trezor{
       throw exc::CommunicationException("Could not read, no response stored");
     }
 
-    boost::optional<epee::wipeable_string> bin_data = m_response->parse_hexstr();
+    std::optional<epee::wipeable_string> bin_data = m_response->parse_hexstr();
     if (!bin_data || bin_data->size() < PROTO_HEADER_SIZE){
       throw exc::CommunicationException("Response is not well hexcoded");
     }

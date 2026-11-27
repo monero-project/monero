@@ -275,7 +275,7 @@ static void rollback_chain(cryptonote::core * core, const cryptonote::block & he
       return;
 
     CHECK_AND_ASSERT_THROW_MES(cur_height > height, "Height differs");
-    core->get_blockchain_storage().get_db().pop_block(popped_block, popped_txs);
+    core->get_blockchain_storage().get_db().pop_block(popped_block, &popped_txs);
   } while(true);
 }
 
