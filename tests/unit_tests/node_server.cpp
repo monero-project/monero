@@ -39,6 +39,7 @@
 #include "net/tor_address.h"
 #include "unit_tests_utils.h"
 #include <algorithm>
+#include <array>
 #include <condition_variable>
 #include <thread>
 
@@ -511,6 +512,68 @@ TEST(node_server, p2p_connection_limit_ipv6_by_64)
     epee::net_utils::ipv6_network_address{boost::asio::ip::address_v6{bytes_b}, 18080}
   };
   EXPECT_FALSE(nodetool::is_same_p2p_connection_limit_host(mapped_a, mapped_b));
+}
+
+TEST(node_server, pending_pingbacks_per_host)
+{
+  nodetool::pending_pingbacks tracker;
+  const epee::net_utils::network_address host{MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 1, 18080)};
+  const epee::net_utils::network_address other_port{MAKE_IPV4_ADDRESS_PORT(203, 0, 113, 1, 28080)};
+  auto slot = tracker.reserve(host);
+  ASSERT_TRUE(slot);
+  EXPECT_FALSE(tracker.reserve(other_port));
+
+  auto retained = slot;
+  slot.reset();
+  EXPECT_FALSE(tracker.reserve(host));
+  retained->release();
+  slot = tracker.reserve(other_port);
+  ASSERT_TRUE(slot);
+  retained->release();
+  retained.reset();
+  EXPECT_FALSE(tracker.reserve(host));
+  slot.reset();
+  EXPECT_TRUE(tracker.reserve(host));
+
+  const auto ipv6 = [](const char* ip) {
+    return epee::net_utils::network_address{
+      epee::net_utils::ipv6_network_address{boost::asio::ip::make_address_v6(ip), 18080}
+    };
+  };
+  slot = tracker.reserve(ipv6("2001:db8:1:2::1"));
+  ASSERT_TRUE(slot);
+  EXPECT_FALSE(tracker.reserve(ipv6("2001:db8:1:2::2")));
+  EXPECT_TRUE(tracker.reserve(ipv6("2001:db8:1:3::1")));
+}
+
+TEST(node_server, pending_pingbacks_total_limit)
+{
+  nodetool::pending_pingbacks tracker;
+  const epee::net_utils::network_address extra_host{MAKE_IPV4_ADDRESS(192, 0, 2, 1)};
+  std::array<decltype(tracker.reserve(extra_host)), 32> slots;
+  for (unsigned i = 0; i < slots.size(); ++i)
+  {
+    slots[i] = tracker.reserve(MAKE_IPV4_ADDRESS(203, 0, 113, i + 1));
+    ASSERT_TRUE(slots[i]);
+  }
+  EXPECT_FALSE(tracker.reserve(extra_host));
+  slots.back().reset();
+  EXPECT_TRUE(tracker.reserve(extra_host));
+}
+
+TEST(node_server, pending_pingbacks_shutdown)
+{
+  const auto reserve_and_stop = [] {
+    nodetool::pending_pingbacks tracker;
+    auto slot = tracker.reserve(MAKE_IPV4_ADDRESS(203, 0, 113, 1));
+    tracker.stop();
+    EXPECT_FALSE(tracker.reserve(MAKE_IPV4_ADDRESS(203, 0, 113, 2)));
+    return slot;
+  };
+
+  auto slot = reserve_and_stop();
+  ASSERT_TRUE(slot);
+  slot->release();
 }
 
 namespace

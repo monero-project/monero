@@ -270,7 +270,7 @@ public:
 
     virtual bool reset_timer(bool first) override final
     {
-      if (m_command == connection_context::handshake_command() && !first)
+      if (!first && (m_command == connection_context::handshake_command() || connection_context::is_ping_command(m_command)))
         return true;
 
       auto self = this->weak_from_this().lock();

@@ -40,6 +40,10 @@
 #include <boost/uuid/uuid.hpp>
 #include <chrono>
 #include <functional>
+#include <list>
+#include <map>
+#include <memory>
+#include <set>
 #include <utility>
 #include <vector>
 
@@ -126,6 +130,8 @@ namespace nodetool
   template<class base_type>
   struct p2p_connection_context_t: base_type //t_payload_net_handler::connection_context //public net_utils::connection_context_base
   {
+    static constexpr bool is_ping_command(int command) noexcept { return command == COMMAND_PING::ID; }
+
     explicit p2p_connection_context_t(bool is_ping = false)
       : peer_id(0),
         support_flags(0),
@@ -138,6 +144,30 @@ namespace nodetool
     bool m_in_timedsync;
     bool is_ping;
     std::set<epee::net_utils::network_address> sent_addresses;
+  };
+
+  class pending_pingbacks
+  {
+  public:
+    class slot
+    {
+      friend class pending_pingbacks;
+      const epee::net_utils::network_address m_host;
+      std::atomic<bool> m_active{true};
+
+    public:
+      explicit slot(const epee::net_utils::network_address& host) : m_host(host) {}
+      void release() noexcept { m_active = false; }
+    };
+
+    std::shared_ptr<slot> reserve(const epee::net_utils::network_address& host);
+    void stop();
+
+  private:
+    epee::critical_section m_lock;
+    // Callbacks own the slots and can outlive the node during shutdown.
+    std::array<std::weak_ptr<slot>, 32> m_slots;
+    bool m_stopped = false;
   };
 
   template<class t_payload_net_handler>
@@ -510,6 +540,7 @@ namespace nodetool
     added. `std::map::operator[]` WILL insert! */
     std::map<epee::net_utils::zone, network_zone> m_network_zones;
 
+    pending_pingbacks m_pending_pingbacks;
 
     std::map<std::string, time_t> m_conn_fails_cache;
     epee::critical_section m_conn_fails_cache_lock;
