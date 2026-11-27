@@ -2358,20 +2358,18 @@ void wallet2::scan_output(const cryptonote::transaction &tx, bool miner_tx, cons
     }
   }
 
-  crypto::public_key output_public_key;
-  THROW_WALLET_EXCEPTION_IF(!get_output_public_key(tx.vout[i], output_public_key), error::wallet_internal_error, "Failed to get output public key");
+  THROW_WALLET_EXCEPTION_IF(!get_output_public_key(tx.vout[i], tx_scan_info.output_public_key), error::wallet_internal_error, "Failed to get output public key");
 
   if (m_multisig || m_background_syncing/*no spend key*/)
   {
-    tx_scan_info.in_ephemeral.pub = output_public_key;
-    tx_scan_info.in_ephemeral.sec = crypto::null_skey;
     tx_scan_info.ki = rct::rct2ki(rct::zero());
   }
   else
   {
-    bool r = cryptonote::generate_key_image_helper_precomp(m_account.get_keys(), output_public_key, tx_scan_info.received->derivation, i, tx_scan_info.received->index, tx_scan_info.in_ephemeral, tx_scan_info.ki, m_account.get_device());
+    cryptonote::keypair in_ephemeral;
+    bool r = cryptonote::generate_key_image_helper_precomp(m_account.get_keys(), tx_scan_info.output_public_key, tx_scan_info.received->derivation, i, tx_scan_info.received->index, in_ephemeral, tx_scan_info.ki, m_account.get_device());
     THROW_WALLET_EXCEPTION_IF(!r, error::wallet_internal_error, "Failed to generate key image");
-    THROW_WALLET_EXCEPTION_IF(tx_scan_info.in_ephemeral.pub != output_public_key,
+    THROW_WALLET_EXCEPTION_IF(in_ephemeral.pub != tx_scan_info.output_public_key,
         error::wallet_internal_error, "key_image generated ephemeral public key not matched with output_key");
   }
 
@@ -2686,7 +2684,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 	THROW_WALLET_EXCEPTION_IF(tx.vout.size() <= o, error::wallet_internal_error, "wrong out in transaction: internal index=" +
 				  std::to_string(o) + ", total_outs=" + std::to_string(tx.vout.size()));
 
-        auto kit = m_pub_keys.find(tx_scan_info[o].in_ephemeral.pub);
+        auto kit = m_pub_keys.find(tx_scan_info[o].output_public_key);
 	THROW_WALLET_EXCEPTION_IF(kit != m_pub_keys.end() && kit->second >= m_transfers.size(),
             error::wallet_internal_error, std::string("Unexpected transfer index from public key: ")
             + "got " + (kit == m_pub_keys.end() ? "<none>" : boost::lexical_cast<std::string>(kit->second))
@@ -2708,7 +2706,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
             if (!td.m_key_image_known)
             {
               // we might have cold signed, and have a mapping to key images
-              std::unordered_map<crypto::public_key, crypto::key_image>::const_iterator i = m_cold_key_images.find(tx_scan_info[o].in_ephemeral.pub);
+              std::unordered_map<crypto::public_key, crypto::key_image>::const_iterator i = m_cold_key_images.find(tx_scan_info[o].output_public_key);
               if (i != m_cold_key_images.end())
               {
                 td.m_key_image = i->second;
@@ -2749,7 +2747,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
 	    set_unspent(m_transfers.size()-1);
             if (td.m_key_image_known)
 	      m_key_images[td.m_key_image] = m_transfers.size()-1;
-	    m_pub_keys[tx_scan_info[o].in_ephemeral.pub] = m_transfers.size()-1;
+	    m_pub_keys[tx_scan_info[o].output_public_key] = m_transfers.size()-1;
             if (output_tracker_cache)
               (*output_tracker_cache)[std::make_pair(tx.vout[o].amount, td.m_global_output_index)] = m_transfers.size() - 1;
             if (m_multisig)
@@ -2841,7 +2839,7 @@ void wallet2::process_new_transaction(const crypto::hash &txid, const cryptonote
               if (!m_multisig_rescan_info.empty() && m_multisig_rescan_info.front().size() >= m_transfers.size())
                 update_multisig_rescan_info(m_multisig_rescan_k, m_multisig_rescan_info, m_transfers.size() - 1);
             }
-            THROW_WALLET_EXCEPTION_IF(td.get_public_key() != tx_scan_info[o].in_ephemeral.pub, error::wallet_internal_error, "Inconsistent public keys");
+            THROW_WALLET_EXCEPTION_IF(td.get_public_key() != tx_scan_info[o].output_public_key, error::wallet_internal_error, "Inconsistent public keys");
 	    THROW_WALLET_EXCEPTION_IF(td.m_spent, error::wallet_internal_error, "Inconsistent spent status");
 
 	    LOG_PRINT_L0("Received money: " << print_money(td.amount()) << ", with tx: " << txid);
