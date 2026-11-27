@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2024, The Monero Project
+// Copyright (c) 2019-2026, The Monero Project
 //
 // All rights reserved.
 //
@@ -46,11 +46,15 @@ enum class relay_test
 class txpool_base : public test_chain_unit_base
 {
   size_t m_all_tx_count;
+  size_t m_all_ki_count;
 
 public:
   txpool_base();
 
   bool increase_all_tx_count(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& events);
+  bool decrease_all_tx_count(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& events);
+  bool increase_all_ki_count(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& events);
+  bool decrease_all_ki_count(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& events);
   bool check_txpool_spent_keys(cryptonote::core& c, size_t /*ev_index*/, const std::vector<test_event_entry>& events);
 };
 
@@ -68,6 +72,36 @@ struct txpool_spend_key_all : txpool_base
   {}
 
   bool generate(std::vector<test_event_entry>& events);
+};
+
+/**
+ * @brief When a tx enters the blockchain, it is dropped from the mempool
+ */
+struct txpool_drops_tx_into_blockchain : txpool_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+
+/**
+ * @brief A mempool tx which no longer verifies for the current HF version is eventually cleaned up
+ */
+struct txpool_cleanup_after_hf : txpool_base
+{
+  txpool_cleanup_after_hf();
+
+  bool generate(std::vector<test_event_entry>& events) const;
+
+  bool check_tx_verification_context(const cryptonote::tx_verification_context& tvc, bool /*tx_added*/, size_t /*event_index*/, const cryptonote::transaction& /*tx*/);
+
+  bool set_txids_from_events(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
+  bool set_post_v16_fork(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
+  bool check_txid_in_chain(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
+  bool wait_until_txid_gone(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
+
+private:
+  crypto::hash m_main_chain_txid;
+  crypto::hash m_cleaned_txid;
+  bool m_post_v16_fork;
 };
 
 class txpool_future_receive_time : public test_chain_unit_base

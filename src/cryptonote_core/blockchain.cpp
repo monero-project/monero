@@ -584,7 +584,6 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
 
   CHECK_AND_ASSERT_THROW_MES(m_db->height() > 1, "Cannot pop the genesis block");
 
-  const uint8_t previous_hf_version = get_current_hard_fork_version();
   try
   {
     m_db->pop_block(popped_block, keep_txs ? &popped_txs : nullptr);
@@ -679,8 +678,8 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
       // though, and always relaying these again might cause a spike of traffic as many nodes
       // re-relay all the transactions in a popped block when a reorg happens. You might notice that
       // we also set the "nic_verified_hf_version" parameter. Since we know we took this transaction
-      // from the mempool earlier in this function call, when the mempool has the same current fork
-      // version, we can return it without re-verifying the consensus rules on it.
+      // from the blockchain earlier in this function call, when the mempool has the same current
+      // fork version, we can return it without re-verifying the consensus rules on it.
       const bool r = m_tx_pool.add_tx(tx, tvc, relay_method::block, true, version, version, valid_input_verification_id);
       if (!r)
       {
@@ -698,13 +697,6 @@ block Blockchain::pop_block_from_blockchain(bool keep_txs)
   crypto::hash top_block_hash = get_tail_id(top_block_height);
   m_tx_pool.on_blockchain_dec(top_block_height, top_block_hash);
   invalidate_block_template_cache();
-
-  const uint8_t new_hf_version = get_current_hard_fork_version();
-  if (new_hf_version != previous_hf_version)
-  {
-    MINFO("Validating txpool for v" << (unsigned)new_hf_version);
-    m_tx_pool.validate(new_hf_version);
-  }
 
   return popped_block;
 }
@@ -3829,15 +3821,8 @@ bool Blockchain::flush_txes_from_pool(const std::vector<crypto::hash> &txids)
   bool res = true;
   for (const auto &txid: txids)
   {
-    cryptonote::transaction tx;
-    cryptonote::blobdata txblob;
-    size_t tx_weight;
-    uint64_t fee;
-    crypto::hash valid_input_verification_id;
-    bool relayed, do_not_relay, double_spend_seen, pruned;
     MINFO("Removing txid " << txid << " from the pool");
-    if (m_tx_pool.have_tx(txid, relay_category::all) && !m_tx_pool.take_tx(txid, tx, txblob,
-      tx_weight, fee, valid_input_verification_id, relayed, do_not_relay, double_spend_seen, pruned))
+    if (m_tx_pool.have_tx(txid, relay_category::all) && !m_tx_pool.drop_tx(txid))
     {
       MERROR("Failed to remove txid " << txid << " from the pool");
       res = false;
@@ -4021,47 +4006,10 @@ leave:
   size_t cumulative_block_weight = coinbase_weight;
 
   std::vector<std::pair<transaction, blobdata>> txs;
-  //                          txid     weight mempool?  verID
-  std::vector<std::tuple<crypto::hash, size_t, bool, crypto::hash>> txs_meta;
+  std::vector<bool> txs_found_in_pool;
 
   // This will be the data sent to the ZMQ pool listeners for txs which skipped the mempool
   std::vector<txpool_event> txpool_events;
-
-  // this lambda returns relevant txs back to the mempool
-  auto return_txs_to_pool = [this, &txs, &txs_meta, &hf_version]()
-  {
-    if (txs_meta.size() != txs.size())
-    {
-      MERROR("BUG: txs_meta and txs not matching size!!!");
-      return;
-    }
-
-    for (size_t i = 0; i < txs.size(); ++i)
-    {
-      // if this transaction wasn't ever in the pool, don't return it back to the pool
-      const bool found_in_pool = std::get<2>(txs_meta[i]);
-      if (!found_in_pool)
-        continue;
-
-      transaction &tx = txs[i].first;
-      const crypto::hash &txid = std::get<0>(txs_meta[i]);
-      const blobdata &tx_blob = txs[i].second;
-      const size_t tx_weight = std::get<1>(txs_meta[i]);
-      const crypto::hash &valid_input_verification_id = std::get<3>(txs_meta[i]);
-
-      // We assume that if they were in a block, the transactions are already known to the network
-      // as a whole. However, if we had mined that block, that might not be always true. Unlikely
-      // though, and always relaying these again might cause a spike of traffic as many nodes
-      // re-relay all the transactions in a popped block when a reorg happens. You might notice that
-      // we also set the "nic_verified_hf_version" parameter. Since we know we took this transaction
-      // from the mempool earlier in this function call, when the mempool has the same current fork
-      // version, we can return it without re-verifying the consensus rules on it.
-      cryptonote::tx_verification_context tvc{};
-      if (!m_tx_pool.add_tx(tx, txid, tx_blob, tx_weight, tvc, relay_method::block, true,
-          hf_version, hf_version, valid_input_verification_id))
-        MERROR("Failed to return taken transaction with hash: " << txid << " to tx_pool");
-    }
-  };
 
   key_images_container keys;
 
@@ -4079,7 +4027,7 @@ leave:
   // from the tx_pool (or from extra_block_txs) and validating them.  Each is then added
   // to txs.  Keys spent in each are added to <keys> by the double spend check.
   txs.reserve(bl.tx_hashes.size());
-  txs_meta.reserve(bl.tx_hashes.size());
+  txs_found_in_pool.reserve(bl.tx_hashes.size());
   txpool_events.reserve(bl.tx_hashes.size());
   for (const crypto::hash& tx_id : bl.tx_hashes)
   {
@@ -4090,7 +4038,6 @@ leave:
     {
       MERROR("Block with id: " << id << " attempting to add transaction already in blockchain with id: " << tx_id);
       bvc.m_verifivation_failed = true;
-      return_txs_to_pool();
       return false;
     }
 
@@ -4110,6 +4057,7 @@ leave:
     blobdata &txblob = txs.back().second;
     size_t tx_weight{};
     uint64_t fee{};
+    uint8_t nic_verified_hf_version{};
     crypto::hash valid_input_verification_id{};
     bool pruned{};
 
@@ -4119,11 +4067,26 @@ leave:
      * notifications, since if the tx skipped the mempool, then listeners have not yet received a
      * notification for this tx.
      */
-    bool _unused1, _unused2, _unused3;
-    const bool found_tx_in_pool{
-        m_tx_pool.take_tx(tx_id, tx, txblob, tx_weight, fee, valid_input_verification_id,
-          _unused1, _unused2, _unused3, pruned, /*suppress_missing_msgs=*/true)
-      };
+    tx_memory_pool::tx_details txd;
+    const bool found_tx_in_pool = m_tx_pool.get_transaction_info(tx_id, txd,
+      /*include_sensitive_data=*/true);
+    if (found_tx_in_pool)
+    {
+      tx_weight = txd.weight;
+      fee = txd.fee;
+      nic_verified_hf_version = txd.nic_verified_hf_version;
+      valid_input_verification_id = txd.valid_input_verification_id;
+      pruned = txd.pruned;
+      txblob = std::move(txd.tx_blob);
+      const bool parse_res = pruned ? parse_and_validate_tx_base_from_blob(txblob, tx)
+        : parse_and_validate_tx_from_blob(txblob, tx);
+      if (!parse_res)
+      {
+        MERROR_VER("Failed to parse " << (pruned ? "pruned" : "full") << " tx fetched from mempool: " << tx_id);
+        bvc.m_verifivation_failed = true;
+        return false;
+      }
+    }
     bool find_tx_failure{!found_tx_in_pool};
     if (!found_tx_in_pool) // if not in mempool:
     {
@@ -4134,12 +4097,14 @@ leave:
         txblob = std::move(extra_txs_it->second.second);
         tx_weight = tx.pruned ? get_pruned_transaction_weight(tx) : get_transaction_weight(tx, txblob.size());
         fee = get_tx_fee(tx);
+        nic_verified_hf_version = fast_check ? 0 : hf_version; // see above invocation of ver_non_input_consensus()
         pruned = tx.pruned;
         extra_block_txs.erase(extra_txs_it);
         txpool_events.emplace_back(txpool_event{tx, tx_id, txblob.size(), tx_weight, true});
         find_tx_failure = false;
       }
     }
+    txs_found_in_pool.push_back(found_tx_in_pool);
 
     // @TODO: We should move this section (checking if the daemon has all txs from the block) to
     // right after the PoW check. Since it's now expected the node will sometimes not have all txs
@@ -4156,7 +4121,6 @@ leave:
       txs.pop_back(); // We push to the back preemptively. On fail, we need txs & txs_meta to match size
       bvc.m_verifivation_failed = true;
       bvc.m_missing_txs = true;
-      return_txs_to_pool();
       return false;
     }
     if (pruned)
@@ -4164,10 +4128,6 @@ leave:
 
     TIME_MEASURE_FINISH(bb);
     t_pool += bb;
-    // add the transaction to the temp list of transactions, so we can either
-    // store the list of transactions all at once or return the ones we've
-    // taken from the tx_pool back to it if the block fails verification.
-    txs_meta.emplace_back(tx_id, tx_weight, found_tx_in_pool, valid_input_verification_id);
     TIME_MEASURE_START(dd);
 
     // FIXME: the storage should not be responsible for validation.
@@ -4191,18 +4151,35 @@ leave:
     if (!fast_check)
 #endif
     {
-      // validate that transaction inputs and the keys spending them are correct.
-      tx_verification_context tvc;
-      crypto::hash invalid_input_verification_id{crypto::null_hash};
-      if(!check_tx_inputs(tx, tvc, valid_input_verification_id, invalid_input_verification_id))
+      // We may need to check NIC rules again after handling alt blocks or after upgrading fork versions
+      assert(hf_version);
+      tx_verification_context tvc{};
+      bool valid = true;
+      if (nic_verified_hf_version != hf_version)
       {
-        MERROR_VER("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
+        //! @TODO: If a mempool tx was unverified before, save the verification result
+        //! @TODO: Fast skip w/ nic_failed_hf_version?
+        if (!ver_non_input_consensus(tx, tvc, hf_version))
+        {
+          valid = false;
+          MERROR_VER("Block with id: " << id  << " has at least one transaction (id: "
+            << tx_id << ") which breaks non-input consensus rules.");
+        }
+      }
 
-        //TODO: why is this done?  make sure that keeping invalid blocks makes sense.
+      // validate that transaction inputs and the keys spending them are correct.
+      crypto::hash invalid_input_verification_id{crypto::null_hash};
+      if(valid && !check_tx_inputs(tx, tvc, valid_input_verification_id, invalid_input_verification_id))
+      {
+        valid = false;
+        MERROR_VER("Block with id: " << id  << " has at least one transaction (id: " << tx_id << ") with wrong inputs.");
+      }
+
+      if (!valid || tvc.m_verifivation_failed)
+      {
         add_block_as_invalid(bl, id);
-        MERROR_VER("Block with id " << id << " added as invalid because of wrong inputs in transactions");
+        MERROR_VER("Block with id " << id << " added as invalid because of one or more invalid transactions");
         bvc.m_verifivation_failed = true;
-        return_txs_to_pool();
         return false;
       }
     }
@@ -4238,7 +4215,6 @@ leave:
   {
     MERROR_VER("Block with id: " << id << " has incorrect miner transaction");
     bvc.m_verifivation_failed = true;
-    return_txs_to_pool();
     return false;
   }
 
@@ -4271,13 +4247,22 @@ leave:
       uint64_t long_term_block_weight = get_next_long_term_block_weight(block_weight);
       cryptonote::blobdata bd = cryptonote::block_to_blob(bl);
       new_height = m_db->add_block(std::make_pair(bl, std::move(bd)), block_weight, long_term_block_weight, cumulative_difficulty, already_generated_coins, txs, transparent_amount_commitments);
+
+      // Drop txs from mempool now that they are no longer needed
+      for (size_t tx_idx = 0; tx_idx < bl.tx_hashes.size(); ++tx_idx)
+      {
+        if (!txs_found_in_pool.at(tx_idx))
+          continue;
+        const crypto::hash &txid = bl.tx_hashes[tx_idx];
+        if (!m_tx_pool.drop_tx(txid))
+          MERROR("Failed to drop new blockchain transaction from mempool: " << txid);
+      }
     }
     catch (const KEY_IMAGE_EXISTS& e)
     {
       LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
       m_batch_success = false;
       bvc.m_verifivation_failed = true;
-      return_txs_to_pool();
       return false;
     }
     catch (const std::exception& e)
@@ -4286,7 +4271,6 @@ leave:
       LOG_ERROR("Error adding block with hash: " << id << " to blockchain, what = " << e.what());
       m_batch_success = false;
       bvc.m_verifivation_failed = true;
-      return_txs_to_pool();
       return false;
     }
   }
@@ -4322,19 +4306,6 @@ leave:
   m_tx_pool.on_blockchain_inc(new_height, id);
   get_difficulty_for_next_block(); // just to cache it
   invalidate_block_template_cache();
-
-  const uint8_t new_hf_version = get_current_hard_fork_version();
-  if (new_hf_version != hf_version)
-  {
-    // the genesis block is added before everything's setup, and the txpool is empty
-    // when we start from scratch, so we skip this
-    const bool is_genesis_block = new_height == 1;
-    if (!is_genesis_block)
-    {
-      MGINFO("Validating txpool for v" << (unsigned)new_hf_version);
-      m_tx_pool.validate(new_hf_version);
-    }
-  }
 
   const crypto::hash seedhash = get_block_id_by_height(crypto::rx_seedheight(new_height));
 

@@ -156,9 +156,9 @@ namespace cryptonote
      * The current fork will be updated by looking up the db,
      * which is much cheaper than recomputing everything
      *
-     * @param new_chain_height the height of the chain after popping
+     * @param nblocks number of blocks popped from chain
      */
-    void on_block_popped(uint64_t new_chain_height);
+    void on_block_popped(uint64_t nblocks);
 
     /**
      * @brief returns current state at the given time

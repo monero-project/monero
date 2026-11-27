@@ -123,7 +123,7 @@ namespace cryptonote
      *
      * @param tx the transaction to be added
      * @param tvc return-by-reference status about the transaction verification
-     * @tx_relay how the transaction was received
+     * @param tx_relay how the transaction was received
      * @param relayed was this transaction from the network or a local client?
      * @param version the version used to create the transaction
      * @param nic_verified_hf_version hard fork which "tx" is known to pass non-input consensus test
@@ -143,32 +143,14 @@ namespace cryptonote
       const crypto::hash &valid_input_verification_id = crypto::null_hash);
 
     /**
-     * @brief takes a transaction with the given hash from the pool
+     * @brief drops a transaction with the given hash from the pool
      *
      * @param id the hash of the transaction
-     * @param tx return-by-reference the transaction taken
-     * @param txblob return-by-reference the transaction as a blob
-     * @param tx_weight return-by-reference the transaction's weight
-     * @param fee the transaction fee
-     * @param[out] valid_input_verification_id return-by-reference was a previously valid verID if non-null
-     * @param[out] relayed return-by-reference was transaction relayed to us by the network?
-     * @param[out] do_not_relay return-by-reference is transaction not to be relayed to the network?
-     * @param[out] double_spend_seen return-by-reference was a double spend seen for that transaction?
-     * @param[out] pruned return-by-reference is the tx pruned
-     * @param[out] suppress_missing_msgs suppress warning msgs when txid is missing (optional, defaults to `false`)
+     * @param suppress_missing_msgs suppress warning msgs when txid is missing (optional, defaults to `false`)
      *
-     * @return true unless the transaction cannot be found in the pool
+     * @return true if transaction was present and dropped from the pool
      */
-    bool take_tx(const crypto::hash &id,
-      transaction &tx,
-      cryptonote::blobdata &txblob,
-      size_t& tx_weight,
-      uint64_t& fee,
-      crypto::hash &valid_input_verification_id,
-      bool &relayed,
-      bool &do_not_relay,
-      bool &double_spend_seen,
-      bool &pruned,
+    bool drop_tx(const crypto::hash &id,
       bool suppress_missing_msgs = false);
 
     /**
@@ -404,19 +386,6 @@ namespace cryptonote
      */
     std::string print_pool(bool short_format) const;
 
-    /**
-     * @brief remove transactions from the pool which are no longer valid
-     *
-     * With new versions of the currency, what conditions render a transaction
-     * invalid may change.  This function clears those which were received
-     * before a version change and no longer conform to requirements.
-     *
-     * @param version the version the transactions must conform to
-     *
-     * @return the number of transactions removed
-     */
-    size_t validate(uint8_t version);
-
      /**
       * @brief return the cookie
       *
@@ -470,8 +439,13 @@ namespace cryptonote
 
       bool double_spend_seen; //!< true iff another tx was seen double spending this one
 
+      bool pruned; //!< true iff transaction is pruned
+
       crypto::hash prunable_hash; //!< cached prunable hash, valid iff `prunable_hash_valid`
       bool prunable_hash_valid; //!< whether `prunable_hash` was cached at pool-insertion time
+
+      uint8_t nic_verified_hf_version; //!< the HF major version for which this tx passes ver_non_input_consensus()
+      crypto::hash valid_input_verification_id; //!< verID for this tx when some mixring passed ver_input_proofs_rings()
     };
 
     /**
@@ -511,6 +485,20 @@ namespace cryptonote
      * @return true on success, false on error
      */
     bool insert_key_images(const transaction_prefix &tx, const crypto::hash &txid, relay_method tx_relay);
+
+    /**
+     * @brief Run ver_non_input_consensus() on txs which are unverified for current HF version
+     *
+     * Transactions which are not verified for this HF version should not be
+     * relayed or included in miner tempates, but they may be verified for
+     * another version. However, until we have gotten a verification failure,
+     * a tx may be verified for this HF version. This method goes through
+     * unverified txs and updates their metadata to cache their success or
+     * failure.
+     *
+     * @param max_runtime maximum duration that we should spend verifying
+     */
+    void update_nic_tx_verification(const std::chrono::milliseconds &max_verify_time);
 
     /**
      * @brief remove old transactions from the pool
@@ -567,10 +555,13 @@ namespace cryptonote
      *
      * @param txd the transaction to check (and info about it)
      * @param txid the txid of the transaction to check
+     * @param hf_version HF version to verify transaction against
      *
      * @return true if the transaction is good to go, otherwise false
      */
-    bool is_transaction_ready_to_go(txpool_tx_meta_t& txd, const crypto::hash &txid) const;
+    bool is_transaction_ready_to_go(txpool_tx_meta_t& txd,
+      const crypto::hash &txid,
+      const uint8_t hf_version) const;
 
     /**
      * @brief mark all transactions double spending the one passed
