@@ -124,15 +124,13 @@ TEST(block_queue, reserve_span_same_height_different_hashes)
     ASSERT_EQ(bq.reserve_span(100, 101, 2, connection_id, na, false, 0, 0, 1000, conflicting_hashes),
         std::make_pair(uint64_t(0), uint64_t(0)));
 
-    std::vector<crypto::hash> hashes;
-    boost::uuids::uuid owner;
-    boost::posix_time::ptime time;
-    ASSERT_EQ(bq.get_next_span_if_scheduled(hashes, owner, time),
-        std::make_pair(uint64_t(100), uint64_t(2)));
-    ASSERT_EQ(owner, uuid1());
-    ASSERT_EQ(hashes, (std::vector<crypto::hash>{first_hashes[0].first, first_hashes[1].first}));
-    for (const auto &entry: first_hashes)
-      ASSERT_TRUE(bq.requested(entry.first));
+    const auto scheduled = bq.get_next_span_if_scheduled(100);
+    ASSERT_TRUE(scheduled);
+    ASSERT_EQ(scheduled->start_block_height, 100u);
+    ASSERT_EQ(scheduled->nblocks, 2u);
+    ASSERT_EQ(scheduled->connection_id, uuid1());
+    ASSERT_TRUE(bq.requested(first_hashes[0].first, 100));
+    ASSERT_TRUE(bq.requested(first_hashes[1].first, 101));
     for (const auto &entry: conflicting_hashes)
       ASSERT_FALSE(bq.requested(entry.first));
 
@@ -165,14 +163,130 @@ TEST(block_queue, reserve_span_skips_requested_prefix)
   ASSERT_TRUE(bq.requested(hashes[3].first));
 }
 
+TEST(block_queue, reservation_limit)
+{
+  using limit = cryptonote::block_queue::download_limit;
+  cryptonote::block_queue queue;
+  epee::net_utils::network_address address;
+  const auto now = boost::posix_time::microsec_clock::universal_time();
+  const std::vector<std::pair<crypto::hash, uint64_t>> hashes{
+    {crypto::rand<crypto::hash>(), 0}, {crypto::rand<crypto::hash>(), 0}};
+  ASSERT_EQ(queue.reserve_span(10, 11, 1, uuid1(), address, false, 0, 0, 20, hashes, now, limit{10, false}).second, 1u);
+  EXPECT_EQ(queue.reserve_span(10, 11, 1, uuid2(), address, false, 0, 0, 20, hashes, now, limit{10, true}).second, 0u);
+
+  const std::vector<std::pair<crypto::hash, uint64_t>> fork{{crypto::rand<crypto::hash>(), 0}};
+  EXPECT_EQ(queue.reserve_span(4, 4, 1, uuid2(), address, false, 0, 0, 20, fork, now, limit{10, false}).second, 0u);
+  EXPECT_EQ(queue.reserve_span(4, 4, 1, uuid2(), address, false, 0, 0, 20, fork, now, limit{10, true}).second, 1u);
+  const std::vector<std::pair<crypto::hash, uint64_t>> another{{crypto::rand<crypto::hash>(), 0}};
+  EXPECT_EQ(queue.reserve_span(6, 6, 1, uuid1(), address, false, 0, 0, 20, another, now, limit{10, true}).second, 0u);
+}
+
+TEST(block_queue, overlapping_span_hashes)
+{
+  cryptonote::block_queue queue;
+  epee::net_utils::network_address address;
+  const auto a = crypto::rand<crypto::hash>();
+  const auto b = crypto::rand<crypto::hash>();
+  ASSERT_EQ(queue.reserve_span(10, 11, 2, uuid1(), address, false, 0, 0, 20, {{a, 0}, {b, 0}}).second, 2u);
+  queue.add_blocks(11, std::vector<cryptonote::block_complete_entry>(1), {b}, uuid2(), address, 0, 0, 0, a);
+  queue.add_blocks(10, std::vector<cryptonote::block_complete_entry>(2), {a, b}, uuid1(), address, 0, 0, 0, crypto::null_hash);
+  EXPECT_EQ(queue.have_height(a), 10u);
+  ASSERT_TRUE(queue.remove_span(10));
+  EXPECT_FALSE(queue.requested(a));
+  EXPECT_TRUE(queue.requested(b));
+  EXPECT_EQ(queue.have_height(b), 11u);
+  ASSERT_TRUE(queue.remove_span(11));
+  EXPECT_FALSE(queue.requested(b));
+  EXPECT_FALSE(queue.have(b));
+}
+
+TEST(block_queue, same_start_replies_preserve_reserved_tail)
+{
+  cryptonote::block_queue queue;
+  epee::net_utils::network_address address;
+  const auto a = crypto::rand<crypto::hash>();
+  const auto b = crypto::rand<crypto::hash>();
+  const auto old = boost::posix_time::microsec_clock::universal_time() - boost::posix_time::minutes(1);
+  ASSERT_EQ(queue.reserve_span(10, 11, 2, uuid1(), address, false, 0, 0, 20, {{a, 0}, {b, 0}}, old).second, 2u);
+  const auto scheduled = queue.get_next_span_if_scheduled(10);
+  ASSERT_TRUE(scheduled);
+  ASSERT_TRUE(queue.claim_span(*scheduled, 10, {a}, crypto::null_hash, uuid2(), address));
+  const auto third_peer = crypto::rand<boost::uuids::uuid>();
+  EXPECT_FALSE(queue.claim_span(*scheduled, 10, {a}, crypto::null_hash, third_peer, address));
+
+  queue.add_blocks(10, std::vector<cryptonote::block_complete_entry>(1), {a}, uuid2(), address, 0, 0, 0, crypto::null_hash);
+  EXPECT_EQ(queue.have_height(a), 10u);
+  EXPECT_FALSE(queue.have(b));
+  EXPECT_TRUE(queue.requested(b, 11));
+
+  queue.add_blocks(10, std::vector<cryptonote::block_complete_entry>(2), {a, b}, uuid1(), address, 0, 0, 0, crypto::null_hash);
+  queue.remove_span(10, uuid2(), a);
+  EXPECT_EQ(queue.have_height(a), 10u);
+  EXPECT_EQ(queue.have_height(b), 11u);
+  queue.remove_span(10, uuid1(), b);
+  EXPECT_FALSE(queue.requested(b));
+}
+
+TEST(block_queue, same_start_fork_replies)
+{
+  cryptonote::block_queue queue;
+  epee::net_utils::network_address address;
+  const auto a = crypto::rand<crypto::hash>();
+  const auto b = crypto::rand<crypto::hash>();
+  const auto fork_parent = crypto::rand<crypto::hash>();
+  const auto old = boost::posix_time::microsec_clock::universal_time() - boost::posix_time::minutes(1);
+  ASSERT_EQ(queue.reserve_span(10, 10, 1, uuid1(), address, false, 0, 0, 20, {{a, 0}}, old).second, 1u);
+  const auto scheduled = queue.get_next_span_if_scheduled(10);
+  ASSERT_TRUE(scheduled);
+  ASSERT_TRUE(queue.claim_span(*scheduled, 10, {b}, fork_parent, uuid2(), address));
+
+  const std::vector<cryptonote::block_complete_entry> block(1);
+  queue.add_blocks(10, block, {b}, uuid2(), address, 0, 0, 0, fork_parent);
+  EXPECT_TRUE(queue.requested(a, 10));
+  queue.add_blocks(10, block, {a}, uuid1(), address, 0, 0, 0, crypto::null_hash);
+  const auto ready = queue.get_next_span({fork_parent});
+  ASSERT_TRUE(ready);
+  EXPECT_EQ(ready->connection_id, uuid1());
+  queue.remove_span(10, uuid1(), a);
+  EXPECT_FALSE(queue.requested(a));
+  EXPECT_EQ(queue.have_height(b), 10u);
+}
+
+TEST(block_queue, retry_fork_parent_below_tip)
+{
+  cryptonote::block_queue queue;
+  epee::net_utils::network_address address;
+  const auto unrelated = crypto::rand<crypto::hash>();
+  const auto ancestor = crypto::rand<crypto::hash>();
+  const auto middle = crypto::rand<crypto::hash>();
+  const auto parent = crypto::rand<crypto::hash>();
+  const auto child = crypto::rand<crypto::hash>();
+  const auto next = crypto::rand<crypto::hash>();
+  const auto tip = crypto::rand<crypto::hash>();
+  const auto now = boost::posix_time::microsec_clock::universal_time();
+  ASSERT_EQ(queue.reserve_span(90, 90, 1, uuid2(), address, false, 0, 0, 110, {{unrelated, 0}}).second, 1u);
+  ASSERT_EQ(queue.reserve_span(98, 98, 1, uuid1(), address, false, 0, 0, 110, {{ancestor, 0}}).second, 1u);
+  ASSERT_EQ(queue.reserve_span(98, 99, 1, uuid2(), address, false, 0, 0, 110, {{ancestor, 0}, {middle, 0}}).first, 99u);
+  ASSERT_EQ(queue.reserve_span(100, 100, 1, uuid1(), address, false, 0, 0, 110, {{parent, 0}}, now, boost::none, middle).second, 1u);
+  const std::vector<cryptonote::block_complete_entry> block(1);
+  queue.add_blocks(101, block, {child}, uuid2(), address, 0, 0, 0, parent);
+  ASSERT_EQ(queue.reserve_span(102, 102, 1, uuid2(), address, false, 0, 0, 110, {{next, 0}}).second, 1u);
+  queue.add_blocks(103, block, {tip}, uuid2(), address, 0, 0, 0, next);
+
+  // The adder is waiting on the parent of 101, even though 103 covers the tip.
+  const auto scheduled = queue.get_next_span_if_scheduled(103);
+  ASSERT_TRUE(scheduled);
+  EXPECT_EQ(scheduled->start_block_height, 98u);
+}
+
 TEST(block_queue, count_filled_blocks)
 {
   cryptonote::block_queue bq;
   epee::net_utils::network_address na;
 
-  bq.add_blocks(0, std::vector<cryptonote::block_complete_entry>(3), uuid1(), na, 0.0f, 0, 0);
+  bq.add_blocks(0, std::vector<cryptonote::block_complete_entry>(3), std::vector<crypto::hash>(3), uuid1(), na, 0.0f, 0, 0, crypto::null_hash);
   bq.add_blocks(3, 2, uuid2(), na);
-  bq.add_blocks(5, std::vector<cryptonote::block_complete_entry>(4), uuid2(), na, 0.0f, 0, 0);
+  bq.add_blocks(5, std::vector<cryptonote::block_complete_entry>(4), std::vector<crypto::hash>(4), uuid2(), na, 0.0f, 0, 0, crypto::null_hash);
 
   ASSERT_EQ(bq.get_num_filled_spans(), 2);
   ASSERT_EQ(bq.get_num_filled_blocks(), 7);
@@ -185,13 +299,13 @@ TEST(block_queue, cached_sync_size_tracks_span_changes)
 
   bq.add_blocks(0, 2, uuid1(), na);
   ASSERT_EQ(bq.get_max_block_size_average(), 0);
-  bq.add_blocks(0, std::vector<cryptonote::block_complete_entry>(2), uuid1(), na, 0.0f, 100, 1000);
-  bq.set_span_hashes(0, uuid1(), std::vector<crypto::hash>(2));
-  bq.add_blocks(2, std::vector<cryptonote::block_complete_entry>(1), uuid2(), na, 0.0f, 200, 900);
+  bq.add_blocks(0, std::vector<cryptonote::block_complete_entry>(2), std::vector<crypto::hash>(2), uuid1(), na, 0.0f, 100, 1000, crypto::null_hash);
+  bq.add_blocks(2, std::vector<cryptonote::block_complete_entry>(1), std::vector<crypto::hash>(1), uuid2(), na, 0.0f, 200, 900, crypto::null_hash);
   ASSERT_EQ(bq.get_max_block_size_average(), 900);
   ASSERT_EQ(bq.get_data_size(), 300);
 
-  bq.add_blocks(2, std::vector<cryptonote::block_complete_entry>(1), uuid2(), na, 0.0f, 150, 300);
+  ASSERT_TRUE(bq.remove_span(2));
+  bq.add_blocks(2, std::vector<cryptonote::block_complete_entry>(1), std::vector<crypto::hash>(1), uuid2(), na, 0.0f, 150, 300, crypto::null_hash);
   ASSERT_EQ(bq.get_max_block_size_average(), 500);
   ASSERT_EQ(bq.get_data_size(), 250);
 

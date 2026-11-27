@@ -28,6 +28,8 @@
 // 
 // Parts of this file are originally copyright (c) 2012-2013 The Cryptonote developers
 
+#include <algorithm>
+#include <iterator>
 #include <vector>
 #include <unordered_map>
 #include <boost/uuid/nil_generator.hpp>
@@ -45,28 +47,33 @@
 namespace cryptonote
 {
 
-void block_queue::add_blocks(uint64_t height, std::vector<cryptonote::block_complete_entry> bcel, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, float rate, size_t size, uint64_t sync_size)
+void block_queue::add_blocks(uint64_t height, std::vector<cryptonote::block_complete_entry> bcel, std::vector<crypto::hash> hashes, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, float rate, size_t size, uint64_t sync_size, const crypto::hash &parent)
 {
+  CHECK_AND_ASSERT_THROW_MES(!bcel.empty() && bcel.size() == hashes.size(), "Invalid filled span hashes");
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  std::vector<crypto::hash> hashes;
-  bool has_hashes = remove_span(height, &hashes);
-  blocks.insert(span(height, std::move(bcel), connection_id, addr, rate, size, sync_size));
-  if (has_hashes)
+  for (auto i = blocks.lower_bound(height); i != blocks.end() && i->start_block_height - height < hashes.size(); )
   {
-    for (std::size_t i = 0; i < hashes.size(); ++i)
-    {
-      requested_hashes.insert(hashes[i]);
-      have_blocks.emplace(hashes[i], height + i);
-    }
-    set_span_hashes(height, connection_id, hashes);
+    const auto existing = i++;
+    const size_t offset = existing->start_block_height - height;
+    // A partial or competing reply leaves the owner's request in flight.
+    if (existing->blocks.empty() && existing->nblocks <= hashes.size() - offset &&
+        std::equal(existing->hashes.begin(), existing->hashes.end(), hashes.begin() + offset))
+      erase_block(existing);
   }
+  span s(height, std::move(bcel), connection_id, addr, rate, size, sync_size);
+  s.parent = parent;
+  s.hashes = std::move(hashes);
+  insert_span(std::move(s));
 }
 
 bool block_queue::add_blocks(uint64_t height, uint64_t nblocks, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, boost::posix_time::ptime time)
 {
   CHECK_AND_ASSERT_THROW_MES(nblocks > 0, "Empty span");
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  return blocks.insert(span(height, nblocks, connection_id, addr, time)).second;
+  if (blocks.find(height) != blocks.end())
+    return false;
+  blocks.emplace(height, nblocks, connection_id, addr, time);
+  return true;
 }
 
 void block_queue::flush_spans(const boost::uuids::uuid &connection_id, bool all)
@@ -83,14 +90,35 @@ void block_queue::flush_spans(const boost::uuids::uuid &connection_id, bool all)
   }
 }
 
+void block_queue::insert_span(span s)
+{
+  const span &added = *blocks.insert(std::move(s));
+  for (std::size_t i = 0; i < added.hashes.size(); ++i)
+  {
+    requested_hashes.insert(added.hashes[i]);
+    if (!added.blocks.empty())
+      have_blocks.emplace(added.hashes[i], added.start_block_height + i);
+  }
+}
+
 void block_queue::erase_block(block_map::iterator j)
 {
   MDEBUG("Erasing span starting from block " << j->start_block_height);
   CHECK_AND_ASSERT_THROW_MES(j != blocks.end(), "Invalid iterator");
-  for (const crypto::hash &h: j->hashes)
+  // Overlapping spans can share a hash. Erase one occurrence for this span.
+  for (std::size_t i = 0; i < j->hashes.size(); ++i)
   {
-    requested_hashes.erase(h);
-    have_blocks.erase(h);
+    const auto requested = requested_hashes.find(j->hashes[i]);
+    if (requested != requested_hashes.end())
+      requested_hashes.erase(requested);
+    if (!j->blocks.empty())
+    {
+      const auto entries = have_blocks.equal_range(j->hashes[i]);
+      const auto height = j->start_block_height + i;
+      const auto found = std::find_if(entries.first, entries.second, [height](const auto &entry) { return entry.second == height; });
+      if (found != entries.second)
+        have_blocks.erase(found);
+    }
   }
   blocks.erase(j);
 }
@@ -109,31 +137,26 @@ void block_queue::flush_stale_spans(const std::set<boost::uuids::uuid> &live_con
   }
 }
 
-bool block_queue::remove_span(uint64_t start_block_height, std::vector<crypto::hash> *hashes)
+bool block_queue::remove_span(uint64_t start_block_height)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  for (block_map::iterator i = blocks.begin(); i != blocks.end(); ++i)
-  {
-    if (i->start_block_height == start_block_height)
-    {
-      if (hashes)
-        *hashes = std::move(i->hashes);
-      erase_block(i);
-      return true;
-    }
-  }
-  return false;
+  const auto range = blocks.equal_range(start_block_height);
+  if (range.first == range.second || std::next(range.first) != range.second)
+    return false;
+  erase_block(range.first);
+  return true;
 }
 
-void block_queue::remove_spans(const boost::uuids::uuid &connection_id, uint64_t start_block_height)
+void block_queue::remove_span(uint64_t height, const boost::uuids::uuid &connection_id, const crypto::hash &last_hash)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  for (block_map::iterator i = blocks.begin(); i != blocks.end(); )
+  const auto range = blocks.equal_range(height);
+  for (auto i = range.first; i != range.second; ++i)
   {
-    block_map::iterator j = i++;
-    if (j->connection_id == connection_id && j->start_block_height <= start_block_height)
+    if (i->connection_id == connection_id && !i->blocks.empty() && i->hashes.back() == last_hash)
     {
-      erase_block(j);
+      erase_block(i);
+      return;
     }
   }
 }
@@ -222,6 +245,20 @@ bool block_queue::requested(const crypto::hash &hash) const
   return requested_internal(hash);
 }
 
+bool block_queue::requested(const crypto::hash &hash, uint64_t height) const
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  for (const auto &span: blocks)
+  {
+    if (span.start_block_height > height)
+      break;
+    const uint64_t offset = height - span.start_block_height;
+    if (offset < span.hashes.size() && span.hashes[offset] == hash)
+      return true;
+  }
+  return false;
+}
+
 bool block_queue::have(const crypto::hash &hash) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
@@ -238,7 +275,7 @@ std::uint64_t block_queue::have_height(const crypto::hash &hash) const
 }
 
 
-std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_height, uint64_t last_block_height, uint64_t max_blocks, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, bool sync_pruned_blocks, uint32_t local_pruning_seed, uint32_t pruning_seed, uint64_t blockchain_height, const std::vector<std::pair<crypto::hash, uint64_t>> &block_hashes, boost::posix_time::ptime time)
+std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_height, uint64_t last_block_height, uint64_t max_blocks, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr, bool sync_pruned_blocks, uint32_t local_pruning_seed, uint32_t pruning_seed, uint64_t blockchain_height, const std::vector<std::pair<crypto::hash, uint64_t>> &block_hashes, boost::posix_time::ptime time, boost::optional<download_limit> limit, boost::optional<crypto::hash> first_parent)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
 
@@ -294,6 +331,14 @@ std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_hei
     ++span_start_height;
   }
 
+  if (limit && span_start_height != limit->chain_height)
+  {
+    // A full queue can still accept one earlier span that connects to a known parent.
+    if (span_start_height > limit->chain_height || span_start_height != first_block_height ||
+        !limit->first_block_connects || (!blocks.empty() && blocks.begin()->start_block_height < limit->chain_height))
+      return std::make_pair(0, 0);
+  }
+
   uint64_t span_length = 0;
   std::vector<crypto::hash> hashes;
   bool first_is_pruned = sync_pruned_blocks && !tools::has_unpruned_block(span_start_height + span_length, blockchain_height, local_pruning_seed);
@@ -315,78 +360,132 @@ std::pair<uint64_t, uint64_t> block_queue::reserve_span(uint64_t first_block_hei
     MDEBUG("span_length 0, cannot reserve");
     return std::make_pair(0, 0);
   }
-  if (!add_blocks(span_start_height, span_length, connection_id, addr, time))
+  span scheduled(span_start_height, span_length, connection_id, addr, time);
+  const uint64_t offset = span_start_height - block_hashes_start_height;
+  scheduled.parent = offset ? block_hashes[offset - 1].first : first_parent.value_or(crypto::null_hash);
+  scheduled.hashes = std::move(hashes);
+  if (blocks.find(span_start_height) != blocks.end())
   {
     MDEBUG("Span already starts at height " << span_start_height << ", cannot reserve");
     return std::make_pair(0, 0);
   }
+  insert_span(std::move(scheduled));
   MDEBUG("Reserving span " << span_start_height << " - " << (span_start_height + span_length - 1) << " for " << connection_id);
-  set_span_hashes(span_start_height, connection_id, hashes);
   return std::make_pair(span_start_height, span_length);
 }
 
-std::pair<uint64_t, uint64_t> block_queue::get_next_span_if_scheduled(std::vector<crypto::hash> &hashes, boost::uuids::uuid &connection_id, boost::posix_time::ptime &time) const
+block_queue::block_map::const_iterator block_queue::find_span(uint64_t height) const
+{
+  auto span = blocks.end();
+  auto first_filled = blocks.end();
+  for (auto i = blocks.begin(); i != blocks.end() && i->start_block_height <= height; ++i)
+  {
+    if (first_filled == blocks.end() && !i->blocks.empty())
+      first_filled = i;
+    if (height - i->start_block_height < i->nblocks)
+    {
+      if (!i->blocks.empty())
+      {
+        span = i;
+        break;
+      }
+      if (span == blocks.end() || i->start_block_height != span->start_block_height || i->nblocks > span->nblocks)
+        span = i;
+    }
+  }
+  // The adder processes the earliest filled span first. Follow its fork back
+  // through any reservations that must finish before that span can be added.
+  if (first_filled == blocks.end())
+    return span;
+  auto child = first_filled;
+  for (auto i = first_filled; i != blocks.begin() && child->parent != crypto::null_hash && requested_internal(child->parent); )
+  {
+    --i;
+    if (i->start_block_height >= child->start_block_height)
+      continue;
+    const uint64_t offset = child->start_block_height - i->start_block_height - 1;
+    if (offset < i->hashes.size() && i->hashes[offset] == child->parent)
+    {
+      child = i;
+      span = i;
+    }
+  }
+  return span;
+}
+
+boost::optional<block_queue::scheduled_span> block_queue::get_next_span_if_scheduled(uint64_t height) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  if (blocks.empty())
-    return std::make_pair(0, 0);
-  block_map::const_iterator i = blocks.begin();
+  auto i = find_span(height);
   if (i == blocks.end())
-    return std::make_pair(0, 0);
-  if (!i->blocks.empty())
-    return std::make_pair(0, 0);
-  hashes = i->hashes;
-  connection_id = i->connection_id;
-  time = i->time;
-  return std::make_pair(i->start_block_height, i->nblocks);
+    i = blocks.begin();
+  if (i == blocks.end() || !i->blocks.empty())
+    return boost::none;
+  return scheduled_span(*i);
 }
 
-void block_queue::reset_next_span_time(boost::posix_time::ptime t)
+boost::optional<block_queue::scheduled_span> block_queue::get_scheduled_span_at(uint64_t height) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  CHECK_AND_ASSERT_MES_NO_RET(!blocks.empty(), "No next span to reset time");
-  block_map::iterator i = blocks.begin();
-  CHECK_AND_ASSERT_MES_NO_RET(i != blocks.end(), "No next span to reset time");
-  CHECK_AND_ASSERT_MES_NO_RET(i->blocks.empty(), "Next span is not empty");
-  (boost::posix_time::ptime&)i->time = t; // sod off, time doesn't influence sorting
-}
-
-void block_queue::set_span_hashes(uint64_t start_height, const boost::uuids::uuid &connection_id, std::vector<crypto::hash> hashes)
-{
-  boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  for (block_map::iterator i = blocks.begin(); i != blocks.end(); ++i)
+  const auto range = blocks.equal_range(height);
+  auto widest = range.second;
+  for (auto i = range.first; i != range.second; ++i)
   {
-    if (i->start_block_height == start_height && i->connection_id == connection_id)
-    {
-      span s = *i;
-      erase_block(i);
-      s.hashes = std::move(hashes);
-      for (const crypto::hash &h: s.hashes)
-        requested_hashes.insert(h);
-      blocks.insert(s);
-      return;
-    }
+    if (!i->blocks.empty())
+      return boost::none;
+    if (widest == range.second || i->nblocks > widest->nblocks)
+      widest = i;
   }
+  if (widest == range.second)
+    return boost::none;
+  return scheduled_span(*widest);
 }
 
-bool block_queue::get_next_span(uint64_t &height, std::vector<cryptonote::block_complete_entry> &bcel, boost::uuids::uuid &connection_id, epee::net_utils::network_address &addr, bool filled) const
+bool block_queue::claim_span(const scheduled_span &scheduled, uint64_t height, const std::vector<crypto::hash> &hashes, const crypto::hash &parent, const boost::uuids::uuid &connection_id, const epee::net_utils::network_address &addr)
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  if (blocks.empty())
+  if (hashes.empty() || height < scheduled.start_block_height)
     return false;
-  block_map::const_iterator i = blocks.begin();
-  for (; i != blocks.end(); ++i)
-  {
-    if (!filled || !i->blocks.empty())
-    {
-      height = i->start_block_height;
-      bcel = i->blocks;
-      connection_id = i->connection_id;
-      addr = i->origin;
-      return true;
-    }
-  }
-  return false;
+  const uint64_t offset = height - scheduled.start_block_height;
+  if (offset >= scheduled.nblocks || hashes.size() > scheduled.nblocks - offset)
+    return false;
+  const auto range = blocks.equal_range(scheduled.start_block_height);
+  const auto observed = std::find_if(range.first, range.second, [&](const span &s) {
+    return s.blocks.empty() && s.connection_id == scheduled.connection_id && s.nblocks == scheduled.nblocks && s.time == scheduled.time;
+  });
+  if (observed == range.second)
+    return false;
+  const auto target = blocks.equal_range(height);
+  if (offset && target.first != target.second)
+    return false;
+  for (auto i = target.first; i != target.second; ++i)
+    if (!i->blocks.empty() || i->connection_id == connection_id)
+      return false;
+
+  const auto now = boost::posix_time::microsec_clock::universal_time();
+  if (now <= observed->time)
+    return false;
+  span retry(height, hashes.size(), connection_id, addr, now);
+  retry.parent = parent;
+  retry.hashes = hashes;
+  for (auto i = range.first; i != range.second; ++i)
+    if (i->blocks.empty())
+      i->time = now;
+  insert_span(std::move(retry));
+  return true;
+}
+
+boost::optional<block_queue::span> block_queue::get_next_span(const std::unordered_set<crypto::hash> &waiting_parents) const
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  auto i = std::find_if(blocks.begin(), blocks.end(), [](const span &s) { return !s.blocks.empty(); });
+  if (i == blocks.end())
+    return boost::none;
+  const auto end = blocks.upper_bound(i->start_block_height);
+  for (; i != end; ++i)
+    if (!i->blocks.empty() && !waiting_parents.count(i->parent))
+      return *i;
+  return boost::none;
 }
 
 bool block_queue::has_next_span(const boost::uuids::uuid &connection_id, bool &filled, boost::posix_time::ptime &time) const
@@ -407,17 +506,26 @@ bool block_queue::has_next_span(const boost::uuids::uuid &connection_id, bool &f
 bool block_queue::has_next_span(uint64_t height, bool &filled, boost::posix_time::ptime &time, boost::uuids::uuid &connection_id) const
 {
   boost::unique_lock<boost::recursive_mutex> lock(mutex);
-  if (blocks.empty())
-    return false;
-  block_map::const_iterator i = blocks.begin();
+  const auto i = find_span(height);
   if (i == blocks.end())
-    return false;
-  if (i->start_block_height > height)
     return false;
   filled = !i->blocks.empty();
   time = i->time;
   connection_id = i->connection_id;
   return true;
+}
+
+bool block_queue::has_filled_span(uint64_t blockchain_height) const
+{
+  boost::unique_lock<boost::recursive_mutex> lock(mutex);
+  for (const auto &span: blocks)
+  {
+    if (span.start_block_height > blockchain_height)
+      break;
+    if (!span.blocks.empty())
+      return true;
+  }
+  return false;
 }
 
 size_t block_queue::get_data_size() const

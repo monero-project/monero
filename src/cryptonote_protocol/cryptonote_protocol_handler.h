@@ -157,6 +157,7 @@ namespace cryptonote
     bool request_missing_objects(cryptonote_connection_context& context, bool check_having_blocks, bool force_next_span = false);
     bool on_connection_synchronized();
     bool should_download_next_span(cryptonote_connection_context& context, bool standby);
+    bool should_retry_span(cryptonote_connection_context& context, bool standby, const block_queue::scheduled_span &scheduled);
     bool should_ask_for_pruned_data(cryptonote_connection_context& context, uint64_t first_block_height, uint64_t nblocks, bool check_block_weights) const;
     void drop_connection(cryptonote_connection_context &context, bool add_fail, bool flush_all_spans);
     void drop_connection_with_score(cryptonote_connection_context &context, unsigned int score, bool flush_all_spans);
