@@ -232,7 +232,10 @@ function(forbid_undefined_symbols)
   # https://www.unix.com/man-page/linux/1/ld, --no-undefined, Report unresolved symbol references from regular object files.
   add_linker_flag_if_supported(-Wl,--no-undefined TMP)
   # https://www.unix.com/man-page/osx/1/ld/, -undefined, Specifies how undefined symbols are to be treated.
-  add_linker_flag_if_supported(-Wl,-undefined,error TMP)
+  # "error" is already the default on Apple ld, and ld-prime (Xcode 15+) warns that the flag is deprecated.
+  if (NOT APPLE)
+    add_linker_flag_if_supported(-Wl,-undefined,error TMP)
+  endif()
   string(APPEND CMAKE_SHARED_LINKER_FLAGS ${TMP})
   string(APPEND CMAKE_MODULE_LINKER_FLAGS ${TMP})
   set(CMAKE_SHARED_LINKER_FLAGS ${CMAKE_SHARED_LINKER_FLAGS} PARENT_SCOPE)
