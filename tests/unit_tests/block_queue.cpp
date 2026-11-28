@@ -88,6 +88,24 @@ TEST(block_queue, flush_uuid)
   ASSERT_EQ(bq.get_max_block_height(), 399);
 }
 
+TEST(block_queue, flush_stale_connections)
+{
+  cryptonote::block_queue bq;
+  epee::net_utils::network_address na;
+  const auto live_connection = crypto::rand<boost::uuids::uuid>();
+
+  bq.add_blocks(100, 1, uuid1(), na);
+  bq.add_blocks(101, 1, uuid2(), na);
+  bq.add_blocks(102, 1, live_connection, na);
+  bq.add_blocks(103, std::vector<cryptonote::block_complete_entry>(1), uuid1(), na, 0.0f, 0, 0);
+
+  bq.flush_stale_spans({uuid1(), uuid2()});
+  ASSERT_FALSE(bq.remove_span(100));
+  ASSERT_FALSE(bq.remove_span(101));
+  ASSERT_TRUE(bq.remove_span(102));
+  ASSERT_TRUE(bq.remove_span(103));
+}
+
 TEST(block_queue, reserve_does_not_overlap_later_span)
 {
   cryptonote::block_queue bq;
