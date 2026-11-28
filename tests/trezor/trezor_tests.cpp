@@ -367,9 +367,7 @@ static bool init_core_replay_events(std::vector<test_event_entry>& events, crypt
   core->get_blockchain_storage().get_db().set_batch_transactions(true);
 
   // start with a clean pool
-  std::vector<crypto::hash> pool_txs;
-  CHECK_AND_ASSERT_THROW_MES(core->get_pool_transaction_hashes(pool_txs), "Failed to flush txpool");
-  core->get_blockchain_storage().flush_txes_from_pool(pool_txs);
+  CHECK_AND_ASSERT_THROW_MES(core->get_blockchain_storage().flush_txes_from_pool(), "Failed to flush txpool");
 
   t_test_class validator;
   return replay_events_through_core<t_test_class>(*core, events, validator);
