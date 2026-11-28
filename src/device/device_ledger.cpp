@@ -27,18 +27,22 @@
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 
-#include "version.h"
 #include "device_ledger.hpp"
-#include "ringct/rctOps.h"
+
 #include "cryptonote_basic/account.h"
 #include "cryptonote_basic/subaddress_index.h"
 #include "cryptonote_core/cryptonote_tx_utils.h"
+#include "device/device_io_hid.hpp"
+#include "log.hpp"
+#include "version.h"
 
 namespace hw {
 
   namespace ledger {
 
   #ifdef WITH_DEVICE_LEDGER
+
+  #define LEDGER_VID 0x2c97
 
     namespace {
         bool apdu_verbose =true;
@@ -256,6 +260,45 @@ namespace hw {
     /* ===                             Device                           ==== */
     /* ===================================================================== */
 
+    static bool find_ledger_without_app(unsigned int &pid);
+
+    namespace
+    {
+      static const std::vector<hw::io::hid_conn_params> known_devices {
+        {0x2c97, 0x0001, 0, 0xffa0},
+        {0x2c97, 0x0004, 0, 0xffa0},
+        {0x2c97, 0x0005, 0, 0xffa0},
+        {0x2c97, 0x0006, 0, 0xffa0},
+        {0x2c97, 0x0007, 0, 0xffa0},
+        {0x2c97, 0x0008, 0, 0xffa0},
+      };
+
+      class default_device_io_hid: public io::device_io_hid {
+      public:
+        default_device_io_hid():
+          io::device_io_hid(0x0101, 0x05, 64, 2000)
+        {}
+
+        void connect() final {
+          unsigned int pid = 0;
+          if (find_ledger_without_app(pid)) {
+            // Ask the Ledger OS for the running application: a locked device answers
+            // SW_LOCKED_DEVICE, an unlocked one answers from its dashboard.
+            unsigned char command[] = {0xb0, 0x01, 0x00, 0x00, 0x00};
+            unsigned char response[BUFFER_RECV_SIZE];
+            io::device_io_hid::connect(LEDGER_VID, pid, 0, 0xffa0);
+            const int recv = io::device_io_hid::exchange(command, sizeof(command), response, sizeof(response), false);
+            io::device_io_hid::disconnect();
+            ASSERT_X(recv >= 2, "Communication error, less than two bytes received");
+            ASSERT_X(((response[recv-2]<<8) | response[recv-1]) != SW_LOCKED_DEVICE, "Ledger is locked.");
+            ASSERT_X(false, "Open the Monero app on your Ledger.");
+          }
+          io::device_io_hid::connect(known_devices);
+        }
+      };
+    } //anonymous namespace
+    
+
     static int device_id = 0;
 
     #define PROTOCOL_VERSION                    4
@@ -307,7 +350,11 @@ namespace hw {
     #define INS_GET_RESPONSE                    0xc0
 
 
-    device_ledger::device_ledger(): hw_device(0x0101, 0x05, 64, 2000) {
+    device_ledger::device_ledger():
+      device_ledger(std::make_unique<default_device_io_hid>())
+    {}
+
+    device_ledger::device_ledger(std::unique_ptr<io::device_io> &&device_io) : hw_device_io(std::move(device_io)) {
       this->id = device_id++;
       this->reset_buffer();      
       this->mode = NONE;
@@ -488,7 +535,7 @@ namespace hw {
     unsigned int device_ledger::exchange(unsigned int ok, unsigned int mask) {
       logCMD();
 
-      this->length_recv =  hw_device.exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE, false);
+      this->length_recv =  hw_device_io->exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE, false);
       ASSERT_X(this->length_recv>=2, "Communication error, less than two bytes received");
 
       this->length_recv -= 2;
@@ -506,7 +553,7 @@ namespace hw {
     unsigned int device_ledger::exchange_wait_on_input(unsigned int ok, unsigned int mask) {
       logCMD();
       unsigned int deny = 0;
-      this->length_recv =  hw_device.exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE, true);
+      this->length_recv =  hw_device_io->exchange(this->buffer_send, this->length_send, this->buffer_recv, BUFFER_SEND_SIZE, true);
       ASSERT_X(this->length_recv>=2, "Communication error, less than two bytes received");
 
       this->length_recv -= 2;
@@ -549,21 +596,9 @@ namespace hw {
     bool device_ledger::init(void) {
       this->controle_device = &hw::get_device("default");
       this->release();
-      hw_device.init();      
-      MDEBUG( "Device "<<this->id <<" HIDUSB initiated");
+      hw_device_io->init();
       return true;
     }
-    
-    #define LEDGER_VID 0x2c97
-
-    static const std::vector<hw::io::hid_conn_params> known_devices {
-        {0x2c97, 0x0001, 0, 0xffa0}, 
-        {0x2c97, 0x0004, 0, 0xffa0},       
-        {0x2c97, 0x0005, 0, 0xffa0},
-        {0x2c97, 0x0006, 0, 0xffa0},
-        {0x2c97, 0x0007, 0, 0xffa0},
-        {0x2c97, 0x0008, 0, 0xffa0},
-    };
 
     // A Ledger reports a different product id depending on whether an app is running,
     // so a device with no app open matches none of known_devices and is otherwise
@@ -586,21 +621,7 @@ namespace hw {
     bool device_ledger::connect(void) {
       this->disconnect();
 
-      unsigned int pid = 0;
-      if (find_ledger_without_app(pid)) {
-        // Ask the Ledger OS for the running application: a locked device answers
-        // SW_LOCKED_DEVICE, an unlocked one answers from its dashboard.
-        unsigned char command[] = {0xb0, 0x01, 0x00, 0x00, 0x00};
-        unsigned char response[BUFFER_RECV_SIZE];
-        hw_device.connect(LEDGER_VID, pid, 0, 0xffa0);
-        const int recv = hw_device.exchange(command, sizeof(command), response, sizeof(response), false);
-        hw_device.disconnect();
-        ASSERT_X(recv >= 2, "Communication error, less than two bytes received");
-        ASSERT_X(((response[recv-2]<<8) | response[recv-1]) != SW_LOCKED_DEVICE, "Ledger is locked.");
-        ASSERT_X(false, "Open the Monero app on your Ledger.");
-      }
-
-      hw_device.connect(known_devices);
+      this->hw_device_io->connect();
       this->reset();
       #ifdef DEBUG_HWDEVICE
       cryptonote::account_public_address pubkey;
@@ -611,20 +632,21 @@ namespace hw {
     }
 
     bool device_ledger::connected(void) const {
-      return hw_device.connected();
+      return hw_device_io->connected();
     }
 
     bool device_ledger::disconnect() {
-      hw_device.disconnect();
+      hw_device_io->disconnect();
       this->viewkey.scrub();
       this->has_view_key = false;
       this->requested_view_key = false;
+
       return true;
     }
 
     bool device_ledger::release() {
       this->disconnect();
-      hw_device.release();
+      hw_device_io->release();
       return true;
     }
 
