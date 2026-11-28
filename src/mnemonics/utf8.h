@@ -26,11 +26,13 @@
 // STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF
 // THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-#pragma once 
+#pragma once
 
 #include <cctype>
 #include <cwchar>
 #include <stdexcept>
+
+#include <utf8proc.h>
 
 namespace tools
 {
@@ -38,76 +40,26 @@ namespace tools
   inline T utf8canonical(const T &s, Transform t = [](wint_t c)->wint_t { return c; })
   {
     T sc = "";
-    size_t avail = s.size();
-    const char *ptr = s.data();
-    wint_t cp = 0;
-    int bytes = 1;
-    char wbuf[8], *wptr;
-    while (avail--)
+    const utf8proc_uint8_t *ptr = reinterpret_cast<const utf8proc_uint8_t*>(s.data());
+    utf8proc_ssize_t avail = s.size();
+    utf8proc_uint8_t wbuf[4];
+    while (avail > 0)
     {
-      if ((*ptr & 0x80) == 0)
-      {
-        cp = *ptr++;
-        bytes = 1;
-      }
-      else if ((*ptr & 0xe0) == 0xc0)
-      {
-        if (avail < 1)
-          throw std::runtime_error("Invalid UTF-8");
-        cp = (*ptr++ & 0x1f) << 6;
-        cp |= *ptr++ & 0x3f;
-        --avail;
-        bytes = 2;
-      }
-      else if ((*ptr & 0xf0) == 0xe0)
-      {
-        if (avail < 2)
-          throw std::runtime_error("Invalid UTF-8");
-        cp = (*ptr++ & 0xf) << 12;
-        cp |= (*ptr++ & 0x3f) << 6;
-        cp |= *ptr++ & 0x3f;
-        avail -= 2;
-        bytes = 3;
-      }
-      else if ((*ptr & 0xf8) == 0xf0)
-      {
-        if (avail < 3)
-          throw std::runtime_error("Invalid UTF-8");
-        cp = (*ptr++ & 0x7) << 18;
-        cp |= (*ptr++ & 0x3f) << 12;
-        cp |= (*ptr++ & 0x3f) << 6;
-        cp |= *ptr++ & 0x3f;
-        avail -= 3;
-        bytes = 4;
-      }
-      else
+      utf8proc_int32_t cp = 0;
+      utf8proc_ssize_t consumed = utf8proc_iterate(ptr, avail, &cp);
+      if (consumed <= 0)
         throw std::runtime_error("Invalid UTF-8");
+      ptr += consumed;
+      avail -= consumed;
 
-      cp = t(cp);
-      if (cp <= 0x7f)
-        bytes = 1;
-      else if (cp <= 0x7ff)
-        bytes = 2;
-      else if (cp <= 0xffff)
-        bytes = 3;
-      else if (cp <= 0x10ffff)
-        bytes = 4;
-      else
+      cp = (utf8proc_int32_t)t((wint_t)cp);
+      if (!utf8proc_codepoint_valid(cp))
         throw std::runtime_error("Invalid code point UTF-8 transformation");
 
-      wptr = wbuf;
-      switch (bytes)
-      {
-        case 1: *wptr++ = cp; break;
-        case 2: *wptr++ = 0xc0 | (cp >> 6); *wptr++ = 0x80 | (cp & 0x3f); break;
-        case 3: *wptr++ = 0xe0 | (cp >> 12); *wptr++ = 0x80 | ((cp >> 6) & 0x3f); *wptr++ = 0x80 | (cp & 0x3f); break;
-        case 4: *wptr++ = 0xf0 | (cp >> 18); *wptr++ = 0x80 | ((cp >> 12) & 0x3f); *wptr++ = 0x80 | ((cp >> 6) & 0x3f); *wptr++ = 0x80 | (cp & 0x3f); break;
-        default: throw std::runtime_error("Invalid UTF-8");
-      }
-      *wptr = 0;
-      sc.append(wbuf, bytes);
-      cp = 0;
-      bytes = 1;
+      utf8proc_ssize_t written = utf8proc_encode_char(cp, wbuf);
+      if (written <= 0)
+        throw std::runtime_error("Invalid code point UTF-8 transformation");
+      sc.append(reinterpret_cast<const char*>(wbuf), written);
     }
     return sc;
   }

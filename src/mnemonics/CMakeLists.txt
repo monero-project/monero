@@ -44,6 +44,7 @@ target_link_libraries(mnemonics
     epee
     easylogging
     polyseed_wrapper
+    utf8proc
     ${Boost_SYSTEM_LIBRARY}
   PRIVATE
     ${EXTRA_LIBRARIES})

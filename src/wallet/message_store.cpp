@@ -40,7 +40,7 @@
 #include "serialization/binary_utils.h"
 #include "common/base58.h"
 #include "common/util.h"
-#include "common/utf8.h"
+#include "mnemonics/utf8.h"
 #include "string_tools.h"
 
 
