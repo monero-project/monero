@@ -93,7 +93,8 @@ namespace
     {
       throw std::runtime_error{
         std::string{"--"} + daemon_args::arg_zmq_rpc_bind_ip.name +
-        " permits inbound unencrypted external connections. Consider SSH tunnel or SSL proxy instead. Override with --" +
+        " permits inbound unencrypted external connections. Exposing ZMQ RPC to untrusted clients is unsafe, "
+        "even in restricted mode. Limit access to trusted clients, for example with an SSH tunnel. Override with --" +
         daemon_args::arg_confirm_zmq_rpc_external_bind.name
       };
     }

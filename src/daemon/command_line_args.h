@@ -111,7 +111,7 @@ namespace daemon_args
 
   const command_line::arg_descriptor<std::string> arg_zmq_rpc_bind_ip   = {
     "zmq-rpc-bind-ip"
-      , "IP for ZMQ RPC server to listen on"
+      , "IP for ZMQ RPC server to listen on. Only allow access from trusted clients"
       , "127.0.0.1"
   };
 
@@ -130,7 +130,7 @@ namespace daemon_args
   };
   const command_line::arg_descriptor<std::vector<std::string>> arg_zmq_pub = {
     "zmq-pub"
-  , "Address for ZMQ pub - tcp://ip:port or ipc://path"
+  , "Address for ZMQ PUB - tcp://ip:port or ipc://path. Only allow access from trusted clients"
   };
 
   const command_line::arg_descriptor<bool> arg_restricted_zmq_rpc = {
