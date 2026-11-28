@@ -48,7 +48,7 @@ namespace po = boost::program_options;
 using namespace epee;
 using namespace cryptonote;
 
-static bool stop_requested = false;
+static std::atomic<bool> stop_requested{false};
 static uint64_t cached_txes = 0, cached_blocks = 0, cached_outputs = 0, total_txes = 0, total_blocks = 0, total_outputs = 0;
 static bool opt_cache_outputs = false, opt_cache_txes = false, opt_cache_blocks = false;
 
@@ -499,7 +499,7 @@ int main(int argc, char* argv[])
     state_data_in.close();
   }
 
-  tools::signal_handler::install([](int type) {
+  const auto signal_registration = tools::signal_handler::install([](int type) {
     stop_requested = true;
   });
 

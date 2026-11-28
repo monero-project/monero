@@ -42,7 +42,7 @@ namespace po = boost::program_options;
 using namespace epee;
 using namespace cryptonote;
 
-static bool stop_requested = false;
+static std::atomic<bool> stop_requested{false};
 
 static bool do_inputs, do_outputs, do_ringsize, do_hours, do_emission, do_fees, do_diff;
 
@@ -226,7 +226,7 @@ int main(int argc, char* argv[])
   CHECK_AND_ASSERT_MES(r, 1, "Failed to initialize source blockchain storage");
   LOG_PRINT_L0("Source blockchain storage initialized OK");
 
-  tools::signal_handler::install([](int type) {
+  const auto signal_registration = tools::signal_handler::install([](int type) {
     stop_requested = true;
   });
 
