@@ -39,6 +39,8 @@ struct gen_bpp_tx_validation_base : public test_chain_unit_base
   {
     REGISTER_CALLBACK_METHOD(gen_bpp_tx_validation_base, mark_invalid_tx);
     REGISTER_CALLBACK_METHOD(gen_bpp_tx_validation_base, mark_invalid_block);
+    REGISTER_CALLBACK_METHOD(gen_bpp_tx_validation_base, clear_pool_input_verification_ids);
+    REGISTER_CALLBACK_METHOD(gen_bpp_tx_validation_base, check_block_marked_invalid);
   }
 
   bool check_tx_verification_context(const cryptonote::tx_verification_context& tvc, bool tx_added, size_t event_idx, const cryptonote::transaction& /*tx*/)
@@ -81,10 +83,16 @@ struct gen_bpp_tx_validation_base : public test_chain_unit_base
     return true;
   }
 
+  bool clear_pool_input_verification_ids(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
+  bool check_block_marked_invalid(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events);
+
   bool generate_with(std::vector<test_event_entry>& events, size_t mixin,
       size_t n_txes, const uint64_t *amounts_paid, bool valid, const rct::RCTConfig *rct_config, uint8_t hf_version,
       const std::function<bool(std::vector<cryptonote::tx_source_entry> &sources, std::vector<cryptonote::tx_destination_entry> &destinations, size_t)> &pre_tx,
-      const std::function<bool(cryptonote::transaction &tx, size_t)> &post_tx) const;
+      const std::function<bool(cryptonote::transaction &tx, size_t)> &post_tx,
+      const std::function<void(std::vector<test_event_entry> &events)> &before_block = {}) const;
+
+  bool generate_block_verifying_txs(std::vector<test_event_entry>& events, size_t invalid_tx_idx) const;
 
   bool check_bpp(const cryptonote::transaction &tx, size_t tx_idx, const size_t *sizes, const char *context) const;
 
@@ -174,3 +182,27 @@ struct gen_bpp_tx_invalid_clsag_type : public gen_bpp_tx_validation_base
   bool generate(std::vector<test_event_entry>& events) const;
 };
 template<> struct get_test_options<gen_bpp_tx_invalid_clsag_type>: public get_bpp_versioned_test_options<HF_VERSION_BULLETPROOF_PLUS + 1> {};
+
+struct gen_bpp_txs_block_verify_valid : public gen_bpp_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_bpp_txs_block_verify_valid>: public get_bpp_versioned_test_options<HF_VERSION_BULLETPROOF_PLUS> {};
+
+struct gen_bpp_txs_block_verify_invalid_first : public gen_bpp_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_bpp_txs_block_verify_invalid_first>: public get_bpp_versioned_test_options<HF_VERSION_BULLETPROOF_PLUS> {};
+
+struct gen_bpp_txs_block_verify_invalid_middle : public gen_bpp_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_bpp_txs_block_verify_invalid_middle>: public get_bpp_versioned_test_options<HF_VERSION_BULLETPROOF_PLUS> {};
+
+struct gen_bpp_txs_block_verify_invalid_last : public gen_bpp_tx_validation_base
+{
+  bool generate(std::vector<test_event_entry>& events) const;
+};
+template<> struct get_test_options<gen_bpp_txs_block_verify_invalid_last>: public get_bpp_versioned_test_options<HF_VERSION_BULLETPROOF_PLUS> {};
