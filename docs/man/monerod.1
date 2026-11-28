@@ -1,0 +1,5354 @@
+.TH MONEROD "1" "AUGUST 2024" "Fluorine Fermi 0.18.3.3" "MONEROD MANUAL"
+.SH NAME
+monerod \- Monero p2p network daemon
+.SH SYNOPSIS
+.B monerod
+[\fI\,options|settings\/\fR] [\fI\,daemon_command...\/\fR]
+.SH DESCRIPTION
+.\" Add any additional description here
+.PP
+The Monero daemon \fBmonerod\fR keeps your computer synchronized with the Monero blockchain by downloading and validating the blockchain from the p2p network.
+
+\fBmonerod\fR is entirely decoupled from your wallet.
+
+\fBmonerod\fR is mainly used by your wallet software over local RPC connection, as in \fBMonero GUI\fR.
+
+\fBmonerod\fR does not access your private keys \- it is not aware of your transactions and balance, so you can run \fBmonerod\fR on a separate computer or in the cloud. In fact, you can connect to a remote \fBmonerod\fR instance provided by a semi-trusted 3rd party, who will not be able to steal your funds; this third-party configuration is very handy for learning and experimentation.
+
+However, there are privacy and reliability implications to using a remote, untrusted node. For any real business you should be running your own full node.
+
+\fBmonerod\fR can save you time syncing the whole blockchain by relaying your wallet requests over p2p network nodes 
+.br
+by using \fB--bootstrap-daemon-address\fR see \fBmonerod Performance\fR section for more info.
+
+
+.SH Options:
+Arguments in parentheses are default
+.br
+.TP
+\fB\--help\fR
+.br
+Produce help message
+.TP
+\fB\--version\fR                            
+Output version information
+.TP
+\fB\--os-version\fR                          
+OS for which this executable was compiled.
+.TP
+\fB\--check-updates\fR arg (=notify)
+Check for new versions of monero: [disabled|notify|download|update]
+
+
+.SS Pick Monero network (blockchain):
+.TP
+By default \fBmonerod\fR runs on --mainnet
+.TP
+\fB\--testnet\fR
+Run on testnet. The wallet must be launched with --testnet flag.
+.TP
+\fB\--stagenet\fR
+Run on stagenet. The wallet must be launched with --stagenet flag.
+
+
+.SS Server Config:
+.TP
+\fB\--config-file\fR arg
+.br
+(=~/.bitmonero/bitmonero.conf, 
+.br
+~/.bitmonero/testnet/bitmonero.conf if 'testnet', 
+.br
+~/.bitmonero/stagenet/bitmonero.conf if 'stagenet')
+.br
+Specify full path to configuration file, By default \fBmonerod\fR looks for bitmonero.conf in Monero data directory.
+.TP
+\fB\--data-dir\fR arg
+(=~/.bitmonero,
+.br
+~/.bitmonero/testnet if 'testnet',
+.br
+~/.bitmonero/stagenet if 'stagenet')
+.br
+Specify full path for data directory, This is where the blockchain, log files, and p2p network memory are stored. 
+.TP
+\fB\--pidfile\fR arg                         
+File path to write the daemon's PID to (optional, requires \--detach)
+.TP
+\fB\--detach\fR
+Run as daemon
+.TP
+\fB\--non-interactive\fR                     
+Run non-interactive, Do not require tty in a foreground mode. Helpful when running in a container. By default \fBmonerod\fR runs in a foreground and opens stdin for reading.
+.TP
+\fB\--max-txpool-weight\fR arg (=648000000)
+Set maximum txpool weight in bytes. These are transactions pending for confirmations (not included in any block).
+.TP
+\fB\--enforce-dns-checkpointing\fR
+checkpoints from DNS server will be enforced, The emergency checkpoints set by \fBMoneroPulse\fR operators will be enforced. It is probably a good idea to set enforcing for unattended nodes.
+If encountered block hash does not match corresponding checkpoint, the local blockchain will be rolled back a few blocks, effectively blocking following what MoneroPulse operators consider invalid fork. The log entry will be produced: \fBERROR Local blockchain failed to pass a checkpoint, rolling back!\fR Eventually, the alternative (“fixed”) fork will get heavier and the node will follow it, leaving the “invalid” fork behind.
+.TP
+\fB\--disable-dns-checkpoints\fR
+Do not retrieve checkpoints from DNS
+.TP
+\fB\--ban-list\fR arg
+Specify ban list file, one IP address per line
+.TP
+\fB\--enable-dns-blocklist\fR      
+Apply realtime blocklist from DNS
+.TP
+\fB\--zmq-pub\fR arg
+Address for ZMQ pub - tcp://ip:port or ipc://path
+.TP
+\fB\--zmq-rpc-bind-ip\fR arg (=127.0.0.1)
+IP for ZMQ RPC server to listen on
+.TP
+\fB\--zmq-rpc-bind-port\fR arg (=18082, 28082 if 'testnet', 38082 if 'stagenet')
+Port for ZMQ RPC server to listen on
+.TP
+\fB\--block-download-max-size\fR arg (=0)
+Set maximum size of block download queue in bytes (0 for default)
+.TP
+\fB\--span-limit\fR arg (=2)
+Dynamically restrict the number of spans in queue by estimating how many spans can be synced within N minutes. The dynamic minimum is 10 spans, and is further capped by block-download-max-size.
+.TP
+\fB\--no-sync\fR                   
+Don't synchronize the blockchain with other peers, intended to be used with \fB\--bootstrap-daemon-address\fR allowing reliance on other public P2P nodes for blockchain data.
+
+When a monerod process is in \fB\--no-sync\fR mode, virtually all data requests are forwarded to the bootstrap node, as the local node does not have synchronized block data.
+
+This flag is enabled in Simple GUI Mode.
+
+.SS Logging:
+.TP
+\fB\--log-file\fR arg
+.br
+(=~/.bitmonero/bitmonero.log,
+.br
+~/.bitmonero/testnet/bitmonero.log if 'testnet',
+.br
+~/.bitmonero/stagenet/bitmonero.log if 'stagenet')
+.br
+Specify Full path log file
+.TP
+\fB\--log-level\fR arg (=0)
+0-4 with 0 being minimal logging and 4 being full tracing. These are general presets and do not directly map to severity levels.
+.TP
+\fB\--max-log-file-size\fR arg (=104850000)
+Specify maximum log file size [B], Once log file grows past that limit, \fBmonerod\fR creates the next log file with a UTC timestamp postfix -YYYY-MM-DD-HH-MM-SS.
+.TP
+\fB\--max-log-files\fR arg (=50)
+Specify maximum number of rotated log
+files to be saved (no limit by setting to 0)
+
+
+.SS monerod Performance:
+.TP
+\fB\--sync-pruned-blocks\fR
+Allow syncing from nodes with only pruned blocks
+.TP
+\fB\--prune-blockchain\fR
+Prune blockchain
+.TP
+\fB\--db-sync-mode\fR arg (=fast:async:250000000bytes)
+Specify sync option, using format [safe|fast|fastest]:[sync|async]:[<nblocks_per_sync>[blocks]|<nbytes_per_sync> [bytes]].
+.TP
+\fB\--max-concurrency\fR arg (=0)
+Max number of threads to use for a parallel job
+.TP
+\fB\--prep-blocks-threads\fR arg (=4)
+Max number of threads to use when preparing block hashes in groups.
+.TP
+\fB\--fast-block-sync\fR arg (=1)
+Sync up most of the way by using embedded, known block hashes.
+.TP
+\fB\--block-sync-size\fR arg (=0)
+How many blocks are processed in a single batch during chain synchronization. Setting this flag will override the default behavior, which is to be calculated dynamically by batch-max-weight. Max value is 100.
+.TP
+\fB\--batch-max-weight\fR arg (=10)
+Dynamically set the block-sync-size by targetting this many MB. Max value is 50.
+.TP
+\fB\--bootstrap-daemon-address\fR arg
+URL of a 'bootstrap' remote daemon that the connected wallets can use while this daemon is still not fully synced. Use 'auto' to enable automatic public nodes discovering and bootstrap daemon switching,
+
+When core RPC server with a bootstrap daemon receives an RPC request, in which block data requested is unsynced, it forwards the request to the bootstrap daemon. In this manner, you can seamlessly interact with an \fBunsynced monerod process\fR as if it was fully synced with the network.
+
+In Monero GUI Simple Mode and Simple Bootstrap GUI Mode this is set to auto (automatic public nodes discovering and bootstrap daemon switching)
+.TP
+\fB\--bootstrap-daemon-login\fR arg
+Specify username:password for the bootstrap daemon login
+.TP
+\fB\--bootstrap-daemon-proxy\fR arg <ip>:<port> 
+socks proxy to use for bootstrap daemon connections
+.TP
+\fB\--show-time-stats\fR arg (=0)
+Show time-stats when processing blocks/txs and disk synchronization.
+.TP
+\fB\--extra-messages-file\fR arg
+Specify file for extra messages to include into coinbase transactions
+.TP
+\fB\--db-salvage\fR
+Try to salvage a blockchain database if it seems corrupted
+.TP
+\fB\--tos-flag\fR arg (=-1)
+set TOS flag
+
+
+.SS P2P network:
+.TP
+\fB\--p2p-bind-ip\fR arg (=0.0.0.0)
+Interface for p2p network protocol (IPv4)
+.TP
+\fB\--p2p-bind-port\fR arg (=18080, 28080 if 'testnet', 38080 if 'stagenet')
+ Port for p2p network protocol (IPv4)
+.TP
+\fB\--p2p-external-port\fR arg (=0)
+External port for p2p network protocol (if port forwarding used with NAT)
+.TP
+\fB\--p2p-use-ipv6\fR
+Enable IPv6 for p2p
+.TP
+\fB\--p2p-bind-ipv6-address\fR arg (=::)
+Interface for p2p network protocol (IPv6)
+.TP
+\fB\--p2p-bind-port-ipv6\fR arg (=18080, 28080 if 'testnet', 38080 if 'stagenet')
+ Port for p2p network protocol (IPv6)
+.TP
+\fB\--p2p-ignore-ipv4\fR
+Ignore unsuccessful IPv4 bind for p2p
+.TP
+\fB\--igd\fR arg (=delayed)
+UPnP port mapping (disabled, enabled, delayed)
+.TP
+\fB\--no-zmq\fR
+Disable ZMQ RPC server
+.TP
+\fB\--no-igd\fR                    
+Disable UPnP port mapping
+.TP
+\fB\--hide-my-port\fR              
+Do not announce yourself as peerlist candidate
+.TP
+\fB\--seed-node\fR arg
+Connect to a node to retrieve peer addresses, and disconnect
+.TP
+\fB\--add-peer\fR arg
+Manually add peer to local peerlist
+.TP
+\fB\--add-priority-node\fR arg
+Specify list of peers to connect to and attempt to keep the connection open
+.TP
+\fB\--add-exclusive-node\fR arg
+Specify list of peers to connect to only. If this option is given the options add-priority-node and seed-node are ignored
+.TP
+\fB\--out-peers\fR arg (=-1)
+ set max number of out peers
+.TP
+\fB\--in-peers\fR arg (=-1)
+ set max number of in peers
+.TP
+\fB\--limit-rate-up\fR arg (=8192)
+ set limit-rate-up [kB/s]
+.TP
+\fB\--limit-rate-down\fR arg (=32768)
+ set limit-rate-down [kB/s]
+.TP
+\fB\--limit-rate\fR arg (=-1)
+ set limit-rate [kB/s]
+.TP
+\fB\--max-connections-per-ip\fR arg (=1)
+Maximum number of connections allowed from the same IP address
+.TP
+\fB\--offline\fR
+Do not listen for peers, nor connect to any
+.TP
+\fB\--allow-local-ip\fR
+Allow local ip add to peer list, mostly in debug purposes
+
+
+.SS Tor/I2P and proxies:
+.TP
+\fB\--proxy\fR arg <socks-ip:port>
+Network communication through proxy:  i.e. "127.0.0.1:9050"
+.TP
+\fB\--tx-proxy\fR arg <network-type>,<socks-ip:port>[,max_connections][,disable_noise]
+Send local txes through proxy:  i.e. "tor,127.0.0.1:9050,100,disable_noise"
+.TP
+\fB\--proxy-allow-dns-leaks\fR
+Allow DNS leaks outside of proxy
+.TP
+\fB\--anonymous-inbound\fR arg <hidden-service-address>,<[bind-ip:]port>[,max_connections]
+Allow anonymous incoming connections to your onionized P2P interface. i.e. "x.onion,127.0.0.1:18083,100"
+.TP
+\fB\--pad-transactions\fR           
+Pad relayed transactions to help defend against traffic volume analysis
+
+
+.SS Node RPC API Options:
+.TP
+\fB\--public-node\fR
+Allow other users to use the node as a remote (restricted RPC mode, view-only commands) and advertise it over P2P
+.TP
+\fB\--rpc-bind-ip\fR arg (=127.0.0.1)
+Specify IP to bind RPC server
+.TP
+\fB\--rpc-bind-port\fR arg (=18081, 28081 if 'testnet', 38081 if 'stagenet')
+Port for RPC server
+.TP
+\fB\--rpc-bind-ipv6-address\fR arg (=::1)
+Specify IPv6 address to bind RPC server
+.TP
+\fB\--rpc-use-ipv6\fR
+Allow IPv6 for RPC
+.TP
+\fB\--rpc-ignore-ipv4\fR
+Ignore unsuccessful IPv4 bind for RPC
+.TP
+\fB\--restricted-rpc\fR
+Restrict RPC to view only commands and do not return privacy sensitive data in RPC calls
+.TP
+\fB\--rpc-max-connections\fR arg (=100)
+Max RPC connections permitted
+.TP
+\fB\--rpc-max-connections-per-public-ip\fR arg (=3)
+Max RPC connections per public IP permitted
+.TP
+\fB\--rpc-max-connections-per-private-ip\fR arg (=25)
+Max RPC connections per private and localhost IP permitted
+.TP
+\fB\--rpc-response-soft-limit\fR arg (=26214400)
+Max response bytes that can be queued, enforced at next response attempt
+.TP
+\fB\--rpc-restricted-bind-ip\fR arg (=127.0.0.1)
+Specify IP to bind restricted RPC server
+.TP
+\fB\--rpc-restricted-bind-port\fR arg
+Port for restricted RPC server
+.TP
+\fB\--rpc-restricted-bind-ipv6-address\fR arg (=::1)
+Specify IPv6 address to bind restricted RPC server
+.TP
+\fB\--confirm-external-bind\fR              
+Confirm rpc-bind-ip value is NOT a loopback (local) IP
+.TP
+\fB\--rpc-login\fR arg
+Specify username[:password] required for RPC server
+.TP
+\fB\--rpc-access-control-origins\fR arg
+Specify a comma separated list of origins to allow cross origin resource sharing
+.TP
+\fB\--rpc-ssl\fR arg (=autodetect)
+Enable SSL on RPC connections: enabled|disabled|autodetect
+.TP
+\fB\--rpc-ssl-private-key\fR arg
+Path to a PEM format private key
+.TP
+\fB\--rpc-ssl-certificate\fR arg
+Path to a PEM format certificate
+.TP
+\fB\--rpc-ssl-ca-certificates\fR arg
+Path to file containing concatenated PEM format certificate(s) to replace system CA(s).
+.TP
+\fB\--rpc-ssl-allowed-fingerprints\fR arg
+List of certificate fingerprints to allow
+.TP
+\fB\--rpc-ssl-allow-chained\fR
+Allow user (via --rpc-ssl-certificates) chain certificates
+.TP
+\fB\--rpc-ssl-allow-any-cert\fR
+Allow any peer certificate
+.TP
+\fB\--disable-rpc-ban\fR
+Do not ban hosts on RPC errors
+.TP
+\fB\--rpc-payment-address arg\fR
+Restrict RPC to clients sending micropayment to this address
+.TP
+\fB\--rpc-payment-difficulty\fR arg (=1000)
+Restrict RPC to clients sending micropayment at this difficulty
+.TP
+\fB\--rpc-payment-credits\fR arg (=100)
+Restrict RPC to clients sending micropayment, yields that many credits per payment
+.TP
+\fB\--rpc-payment-allow-free-loopback\fR
+Allow free access from the loopback address (ie, the local host)
+
+
+.SS Monero notifications:
+.TP
+\fB\--block-notify\fR arg
+Run a program for each new block, '%s' will be replaced by the block hash
+.TP
+\fB\--block-rate-notify\fR arg
+Run a program when the block rate undergoes large fluctuations. This might be a sign of large amounts of
+hash rate going on and off the Monero network, and thus be of potential interest in predicting attacks. %t will be replaced by the number of minutes
+for the observation window, %b by the number of blocks observed within that window, and %e by the number of blocks that was expected in that window. It is
+suggested that this notification is used to automatically increase the number of confirmations required before a payment is acted upon.
+.TP
+\fB\--reorg-notify\fR arg
+Run a program for each reorg, '%s' will be replaced by the split height, '%h' will be replaced by the new blockchain height, '%n' will be replaced by the number of new blocks in the new chain,
+and '%d' will be replaced by the number of blocks discarded from the old chain
+
+
+
+
+.SS Mining
+.TP
+\fB\--start-mining\fR arg
+Specify wallet address to mining for
+.TP
+\fB\--mining-threads\fR arg
+Specify mining threads count
+.TP
+\fB\--bg-mining-enable\fR
+enable background mining
+.TP
+\fB\--bg-mining-ignore-battery\fR
+if true, assumes plugged in when unable to query system power status
+.TP
+\fB\--bg-mining-min-idle-interval\fR arg
+Specify min lookback interval in seconds for determining idle state
+.TP
+\fB\--bg-mining-idle-threshold\fR arg
+Specify minimum avg idle percentage over lookback interval
+.TP
+\fB\--bg-mining-miner-target\fR arg
+Specify maximum percentage cpu use by miner(s)
+
+
+.SS Testing
+.TP
+\fB\--keep-alt-blocks\fR
+Keep alternative blocks on restart
+.TP
+\fB\--test-dbg-lock-sleep\fR arg (=0)
+Sleep time in ms, defaults to 0 (off), used to debug before/after locking mutex. Values 100 to 1000 are good for tests.
+.TP
+\fB\--test-drop-download\fR
+For net tests: in download, discard ALL blocks instead checking/saving them (very fast)
+.TP
+\fB\--test-drop-download-height\fR arg (=0)
+Like test-drop-download but discards only after around certain height
+.TP
+\fB\--keep-fakechain\fR
+Don't delete any existing database when in fakechain mode.
+.TP
+\fB\--regtest\fR
+Run in a regression testing mode.
+.TP
+\fB\--fixed-difficulty\fR arg (=0)
+Fixed difficulty used for testing.
+
+
+.SS Legacy Options
+.TP
+\fB\--fluffy-blocks\fR
+Relay blocks as fluffy blocks (obsolete, now default)
+.TP
+\fB\--no-fluffy-blocks\fR
+Relay blocks as normal blocks
+
+
+.SH Daemon commands:
+Commands give access to specific services provided by the daemon. Commands are executed against the running daemon.
+.br
+Their names follow the \fBcommand_name\fR pattern.
+
+
+.SS Info:
+.TP
+\fBhelp [<command>]\fR
+Show the help section or the documentation about a <command>.
+.TP
+\fBapropos <keyword> [<keyword> ...]\fR
+Search all command descriptions for keyword(s).
+.TP
+\fBversion\fR
+Print version information.
+.TP
+\fBstatus\fR
+Show the current status.
+.TP
+\fBprint_net_stats\fR
+Print network statistics.
+
+
+.SS P2P Network:
+.TP
+\fBprint_pl [white] [gray] [pruned] [publicrpc] [<limit>]\fR
+Print the current peer list.
+.TP
+\fBprint_pl_stats\fR
+Show the full peer list statistics (white vs gray peers). White peers are any peers your node has completed a handshake with. Grey nodes are nodes that your node hasn’t tried to connect to yet.
+.TP
+\fBprint_cn\fR
+Show connected peers with connection initiative (incoming/outgoing) and other stats.
+.TP
+\fBban [<IP>|@<filename>] [<seconds>]\fR
+Ban a given <IP> or list of IPs from a file for a given amount of <seconds>. By default the ban is for 24h.
+.TP
+\fBbans\fR
+.br
+Show the currently banned IPs.
+.B Example: 187.63.135.161 banned for 86397 seconds
+.TP
+\fBbanned <address>\fR
+Check whether an <address> is banned.
+.TP
+\fBunban <address>\fR
+Unban a given <IP>.
+.TP
+\fBin_peers <max_number>\fR
+Set the <max_number> of incoming connections from other peers.
+.TP
+\fBout_peers <max_number>\fR
+Set the <max_number> of outgoing connections to other peers.
+.TP
+\fBlimit [<kB/s>]\fR
+Get or set the download and upload limit.
+.TP
+\fBlimit_down [<kB/s>]\fR
+Get or set the download limit.
+.TP
+\fBlimit_up [<kB/s>]\fR
+Get or set the upload limit.
+
+
+
+.SS Transaction pool:
+.TP
+\fBflush_txpool [<txid>]\fR
+Flush a transaction from the tx pool by its <txid>, or the whole tx pool if <txid> was not provided.
+.TP
+\fBprint_pool\fR
+Print the transaction pool using a long verbose format.
+.TP
+\fBprint_pool_sh\fR
+Print transaction pool using a short format.
+.TP
+\fBprint_pool_stats\fR
+Print the transaction pool's statistics (number of transactions, memory size, fees, double spend attempts etc).
+
+
+.SS Transactions:
+.TP
+\fBprint_coinbase_tx_sum <start_height> [<block_count>]\fR
+Print the sum of coinbase transactions. Example:
+.br
+.B ./monerod print_coinbase_tx_sum 0 1000000000000
+
+.TP
+\fBprint_tx <transaction_hash> [+hex] [+json]\fR
+Print a given transaction as JSON and/or HEX.
+.TP
+\fBrelay_tx <txid>\fR
+Relay a given transaction by its <txid>, Useful if you want to rebroadcast the transaction for any reason or if transaction was previously created with “do_not_relay”:true.
+.TP
+\fBrpc_payments\fR
+Print information about RPC payments.
+
+
+.SS Blockchain:
+.TP
+\fBcheck_blockchain_pruning\fR
+Check the blockchain pruning.
+.TP
+\fBprune_blockchain [confirm]\fR
+Prune the blockchain.
+.TP
+\fBbc_dyn_stats <last_block_count>\fR
+Print the information about current blockchain dynamic state.
+.TP
+\fBsync_info\fR
+Print information about the blockchain sync state and connected peers along with download / upload stats.
+.TP
+\fBprint_height\fR
+Print the local blockchain height.
+.TP
+\fBprint_bc <begin_height> [<end_height>]\fR
+Print the blockchain info in range <begin_height>..<end_height>. The information will include block id, height, timestamp, version, size, weight, number of non-coinbase transactions, difficulty, nonce, and reward.
+.TP
+\fBprint_block <block_hash> | <block_height>\fR
+Print a given block using block height or hash.
+.TP
+\fBhard_fork_info <version>\fR
+Print the hard fork voting information. If given a version, prints whether is this version enabled.
+.TP
+\fBis_key_image_spent <key_image>\fR
+Print whether a given key image is in the spent key images set.
+.TP
+\fBpop_blocks <nblocks>\fR
+Remove blocks from end of blockchain
+.TP
+\fBalt_chain_info [blockhash]\fR
+Print the information about alternative chains.
+.TP
+\fBflush_cache [bad-txs] [bad-blocks]\fR
+Flush the specified cache(s).
+
+
+.SS Manage Daemon:
+.TP
+\fBset_bootstrap_daemon (auto | none | host[:port] [username] [password]) [proxy_ip:proxy_port]\fR
+URL of a 'bootstrap' remote daemon that the connected wallets can use while this daemon is still not fully synced.
+.br
+Use 'auto' to enable automatic public nodes discovering and bootstrap daemon switching.
+.TP
+\fBupdate (check|download)\fR
+Check if an update is available, optionally downloads it if there is. Updating is not yet implemented.
+.br
+The hash is SHA-256. On linux use sha256sum to verify, Check Example:
+.br
+.B ./monerod update check
+.br
+.B Update available: v0.13.0.4: https://downloads.getmonero.org/cli/monero-linux-x64-v0.13.0.4.tar.bz2, hash 693e1a0210201f65138ace679d1ab1928aca06bb6e679c20d8b4d2d8717e50d6
+.br
+Download Example:
+.br
+.B ./monerod update download
+.br
+.B Update downloaded to: /opt/monero-v0.13.0.2/monero-linux-x64-v0.13.0.4.tar.bz2
+.TP
+\fBexit | stop_daemon\fR
+Ask daemon to exit gracefully.
+.TP
+\fBset_log <level>|<{+,-,}categories>\fR
+Change the current log level/categories where <level> is a number 0-4.
+.TP
+\fBprint_status\fR
+Print the current daemon status.
+
+
+.SS Mining:
+.TP
+\fBdiff\fR
+Show the current block difficulty.
+.TP
+\fBhide_hr\fR
+Stop showing the current hash rate. (only if \fBmonerod\fR is mining.)
+.TP
+\fBshow_hr\fR
+Start showing the current hash rate. (only if \fBmonerod\fR is mining.)
+.TP
+\fBstart_mining <addr> [<threads>|auto] [do_background_mining] [ignore_battery]\fR
+Start mining for specified address. Defaults to 1 thread and no background mining. Use "auto" to autodetect optimal number of threads.
+.TP
+\fBmining_status\fR
+Show current mining status.
+.TP
+\fBstop_mining\fR
+Stop mining.
+
+
+.SS Legacy:
+.TP
+\fBsave\fR:
+Flush blockchain data to disk. no longer necessary as \fBmonerod\fR saves the blockchain automatically on exit.
+.TP
+\fBoutput_histogram [@<amount>] <min_count> [<max_count>]\fR
+Print the output histogram for each amount denomination. This was only relevant in the pre-RingCT era. The old wallet used this to determine which outputs can be used for the requested mixin. With RingCT denominations are irrelevant as amounts are hidden.
+
+
+
+.SH JSON RPC:
+Interacting with \fBmonerod\fR over http using the JSON RPC.
+.br
+This is a list of the \fBmonerod\fR daemon RPC calls, their inputs and outputs, and examples of each.
+.br
+Note: "atomic units" refer to the smallest fraction of \fB1 XMR\fR according to the \fBmonerod\fR implementation. \fB1 XMR = 1e12\fR atomic units.
+
+The majority of \fBmonerod\fR RPC calls use the daemon's json_rpc interface to request various bits of information. These methods all follow a similar structure, for example:
+.br
+
+.nf
+.RS 4
+\fB
+IP=127.0.0.1
+PORT=18081
+METHOD='get_block_header_by_height'
+ALIAS='getblockheaderbyheight'
+PARAMS='{"height":912345}'
+curl 
+    http://$IP:$PORT/json_rpc 
+    -d '{"jsonrpc":"2.0","id":"0","method":"'$METHOD'","params":'$PARAMS'}' 
+    -H 'Content-Type: application/json'
+\fR
+.RE
+.fi
+
+
+.SS get_block_count
+
+Look up how many blocks are in the longest chain known to the node.
+
+.TP
+\fBAlias:\fR
+getblockcount.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBcount\fR - unsigned int; Number of blocks in longest chain seen by the node.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_block_count"}' -H 'Content-Type: application/json'  
+
+{  
+  "id": "0",  
+  "jsonrpc": "2.0",  
+  "result": {  
+    "count": 993163,  
+    "status": "OK"
+    "untrusted": "false"  
+  }  
+}  
+
+.RE
+.fi
+
+
+.SS on_get_block_hash
+
+Look up a block's hash by its height.
+
+.TP
+\fBAlias:\fR
+on_getblockhash.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBblock height (int array of length 1)\fR
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBblock hash (string)\fR
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"on_get_block_hash","params":[912345]}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": "e22cf75f39ae720e8b71b3d120a5ac03f0db50bba6379e2850975b4859190bc6"
+}
+
+.RE
+.fi
+
+
+.SS get_block_template
+
+Get a block template on which mining a new block.
+
+.TP
+\fBAlias:\fR
+getblocktemplate.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBwallet_address\fR - string; Address of wallet to receive coinbase transactions if block is successfully mined.
+
+\[bu] \fBreserve_size\fR - unsigned int; Reserve size.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBblocktemplate_blob\fR - string; Blob on which to try to mine a new block.
+
+\[bu] \fBblockhashing_blob\fR - string; Blob on which to try to find a valid nonce.
+
+\[bu] \fBdifficulty\fR - unsigned int; Least-significant 64 bits of the 128-bit network difficulty.
+
+\[bu] \fBdifficulty_top64\fR - unsigned int; Most-significant 64 bits of the 128-bit network difficulty.
+
+\[bu] \fBexpected_reward\fR - unsigned int; Coinbase reward expected to be received if block is successfully mined.
+
+\[bu] \fBheight\fR - unsigned int; Height on which to mine.
+
+\[bu] \fBnext_seed_hash\fR - string; Hash of the next block to use as seed for Random-X proof-of-work.
+
+\[bu] \fBprev_hash\fR - string; Hash of the most recent block on which to mine the next block.
+
+\[bu] \fBreserved_offset\fR - unsigned int; Reserved offset.
+
+\[bu] \fBseed_hash\fR - string; Hash of block to use as seed for Random-X proof-of-work.
+
+\[bu] \fBseed_height\fR - unsigned int; Height of block to use as seed for Random-X proof-of-work.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBwide_difficulty\fR - string; Network difficulty (analogous to the strength of the network) as a hexadecimal string representing a 128-bit number.
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_block_template","params":{"wallet_address":"44GBHzv6ZyQdJkjqZje6KLZ3xSyN1hBSFAnLP6EAqJtCRVzMzZmeXTC2AHKDS9aEDTRKmo6a6o9r9j86pYfhCWDkKjbtcns","reserve_size":60}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "blockhashing_blob": "0e0ed286da8006ecdc1aab3033cf1716c52f13f9d8ae0051615a2453643de94643b550d543becd00000000d130d22cf308b308498bbc16e2e955e7dbd691e6a8fab805f98ad82e6faa8bcc06",
+    "blocktemplate_blob": "0e0ed286da8006ecdc1aab3033cf1716c52f13f9d8ae0051615a2453643de94643b550d543becd0000000002abc78b0101ffefc68b0101fcfcf0d4b422025014bb4a1eade6622fd781cb1063381cad396efa69719b41aa28b4fce8c7ad4b5f019ce1dc670456b24a5e03c2d9058a2df10fec779e2579753b1847b74ee644f16b023c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000051399a1bc46a846474f5b33db24eae173a26393b976054ee14f9feefe99925233802867097564c9db7a36af5bb5ed33ab46e63092bd8d32cef121608c3258edd55562812e21cc7e3ac73045745a72f7d74581d9a0849d6f30e8b2923171253e864f4e9ddea3acb5bc755f1c4a878130a70c26297540bc0b7a57affb6b35c1f03d8dbd54ece8457531f8cba15bb74516779c01193e212050423020e45aa2c15dcb",
+    "difficulty": 226807339040,
+    "difficulty_top64": 0,
+    "expected_reward": 1182367759996,
+    "height": 2286447,
+    "next_seed_hash": "",
+    "prev_hash": "ecdc1aab3033cf1716c52f13f9d8ae0051615a2453643de94643b550d543becd",
+    "reserved_offset": 130,
+    "seed_hash": "d432f499205150873b2572b5f033c9c6e4b7c6f3394bd2dd93822cd7085e7307",
+    "seed_height": 2285568,
+    "status": "OK",
+    "untrusted": false,
+    "wide_difficulty": "0x34cec55820"
+  }
+
+.RE
+.fi
+
+
+.SS submit_block
+
+Submit a mined block to the network.
+
+.TP
+\fBAlias:\fR
+submitblock.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBBlock blob data\fR - array of strings; list of block blobs which have been mined.  See get_block_template to get a blob on which to mine.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; Block submit status.
+
+
+.TP
+.B Example:
+In this example, a block blob which has not been mined is submitted:
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"submit_block","params":["0707e6bdfedc053771512f1bc27c62731ae9e8f2443db64ce742f4e57f5cf8d393de28551e441a0000000002fb830a01ffbf830a018cfe88bee283060274c0aae2ef5730e680308d9c00b6da59187ad0352efe3c71d36eeeb28782f29f2501bd56b952c3ddc3e350c2631d3a5086cac172c56893831228b17de296ff4669de020200000000"]' -H 'Content-Type: application/json'
+
+{
+  "error": {
+    "code": -7,
+    "message": "Block not accepted"
+  },
+  "id": "0",
+  "jsonrpc": "2.0"
+}
+
+.RE
+.fi
+
+.SS generateblocks
+
+Generate a block and specify the address to receive the coinbase reward.
+
+.TP
+\fBInputs:\fR
+\[bu] \fBamount_of_blocks\fR - unsigned int; number of blocks to be generated.
+
+\[bu] \fBwallet_address\fR - string; address to receive the coinbase reward.
+
+\[bu] \fBprev_block\fR - string;
+
+\[bu] \fBstarting_nonce\fR - unsigned int; Increased by miner untill it finds a matching result that solves a block.
+
+
+.TP
+\fBOutputs:\fR
+\[bu] \fBblocks\fR - list of string;
+
+\[bu] \fBheight\fR - unsigned int;
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+The example below uses \fBmonerod\fR with the start flags \fB--regtest --offline --fixed-difficulty 1\fR. \fB--offline\fR ensures that the node does not connect to the main network and learn of its latest chaintip and \fB--fixed-difficulty\fR keeps the difficulty constant, allowing a large number of blocks to be generated quickly.
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"generateblocks","params":{"amount_of_blocks":1,"wallet_address":"44AFFq5kSiGBoZ4NMDwYtN18obc8AemS33DBLWs3H7otXft3XjrpDtQGv7SqSsaBYBb98uNbr2VBBEt7f2wfn3RVGQBEP3A","starting_nonce": 0}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "blocks": ["49b712db7760e3728586f8434ee8bc8d7b3d410dac6bb6e98bf5845c83b917e4"],
+    "height": 9783,
+    "status": "OK",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+.SS get_last_block_header
+
+Block header information for the most recent block is easily retrieved with this method. No inputs are needed.
+
+.TP
+\fBAlias:\fR
+getlastblockheader.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBfill_pow_hash\fR - boolean; (Optional; defaults to \fBfalse\fR) Add PoW hash to block_header response.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBtop_hash\fR - string; If payment for RPC is enabled, the hash of the highest block in the chain. Otherwise, empty.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBblock_header\fR - A structure containing block header information.
+
+.RS 10
+\[bu] \fBblock_size\fR - unsigned int; Backward compatibility, same as *block_weight*, use that instead
+.RE
+.RS 10
+\[bu] \fBblock_weight\fR - unsigned int; The adjusted block size, in bytes. This is the raw size, plus a positive adjustment for any Bulletproof transactions with more than 2 outputs.
+.RE
+.RS 10
+\[bu] \fBcumulative_difficulty\fR - unsigned int; Least-significant 64 bits of the cumulative difficulty of all blocks up to the block in the reply.
+.RE
+.RS 10
+\[bu] \fBcumulative_difficulty_top64\fR - unsigned int; Most-significant 64 bits of the 128-bit cumulative difficulty.
+.RE
+.RS 10
+\[bu] \fBdepth\fR -  unsigned int; The number of blocks succeeding this block on the blockchain. A larger number means an older block.
+.RE
+.RS 10
+\[bu] \fBdifficulty\fR - unsigned int; The strength of the Monero network based on mining power.
+.RE
+.RS 10
+\[bu] \fBdifficulty_top64\fR - unsigned int; Most-significant 64 bits of the 128-bit network difficulty.
+.RE
+.RS 10
+\[bu] \fBhash\fR - string; The hash of this block.
+.RE
+.RS 10
+\[bu] \fBheight\fR - unsigned int; The number of blocks preceding this block on the blockchain.
+.RE
+.RS 10
+\[bu] \fBlong_term_weight\fR - unsigned int; The long term block weight, based on the median weight of the preceding 100000 blocks.
+.RE
+.RS 10
+\[bu] \fBmajor_version\fR - unsigned int; The major version of the monero protocol at this block height.
+.RE
+.RS 10
+\[bu] \fBminer_tx_hash\fR - string; The hash of this block's coinbase transaction.
+.RE
+.RS 10
+\[bu] \fBminor_version\fR - unsigned int; The minor version of the monero protocol at this block height.
+.RE
+.RS 10
+\[bu] \fBnonce\fR - unsigned int; a cryptographic random one-time number used in mining a Monero block.
+.RE
+.RS 10
+\[bu] \fBnum_txes\fR - unsigned int; Number of transactions in the block, not counting the coinbase tx.
+.RE
+.RS 10
+\[bu] \fBorphan_status\fR - boolean; Usually \fBfalse\fR. If \fBtrue\fR, this block is not part of the longest chain.
+.RE
+.RS 10
+\[bu] \fBpow_hash\fR - string; The hash, as a hexadecimal string, calculated from the block as proof-of-work.
+.RE
+.RS 10
+\[bu] \fBprev_hash\fR - string; The hash of the block immediately preceding this block in the chain.
+.RE
+.RS 10
+\[bu] \fBreward\fR - unsigned int; The amount of new @atomic-units generated in this block and rewarded to the miner. Note: 1 XMR = 1e12 @atomic-units.
+.RE
+.RS 10
+\[bu] \fBtimestamp\fR - unsigned int; The unix time at which the block was recorded into the blockchain.
+.RE
+.RS 10
+\[bu] \fBwide_cumulative_difficulty\fR - Cumulative difficulty of all blocks in the blockchain as a hexadecimal string representing a 128-bit number.
+.RE
+.RS 10
+\[bu] \fBwide_difficulty\fR - string; Network difficulty (analogous to the strength of the network) as a hexadecimal string representing a 128-bit number.
+.RE
+
+
+.TP
+.B Example:
+In this example, the most recent block (1562023 at the time) is returned:
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_last_block_header"}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "block_header": {
+      "block_size": 5500,
+      "block_weight": 5500,
+      "cumulative_difficulty": 86164894009456483,
+      "cumulative_difficulty_top64": 0,
+      "depth": 0,
+      "difficulty": 227026389695,
+      "difficulty_top64": 0,
+      "hash": "a6ad87cf357a1aac1ee1d7cb0afa4c2e653b0b1ab7d5bf6af310333e43c59dd0",
+      "height": 2286454,
+      "long_term_weight": 5500,
+      "major_version": 14,
+      "miner_tx_hash": "a474f87de1645ff14c5e90c477b07f9bc86a22fb42909caa0705239298da96d0",
+      "minor_version": 14,
+      "nonce": 249602367,
+      "num_txes": 3,
+      "orphan_status": false,
+      "pow_hash": "",
+      "prev_hash": "fa17fefe1d05da775a61a3dc33d9e199d12af167ef0ab37e52b51e8487b50f25",
+      "reward": 1181337498013,
+      "timestamp": 1612088597,
+      "wide_cumulative_difficulty": "0x1321e83bb8af763",
+      "wide_difficulty": "0x34dbd3cabf"
+    },
+    "credits": 0,
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS get_block_header_by_hash
+
+Block header information can be retrieved using either a block's hash or height. This method includes a block's hash as an input parameter to retrieve basic information about the block.
+
+.TP
+\fBAlias:\fR
+getblockheaderbyhash.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBhash\fR - string; The block's sha256 hash.
+
+\[bu] \fBfill_pow_hash\fR - boolean; (Optional; defaults to \fBfalse\fR) Add PoW hash to block_header response.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBblock_header\fR - A structure containing block header information. See get_last_block_header.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+In this example, block 912345 is looked up by its hash:
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_block_header_by_hash","params":{"hash":"e22cf75f39ae720e8b71b3d120a5ac03f0db50bba6379e2850975b4859190bc6"}}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "block_header": {
+      "block_size": 210,
+      "block_weight": 210,
+      "cumulative_difficulty": 754734824984346,
+      "cumulative_difficulty_top64": 0,
+      "depth": 1374113,
+      "difficulty": 815625611,
+      "difficulty_top64": 0,
+      "hash": "e22cf75f39ae720e8b71b3d120a5ac03f0db50bba6379e2850975b4859190bc6",
+      "height": 912345,
+      "long_term_weight": 210,
+      "major_version": 1,
+      "miner_tx_hash": "c7da3965f25c19b8eb7dd8db48dcd4e7c885e2491db77e289f0609bf8e08ec30",
+      "minor_version": 2,
+      "nonce": 1646,
+      "num_txes": 0,
+      "orphan_status": false,
+      "pow_hash": "",
+      "prev_hash": "b61c58b2e0be53fad5ef9d9731a55e8a81d972b8d90ed07c04fd37ca6403ff78",
+      "reward": 7388968946286,
+      "timestamp": 1452793716,
+      "wide_cumulative_difficulty": "0x2ae6d65248f1a",
+      "wide_difficulty": "0x309d758b"
+    },
+    "credits": 0,
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS get_block_header_by_height
+
+Similar to get_block_header_by_hash above, this method includes a block's height as an input parameter to retrieve basic information about the block.
+
+.TP
+\fBAlias:\fR
+getblockheaderbyheight.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBheight\fR - unsigned int; The block's height.
+
+\[bu] \fBfill_pow_hash\fR - boolean; (Optional; defaults to \fBfalse\fR) Add PoW hash to block_header response.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBblock_header\fR - A structure containing block header information. See get_last_block_header.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+In this example, block 912345 is looked up by its height (notice that the returned information is the same as in the previous example):
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_block_header_by_height","params":{"height":912345}}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "block_header": {
+      "block_size": 210,
+      "block_weight": 210,
+      "cumulative_difficulty": 754734824984346,
+      "cumulative_difficulty_top64": 0,
+      "depth": 1374118,
+      "difficulty": 815625611,
+      "difficulty_top64": 0,
+      "hash": "e22cf75f39ae720e8b71b3d120a5ac03f0db50bba6379e2850975b4859190bc6",
+      "height": 912345,
+      "long_term_weight": 210,
+      "major_version": 1,
+      "miner_tx_hash": "c7da3965f25c19b8eb7dd8db48dcd4e7c885e2491db77e289f0609bf8e08ec30",
+      "minor_version": 2,
+      "nonce": 1646,
+      "num_txes": 0,
+      "orphan_status": false,
+      "pow_hash": "",
+      "prev_hash": "b61c58b2e0be53fad5ef9d9731a55e8a81d972b8d90ed07c04fd37ca6403ff78",
+      "reward": 7388968946286,
+      "timestamp": 1452793716,
+      "wide_cumulative_difficulty": "0x2ae6d65248f1a",
+      "wide_difficulty": "0x309d758b"
+    },
+    "credits": 0,
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+.SS get_block_headers_range
+
+Similar to get_block_header_by_height above, but for a range of blocks. This method includes a starting block height and an ending block height as parameters to retrieve basic information about the range of blocks.
+
+.TP
+\fBAlias:\fR
+getblockheadersrange.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBstart_height\fR - unsigned int; The starting block's height.
+
+\[bu] \fBend_height\fR - unsigned int; The ending block's height.
+
+\[bu] \fBfill_pow_hash\fR - boolean; (Optional; defaults to \fBfalse\fR) Add PoW hash to block_header response.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBheaders\fR - array of \fBblock_header\fR (a structure containing block header information. See get_last_block_header).
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBtop_hash\fR - string; If payment for RPC is enabled, the hash of the highest block in the chain. Otherwise, empty.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+In this example, blocks range from height 1545999 to 1546000 is looked up (notice that the returned informations are ascending order and that it is at the April 2018 network upgrade time):
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_block_headers_range","params":{"start_height":1545999,"end_height":1546000}}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "credits": 0,
+    "headers": [{
+      "block_size": 301413,
+      "block_weight": 301413,
+      "cumulative_difficulty": 13185267971483472,
+      "cumulative_difficulty_top64": 0,
+      "depth": 740464,
+      "difficulty": 134636057921,
+      "difficulty_top64": 0,
+      "hash": "86d1d20a40cefcf3dd410ff6967e0491613b77bf73ea8f1bf2e335cf9cf7d57a",
+      "height": 1545999,
+      "long_term_weight": 301413,
+      "major_version": 6,
+      "miner_tx_hash": "9909c6f8a5267f043c3b2b079fb4eacc49ef9c1dee1c028eeb1a259b95e6e1d9",
+      "minor_version": 6,
+      "nonce": 3246403956,
+      "num_txes": 20,
+      "orphan_status": false,
+      "pow_hash": "",
+      "prev_hash": "0ef6e948f77b8f8806621003f5de24b1bcbea150bc0e376835aea099674a5db5",
+      "reward": 5025593029981,
+      "timestamp": 1523002893,
+      "wide_cumulative_difficulty": "0x2ed7ee6db56750",
+      "wide_difficulty": "0x1f58ef3541"
+    },{
+      "block_size": 13322,
+      "block_weight": 13322,
+      "cumulative_difficulty": 13185402687569710,
+      "cumulative_difficulty_top64": 0,
+      "depth": 740463,
+      "difficulty": 134716086238,
+      "difficulty_top64": 0,
+      "hash": "b408bf4cfcd7de13e7e370c84b8314c85b24f0ba4093ca1d6eeb30b35e34e91a",
+      "height": 1546000,
+      "long_term_weight": 13322,
+      "major_version": 7,
+      "miner_tx_hash": "7f749c7c64acb35ef427c7454c45e6688781fbead9bbf222cb12ad1a96a4e8f6",
+      "minor_version": 7,
+      "nonce": 3737164176,
+      "num_txes": 1,
+      "orphan_status": false,
+      "pow_hash": "",
+      "prev_hash": "86d1d20a40cefcf3dd410ff6967e0491613b77bf73ea8f1bf2e335cf9cf7d57a",
+      "reward": 4851952181070,
+      "timestamp": 1523002931,
+      "wide_cumulative_difficulty": "0x2ed80dcb69bf2e",
+      "wide_difficulty": "0x1f5db457de"
+    }],
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS get_block
+
+Full block information can be retrieved by either block height or hash, like with the above block header calls. For full block information, both lookups use the same method, but with different input parameters.
+
+.TP
+\fBAlias:\fR
+getblock.
+
+.TP
+\fBInputs (pick height or hash):\fR
+
+\[bu] \fBheight\fR - unsigned int; The block's height.
+
+\[bu] \fBhash\fR - string; The block's hash.
+
+\[bu] \fBfill_pow_hash\fR - bool; (Optional; Default false) Add PoW hash to block_header response.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBblob\fR - string; Hexadecimal blob of block information.
+
+\[bu] \fBblock_header\fR - A structure containing block header information. See [get_last_block_header](#get_last_block_header).
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBjson\fR - json string; JSON formatted block details:
+.RS 9
+\[bu] \fBmajor_version\fR - Same as in block header.
+.RE
+.RS 9
+\[bu] \fBminor_version\fR - Same as in block header.
+.RE
+.RS 9
+\[bu] \fBtimestamp\fR - Same as in block header.
+.RE
+.RS 9
+\[bu] \fBprev_id\fR - Same as \fBprev_hash\fR in block header.
+.RE
+.RS 9
+\[bu] \fBnonce\fR - Same as in block header.
+.RE
+.RS 9
+\[bu] \fBminer_tx\fR - Miner transaction information
+.RE
+.RS 11
+\[bu] \fBversion\fR - Transaction version number.
+.RE
+.RS 11
+\[bu] \fBunlock_time\fR - The block height when the coinbase transaction becomes spendable.
+.RE
+.RS 11
+\[bu] \fBvin\fR - List of transaction inputs:
+.RE
+.RS 13
+\[bu] \fBgen\fR - Miner txs are coinbase txs, or "gen".
+.RE
+.RS 15
+\[bu] \fBheight\fR - This block height, a.k.a. when the coinbase is generated.
+.RE
+.RS 11
+\[bu] \fBvout\fR - List of transaction outputs. Each output contains:
+.RE
+.RS 13
+\[bu] \fBamount\fR - The amount of the coinbase output, in @atomic-units.
+.RE
+.RS 13
+\[bu] \fBtarget\fR -
+.RE
+.RS 15
+\[bu] \fBtagged_key\fR -
+.RE
+.RS 17
+\[bu] \fBkey\fR - the public key of the output
+.RE
+.RS 17
+\[bu] \fBview_tag\fR - The 1st byte of a shared secret (used for reducing synchronization time)
+.RE
+.RS 11
+\[bu] \fBextra\fR - Usually called the "transaction ID" but can be used to include any random 32 byte/64 character hex string.
+.RE
+.RS 11
+\[bu] \fBrct_signatures\fR - Contain signatures of tx signers. Coinbased txs do not have signatures.
+.RE
+.RS 9
+\[bu] \fBtx_hashes\fR - List of hashes of non-coinbase transactions in the block. If there are no other transactions, this will be an empty list.
+.RE
+.RS 7
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+.RE
+
+.RS 7
+\[bu] \fBtop_hash\fR - string; If payment for RPC is enabled, the hash of the highest block in the chain. Otherwise, empty.
+.RE
+
+.RS 7
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+.RE
+
+
+
+
+.TP
+.B Example:
+\[bu] \fBLook up by height:\fR
+In the following example, block 2751506 is looked up by its height. Note that block 2751506 does not have any non-coinbase transactions. (See the next example for a block with extra transactions):
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_block","params":{"height":2751506}}' -H 'Content-Type: application/json'
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "blob": "1010c58bab9b06b27bdecfc6cd0a46172d136c08831cf67660377ba992332363228b1b722781e7807e07f502cef8a70101ff92f8a7010180e0a596bb1103d7cbf826b665d7a532c316982dc8dbc24f285cbc18bbcc27c7164cd9b3277a85d034019f629d8b36bd16a2bfce3ea80c31dc4d8762c67165aec21845494e32b7582fe00211000000297a787a000000000000000000000000",
+    "block_header": {
+      "block_size": 106,
+      "block_weight": 106,
+      "cumulative_difficulty": 236046001376524168,
+      "cumulative_difficulty_top64": 0,
+      "depth": 40,
+      "difficulty": 313732272488,
+      "difficulty_top64": 0,
+      "hash": "43bd1f2b6556dcafa413d8372974af59e4e8f37dbf74dc6b2a9b7212d0577428",
+      "height": 2751506,
+      "long_term_weight": 176470,
+      "major_version": 16,
+      "miner_tx_hash": "e49b854c5f339d7410a77f2a137281d8042a0ffc7ef9ab24cd670b67139b24cd",
+      "minor_version": 16,
+      "nonce": 4110909056,
+      "num_txes": 0,
+      "orphan_status": false,
+      "pow_hash": "",
+      "prev_hash": "b27bdecfc6cd0a46172d136c08831cf67660377ba992332363228b1b722781e7",
+      "reward": 600000000000,
+      "timestamp": 1667941829,
+      "wide_cumulative_difficulty": "0x3469a966eb2f788",
+      "wide_difficulty": "0x490be69168"
+    },
+    "credits": 0,
+    "json": "{\n  \"major_version\": 16, \n  \"minor_version\": 16, \n  \"timestamp\": 1667941829, \n  \"prev_id\": \"b27bdecfc6cd0a46172d136c08831cf67660377ba992332363228b1b722781e7\", \n  \"nonce\": 4110909056, \n  \"miner_tx\": {\n    \"version\": 2, \n    \"unlock_time\": 2751566, \n    \"vin\": [ {\n        \"gen\": {\n          \"height\": 2751506\n        }\n      }\n    ], \n    \"vout\": [ {\n        \"amount\": 600000000000, \n        \"target\": {\n          \"tagged_key\": {\n            \"key\": \"d7cbf826b665d7a532c316982dc8dbc24f285cbc18bbcc27c7164cd9b3277a85\", \n            \"view_tag\": \"d0\"\n          }\n        }\n      }\n    ], \n    \"extra\": [ 1, 159, 98, 157, 139, 54, 189, 22, 162, 191, 206, 62, 168, 12, 49, 220, 77, 135, 98, 198, 113, 101, 174, 194, 24, 69, 73, 78, 50, 183, 88, 47, 224, 2, 17, 0, 0, 0, 41, 122, 120, 122, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0\n    ], \n    \"rct_signatures\": {\n      \"type\": 0\n    }\n  }, \n  \"tx_hashes\": [ ]\n}",
+    "miner_tx_hash": "e49b854c5f339d7410a77f2a137281d8042a0ffc7ef9ab24cd670b67139b24cd",
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+\[bu] \fBLook up by hash:\fR
+
+In the following example, block 2751210 is looked up by its hash. Note that block 2751210 has 2 non-coinbase transactions:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_block","params":{"hash":"86d421322b700166dde2d7eba1cc8600925ef640abf6c0a2cc8ce0d6dd90abfd"}' -H 'Content-Type: application/json'
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "blob": "1010d8faa89b06f8a36d0dbe4d27d2f52160000563896048d71067c31e99a3869bf9b7142227bb5328010b02a6f6a70101ffeaf5a70101a08bc8b3bb11036d6713f5aa552a1aaf33baed7591f795b86daf339e51029a9062dfe09f0f909b312b0124d6023d591c4d434000e5e31c6db718a1e96e865939930e90a7042a1cd4cbd202083786a78452fdfc000002a89e380a44d8dfc64b551baa171447a0f9c9262255be6e8f8ef10896e36e2bf90c4d343e416e394ad9cc10b7d2df7b2f39370a554730f75dfcb04944bd62c299",
+    "block_header": {
+      "block_size": 3166,
+      "block_weight": 3166,
+      "cumulative_difficulty": 235954020187853162,
+      "cumulative_difficulty_top64": 0,
+      "depth": 26,
+      "difficulty": 312527777859,
+      "difficulty_top64": 0,
+      "hash": "86d421322b700166dde2d7eba1cc8600925ef640abf6c0a2cc8ce0d6dd90abfd",
+      "height": 2751210,
+      "long_term_weight": 176470,
+      "major_version": 16,
+      "miner_tx_hash": "dabe07900d3123ed895612f4a151adb3e39681b145f0f85bfee23ea1fe47acf2",
+      "minor_version": 16,
+      "nonce": 184625235,
+      "num_txes": 2,
+      "orphan_status": false,
+      "pow_hash": "",
+      "prev_hash": "f8a36d0dbe4d27d2f52160000563896048d71067c31e99a3869bf9b7142227bb",
+      "reward": 600061380000,
+      "timestamp": 1667906904,
+      "wide_cumulative_difficulty": "0x34646ee649f516a",
+      "wide_difficulty": "0x48c41b7043"
+    },
+    "credits": 0,
+    "json": "{\n  \"major_version\": 16, \n  \"minor_version\": 16, \n  \"timestamp\": 1667906904, \n  \"prev_id\": \"f8a36d0dbe4d27d2f52160000563896048d71067c31e99a3869bf9b7142227bb\", \n  \"nonce\": 184625235, \n  \"miner_tx\": {\n    \"version\": 2, \n    \"unlock_time\": 2751270, \n    \"vin\": [ {\n        \"gen\": {\n          \"height\": 2751210\n        }\n      }\n    ], \n    \"vout\": [ {\n        \"amount\": 600061380000, \n        \"target\": {\n          \"tagged_key\": {\n            \"key\": \"6d6713f5aa552a1aaf33baed7591f795b86daf339e51029a9062dfe09f0f909b\", \n            \"view_tag\": \"31\"\n          }\n        }\n      }\n    ], \n    \"extra\": [ 1, 36, 214, 2, 61, 89, 28, 77, 67, 64, 0, 229, 227, 28, 109, 183, 24, 161, 233, 110, 134, 89, 57, 147, 14, 144, 167, 4, 42, 28, 212, 203, 210, 2, 8, 55, 134, 167, 132, 82, 253, 252, 0\n    ], \n    \"rct_signatures\": {\n      \"type\": 0\n    }\n  }, \n  \"tx_hashes\": [ \"a89e380a44d8dfc64b551baa171447a0f9c9262255be6e8f8ef10896e36e2bf9\", \"0c4d343e416e394ad9cc10b7d2df7b2f39370a554730f75dfcb04944bd62c299\"\n  ]\n}",
+    "miner_tx_hash": "dabe07900d3123ed895612f4a151adb3e39681b145f0f85bfee23ea1fe47acf2",
+    "status": "OK",
+    "top_hash": "",
+    "tx_hashes": ["a89e380a44d8dfc64b551baa171447a0f9c9262255be6e8f8ef10896e36e2bf9","0c4d343e416e394ad9cc10b7d2df7b2f39370a554730f75dfcb04944bd62c299"],
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS get_connections
+
+Retrieve information about incoming and outgoing connections to your node.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBconnections\fR - List of all connections and their info:
+
+.RS 9
+\[bu] \fBaddress\fR - string; The peer's address, actually IPv4 & port
+.RE
+.RS 9
+\[bu] \fBavg_download\fR - unsigned int; Average bytes of data downloaded by node.
+.RE
+.RS 9
+\[bu] \fBavg_upload\fR - unsigned int; Average bytes of data uploaded by node.
+.RE
+.RS 9
+\[bu] \fBconnection_id\fR - string; The connection ID
+.RE
+.RS 9
+\[bu] \fBcurrent_download\fR - unsigned int; Current bytes downloaded by node.
+.RE
+.RS 9
+\[bu] \fBcurrent_upload\fR - unsigned int; Current bytes uploaded by node.
+.RE
+.RS 9
+\[bu] \fBheight\fR- unsigned int; The peer height
+.RE
+.RS 9
+\[bu] \fBhost\fR - string; The peer host
+.RE
+.RS 9
+\[bu] \fBincoming\fR - boolean; Is the node getting information from your node?
+.RE
+.RS 9
+\[bu] \fBip\fR - string; The node's IP address.
+.RE
+.RS 9
+\[bu] \fBlive_time\fR - unsigned int
+.RE
+.RS 9
+\[bu] \fBlocal_ip\fR - boolean
+.RE
+.RS 9
+\[bu] \fBlocalhost\fR - boolean
+.RE
+.RS 9
+\[bu] \fBpeer_id\fR - string; The node's ID on the network.
+.RE
+.RS 9
+\[bu] \fBport\fR - string; The port that the node is using to connect to the network.
+.RE
+.RS 9
+\[bu] \fBrecv_count\fR - unsigned int
+.RE
+.RS 9
+\[bu] \fBrecv_idle_time\fR - unsigned int
+.RE
+.RS 9
+\[bu] \fBsend_count\fR - unsigned int
+.RE
+.RS 9
+\[bu] \fBsend_idle_time\fR - unsigned int
+.RE
+.RS 9
+\[bu] \fBstate\fR - string
+.RE
+.RS 9
+\[bu] \fBsupport_flags\fR - unsigned int
+.RE
+
+
+.TP
+.B Example:
+Following is an example of \fBget_connections\fR and it's return:
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_connections"}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "connections": [{
+      "address": "51.75.162.171:44741",
+      "address_type": 1,
+      "avg_download": 0,
+      "avg_upload": 1,
+      "connection_id": "4420a6fcf9c642daaae41400ccfc1fd7",
+      "current_download": 0,
+      "current_upload": 1,
+      "height": 1,
+      "host": "51.75.162.171",
+      "incoming": true,
+      "ip": "51.75.162.171",
+      "live_time": 9,
+      "local_ip": false,
+      "localhost": false,
+      "peer_id": "ff561b6a65c2838c",
+      "port": "44741",
+      "pruning_seed": 0,
+      "recv_count": 382,
+      "recv_idle_time": 8,
+      "rpc_credits_per_hash": 0,
+      "rpc_port": 0,
+      "send_count": 15434,
+      "send_idle_time": 8,
+      "state": "normal",
+      "support_flags": 1
+    },{
+
+    ...
+    }],
+    "status": "OK"
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS get_info
+
+Retrieve general information about the state of your node and the network.
+
+.TP
+\fBAlias:\fR
+
+\[bu] \fB/get_info\fR
+
+\[bu] \fB/getinfo\fR
+
+
+See other RPC Methods /get_info (not JSON)
+
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBadjusted_time\fR - unsigned int; Current time approximated from chain data, as Unix time.
+
+\[bu] \fBalt_blocks_count\fR - unsigned int; Number of alternative blocks to main chain.
+
+\[bu] \fBblock_size_limit\fR - unsigned int; Backward compatibility, same as *block_weight_limit*, use that instead
+
+\[bu] \fBblock_size_median\fR - unsigned int; Backward compatibility, same as *block_weight_median*, use that instead
+
+\[bu] \fBblock_weight_limit\fR - unsigned int; Maximum allowed adjusted block size based on latest 100000 blocks
+
+\[bu] \fBblock_weight_median\fR - unsigned int; Median adjusted block size of latest 100000 blocks
+
+\[bu] \fBbootstrap_daemon_address\fR - string; @Bootstrap-node to give immediate usability to wallets while syncing by proxying RPC to it. (Note: the replies may be untrustworthy).
+
+\[bu] \fBbusy_syncing\fR - boolean; States if new blocks are being added (\fBtrue\fR) or not (\fBfalse\fR).
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBcumulative_difficulty\fR - unsigned int; Least-significant 64 bits of the 128-bit cumulative difficulty.
+
+\[bu] \fBcumulative_difficulty_top64\fR - unsigned int; Most-significant 64 bits of the 128-bit cumulative difficulty.
+
+\[bu] \fBdatabase_size\fR - unsigned int; The size of the blockchain database, in bytes.
+
+\[bu] \fBdifficulty\fR - unsigned int; Least-significant 64 bits of the 128-bit network difficulty.
+
+\[bu] \fBdifficulty_top64\fR - unsigned int; Most-significant 64 bits of the 128-bit network difficulty.
+
+\[bu] \fBfree_space\fR - unsigned int; Available disk space on the node.
+
+\[bu] \fBgrey_peerlist_size\fR - unsigned int; Grey Peerlist Size
+
+\[bu] \fBheight\fR - unsigned int; Current length of longest chain known to daemon.
+
+\[bu] \fBheight_without_bootstrap\fR - unsigned int; Current length of the local chain of the daemon.
+
+\[bu] \fBincoming_connections_count\fR - unsigned int; Number of peers connected to and pulling from your node.
+
+\[bu] \fBmainnet\fR - boolean; States if the node is on the mainnet (\fBtrue\fR) or not (\fBfalse\fR).
+
+\[bu] \fBnettype\fR - string; Network type (one of \fBmainnet\fR, \fBstagenet\fR or \fBtestnet\fR).
+
+\[bu] \fBoffline\fR - boolean; States if the node is offline (\fBtrue\fR) or online (\fBfalse\fR).
+
+\[bu] \fBoutgoing_connections_count\fR - unsigned int; Number of peers that you are connected to and getting information from.
+
+\[bu] \fBrpc_connections_count\fR - unsigned int; Number of RPC client connected to the daemon (Including this RPC request).
+
+\[bu] \fBstagenet\fR - boolean; States if the node is on the stagenet (\fBtrue\fR) or not (\fBfalse\fR).
+
+\[bu] \fBstart_time\fR - unsigned int; Start time of the daemon, as UNIX time.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBsynchronized\fR - boolean; States if the node is synchronized (\fBtrue\fR) or not (\fBfalse\fR).
+
+\[bu] \fBtarget\fR - unsigned int; Current target for next proof of work.
+
+\[bu] \fBtarget_height\fR - unsigned int; The height of the next block in the chain.
+
+\[bu] \fBtestnet\fR - boolean; States if the node is on the testnet (\fBtrue\fR) or not (\fBfalse\fR).
+
+\[bu] \fBtop_block_hash\fR - string; Hash of the highest block in the chain.
+
+\[bu] \fBtop_hash\fR - string; If payment for RPC is enabled, the hash of the highest block in the chain. Otherwise, empty.
+
+\[bu] \fBtx_count\fR - unsigned int; Total number of non-coinbase transaction in the chain.
+
+\[bu] \fBtx_pool_size\fR - unsigned int; Number of transactions that have been broadcast but not included in a block.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBupdate_available\fR - boolean; States if a newer Monero software version is available.
+
+\[bu] \fBversion\fR - string; The version of the Monero software the node is running.
+
+\[bu] \fBwas_bootstrap_ever_used\fR - boolean; States if a bootstrap node has ever been used since the daemon started.
+
+\[bu] \fBwhite_peerlist_size\fR - unsigned int; White Peerlist Size
+
+\[bu] \fBwide_cumulative_difficulty\fR - Cumulative difficulty of all blocks in the blockchain as a hexadecimal string representing a 128-bit number.
+
+\[bu] \fBwide_difficulty\fR - string; Network difficulty (analogous to the strength of the network) as a hexadecimal string representing a 128-bit number.
+
+
+.TP
+.B Example:
+Following is an example \fBget_info\fR call and its return:
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_info"}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "adjusted_time": 1612090533,
+    "alt_blocks_count": 2,
+    "block_size_limit": 600000,
+    "block_size_median": 300000,
+    "block_weight_limit": 600000,
+    "block_weight_median": 300000,
+    "bootstrap_daemon_address": "",
+    "busy_syncing": false,
+    "credits": 0,
+    "cumulative_difficulty": 86168732847545368,
+    "cumulative_difficulty_top64": 0,
+    "database_size": 34329849856,
+    "difficulty": 225889137349,
+    "difficulty_top64": 0,
+    "free_space": 10795802624,
+    "grey_peerlist_size": 4999,
+    "height": 2286472,
+    "height_without_bootstrap": 2286472,
+    "incoming_connections_count": 85,
+    "mainnet": true,
+    "nettype": "mainnet",
+    "offline": false,
+    "outgoing_connections_count": 16,
+    "rpc_connections_count": 1,
+    "stagenet": false,
+    "start_time": 1611915662,
+    "status": "OK",
+    "synchronized": true,
+    "target": 120,
+    "target_height": 2286464,
+    "testnet": false,
+    "top_block_hash": "b92720d8315b96e32020d04e14a0c54cc13e057d4a5beb4501be490d306fdd8f",
+    "top_hash": "",
+    "tx_count": 11239803,
+    "tx_pool_size": 21,
+    "untrusted": false,
+    "update_available": false,
+    "version": "0.17.1.9-release",
+    "was_bootstrap_ever_used": false,
+    "white_peerlist_size": 1000,
+    "wide_cumulative_difficulty": "0x1322201881f9c18",
+    "wide_difficulty": "0x34980ab2c5"
+  }
+}
+
+.RE
+.fi
+
+
+.SS hard_fork_info
+
+Look up information regarding hard fork voting and readiness.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBearliest_height\fR - unsigned int; Block height at which hard fork would be enabled if voted in.
+
+\[bu] \fBenabled\fR - boolean; Tells if hard fork is enforced.
+
+\[bu] \fBstate\fR - unsigned int; Current hard fork state: 0 (There is likely a hard fork), 1 (An update is needed to fork properly), or 2 (Everything looks good).
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBthreshold\fR - unsigned int; Minimum percent of votes to trigger hard fork. Default is 80.
+
+\[bu] \fBtop_hash\fR - string; If payment for RPC is enabled, the hash of the highest block in the chain. Otherwise, empty.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBversion\fR - unsigned int; The major block version for the fork.
+
+\[bu] \fBvotes\fR - unsigned int; Number of votes towards hard fork.
+
+\[bu] \fBvoting\fR - unsigned int; Hard fork voting status.
+
+\[bu] \fBwindow\fR - unsigned int; Number of blocks over which current votes are cast. Default is 10080 blocks.
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"hard_fork_info"}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "credits": 0,
+    "earliest_height": 2210720,
+    "enabled": true,
+    "state": 2,
+    "status": "OK",
+    "threshold": 0,
+    "top_hash": "",
+    "untrusted": false,
+    "version": 14,
+    "votes": 10080,
+    "voting": 14,
+    "window": 10080
+  }
+}
+
+.RE
+.fi
+
+
+.SS set_bans
+
+Ban another node by IP.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBbans\fR - A list of nodes to ban:
+
+.RS 9
+\[bu] \fBhost\fR - string; Host to ban (IP in A.B.C.D form - will support I2P address in the future).
+.RE
+.RS 9
+\[bu] \fBip\fR - unsigned int; IP address to ban, in Int format.
+.RE
+.RS 9
+\[bu] \fBban\fR - boolean; Set \fBtrue\fR to ban.
+.RE
+.RS 9
+\[bu] \fBseconds\fR - unsigned int; Number of seconds to ban node.
+.RE
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+
+.TP
+.B Example:
+Examples:
+
+\[bu] \fBbanning by host\fR 
+
+In the following example, host is banned with its IP address string-formatted as A.B.C.D:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"set_bans","params":{"bans":[{"host":"192.168.1.51","ban":true,"seconds":30}]}}' -H  'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "OK",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+\[bu] \fBbanning by ip\fR 
+
+In the following example, integer-formatted IP is banned:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"set_bans","params":{"bans":[{"ip":838969536,"ban":true,"seconds":30}]}}' -H  'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "OK"
+  }
+}
+
+.RE
+.fi
+
+
+.SS get_bans
+
+Get list of banned IPs.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBbans\fR - List of banned nodes:
+
+.RS 9
+\[bu] \fBhost\fR - string; Banned host (IP in A.B.C.D form).
+.RE
+.RS 9
+\[bu] \fBip\fR - unsigned int; Banned IP address, in Int format.
+.RE
+.RS 9
+\[bu] \fBseconds\fR - unsigned int; Local Unix time that IP is banned until.
+.RE
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_bans"}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "bans": [{
+      "host": "102.168.1.51",
+      "ip": 855746662,
+      "seconds": 22
+    },{
+      "host": "192.168.1.50",
+      "ip": 838969536,
+      "seconds": 28
+    }],
+    "status": "OK"
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS banned
+
+Check if an IP address is banned and for how long.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBaddress\fR - string;
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBbanned\fR - boolean;
+
+\[bu] \fBseconds\fR - unsigned int;
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"banned","params":{"address":"95.216.203.255"}}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "banned": true,
+    "seconds": 690413,
+    "status": "OK"
+  }
+}
+
+.RE
+.fi
+
+.SS flush_txpool
+
+Flush tx ids from transaction pool
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBtxids\fR - array of strings; Optional, list of transactions IDs to flush from pool (all tx ids flushed if empty).
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"flush_txpool","params":{"txids":["dc16fa8eaffe1484ca9014ea050e13131d3acf23b419f33bb4cc0b32b6c49308",""]}}' -H 'Content-Type: application/json'
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "OK"
+  }
+}
+
+.RE
+.fi
+
+.SS get_output_histogram
+
+Get a histogram of output amounts. For all amounts (possibly filtered by parameters), gives the number of outputs on the chain for that amount.
+RingCT outputs counts as 0 amount.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBamounts\fR - list of unsigned int
+
+\[bu] \fBmin_count\fR - unsigned int
+
+\[bu] \fBmax_count\fR - unsigned int
+
+\[bu] \fBunlocked\fR - boolean
+
+\[bu] \fBrecent_cutoff\fR - unsigned int
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBtop_hash\fR - string; If payment for RPC is enabled, the hash of the highest block in the chain. Otherwise, empty.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBhistogram\fR - list of histogram entries, in the following structure:
+
+.RS 9
+\[bu] \fBamount\fR - unsigned int; Output amount in @atomic-units
+.RE
+.RS 9
+\[bu] \fBtotal_instances\fR - unsigned int;
+.RE
+.RS 9
+\[bu] \fBunlocked_instances\fR - unsigned int;
+.RE
+.RS 9
+\[bu] \fBrecent_instances\fR - unsigned int;
+.RE
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_output_histogram","params":{"amounts":[20000000000]}}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "credits": 0,
+    "histogram": [{
+      "amount": 20000000000,
+      "recent_instances": 0,
+      "total_instances": 381477,
+      "unlocked_instances": 0
+    }],
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS get_coinbase_tx_sum
+
+Get the coinbase amount and the fees amount for n last blocks starting at particular height
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBheight\fR - unsigned int; Block height from which getting the amounts
+
+\[bu] \fBcount\fR - unsigned int; number of blocks to include in the sum
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBemission_amount\fR - unsigned int; Least significant 64 bits for 128 bit integer representing the sum of coinbase rewards in @atomic-units. (See src/rpc/core_rpc_server.cpp store_128)
+
+\[bu] \fBemission_amount_top64\fR - unsigned it; Most significant 64 bits for 128 bit integer representing the sum of coinbase rewards in @atomic-units
+
+\[bu] \fBfee_amount\fR - unsigned int; Most significant 64 bits for 128 bit integer representing the sum of fees in @atomic-units.
+
+\[bu] \fBfee_amount_top64\fR - unsigned int; Most significant 64 bits for 128 bit integer representing the sum of fees in @atomic-units.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBtop_hash\fR - string; If payment for RPC is enabled, the hash of the highest block in the chain. Otherwise, empty.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBwide_emission_amount\fR - string (128 bit hex encoded integer); Sum of coinbase rewards in @atomic-units.
+
+\[bu] \fBwide_fee_amount\fR - string (128 bit hex encoded integer); Sum of fees in @atomic-units.
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_coinbase_tx_sum","params":{"height":1563078,"count":2}}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "credits": 0,
+    "emission_amount": 9471836197320,
+    "emission_amount_top64": 0,
+    "fee_amount": 0,
+    "fee_amount_top64": 0,
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false,
+    "wide_emission_amount": "0x89d556e91c8",
+    "wide_fee_amount": "0x0"
+  }
+}
+
+.RE
+.fi
+
+
+.SS get_version
+
+Give the node current version
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBrelease\fR - boolean; States if the daemon software version corresponds to an official tagged release (\fBtrue\fR), or not (\fBfalse\fR)
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBversion\fR - unsigned int;
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_version"}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "release": true,
+    "status": "OK",
+    "untrusted": false,
+    "version": 196613
+  }
+
+.RE
+.fi
+
+
+.SS get_fee_estimate
+
+Gives an estimation on fees per byte.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBgrace_blocks\fR - unsigned int; Optional
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBfee\fR - unsigned int; Amount of fees estimated per byte in @atomic-units
+
+\[bu] \fBfees\fR - array of unsigned int; Represents the base fees at different priorities [slow, normal, fast, fastest].
+
+\[bu] \fBquantization_mask\fR - unsigned int; Final fee should be rounded up to an even multiple of this value
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBtop_hash\fR - string; If payment for RPC is enabled, the hash of the highest block in the chain. Otherwise, empty.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_fee_estimate"}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "credits": 0,
+    "fee": 7874,
+    "fees": [20000,80000,320000,4000000],
+    "quantization_mask": 10000,
+    "status": "OK",
+    "top_hash": "",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS get_alternate_chains
+
+Display alternative chains seen by the node.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBchains\fR - array of chains, the following structure:
+
+.RS 9
+\[bu] \fBblock_hash\fR - string; the block hash of the first diverging block of this alternative chain.
+.RE
+.RS 9
+\[bu] \fBblock_hashes\fR - array of strings; An array of all block hashes in the alternative chain that are not in the main chain.
+.RE
+.RS 9
+\[bu] \fBdifficulty\fR - unsigned int; Least-significant 64 bits of 128-bit integer for the cumulative difficulty of all blocks in the alternative chain.
+.RE
+.RS 9
+\[bu] \fBdifficulty_top64\fR - unsigned int; Most-significant 64 bits of the 128-bit network difficulty.
+.RE
+.RS 9
+\[bu] \fBheight\fR - unsigned int; the block height of the first diverging block of this alternative chain.
+.RE
+.RS 9
+\[bu] \fBlength\fR - unsigned int; the length in blocks of this alternative chain, after divergence.
+.RE
+.RS 9
+\[bu] \fBmain_chain_parent_block\fR - string; The hash of the greatest height block that is shared between the alternative chain and the main chain.
+.RE
+.RS 9
+\[bu] \fBwide_difficulty\fR - string; Network difficulty (analogous to the strength of the network) as a hexadecimal string representing a 128-bit number.
+.RE
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_alternate_chains"}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "chains": [{
+      "block_hash": "dd4998cfe92a959a5a0e4ed72432cf23d7dfc4179cbea871ee2a705d71fb5e25",
+      "block_hashes": ["dd4998cfe92a959a5a0e4ed72432cf23d7dfc4179cbea871ee2a705d71fb5e25"],
+      "difficulty": 86227995333492079,
+      "difficulty_top64": 0,
+      "height": 2286736,
+      "length": 1,
+      "main_chain_parent_block": "6da3d2dc86ccc9353d19fc6b05083125f4ca7d22540d938010462f197a3fe590",
+      "wide_difficulty": "0x13257e7a78bfd6f"
+    }],
+    "status": "OK",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS relay_tx
+
+Relay a list of transaction IDs.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBtxids\fR - array of string; list of transaction IDs to relay
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"relay_tx","params":{"txids":["9fd75c429cbe52da9a52f2ffc5fbd107fe7fd2099c0d8de274dc8a67e0c98613"]}}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "OK"
+  }
+}
+
+.RE
+.fi
+
+
+.SS sync_info
+
+Get synchronisation informations
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBtarget_height\fR - unsigned int; target height the node is syncing from (will be 0 if node is fully synced)
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBheight\fR - unsigned int;
+
+\[bu] \fBnext_needed_pruning_seed\fR - unsigned int; The next pruning seed needed for pruned sync.
+
+\[bu] \fBoverview\fR - string; Overview of current block queue where each character in the string represents a block set in the queue. \fB. = requested but not received\fR, \fBo = set received\fR, \fBm  = received set that matches the next blocks needed\fR
+
+\[bu] \fBpeers\fR - array of peer structure, defined as follows:
+
+.RS 9
+\[bu] \fBinfo\fR - structure of connection info, as defined in get_connections
+.RE
+
+.RS 7
+\[bu] \fBspans\fR - array of span structure, defined as follows (optional, absent if node is fully synced):
+.RE
+
+.RS 9
+\[bu] \fBconnection_id\fR - string; Id of connection
+.RE
+.RS 9
+\[bu] \fBnblocks\fR - unsigned int; number of blocks in that span
+.RE
+.RS 9
+\[bu] \fBrate\fR - unsigned int; connection rate
+.RE
+.RS 9
+\[bu] \fBremote_address\fR - string; peer address the node is downloading (or has downloaded) than span from
+.RE
+.RS 9
+\[bu] \fBsize\fR - unsigned int; total number of bytes in that span's blocks (including txes)
+.RE
+.RS 9
+\[bu] \fBspeed\fR - unsigned int; connection speed
+.RE
+.RS 9
+\[bu] \fBstart_block_height\fR - unsigned int; block height of the first block in that span
+.RE
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"sync_info"}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "credits": 0,
+    "height": 2287210,
+    "next_needed_pruning_seed": 0,
+    "overview": "[]",
+    "peers": [{
+      "info": {
+        "address": "51.79.49.41:44317",
+        "address_type": 1,
+        "avg_download": 0,
+        "avg_upload": 1,
+        "connection_id": "718a970773e844618f3b830aa5775a45",
+        "current_download": 0,
+        "current_upload": 1,
+        "height": 1,
+        "host": "51.79.49.41",
+        "incoming": true,
+        "ip": "51.79.49.41",
+        "live_time": 26,
+        "local_ip": false,
+        "localhost": false,
+        "peer_id": "c1d50bcd29c89909",
+        "port": "44317",
+        "pruning_seed": 0,
+        "recv_count": 468,
+        "recv_idle_time": 5,
+        "rpc_credits_per_hash": 0,
+        "rpc_port": 0,
+        "send_count": 35347,
+        "send_idle_time": 3,
+        "state": "normal",
+        "support_flags": 1
+      }
+    },{
+
+      "info": {
+        ...
+      }
+    },{
+      ...
+    },{
+      ...
+    },{
+      ...
+    }],
+    "status": "OK",
+    "target_height": 2287203,
+    "top_hash": "",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS get_txpool_backlog
+
+Get all transaction pool backlog
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBbacklog\fR: array of structures *tx_backlog_entry* (in binary form):
+
+.RS 9
+\[bu] \fBblob_size\fR - unsigned int (in binary form)
+.RE
+.RS 9
+\[bu] \fBfee\fR - unsigned int (in binary form)
+.RE
+.RS 9
+\[bu] \fBtime_in_pool\fR - unsigned int (in binary form)
+.RE
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_txpool_backlog"}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "backlog": "...Binary...",
+    "status": "OK",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS get_output_distribution
+
+
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBamounts\fR - array of unsigned int; amounts to look for
+
+\[bu] \fBcumulative\fR - boolean; (optional, default is \fBfalse\fR) States if the result should be cumulative (\fBtrue\fR) or not (\fBfalse\fR)
+
+\[bu] \fBfrom_height\fR - unsigned int; (optional, default is 0) starting height to check from
+
+\[bu] \fBto_height\fR - unsigned int; (optional, default is 0) ending height to check up to
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBdistributions\fR - array of structure distribution as follows:
+
+.RS 9
+\[bu] \fBamount\fR - unsigned int
+.RE
+.RS 9
+\[bu] \fBbase\fR - unsigned int
+.RE
+.RS 9
+\[bu] \fBdistribution\fR - array of unsigned int
+.RE
+.RS 9
+\[bu] \fBstart_height\fR - unsigned int
+.RE
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_output_distribution","params":{"amounts":[628780000],"from_height":1462078}}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "distributions": [{
+      "amount": 2628780000,
+      "base": 0,
+      "distribution": "",
+      "start_height": 1462078
+    }],
+    "status": "OK"
+  }
+}
+
+.RE
+.fi
+
+
+.SS get_miner_data
+
+Provide the necessary data to create a custom block template. They are used by p2pool.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBmajor_version\fR - unsigned int; major fork version.
+
+\[bu] \fBheight\fR - unsigned int; current blockheight.
+
+\[bu] \fBprev_id\fR - string; previous block id.
+
+\[bu] \fBseed_hash\fR - string; RandomX seed hash.
+
+\[bu] \fBdifficulty\fR - unsigned int; network. difficulty.
+
+\[bu] \fBmedian_weight\fR - unsigned int; median block weight.
+
+\[bu] \fBalready_generated_coins\fR - unsigned int; coins mined by the network so far.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBtx_backlog\fR - array of mineable mempool transactions.
+
+.RS 9
+\[bu] \fBid\fR - string;
+.RE
+.RS 9
+\[bu] \fBweight\fR - unsigned int; 
+.RE
+.RS 9
+\[bu] \fBfee\fR - unsigned int;
+.RE
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://localhost:18082/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"get_miner_data"}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "already_generated_coins": 18186022843595960691,
+    "difficulty": "0x48afae42de",
+    "height": 2731375,
+    "major_version": 16,
+    "median_weight": 300000,
+    "prev_id": "78d50c5894d187c4946d54410990ca59a75017628174a9e8c7055fa4ca5c7c6d",
+    "seed_hash": "a6b869d50eca3a43ec26fe4c369859cf36ae37ce6ecb76457d31ffeb8a6ca8a6",
+    "status": "OK",
+    "tx_backlog": [{
+      "fee": 30700000,
+      "id": "9868490d6bb9207fdd9cf17ca1f6c791b92ca97de0365855ea5c089f67c22208",
+      "weight": 1535
+    },{
+      "fee": 44280000,
+      "id": "b6000b02bbec71e18ad704bcae09fb6e5ae86d897ced14a718753e76e86c0a0a",
+      "weight": 2214
+    }],
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS prune_blockchain
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBcheck\fR - boolean; Optional (\fBfalse\fR by default) - If set to \fBtrue\fR then pruning status is checked instead of initiating pruning.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBpruned\fR - boolean;
+
+\[bu] \fBpruning_seed\fR - unsigned int; Blockheight at which pruning began.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"prune_blockchain","params":{"check":true}}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "pruned": true,
+    "pruning_seed": 387,
+    "status": "OK",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS calc_pow
+
+Calculate PoW hash for a block candidate.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBmajor_version\fR - unsigned int; The major version of the monero protocol at this block height.
+
+\[bu] \fBheight\fR - unsigned int;
+
+\[bu] \fBblock_blob\fR - blobdata;
+
+\[bu] \fBseed_hash\fR - string;
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBresult\fR - string; PoW hash.
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"calc_pow","params":{"major_version":14,"height":2286447,"block_blob":"0e0ed286da8006ecdc1aab3033cf1716c52f13f9d8ae0051615a2453643de94643b550d543becd0000000002abc78b0101ffefc68b0101fcfcf0d4b422025014bb4a1eade6622fd781cb1063381cad396efa69719b41aa28b4fce8c7ad4b5f019ce1dc670456b24a5e03c2d9058a2df10fec779e2579753b1847b74ee644f16b023c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000051399a1bc46a846474f5b33db24eae173a26393b976054ee14f9feefe99925233802867097564c9db7a36af5bb5ed33ab46e63092bd8d32cef121608c3258edd55562812e21cc7e3ac73045745a72f7d74581d9a0849d6f30e8b2923171253e864f4e9ddea3acb5bc755f1c4a878130a70c26297540bc0b7a57affb6b35c1f03d8dbd54ece8457531f8cba15bb74516779c01193e212050423020e45aa2c15dcb","seed_hash":"d432f499205150873b2572b5f033c9c6e4b7c6f3394bd2dd93822cd7085e7307"}}' -H 'Content-Type: application/json'
+
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": "d0402d6834e26fb94a9ce38c6424d27d2069896a9b8b1ce685d79936bca6e0a8"
+}
+
+.RE
+.fi
+
+
+.SS flush_cache
+
+Flush bad transactions / blocks from the cache.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBbad_txs\fR - boolean; Optional (\fBfalse\fR by default).
+
+\[bu] \fBbad_blocks\fR - boolean; Optional (\fBfalse\fR by default).
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"flush_cache","params":{"bad_txs":true,"bad_blocks":true}}' -H 'Content-Type: application/json'
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "status": "OK",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SS add_aux_pow
+
+Easily enable merge mining with Monero without requiring software that manually alters the extra field in the coinbase tx to include the merkle root of the aux blocks.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBblocktemplate_blob\fR - string;
+
+\[bu] \fBaux_pow\fR - array;
+
+.RS 9
+\[bu] \fBid\fR - string;
+.RE
+.RS 9
+\[bu] \fBhash\fR - string;
+.RE
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBblocktemplate_blob\fR - string;
+
+\[bu] \fBblockhashing_blob\fR - string;
+
+\[bu] \fBmerkle_root\fR - string;
+
+\[bu] \fBmerkle_tree_depth\fR - unsigned int;
+
+\[bu] \fBaux_pow\fR - array;
+
+.RS 9
+\[bu] \fBid\fR - string;
+.RE
+.RS 9
+\[bu] \fBhash\fR - string;
+.RE
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/json_rpc -d '{"jsonrpc":"2.0","id":"0","method":"add_aux_pow","params":{"blocktemplate_blob":" ... ","aux_pow":[{"id":"3200b4ea97c3b2081cd4190b58e49572b2319fed00d030ad51809dff06b5d8c8","hash":"7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a"}]}}' -H 'Content-Type: application/json''
+{
+  "id": "0",
+  "jsonrpc": "2.0",
+  "result": {
+    "aux_pow": [{
+      "hash": "7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a",
+      "id": "3200b4ea97c3b2081cd4190b58e49572b2319fed00d030ad51809dff06b5d8c8"
+    }],
+    "blockhashing_blob": "1010ee97e2a106e9f8ebe8887e5b609949ac8ea6143e560ed13552b110cb009b21f0cfca1eaccf00000000b2685c1283a646bc9020c758daa443be145b7370ce5a6efacb3e614117032e2c22",
+    "blocktemplate_blob": " ... ",
+    "merkle_root": "7b35762de164b20885e15dbe656b1138db06bb402fa1796f5765a23933d8859a",
+    "merkle_tree_depth": 0,
+    "status": "OK",
+    "untrusted": false
+  }
+}
+
+.RE
+.fi
+
+
+.SH Other Daemon RPC Calls
+
+Not all daemon RPC calls use the JSON_RPC interface. This section gives examples of these calls.
+
+The data structure for these calls is different than the JSON RPC calls. Whereas the JSON RPC methods were called using the \fB/json_rpc\fR extension and specifying a method, these methods are called at their own extensions. For example:
+
+.nf
+.RS 4
+    IP=127.0.0.1
+    PORT=18081
+    METHOD='gettransactions'
+    PARAMS='{"txs_hashes":["d6e48158472848e6687173a91ae6eebfa3e1d778e65252ee99d7515d63090408"]}'
+    curl \
+		http://$IP:$PORT/$METHOD \
+		-d $PARAMS \
+		-H 'Content-Type: application/json'
+.RE
+.fi
+
+Note: It is recommended to use JSON RPC where such alternatives exist, rather than the following methods. For example, the recommended way to get a node's height is via the JSON RPC methods get_info or get_last_block_header, rather than getheight below.
+
+For calls that end with \fB.bin\fR, the data is exchanged in the form of binary, serialized objects, as defined in the Core RPC Server.
+
+
+.SS /get_height
+
+Get the node's current height.
+
+.TP
+\fBAlias:\fR
+/getheight.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBhash\fR - string; The block's hash.
+
+\[bu] \fBheight\fR - unsigned int; Current length of longest chain known to daemon.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+.TP
+\fBExample:\fR
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/get_height -H 'Content-Type: application/json'
+
+{
+  "hash": "7e23a28cfa6df925d5b63940baf60b83c0cbb65da95f49b19e7cf0ce7dd709ce",
+  "height": 2287217,
+  "status": "OK",
+  "untrusted": false
+}
+.RE
+.fi
+
+
+
+.SS /get_blocks.bin
+
+Get all blocks info. Binary request.
+
+.TP
+\fBAlias:\fR
+/getblocks.bin.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBblock_ids\fR - binary array of hashes; first 10 blocks id goes sequential, next goes in pow(2,n) offset, like 2, 4, 8, 16, 32, 64 and so on, and the last one is always genesis block
+
+\[bu] \fBstart_height\fR - unsigned int
+
+\[bu] \fBprune\fR - boolean
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBblocks\fR - array of block complete entries
+
+\[bu] \fBcurrent_height\fR - unsigned int
+
+\[bu] \fBstart_height\fR - unsigned int
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBoutput_indices\fR - structure as follows:
+
+.RS 9
+\[bu] \fBindices\fR - array of tx output indices, structure as follows:
+.RE
+.RS 11
+\[bu] \fBindices\fR - array of unsigned int
+.RE
+
+
+
+.SS /get_blocks_by_height.bin
+
+Get blocks by height. Binary request.
+
+.TP
+\fBAlias:\fR
+/getblocks_by_height.bin.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBheights\fR - array of unsigned int; list of block heights
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBblocks\fR - array of block complete entries
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+
+.SS /get_hashes.bin
+
+Get hashes. Binary request.
+
+.TP
+\fBAlias:\fR
+/gethashes.bin.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBblock_ids\fR - binary array of hashes; first 10 blocks id goes sequential, next goes in pow(2,n) offset, like 2, 4, 8, 16, 32, 64 and so on, and the last one is always genesis block
+
+\[bu] \fBstart_height\fR - unsigned int
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBcurrent_height\fR - unsigned int
+
+\[bu] \fBm_block_ids\fR - binary array of hashes; see *block_ids* above.
+
+\[bu] \fBstart_height\fR - unsigned int
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+
+.SS /get_o_indexes.bin
+
+Get global outputs of transactions. Binary request.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBtxid\fR - binary txid
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBo_indexes\fR - array of unsigned int; List of output indexes
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+
+.SS /get_outs.bin
+
+Get outputs. Binary request.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBoutputs\fR - array of structure *get_outputs_out* as follows:
+
+.RS 9
+\[bu] \fBamount\fR - unsigned int;
+.RE
+.RS 9
+\[bu] \fBindex\fR - unsigned int;
+.RE
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBouts\fR - array of structure *outkey* as follows:
+
+.RS 9
+\[bu] \fBamount\fR - unsigned int;
+.RE
+.RS 9
+\[bu] \fBheight\fR - unsigned int; block height of the output
+.RE
+.RS 9
+\[bu] \fBkey\fR - the public key of the output
+.RE
+.RS 9
+\[bu] \fBmask\fR
+.RE
+.RS 9
+\[bu] \fBtxid\fR - transaction id
+.RE
+.RS 9
+\[bu] \fBunlocked\fR - boolean; States if output is locked (\fBfalse\fR) or not (\fBtrue\fR)
+.RE
+
+
+
+.SS /get_transactions
+
+Look up one or more transactions by hash.
+
+.TP
+\fBAlias:\fR
+/gettransactions.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBtxs_hashes\fR - string list; List of transaction hashes to look up.
+
+\[bu] \fBdecode_as_json\fR - boolean; Optional (\fBfalse\fR by default). If set \fBtrue\fR, the returned transaction information will be decoded rather than binary.
+
+\[bu] \fBprune\fR - boolean; Optional (\fBfalse\fR by default).
+
+\[bu] \fBsplit\fR - boolean; Optional (\fBfalse\fR by default).
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBmissed_tx\fR - array of strings. (Optional - returned if not empty) Transaction hashes that could not be found.
+
+\[bu] \fBstatus\fR - General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBtop_hash\fR - string; If payment for RPC is enabled, the hash of the highest block in the chain. Otherwise, empty.
+
+\[bu] \fBtxs_as_hex\fR - string; Full transaction information as a hex string (old compatibility parameter)
+
+\[bu] \fBtxs_as_json\fR - json string; (Optional - returned if set in inputs. Old compatibility parameter) List of transaction as in *as_json* above:
+
+\[bu] \fBtxs\fR - array of structure *entry* as follows:
+
+.RS 9
+\[bu] \fBas_hex\fR - string; Full transaction information as a hex string.
+.RE
+.RS 9
+\[bu] \fBas_json\fR - json string; List of transaction info:
+.RE
+.RS 11
+\[bu] \fBversion\fR - Transaction version
+.RE
+.RS 11
+\[bu] \fBunlock_time\fR - If not 0, this tells when a transaction output is spendable.
+.RE
+.RS 11
+\[bu] \fBvin\fR - List of inputs into transaction:
+.RE
+.RS 13
+\[bu] \fBkey\fR - The public key of the previous output spent in this transaction.
+.RE
+.RS 15
+\[bu] \fBamount\fR - The amount of the input, in @atomic-units.
+.RE
+.RS 15
+\[bu] \fBkey_offsets\fR - A list of integer offets to the input.
+.RE
+.RS 15
+\[bu] \fBk_image\fR - The key image for the given input
+.RE
+.RS 11
+\[bu] \fBvout\fR - List of outputs from transaction:
+.RE
+.RS 13
+\[bu] \fBamount\fR - Amount of transaction output (if coinbase output, otherwise 0), in @atomic-units.
+.RE
+.RS 13
+\[bu] \fBtarget\fR - Output destination information:
+.RE
+.RS 15
+\[bu] \fBtagged_key\fR
+.RE
+.RS 17
+\[bu] \fBkey\fR - The stealth public key of the receiver. Whoever owns the private key associated with this key controls this transaction output.
+.RE
+.RS 17
+\[bu] \fBview_tag\fR - The 1st byte of a shared secret (used for reducing synchronization time).
+.RE
+.RS 11
+\[bu] \fBextra\fR - Usually called the "payment ID" but can be used to include any random 32 bytes.
+.RE
+.RS 11
+\[bu] \fBrct_signatures\fR - List of signatures used in ring signature to hide the true origin of the transaction.
+.RE
+.RS 13
+\[bu] \fBecdhInfo\fR - array of Diffie Helman Elipctic curves structures as follows:
+.RE
+.RS 15
+\[bu] \fBmask\fR - String;
+.RE
+.RS 15
+\[bu] \fBamount\fR - String;
+.RE
+.RS 13
+\[bu] \fBoutPk\fR - List
+.RE
+.RS 13
+\[bu] \fBtxnFee\fR -
+.RE
+.RS 13
+\[bu] \fBtype\fR -
+.RE
+.RS 11
+\[bu] \fBrctsig_prunable\fR -
+.RE
+.RS 13
+\[bu] \fBCLSAGs\fR - List
+.RE
+.RS 15
+\[bu] \fBD\fR -
+.RE
+.RS 15
+\[bu] \fBc1\fR -
+.RE
+.RS 15
+\[bu] \fBs\fR - List
+.RE
+.RS 13
+\[bu] \fBbpp\fR - List
+.RE
+.RS 15
+\[bu] \fBA\fR -
+.RE
+.RS 15
+\[bu] \fBA1\fR -
+.RE
+.RS 15
+\[bu] \fBB\fR -
+.RE
+.RS 15
+\[bu] \fBL\fR - List
+.RE
+.RS 15
+\[bu] \fBR\fR - List
+.RE
+.RS 15
+\[bu] \fBd1\fR -
+.RE
+.RS 15
+\[bu] \fBr1\fR -
+.RE
+.RS 15
+\[bu] \fBs1\fR -
+.RE
+.RS 13
+\[bu] \fBnpb\fR -
+.RE
+.RS 13
+\[bu] \fBpseudoOuts\fR -
+.RE
+.RS 9
+\[bu] \fBblock_height\fR - unsigned int; block height including the transaction
+.RE
+.RS 9
+\[bu] \fBblock_timestamp\fR - unsigned int; Unix time at chich the block has been added to the blockchain
+.RE
+.RS 9
+\[bu] \fBdouble_spend_seen\fR - boolean; States if the transaction is a double-spend (\fBtrue\fR) or not (\fBfalse\fR)
+.RE
+.RS 9
+\[bu] \fBin_pool\fR - boolean; States if the transaction is in pool (\fBtrue\fR) or included in a block (\fBfalse\fR)
+.RE
+.RS 9
+\[bu] \fBoutput_indices\fR - array of unsigned int; transaction indexes
+.RE
+.RS 9
+\[bu] \fBprunable_as_hex\fR - string; Prunable block encoded as a hex string.
+.RE
+.RS 9
+\[bu] \fBprunable_hash\fR - string; Keccak-256 hash of the prunable portion of the block.
+.RE
+.RS 9
+\[bu] \fBpruned_as_hex\fR - string; Pruned block encoded as hex string.
+.RE
+.RS 9
+\[bu] \fBtx_hash\fR - string; transaction hash
+.RE
+
+
+
+.TP
+.B Example:
+
+\[bu] \fBExample 1:\fR  Return transaction information in binary format.
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/get_transactions -d '{"txs_hashes":["d6e48158472848e6687173a91ae6eebfa3e1d778e65252ee99d7515d63090408"]}' -H 'Content-Type: application/json'
+
+{
+  "credits": 0,
+  "status": "OK",
+  "top_hash": "",
+  "txs": [{
+    "as_hex": "...",
+    "as_json": "",
+    "block_height": 993442,
+    "block_timestamp": 1457749396,
+    "double_spend_seen": false,
+    "in_pool": false,
+    "output_indices": [198769,418598,176616,50345,509],
+    "prunable_as_hex": "",
+    "prunable_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "pruned_as_hex": "",
+    "tx_hash": "d6e48158472848e6687173a91ae6eebfa3e1d778e65252ee99d7515d63090408"
+  }],
+
+  "txs_as_hex": ["..."],
+  "untrusted": false
+}
+
+.RE
+.fi
+
+\[bu] \fBExample 2:\fR Decode returned transaction information in JSON format. Note: the "vin", "vout", "rct_signatures", "rctsig_prunable" list have been truncated in the displayed return for space considerations.
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/get_transactions -d '{"txs_hashes":["a9c71fe27ccf978a56ef96e50b680a3d569754cd4d070e51d10fa9f6f658b8e3"],"decode_as_json":true}' -H 'Content-Type: application/json'
+
+{
+  "credits": 0,
+  "status": "OK",
+  "top_hash": "",
+  "txs": [{
+    "as_hex": "...",
+    "as_json": "{\n  \"version\": 2, \n  \"unlock_time\": 0, \n  \"vin\": [ {\n      \"key\": {\n        \"amount\": 0, \n        \"key_offsets\": [ 10077101, 34287013, 18015596, 907866, 44197, 192564, 52932, 325, 253684, 12715, 11997, 53334, 1265, 38895, 2549, 4459\n        ], \n        \"k_image\": \"0931bae7689a009d7ab3eb9e3f2a1bb22f3ca1951ff68a271506c12f619c23f7\"\n      }\n    }\n  ], \n  \"vout\": [ {\n      \"amount\": 0, \n      \"target\": {\n        \"tagged_key\": {\n          \"key\": \"b49eda305377eb6bd14107e38b0e444219c57a34b47ed75b82bf616b4bcc0de2\", \n          \"view_tag\": \"44\"\n        }\n      }\n    }, ... \n      }\n    }\n  ], \n  \"extra\": [ 1, 128, 11, 79, 9, 245, 251, 172, 229, 55, 56, 18, 217, 12, 137, 129, 115, 245, 29, 99, 20, 152, 197, 212, 113, 41, 183, 252, 160, 202, 147, 176, 12, 2, 9, 1, 252, 7, 158, 153, 11, 223, 205, 97\n  ], \n ... }\n}",
+    "block_height": 2751288,
+    "block_timestamp": 1667916404,
+    "confirmations": 44,
+    "double_spend_seen": false,
+    "in_pool": false,
+    "output_indices": [63958274,63958275],
+    "prunable_as_hex": "",
+    "prunable_hash": "cdc54f848f991f48cbb64d76617570ebbe9787bd9eff71b9e36af3d409686650",
+    "pruned_as_hex": "",
+    "tx_hash": "a9c71fe27ccf978a56ef96e50b680a3d569754cd4d070e51d10fa9f6f658b8e3"
+  }],
+  "txs_as_hex": ["..."],
+  "txs_as_json": ["{\n  \"version\": 2, \n  \"unlock_time\": 0, \n  \"vin\": [ {\n      \"key\": {\n        \"amount\": 0, \n        \"key_offsets\": [ 10077101, 34287013, 18015596, 907866, 44197, 192564, 52932, 325, 253684, 12715, 11997, 53334, 1265, 38895, 2549, 4459\n        ], \n        \"k_image\": \"0931bae7689a009d7ab3eb9e3f2a1bb22f3ca1951ff68a271506c12f619c23f7\"\n      }\n    }\n  ], \n  \"vout\": [ {\n      \"amount\": 0, \n      \"target\": {\n        \"tagged_key\": {\n          \"key\": \"b49eda305377eb6bd14107e38b0e444219c57a34b47ed75b82bf616b4bcc0de2\", \n          \"view_tag\": \"44\"\n        }\n      }\n    }, ... \n      }\n    }\n  ], \n  \"extra\": [ 1, 128, 11, 79, 9, 245, 251, 172, 229, 55, 56, 18, 217, 12, 137, 129, 115, 245, 29, 99, 20, 152, 197, 212, 113, 41, 183, 252, 160, 202, 147, 176, 12, 2, 9, 1, 252, 7, 158, 153, 11, 223, 205, 97\n  ], \n ... }\n}"],
+  "untrusted": false
+}
+
+.RE
+.fi
+
+\[bu] \fBExample 3:\fR Returned a missed (unexisting) transaction.
+
+.nf
+.RS 4
+curl http://127.0.0.1:18081/get_transactions -d '{"txs_hashes":["d6e48158472848e6687173a91ae6eebfa3e1d778e65252ee99d7515d63090409"]}' -H 'Content-Type: application/json'
+
+{
+  "credits": 0,
+  "missed_tx": ["d6e48158472848e6687173a91ae6eebfa3e1d778e65252ee99d7515d63090409"],
+  "status": "OK",
+  "top_hash": "",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /get_alt_blocks_hashes
+
+Get the known blocks hashes which are not on the main chain.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBblks_hashes\fR - array of strings; list of alternative blocks hashes to main chain
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBtop_hash\fR - string; If payment for RPC is enabled, the hash of the highest block in the chain. Otherwise, empty.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/get_alt_blocks_hashes -H 'Content-Type: application/json'
+
+{
+  "blks_hashes": ["dd4998cfe92a959a5a0e4ed72432cf23d7dfc4179cbea871ee2a705d71fb5e25","f36c3856ffde6a7d06fc832c80ede4ad5b6c8f702c9736dae1e2140d86504db9","8d0c1f806817259d213c8829ea3356334e0d8fdd3b118e1243756e12dce767bb"],
+  "credits": 0,
+  "status": "OK",
+  "top_hash": "",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /is_key_image_spent
+
+Check if outputs have been spent using the key image associated with the output.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBkey_images\fR - string list; List of key image hex strings to check.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBspent_status\fR - unsigned int list; List of statuses for each image checked. Statuses are follows: 0 = unspent, 1 = spent in blockchain, 2 = spent in transaction pool
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBtop_hash\fR - string; If payment for RPC is enabled, the hash of the highest block in the chain. Otherwise, empty.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/is_key_image_spent -d '{"key_images":["8d1bd8181bf7d857bdb281e0153d84cd55a3fcaa57c3e570f4a49f935850b5e3","7319134bfc50668251f5b899c66b005805ee255c136f0e1cecbb0f3a912e09d4"]}' -H 'Content-Type: application/json'
+
+{
+  "credits": 0,
+  "spent_status": [1,1],
+  "status": "OK",
+  "top_hash": "",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /send_raw_transaction
+
+Broadcast a raw transaction to the network.
+
+.TP
+\fBAlias:\fR
+/sendrawtransaction.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBtx_as_hex\fR - string; Full transaction information as hexidecimal string.
+
+\[bu] \fBdo_not_relay\fR - boolean; Stop relaying transaction to other nodes (default is \fBfalse\fR).
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBdouble_spend\fR - boolean;  Transaction is a double spend (\fBtrue\fR) or not (\fBfalse\fR).
+
+\[bu] \fBfee_too_low\fR - boolean; Fee is too low (\fBtrue\fR) or OK (\fBfalse\fR).
+
+\[bu] \fBinvalid_input\fR - boolean; Input is invalid (\fBtrue\fR) or valid (\fBfalse\fR).
+
+\[bu] \fBinvalid_output\fR - boolean; Output is invalid (\fBtrue\fR) or valid (\fBfalse\fR).
+
+\[bu] \fBlow_mixin\fR - boolean; Mixin count is too low (\fBtrue\fR) or OK (\fBfalse\fR).
+
+\[bu] \fBnot_rct\fR - boolean; Transaction is a standard ring transaction (\fBtrue\fR) or a ring confidential transaction (\fBfalse\fR).
+
+\[bu] \fBnot_relayed\fR - boolean; Transaction was not relayed (\fBtrue\fR) or relayed (\fBfalse\fR).
+
+\[bu] \fBoverspend\fR - boolean; Transaction uses more money than available (\fBtrue\fR) or not (\fBfalse\fR).
+
+\[bu] \fBreason\fR - string; Additional information. Currently empty or "Not relayed" if transaction was accepted but not relayed.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
+
+\[bu] \fBtoo_big\fR - boolean; Transaction size is too big (\fBtrue\fR) or OK (\fBfalse\fR).
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+
+.TP
+.B Example:
+
+Example (No return information included here.):
+
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/send_raw_transaction -d '{"tx_as_hex":"de6a3...", "do_not_relay":false}' -H 'Content-Type: application/json'
+
+.RE
+.fi
+
+
+.SS /start_mining
+
+Start mining on the daemon.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBdo_background_mining\fR - boolean; States if the mining should run in background (\fBtrue\fR) or foreground (\fBfalse\fR).
+
+\[bu] \fBignore_battery\fR - boolean; States if batery state (on laptop) should be ignored (\fBtrue\fR) or not (\fBfalse\fR).
+
+\[bu] \fBminer_address\fR - string; Account address to mine to.
+
+\[bu] \fBthreads_count\fR - unsigned int; Number of mining thread to run.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/start_mining -d '{"do_background_mining":false,"ignore_battery":true,"miner_address":"47xu3gQpF569au9C2ajo5SSMrWji6xnoE5vhr94EzFRaKAGw6hEGFXYAwVADKuRpzsjiU1PtmaVgcjUJF89ghGPhUXkndHc","threads_count":1}' -H 'Content-Type: application/json'
+
+{
+  "status": "OK",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /stop_mining
+
+Stop mining on the daemon.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/stop_mining -H 'Content-Type: application/json'
+
+{
+  "status": "OK",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /mining_status
+
+Get the mining status of the daemon.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBactive\fR - boolean; States if mining is enabled (\fBtrue\fR) or disabled (\fBfalse\fR).
+
+\[bu] \fBaddress\fR - string; Account address daemon is mining to. Empty if not mining.
+
+\[bu] \fBbg_idle_threshold\fR - int; Minimum average idle percentage over lookback interval.
+
+\[bu] \fBbg_ignore_battery\fR - boolean; If false, the device will stop mining when battery is low.
+
+\[bu] \fBbg_min_idle_seconds\fR - int; Minimum lookback interval in seconds for determining whether the device is idle or not.
+
+\[bu] \fBbg_target\fR - int; Maximum percentage cpu use by miner.
+
+\[bu] \fBblock_reward\fR - int; Base block reward for the next block to be mined.
+
+\[bu] \fBblock_target\fR - int; The target number of seconds between blocks.
+
+\[bu] \fBdifficulty\fR - unsigned int; Network difficulty (analogous to the strength of the network)
+
+\[bu] \fBdifficulty_top64\fR - unsigned int; Most-significant 64 bits of the 128-bit network difficulty.
+
+\[bu] \fBis_background_mining_enabled\fR - boolean; States if the mining is running in background (\fBtrue\fR) or foreground (\fBfalse\fR).
+
+\[bu] \fBpow_algorithm\fR - string; The name of the proof-of-work algorithm currently being used by the miner.
+
+\[bu] \fBspeed\fR - unsigned int; Mining power in hashes per seconds.
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
+
+\[bu] \fBthreads_count\fR - unsigned int; Number of running mining threads.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBwide_difficulty\fR - string; Network difficulty (analogous to the strength of the network) as a hexadecimal string representing a 128-bit number.
+
+
+.TP
+.B Example:
+
+\[bu] \fBExample while mining:\fR
+
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/mining_status -H 'Content-Type: application/json'
+
+{
+  "active": true,
+  "address": "47xu3gQpF569au9C2ajo5SSMrWji6xnoE5vhr94EzFRaKAGw6hEGFXYAwVADKuRpzsjiU1PtmaVgcjUJF89ghGPhUXkndHc",
+  "bg_idle_threshold": 0,
+  "bg_ignore_battery": false,
+  "bg_min_idle_seconds": 0,
+  "bg_target": 0,
+  "block_reward": 1181637918707,
+  "block_target": 120,
+  "difficulty": 239928394679,
+  "difficulty_top64": 0,
+  "is_background_mining_enabled": false,
+  "pow_algorithm": "RandomX",
+  "speed": 23,
+  "status": "OK",
+  "threads_count": 1,
+  "untrusted": false,
+  "wide_difficulty": "0x37dcd8c3b7"
+}
+
+.RE
+.fi
+
+
+\[bu] \fBExample while not mining:\fR
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/mining_status -H 'Content-Type: application/json'
+
+{
+  "active": false,
+  "address": "",
+  "bg_idle_threshold": 0,
+  "bg_ignore_battery": false,
+  "bg_min_idle_seconds": 0,
+  "bg_target": 0,
+  "block_reward": 0,
+  "block_target": 120,
+  "difficulty": 239928394679,
+  "difficulty_top64": 0,
+  "is_background_mining_enabled": false,
+  "pow_algorithm": "RandomX",
+  "speed": 0,
+  "status": "OK",
+  "threads_count": 0,
+  "untrusted": false,
+  "wide_difficulty": "0x37dcd8c3b7"
+}
+
+.RE
+.fi
+
+
+.SS /save_bc
+
+Save the blockchain. The blockchain does not need saving and is always saved when modified, however it does a sync to flush the filesystem cache onto the disk for safety purposes against Operating System or Hardware crashes.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/save_bc -H 'Content-Type: application/json'
+
+{
+  "status": "OK",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /get_peer_list
+
+Get the known peers list.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
+
+\[bu] \fBwhite_list\fR - array of online *peer* structure, as above.
+
+\[bu] \fBgray_list\fR - array of offline *peer* structure as follows:
+
+.RS 9
+\[bu] \fBhost\fR - unsigned int; IP address in integer format
+.RE
+.RS 9
+\[bu] \fBid\fR - string; Peer id
+.RE
+.RS 9
+\[bu] \fBip\fR - unsigned int; IP address in integer format
+.RE
+.RS 9
+\[bu] \fBlast_seen\fR - unsigned int; unix time at which the peer has been seen for the last time
+.RE
+.RS 9
+\[bu] \fBport\fR - unsigned int; TCP port the peer is using to connect to monero network.
+.RE
+
+
+.TP
+.B Example:
+Example (truncated lists):
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/get_peer_list -H 'Content-Type: application/json'
+
+{
+  "gray_list": [{
+    "host": "640304833",
+    "id": 5345237316225602120,
+    "ip": 640304833,
+    "last_seen": 1525540510,
+    "port": 18080
+  },{
+    "host": "2183731038",
+    "id": 14955030573998424430,
+    "ip": 2183731038,
+    "last_seen": 1525540499,
+    "port": 28080
+  }, ...
+  ],
+  "status": "OK",
+  "white_list": [{
+    "host": "1221637955",
+    "id": 10354694710033118926,
+    "ip": 1221637955,
+    "last_seen": 1525540511,
+    "port": 18080
+  },{
+    "host": "1780407354",
+    "id": 17193661050352240890,
+    "ip": 1780407354,
+    "last_seen": 1525540510,
+    "port": 18080
+  }, ...
+  ]
+}
+
+.RE
+.fi
+
+
+.SS /set_log_hash_rate
+
+Set the log hash rate display mode.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBvisible\fR - boolean; States if hash rate logs should be visible (\fBtrue\fR) or hidden (\fBfalse\fR)
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+\[bu] \fBExample while mining:\fR
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/set_log_hash_rate -d '{"visible":true}' -H 'Content-Type: application/json'
+
+{
+  "status": "OK"
+  "untrusted": false
+}
+
+.RE
+.fi
+
+\[bu] \fBError while not mining:\fR
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/set_log_hash_rate -d '{"visible":true}' -H 'Content-Type: application/json'
+
+{
+  "status": "NOT MINING",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /set_log_level
+
+Set the daemon log level.
+By default, log level is set to \fB0\fR.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBlevel\fR - integer; daemon log level to set from \fB0\fR (less verbose) to \fB4\fR (most verbose)
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/set_log_level -d '{"level":1}' -H 'Content-Type: application/json'
+
+{
+  "status": "OK"
+  "untrusted": false
+}
+
+.RE
+.fi
+
+.SS /set_log_categories
+
+Set the daemon log categories.
+Categories are represented as a comma separated list of \fB<Category>:<level>\fR (similarly to syslog standard \fB<Facility>:<Severity-level>\fR), where:
+
+\[bu] \fBCategory\fR  is one of the following:
+.RS 4
+\[ci] * \- All facilities
+.RE
+.RS 4
+\[ci] default
+.RE
+.RS 4
+\[ci] net
+.RE
+.RS 4
+\[ci] net.http
+.RE
+.RS 4
+\[ci] net.p2p
+.RE
+.RS 4
+\[ci] logging
+.RE
+.RS 4
+\[ci] net.throttle
+.RE
+.RS 4
+\[ci] blockchain.db
+.RE
+.RS 4
+\[ci] blockchain.db.lmdb
+.RE
+.RS 4
+\[ci] bcutil
+.RE
+.RS 4
+\[ci] checkpoints
+.RE
+.RS 4
+\[ci] net.dns
+.RE
+.RS 4
+\[ci] net.dl
+.RE
+.RS 4
+\[ci] i18n
+.RE
+.RS 4
+\[ci] perf
+.RE
+.RS 4
+\[ci] stacktrace
+.RE
+.RS 4
+\[ci] updates
+.RE
+.RS 4
+\[ci] account
+.RE
+.RS 4
+\[ci] cn
+.RE
+.RS 4
+\[ci] difficulty
+.RE
+.RS 4
+\[ci] hardfork
+.RE
+.RS 4
+\[ci] miner
+.RE
+.RS 4
+\[ci] blockchain
+.RE
+.RS 4
+\[ci] txpool
+.RE
+.RS 4
+\[ci] cn.block_queue
+.RE
+.RS 4
+\[ci] net.cn
+.RE
+.RS 4
+\[ci] daemon
+.RE
+.RS 4
+\[ci] debugtools.deserialize
+.RE
+.RS 4
+\[ci] debugtools.objectsizes
+.RE
+.RS 4
+\[ci] device.ledger
+.RE
+.RS 4
+\[ci] wallet.gen_multisig
+.RE
+.RS 4
+\[ci] multisig
+.RE
+.RS 4
+\[ci] bulletproofs
+.RE
+.RS 4
+\[ci] ringct
+.RE
+.RS 4
+\[ci] daemon.rpc
+.RE
+.RS 4
+\[ci] wallet.simplewallet
+.RE
+.RS 4
+\[ci] WalletAPI
+.RE
+.RS 4
+\[ci] wallet.ringdb
+.RE
+.RS 4
+\[ci] wallet.wallet2
+.RE
+.RS 4
+\[ci] wallet.rpc
+.RE
+.RS 4
+\[ci] tests.core
+.RE
+
+\[bu] \fBLevel\fR is one of the following
+.RS 4
+\[ci] FATAL* - higher level
+.RE
+.RS 4
+\[ci] ERROR
+.RE
+.RS 4
+\[ci] WARNING
+.RE
+.RS 4
+\[ci] INFO
+.RE
+.RS 4
+\[ci] DEBUG
+.RE
+.RS 4
+\[ci] TRACE* - lower level
+.RE
+
+A level automatically includes higher level.
+By default, categories are set to \fB*:WARNING,net:FATAL,net.p2p:FATAL,net.cn:FATAL,global:INFO,verify:FATAL,stacktrace:INFO,logging:INFO,msgwriter:INFO\fR.
+Setting the categories to "" prevent any logs to be outputed.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBcategories\fR - string; Optional, daemon log categories to enable
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBcategories\fR - string; daemon log enabled categories
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good. Any other value means that something went wrong.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+\fBExample to set all facilities to Security Level \fBInfo\fR:\fR
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/set_log_categories -d '{"categories": "*:INFO"}' -H 'Content-Type: application/json'
+
+{
+  "categories": "*:INFO",
+  "status": "OK",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+\fBExample without input to set the default categories:\fR
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/set_log_categories -H 'Content-Type: application/json'
+
+{
+  "categories": "*:WARNING,net:FATAL,net.p2p:FATAL,net.cn:FATAL,global:INFO,verify:FATAL,stacktrace:INFO,logging:INFO,msgwriter:INFO",
+  "status": "OK"
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /set_bootstrap_daemon
+
+Give immediate usability to wallets while syncing by proxying RPC requests.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBaddress\fR - string; host:port
+
+\[bu] \fBusername\fR - string;
+
+\[bu] \fBpassword\fR - string;
+
+\[bu] \fBproxy\fR - string; 
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+
+.TP
+.B Example:
+
+Once set, the address will appear in \fBget_info\fR as \fBbootstrap_daemon_address\fR
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/set_bootstrap_daemon -d '{"address": "http://getmonero.org:18081"}' -H 'Content-Type: application/json'
+
+{
+  "status": "OK"
+}
+
+.RE
+.fi
+
+
+.SS /get_transaction_pool
+
+Show information about valid transactions seen by the node but not yet mined into a block, as well as spent key image information for the txpool in the node's memory.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBspent_key_images\fR - List of spent output key images:
+
+.RS 9
+\[bu] \fBid_hash\fR - string; Key image.
+.RE
+.RS 9
+\[bu] \fBtxs_hashes\fR - string list; tx hashes of the txes (usually one) spending that key image.
+.RE
+
+.RS 7
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+.RE
+
+.RS 7
+\[bu] \fBtransactions\fR - List of transactions in the mempool are not in a block on the main chain at the moment:
+.RE
+
+.RS 9
+\[bu] \fBblob_size\fR - unsigned int; The size of the full transaction blob.
+.RE
+.RS 9
+\[bu] \fBdo_not_relay\fR; boolean; States if this transaction should not be relayed
+.RE
+.RS 9
+\[bu] \fBdouble_spend_seen\fR - boolean; States if this transaction has been seen as double spend.
+.RE
+.RS 9
+\[bu] \fBfee\fR - unsigned int; The amount of the mining fee included in the transaction, in @atomic-units.
+.RE
+.RS 9
+\[bu] \fBid_hash\fR - string; The transaction ID hash.
+.RE
+.RS 9
+\[bu] \fBkept_by_block\fR - boolean; States if the tx was included in a block at least once (\fBtrue\fR) or not (\fBfalse\fR).
+.RE
+.RS 9
+\[bu] \fBlast_failed_height\fR - unsigned int; If the transaction validation has previously failed, this tells at what height that occured.
+.RE
+.RS 9
+\[bu] \fBlast_failed_id_hash\fR - string; Like the previous, this tells the previous transaction ID hash.
+.RE
+.RS 9
+\[bu] \fBlast_relayed_time\fR - unsigned int; Last unix time at which the transaction has been relayed.
+.RE
+.RS 9
+\[bu] \fBmax_used_block_height\fR - unsigned int; Tells the height of the most recent block with an output used in this transaction.
+.RE
+.RS 9
+\[bu] \fBmax_used_block_id_hash\fR - string; Tells the hash of the most recent block with an output used in this transaction.
+.RE
+.RS 9
+\[bu] \fBreceive_time\fR - unsigned int; The Unix time that the transaction was first seen on the network by the node.
+.RE
+.RS 9
+\[bu] \fBrelayed\fR - boolean; States if this transaction has been relayed
+.RE
+.RS 9
+\[bu] \fBtx_blob\fR - unsigned int; Hexadecimal blob represnting the transaction.
+.RE
+.RS 9
+\[bu] \fBtx_json\fR - json string; JSON structure of all information in the transaction:
+.RE
+.RS 11
+\[bu] \fBversion\fR - Transaction version
+.RE
+.RS 11
+\[bu] \fBunlock_time\fR - If not 0, this tells when a transaction output is spendable.
+.RE
+.RS 11
+\[bu] \fBvin\fR - List of inputs into transaction:
+.RE
+.RS 13
+\[bu] \fBkey\fR - The public key of the previous output spent in this transaction.
+.RE
+.RS 15
+\[bu] \fBamount\fR - The amount of the input, in @atomic-units.
+.RE
+.RS 15
+\[bu] \fBkey_offsets\fR - A list of integer offets to the input.
+.RE
+.RS 15
+\[bu] \fBk_image\fR - The key image for the given input
+.RE
+.RS 11
+\[bu] \fBvout\fR - List of outputs from transaction:
+.RE
+.RS 13
+\[bu] \fBamount\fR - Amount of transaction output (if coinbase output, otherwise 0), in @atomic-units.
+.RE
+.RS 13
+\[bu] \fBtarget\fR - Output destination information:
+.RE
+.RS 15
+\[bu] \fBtagged_key\fR
+.RE
+.RS 17
+\[bu] \fBkey\fR - The stealth public key of the receiver. Whoever owns the private key associated with this key controls this transaction output.
+.RE
+.RS 17
+\[bu] \fBview_tag\fR - The 1st byte of a shared secret (used for reducing synchronization time).
+.RE
+.RS 11
+\[bu] \fBextra\fR - Usually called the "transaction ID" but can be used to include any random 32 bytes.
+.RE
+.RS 11
+\[bu] \fBrct_signatures\fR - List of signatures used in ring signature to hide the true origin of the transaction.
+.RE
+.RS 13
+\[bu] \fBecdhInfo\fR - array of Diffie Helman Elipctic curves structures as follows:
+.RE
+.RS 15
+\[bu] \fBmask\fR - String;
+.RE
+.RS 15
+\[bu] \fBamount\fR - String;
+.RE
+.RS 13
+\[bu] \fBoutPk\fR - List
+.RE
+.RS 13
+\[bu] \fBtxnFee\fR -
+.RE
+.RS 13
+\[bu] \fBtype\fR -
+.RE
+.RS 11
+\[bu] \fBrctsig_prunable\fR -
+.RE
+.RS 13
+\[bu] \fBCLSAGs\fR - List
+.RE
+.RS 15
+\[bu] \fBD\fR -
+.RE
+.RS 15
+\[bu] \fBc1\fR -
+.RE
+.RS 15
+\[bu] \fBs\fR - List
+.RE
+.RS 13
+\[bu] \fBbpp\fR - List
+.RE
+.RS 15
+\[bu] \fBA\fR -
+.RE
+.RS 15
+\[bu] \fBA1\fR -
+.RE
+.RS 15
+\[bu] \fBB\fR -
+.RE
+.RS 15
+\[bu] \fBL\fR - List
+.RE
+.RS 15
+\[bu] \fBR\fR - List
+.RE
+.RS 15
+\[bu] \fBd1\fR -
+.RE
+.RS 15
+\[bu] \fBr1\fR -
+.RE
+.RS 15
+\[bu] \fBs1\fR -
+.RE
+.RS 13
+\[bu] \fBnpb\fR -
+.RE
+.RS 13
+\[bu] \fBpseudoOuts\fR -
+.RE
+.RS 9
+\[bu] \fBweight\fR -
+.RE
+
+.TP
+.B Example:
+Example (Note: Some lists in the returned information have been truncated for display reasons):
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/get_transaction_pool -H 'Content-Type: application/json'
+
+{
+  "spent_key_images": [{
+    "id_hash": "5b5d68e7eb5ddfc7dd30d9a91f1db6835563b0214b66dc0b791909fb46c9cbb4",
+    "txs_hashes": ["0b1839626bd7a609d5b16966396a51eb5fda9c55b9b2fc314a916459a7532e02"]
+  },{
+    "id_hash": "b583a134ccd6fd48697f02f530e82604f746b97ce26de103fa756d91274ac60e",
+    "txs_hashes": ["0b1839626bd7a609d5b16966396a51eb5fda9c55b9b2fc314a916459a7532e02"]
+  },
+  ...],
+  "status": "OK",
+  "transactions": [{
+    "blob_size": 2217,
+    "do_not_relay": false,
+    "double_spend_seen": false,
+    "fee": 44340000,
+    "id_hash": "0b1839626bd7a609d5b16966396a51eb5fda9c55b9b2fc314a916459a7532e02",
+    "kept_by_block": false,
+    "last_failed_height": 0,
+    "last_failed_id_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "last_relayed_time": 1667929927,
+    "max_used_block_height": 2751399,
+    "max_used_block_id_hash": "52d2ac5230146c4d8003c8fb1d8e54aea91d2536c72884bd6e126b7def4ed9c6",
+    "receive_time": 1667929927,
+    "relayed": true,
+    "tx_blob": " ... ",
+    "tx_json": "{\n  \"version\": 2, \n  \"unlock_time\": 0, \n  \"vin\": [ {\n      \"key\": {\n        \"amount\": 0, \n        \"key_offsets\": [ 54937085, 875767, 6217742, 360564, 431709, 807289, 138472, 6221, 111408, 42881, 145, 12396, 20911, 899, 3546, 112\n        ], \n        \"k_image\": \"b583a134ccd6fd48697f02f530e82604f746b97ce26de103fa756d91274ac60e\"\n      }\n    }, {\n      \"key\": {\n        \"amount\": 0, \n        \"key_offsets\": [ 28132301, 33525919, 17414, 2042026, 73478, 73012, 54330, 8150, 5725, 10740, 4581, 7687, 9290, 592, 994, 725\n        ], \n        \"k_image\": \"5b5d68e7eb5ddfc7dd30d9a91f1db6835563b0214b66dc0b791909fb46c9cbb4\"\n      }\n    }\n  ], \n  \"vout\": [ {\n      \"amount\": 0, \n      \"target\": {\n        \"tagged_key\": {\n          \"key\": \"2849325ea3410c1378ab631c4e008028a99843a767c1d11019631cad8e083b53\", \n          \"view_tag\": \"1f\"\n        }\n      }\n    }, {\n      \"amount\": 0, \n      \"target\": {\n        \"tagged_key\": {\n          \"key\": \"9677c3568218bab3dc1a6eee5b486eeb372c9b2c7d552d8f9c6c84bd4051bab8\", \n          \"view_tag\": \"ee\"\n        }\n      }\n    }\n  ], \n  \"extra\": [ 1, 110, 21, 19, 40, 178, 62, 51, 216, 134, 71, 171, 159, 249, 160, 206, 100, 247, 190, 162, 177, 0, 35, 237, 165, 157, 42, 84, 52, 25, 151, 202, 231, 2, 9, 1, 195, 62, 127, 79, 4, 67, 161, 64\n  ], \n  ... }\n}",
+    "weight": 2217
+  },
+  ...]
+}
+
+.RE
+.fi
+
+
+.SS /get_transaction_pool_hashes.bin
+
+Get hashes from transaction pool. Binary request.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBtx_hashes\fR - binary array of transaction hashes.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/get_transaction_pool_hashes.bin -H 'Content-Type: application/json'
+
+{
+  "status": "OK",
+  "tx_hashes": " ... ",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /get_transaction_pool_stats
+
+Get the transaction pool statistics.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBtop_hash\fR - string; If payment for RPC is enabled, the hash of the highest block in the chain. Otherwise, empty.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBcredits\fR - unsigned int; If payment for RPC is enabled, the number of credits available to the requesting client. Otherwise, 0.
+
+\[bu] \fBpool_stats\fR - Structure as follows:
+
+.RS 9
+\[bu] \fBbytes_max\fR - unsigned int; Max transaction size in pool
+.RE
+.RS 9
+\[bu] \fBbytes_med\fR - unsigned int; Median transaction size in pool
+.RE
+.RS 9
+\[bu] \fBbytes_min\fR - unsigned int; Min transaction size in pool
+.RE
+.RS 9
+\[bu] \fBbytes_total\fR - unsigned int; total size of all transactions in pool
+.RE
+.RS 9
+\[bu] \fBfee_total\fR - unsigned int; The sum of the fees for all transactions currently in the transaction pool @atomic-units.
+.RE
+.RS 9
+\[bu] \fBhisto\fR - structure *txpool_histo* as follows:
+.RE
+.RS 11
+\[bu] \fBtxs\fR - unsigned int; number of transactions
+.RE
+.RS 11
+\[bu] \fBbytes\fR - unsigned int; size in bytes.
+.RE
+.RS 9
+\[bu] \fBhisto_98pc\fR unsigned int; the time 98% of txes are "younger" than
+.RE
+.RS 9
+\[bu] \fBnum_10m\fR unsigned int; number of transactions in pool for more than 10 minutes
+.RE
+.RS 9
+\[bu] \fBnum_double_spends\fR unsigned int; number of double spend transactions
+.RE
+.RS 9
+\[bu] \fBnum_failing\fR unsigned int; number of failing transactions
+.RE
+.RS 9
+\[bu] \fBnum_not_relayed\fR unsigned int; number of non-relayed transactions
+.RE
+.RS 9
+\[bu] \fBoldest\fR unsigned int; unix time of the oldest transaction in the pool
+.RE
+.RS 9
+\[bu] \fBtxs_total\fR unsigned int; total number of transactions.
+.RE
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/get_transaction_pool_stats -H 'Content-Type: application/json'
+
+{
+  "credits": 0,
+  "pool_stats": {
+    "bytes_max": 14325,
+    "bytes_med": 1460,
+    "bytes_min": 1450,
+    "bytes_total": 410674,
+    "fee_total": 18198895000,
+    "histo": [{ ...
+    }],
+    "histo_98pc": 297,
+    "num_10m": 1,
+    "num_double_spends": 1,
+    "num_failing": 0,
+    "num_not_relayed": 0,
+    "oldest": 1612232218,
+    "txs_total": 124
+  },
+  "status": "OK",
+  "top_hash": "",
+  "untrusted": false
+
+}
+
+.RE
+.fi
+
+
+.SS /stop_daemon
+
+Send a command to the daemon to safely disconnect and shut down.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/stop_daemon -H 'Content-Type: application/json'
+
+{
+  "status": "OK"
+}
+
+.RE
+.fi
+
+
+.SS /get_info (not JSON)
+
+This method is a convenient backward support and should not be used anymore. See get_info JSON RPC for details.
+
+.TP
+\fBAlias:\fR
+
+\[bu] \fB/getinfo\fR
+
+\[bu] \fBget_info\fR
+
+.SS /get_limit
+
+Get daemon bandwidth limits.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBlimit_down\fR - unsigned int; Download limit in kBytes per second
+
+\[bu] \fBlimit_up\fR - unsigned int; Upload limit in kBytes per second
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/get_limit -H 'Content-Type: application/json'
+
+{
+  "limit_down": 8192,
+  "limit_up": 128,
+  "status": "OK",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /set_limit
+
+Set daemon bandwidth limits.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBlimit_down\fR - signed int; Download limit in kBytes per second (-1 reset to default, 0 don't change the current limit)
+
+\[bu] \fBlimit_up\fR - signed int; Upload limit in kBytes per second (-1 reset to default, 0 don't change the current limit)
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBlimit_down\fR - unsigned int; Download limit in kBytes per second
+
+\[bu] \fBlimit_up\fR - unsigned int; Upload limit in kBytes per second
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/set_limit -d '{"limit_down": 1024}' -H 'Content-Type: application/json'
+
+{
+  "limit_down": 1024,
+  "limit_up": 128,
+  "status": "OK"
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /out_peers
+
+Limit number of Outgoing peers.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBout_peers\fR - unsigned int; Max number of outgoing peers
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBout_peers\fR - unsigned int; Max number of outgoing peers
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/out_peers -d '{"out_peers": 3232235535}' -H 'Content-Type: application/json'
+
+{
+  "out_peers": 3232235535,
+  "status": "OK",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /in_peers
+
+Limit number of Incoming peers.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBin_peers\fR - unsigned int; Max number of incoming peers
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBin_peers\fR - unsigned int; Max number of incoming peers
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/in_peers -d '{"in_peers": 3232235535}' -H 'Content-Type: application/json'
+
+{
+  "in_peers": 3232235535,
+  "status": "OK",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /get_net_stats
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstart_time\fR - unsigned int; Unix start time.
+
+\[bu] \fBtotal_packets_in\fR - unsigned int;
+
+\[bu] \fBtotal_bytes_in\fR - unsigned int;
+
+\[bu] \fBtotal_packets_out\fR - unsigned int;
+
+\[bu] \fBtotal_bytes_out\fR - unsigned int;
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR).
+
+
+.TP
+.B Example:
+
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/get_net_stats -H 'Content-Type: application/json'
+
+{
+  "start_time": 1665147355,
+  "status": "OK",
+  "total_bytes_in": 3743474809,
+  "total_bytes_out": 5932012405,
+  "total_packets_in": 2130592,
+  "total_packets_out": 1010674,
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+.SS /start_save_graph
+
+Obsolete. Conserved here for reference.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/start_save_graph -H 'Content-Type: application/json'
+
+{
+  "status": "OK"
+}
+
+.RE
+.fi
+
+
+.SS /stop_save_graph
+
+Obsolete. Conserved here for reference.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+None.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/stop_save_graph -H 'Content-Type: application/json'
+
+{
+  "status": "OK"
+}
+
+.RE
+.fi
+
+
+.SS /get_outs
+
+Get outputs.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBget_txid\fR - boolean; If \fBtrue\fR, a *txid* will included for each output in the response.
+
+\[bu] \fBoutputs\fR array of *get_outputs_out* structure as follows:
+
+.RS 9
+\[bu] \fBamount\fR - unsigned int;
+.RE
+.RS 9
+\[bu] \fBindex\fR - unsigned int;
+.RE
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBouts\fR - array of structure *outkey* as follows:
+
+.RS 9
+\[bu] \fBheight\fR - unsigned int; block height of the output
+.RE
+.RS 9
+\[bu] \fBkey\fR - String; the public key of the output
+.RE
+.RS 9
+\[bu] \fBmask\fR - String
+.RE
+.RS 9
+\[bu] \fBtxid\fR - String; transaction id
+.RE
+.RS 9
+\[bu] \fBunlocked\fR - boolean; States if output is locked (\fBfalse\fR) or not (\fBtrue\fR)
+.RE
+
+
+
+.SS /update
+
+Update daemon.
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBcommand\fR - String; command to use, either \fBcheck\fR or \fBdownload\fR
+
+\[bu] \fBpath\fR - String; Optional, path where to download the update.
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBauto_uri\fR - string;
+
+\[bu] \fBhash\fR - string;
+
+\[bu] \fBpath\fR - String; path to download the update
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+\[bu] \fBupdate\fR - boolean; States if an update is available to download (\fBtrue\fR) or not (\fBfalse\fR)
+
+\[bu] \fBuser_uri\fR - string;
+
+\[bu] \fBversion\fR - string; Version available for download.
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/update -d '{"command":"check"}' -H 'Content-Type: application/json'
+
+{
+  "auto_uri": "",
+  "hash": "",
+  "path": "",
+  "status": "OK",
+  "untrusted": false,
+  "update": false,
+  "user_uri": "",
+  "version": ""
+}
+
+.RE
+.fi
+
+
+.SS /pop_blocks
+
+.TP
+\fBAlias:\fR
+None.
+
+.TP
+\fBInputs:\fR
+
+\[bu] \fBnblocks\fR - unsigned int;
+
+
+.TP
+\fBOutputs:\fR
+
+\[bu] \fBheight\fR - unsigned int; New blockheight after popping blocks
+
+\[bu] \fBstatus\fR - string; General RPC error code. "OK" means everything looks good.
+
+\[bu] \fBuntrusted\fR - boolean; States if the result is obtained using the bootstrap mode, and is therefore not trusted (\fBtrue\fR), or when the daemon is fully synced and thus handles the RPC locally (\fBfalse\fR)
+
+
+.TP
+.B Example:
+
+.nf
+.RS 4
+$ curl http://127.0.0.1:18081/pop_blocks -d '{"nblocks":6}' -H 'Content-Type: application/json''
+
+{
+  "height": 76482,
+  "status": "OK",
+  "untrusted": false
+}
+
+.RE
+.fi
+
+
+
+
+
+.SH EXAMPLES
+
+.SS Change Log file:
+Full path to the log file. Example (mind file permissions):
+
+.B ./monerod --log-file=/var/log/monero/mainnet/monerod.log
+
+.SS Change PID:
+Full path to the PID file. Works only with --detach.
+
+.B ./monerod --detach --pidfile=/run/monero/monerod.pid
+
+.SS Pick Blockchain:
+
+You can run \fBmonerod\fR in two modes,
+.sp 2 
+stagenet for learning and experimentation.
+
+\fB\./monerod \--stagenet \--detach\fR        # run as a daemon in background
+.br
+\fBtail \-f ~/.bitmonero/stagenet/bitmonero.log\fR  # watch the logs
+.br
+\fB\./monerod \--stagenet exit\fR           # ask daemon to exit gracefully
+
+mainnet is when you want to deal with the real XMR.
+
+\fB\./monerod \--detach\fR        # run as a daemon in background
+.br
+\fBtail \-f ~/.bitmonero/bitmonero.log\fR  # watch the logs
+.br
+\fB\./monerod exit\fR           # ask daemon to exit gracefully
+
+
+.SS P2p network protocol over Tor via torsocks:
+.B DNS_PUBLIC=tcp://1.1.1.1 TORSOCKS_ALLOW_INBOUND=1 torsocks ./monerod --p2p-bind-ip 127.0.0.1  --no-igd  --hide-my-port
+
+
+.SS P2p custom bind port:
+TCP port to listen for p2p network connections. Defaults to 18080 for mainnet, 28080 for testnet, and 38080 for stagenet. You normally wouldn’t change that. This is helpful to run several nodes on your machine to simulate private Monero p2p network (likely using private Testnet).
+
+.B ./monerod --p2p-bind-port=48080
+
+.SS Adding multiple nodes:
+Specify list of nodes to connect to and then attempt to keep the connection open.
+
+.B ./monerod --add-priority-node=178.128.192.138:18081 --add-priority-node=144.76.202.167:18081
+
+Specify list of nodes to connect to only. Options --add-priority-node and --seed-node are ignored when using \fB--add-exclusive-node\fR.
+
+.B ./monerod --add-exclusive-node=178.128.192.138:18081 --add-exclusive-node=144.76.202.167:18081
+
+
+.SS Transactions over proxy:
+Send out your local transactions through SOCKS5 proxy (Tor or I2P). Format:
+.B <network-type>,<socks-ip:port>[,max_connections][,disable_noise]
+
+.B ./monerod --tx-proxy "tx-proxy=tor,127.0.0.1:9050,16"
+
+.SS Route incoming connections through your onionized P2P interface:
+Allow anonymous incoming connections to your onionized P2P interface. Format:
+.B <hidden-service-address>,<[bind-ip:]port>[,max_connections]
+
+.B ./monerod --anonymous-inbound "rveahdfho7wo4b2m.onion:18083,127.0.0.1:18083,100"
+
+.SS Proxy all connections:
+Network communication through proxy. Works with any service that supports SOCKS4, including Tor, i2p, and commercial VPN/proxy services. SOCKS5 support is anticipated in the future. Enabling this setting sends all traffic through this proxy. Can be used in conjunction with --tx-proxy, in which case transaction broadcasts originating from the connected wallet(s) will be sent through Tor or i2p as specified in --tx-proxy, and all other traffic will be sent through the SOCKS proxy. Format:
+.B <socks-ip:port>
+
+.B ./monerod --proxy "proxy=127.0.0.1:1080"
+
+.SS Blocks notify:
+Run a program for each new block. The <arg> must be a full path. If the <arg> contains %s it will be replaced by the block hash. Example:
+
+.B ./monerod --block-notify="/usr/bin/echo %s"
+
+Block notifications are good for immediate reaction. However, you should always assume you will miss some block notifications and you should independently poll the API to cover this up.
+
+Mind blockchain reorganizations. Block notifications can revert to same and past heights. Small reorganizations are natural and happen every day.
+
+
+.SS Change blocks sync size:
+How many blocks are processed in a single batch during chain synchronization. By default this is 20 blocks for newer history and 100 blocks for older history (“pre v4”). Default behavior is represented by value 0. Intuitively, the more resources you have, the bigger batch size you may want to try out.
+
+.B ./monerod --block-sync-size=500
+
+.SS Bootstrap:
+The host:port of a “bootstrap” remote open node that the connected wallets can use while this node is still not fully synced. Example:
+
+.B ./monerod --bootstrap-daemon-address=opennode.xmr-tw.org:18089 
+
+The node will forward selected RPC calls to the bootstrap node. The wallet will handle this automatically and transparently. Obviously, such bootstraping phase has privacy implications similar to directly using a remote node.
+
+.SS Baning IPs:
+Specify ban list file, one IP address per line. This was introduced as an emergency measure to deal with large DDoS attacks on Monero p2p network in Dec 2020 / Jan 2021.
+
+.B ./monerod --ban-list=block.txt
+
+It is not recommended to statically ban any IP addresses unless you absolutely need to. Banning IPs often excludes the most vulnerable users who are forced to operate entirely behind Tor or other anonymity networks.
+
+
+.SH "Exit status:"
+.TP
+.B 0
+Always 0
+
+.SH Files
+
+.SS Logs:
+~/.bitmonero/bitmonero.log
+.br
+~/.bitmonero/testnet/bitmonero.log if 'testnet'
+.br
+~/.bitmonero/stagenet/bitmonero.log if 'stagenet'
+
+
+.SS Config:
+
+~/.bitmonero/bitmonero.conf
+.br
+~/.bitmonero/testnet/bitmonero.conf if 'testnet'
+.br
+~/.bitmonero/stagenet/bitmonero.conf if 'stagenet'
+
+.SS Data Dir:
+~/.bitmonero
+.br
+~/.bitmonero/testnet if 'testnet'
+.br
+~/.bitmonero/stagenet if 'stagenet'
+
+
+.SH AUTHOR
+Full credits to getmonero.dev and getmonero.org 
+.br
+Written by @Justxd22.
+.SH "REPORTING BUGS"
+Report any bugs to <https://github.com/monero-project/monero/issues>
+.SH COPYRIGHT
+Copyright (c) 2014-2022 The Monero Project.
+.br
+Portions Copyright (c) 2012-2013 The Cryptonote developers.
+.SH "SEE ALSO"
+Full documentation <https://getmonero.dev/interacting/monerod.html>
+.br
+JSON RPC Docs <https://www.getmonero.org/resources/developer-guides/daemon-rpc.html>
+.br
+Bootstrap Mode info <https://github.com/monero-project/monero/issues/8624>
+.br 
+run \fBmonerod --help\fR and \fBmonerod help [<command>]\
