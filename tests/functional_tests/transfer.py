@@ -585,6 +585,23 @@ class TransferTest():
         res = self.wallet[1].get_bulk_payments(["1111111122222222"])
         assert len(res.payments) >= 1 # we have one of these
 
+        # Test deduplication of repeated payment IDs (regression test for #11745)
+        print('Checking get_bulk_payments deduplication')
+        res_single = self.wallet[1].get_bulk_payments(payment_ids = ['1111111122222222' + '0'*48])
+        count_single = len(res_single.get('payments', []))
+        assert count_single >= 1
+
+        res_dup = self.wallet[1].get_bulk_payments(payment_ids = ['1111111122222222' + '0'*48] * 3)
+        count_dup = len(res_dup.get('payments', []))
+        assert count_dup == count_single, f"Duplication bug: expected {count_single}, got {count_dup}"
+
+        # same ID spelled short (16 hex) and zero-padded long (64 hex) must also dedup
+        short_id = '1111111122222222'
+        long_id = short_id + '0'*48
+        res_mixed = self.wallet[1].get_bulk_payments(payment_ids = [short_id, long_id, short_id, long_id])
+        count_mixed = len(res_mixed.get('payments', []))
+        assert count_mixed == count_single, f"Mixed-spelling duplication: expected {count_single}, got {count_mixed}"
+
     def check_get_payments(self):
         print('Checking get_payments')
 
