@@ -631,11 +631,11 @@ void sanity_check_pending_tx(const wallet2::pending_tx &ptx,
         splitted_dsts_repro = construct.splitted_dsts;
 
         // In v1, 'splitted' means destinations may be split into amount digits (e.g. sweep_unmixable).
-        // We iter splitted dests and accumulate them, then match amounts/keys with dests + change_dest
+        // We iterate over split dests and accumulate them, then match amounts/keys with dests + change_dest
         // (which also need to be accumulated in case of duplicates).
-        // The map keys use `account_public_address` instead of the spendkey in case of malicous construction.
+        // The map keys use `account_public_address` instead of the spendkey in case of malicious construction.
 
-        // Accumulate splitted dests
+        // Accumulate split dests
         std::unordered_map<cryptonote::account_public_address, boost::multiprecision::uint128_t> acc_split;
         for (const auto &split : construct.splitted_dsts)
         {
