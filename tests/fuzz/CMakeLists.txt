@@ -496,3 +496,24 @@ target_link_libraries(multisig-info_fuzz_tests
 set_property(TARGET multisig-info_fuzz_tests
   PROPERTY
     FOLDER "tests")
+
+monero_add_minimal_executable(ring-db_fuzz_tests ring-db.cpp fuzzer.cpp)
+target_link_libraries(ring-db_fuzz_tests
+  PRIVATE
+    wallet
+    multisig
+    cryptonote_core
+    p2p
+    epee
+    device
+    ${Boost_THREAD_LIBRARY}
+    ${Boost_REGEX_LIBRARY}
+    ${Boost_PROGRAM_OPTIONS_LIBRARY}
+    ${Boost_SYSTEM_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${EXTRA_LIBRARIES}
+    $ENV{LIB_FUZZING_ENGINE})
+set_property(TARGET ring-db_fuzz_tests
+  PROPERTY
+    FOLDER "tests")
+
