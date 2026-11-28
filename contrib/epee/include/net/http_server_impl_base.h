@@ -107,11 +107,11 @@ namespace epee
       return true;
     }
 
-    bool run(size_t threads_count, bool wait = true)
+    bool run(size_t threads_count, bool wait = true, const boost::thread::attributes& attrs = boost::thread::attributes())
     {
       //go to loop
       MINFO("Run net_service loop (" << threads_count << " threads)...");
-      if(!m_net_server.run_server(threads_count, wait))
+      if(!m_net_server.run_server(threads_count, wait, attrs))
       {
         LOG_ERROR("Failed to run net tcp server!");
       }

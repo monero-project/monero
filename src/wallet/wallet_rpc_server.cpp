@@ -315,7 +315,9 @@ namespace tools
     }, std::chrono::milliseconds{500});
 
     //DO NOT START THIS SERVER IN MORE THEN 1 THREADS WITHOUT REFACTORING
-    return epee::http_server_impl_base<wallet_rpc_server, connection_context>::run(1, true);
+    boost::thread::attributes attrs;
+    attrs.set_stack_size(THREAD_STACK_SIZE);
+    return epee::http_server_impl_base<wallet_rpc_server, connection_context>::run(1, true, attrs);
   }
   //------------------------------------------------------------------------------------------------------------------------------
   void wallet_rpc_server::stop_refresh()

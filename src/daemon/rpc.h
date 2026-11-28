@@ -75,7 +75,9 @@ public:
   void run()
   {
     MGINFO("Starting " << m_description << " RPC server...");
-    if (!m_server.run(2, false))
+    boost::thread::attributes attrs;
+    attrs.set_stack_size(THREAD_STACK_SIZE);
+    if (!m_server.run(2, false, attrs))
     {
       throw std::runtime_error("Failed to start " + m_description + " RPC server.");
     }
