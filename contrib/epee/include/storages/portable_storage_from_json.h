@@ -46,6 +46,44 @@ namespace epee
     {
 #define CHECK_ISSPACE()  if(!epee::misc_utils::parse::isspace(*it)){ ASSERT_MES_AND_THROW("Unexpected character in JSON data");}
 
+      /* match_number2() is a lax pre-filter: it matches any run of [0-9.eE+-],
+         and `val` is a view into the JSON buffer rather than a NUL terminated
+         string, so the conversion can stop in the middle of the matched token.
+         Reject what it did not consume, instead of keeping the leading part of
+         a malformed literal. */
+      inline void check_number_consumed(const boost::string_ref& val, const char* end)
+      {
+        if (errno || end != val.data() + val.size())
+          throw std::runtime_error("Invalid number: " + std::string(val));
+      }
+
+      inline int64_t json_to_int64(const boost::string_ref& val)
+      {
+        char *end = NULL;
+        errno = 0;
+        const int64_t nval = strtoll(val.data(), &end, 10);
+        check_number_consumed(val, end);
+        return nval;
+      }
+
+      inline uint64_t json_to_uint64(const boost::string_ref& val)
+      {
+        char *end = NULL;
+        errno = 0;
+        const uint64_t nval = strtoull(val.data(), &end, 10);
+        check_number_consumed(val, end);
+        return nval;
+      }
+
+      inline double json_to_double(const boost::string_ref& val)
+      {
+        char *end = NULL;
+        errno = 0;
+        const double nval = strtod(val.data(), &end);
+        check_number_consumed(val, end);
+        return nval;
+      }
+
       /*inline void parse_error()
       {
         ASSERT_MES_AND_THROW("json parse error");
@@ -129,23 +167,14 @@ namespace epee
               {
                 if(is_signed)
                 {
-                  errno = 0;
-                  int64_t nval = strtoll(val.data(), NULL, 10);
-                  if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                  stg.set_value(name, int64_t(nval), current_section);
+                  stg.set_value(name, json_to_int64(val), current_section);
                 }else
                 {
-                  errno = 0;
-                  uint64_t nval = strtoull(val.data(), NULL, 10);
-                  if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                  stg.set_value(name, uint64_t(nval), current_section);
+                  stg.set_value(name, json_to_uint64(val), current_section);
                 }
               }else
               {
-                errno = 0;
-                double nval = strtod(val.data(), NULL);
-                if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                stg.set_value(name, double(nval), current_section);
+                stg.set_value(name, json_to_double(val), current_section);
               }
               state = match_state_wonder_after_value;
             }else if(epee::misc_utils::parse::isalpha(*it) )
@@ -220,24 +249,15 @@ namespace epee
               {
                 if (is_signed_val)
                 {
-                  errno = 0;
-                  int64_t nval = strtoll(val.data(), NULL, 10);
-                  if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                  h_array = stg.insert_first_value(name, int64_t(nval), current_section);
+                  h_array = stg.insert_first_value(name, json_to_int64(val), current_section);
                 }else
                 {
-                  errno = 0;
-                  uint64_t nval = strtoull(val.data(), NULL, 10);
-                  if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                  h_array = stg.insert_first_value(name, uint64_t(nval), current_section);
+                  h_array = stg.insert_first_value(name, json_to_uint64(val), current_section);
                 }
                 CHECK_AND_ASSERT_THROW_MES(h_array, " failed to insert values section entry");
               }else
               {
-                errno = 0;
-                double nval = strtod(val.data(), NULL);
-                if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                h_array = stg.insert_first_value(name, double(nval), current_section);
+                h_array = stg.insert_first_value(name, json_to_double(val), current_section);
                 CHECK_AND_ASSERT_THROW_MES(h_array, " failed to insert values section entry");
               }
 
@@ -311,23 +331,14 @@ namespace epee
                 {
                   if (is_signed_val)
                   {
-                    errno = 0;
-                    int64_t nval = strtoll(val.data(), NULL, 10);
-                    if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                    insert_res = stg.insert_next_value(h_array, int64_t(nval));
+                    insert_res = stg.insert_next_value(h_array, json_to_int64(val));
                   }else
                   {
-                    errno = 0;
-                    uint64_t nval = strtoull(val.data(), NULL, 10);
-                    if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                    insert_res = stg.insert_next_value(h_array, uint64_t(nval));
+                    insert_res = stg.insert_next_value(h_array, json_to_uint64(val));
                   }
                 }else
                 {
-                  errno = 0;
-                  double nval = strtod(val.data(), NULL);
-                  if (errno) throw std::runtime_error("Invalid number: " + std::string(val));
-                  insert_res = stg.insert_next_value(h_array, double(nval));
+                  insert_res = stg.insert_next_value(h_array, json_to_double(val));
                 }
                 CHECK_AND_ASSERT_THROW_MES(insert_res, "Failed to insert next value");
                 state = match_state_array_after_value;

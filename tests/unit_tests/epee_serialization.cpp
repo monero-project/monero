@@ -160,6 +160,73 @@ TEST(epee_json, rejects_incomplete_and_trailing_documents)
   EXPECT_TRUE(storage.load_from_json("{} \t\r\n"));
 }
 
+TEST(epee_json, rejects_malformed_numbers)
+{
+  // match_number2() matches any run of [0-9.eE+-] as a number token and leaves
+  // the real work to the strto* functions, so a token the conversion cannot
+  // consume entirely has to be rejected. Previously only the leading part was
+  // kept, so "1+5" parsed as 1 and "1.2.3" as 1.2.
+  epee::serialization::portable_storage storage;
+
+  EXPECT_FALSE(storage.load_from_json("{\"x\": 1+5}"));
+  EXPECT_FALSE(storage.load_from_json("{\"x\": 1-5}"));
+  EXPECT_FALSE(storage.load_from_json("{\"x\": 12+}"));
+  EXPECT_FALSE(storage.load_from_json("{\"x\": -5-}"));
+  EXPECT_FALSE(storage.load_from_json("{\"x\": 1.2.3}"));
+  EXPECT_FALSE(storage.load_from_json("{\"x\": 1e1e1}"));
+  EXPECT_FALSE(storage.load_from_json("{\"x\": -.}"));
+
+  // the same in the two array paths
+  EXPECT_FALSE(storage.load_from_json("{\"x\": [1+5]}"));
+  EXPECT_FALSE(storage.load_from_json("{\"x\": [1, 2+3]}"));
+  EXPECT_FALSE(storage.load_from_json("{\"x\": [1.5, 2.5.5]}"));
+
+  // out of range values stay rejected
+  EXPECT_FALSE(storage.load_from_json("{\"x\": 18446744073709551616}"));
+}
+
+TEST(epee_json, accepts_well_formed_numbers)
+{
+  // values epee has always accepted, including the non canonical "000123" and
+  // "-1." forms, keep parsing to the same thing
+  {
+    epee::serialization::portable_storage storage;
+    std::uint64_t u = 1;
+    EXPECT_TRUE(storage.load_from_json("{\"x\": 000123}"));
+    EXPECT_TRUE(storage.get_value("x", u, nullptr));
+    EXPECT_EQ(u, 123u);
+  }
+  {
+    epee::serialization::portable_storage storage;
+    std::int64_t i = 1;
+    EXPECT_TRUE(storage.load_from_json("{\"x\": -5}"));
+    EXPECT_TRUE(storage.get_value("x", i, nullptr));
+    EXPECT_EQ(i, -5);
+  }
+  {
+    epee::serialization::portable_storage storage;
+    double d = 1;
+    EXPECT_TRUE(storage.load_from_json("{\"x\": -9.34e-2}"));
+    EXPECT_TRUE(storage.get_value("x", d, nullptr));
+    EXPECT_DOUBLE_EQ(d, -0.0934);
+  }
+  {
+    epee::serialization::portable_storage storage;
+    double d = 1;
+    EXPECT_TRUE(storage.load_from_json("{\"x\": -1.}"));
+    EXPECT_TRUE(storage.get_value("x", d, nullptr));
+    EXPECT_DOUBLE_EQ(d, -1.);
+  }
+  {
+    epee::serialization::portable_storage storage;
+    EXPECT_TRUE(storage.load_from_json("{\"x\": [1, 2, 3]}"));
+  }
+  {
+    epee::serialization::portable_storage storage;
+    EXPECT_TRUE(storage.load_from_json("{\"x\": [1.5, 33E9]}"));
+  }
+}
+
 TEST(epee_json, escape_control_characters)
 {
   using epee::misc_utils::parse::transform_to_escape_sequence;
