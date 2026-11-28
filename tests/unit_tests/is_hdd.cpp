@@ -4,7 +4,7 @@
 #include <gtest/gtest.h>
 #include <boost/optional/optional_io.hpp> /* required to output boost::optional in assertions */
 
-#if defined(__GLIBC__)
+#if defined(__linux__)
 TEST(is_hdd, rotational_drive) {
   const char *hdd = std::getenv("MONERO_TEST_DEVICE_HDD");
   if (hdd == nullptr)
