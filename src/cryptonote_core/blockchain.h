@@ -222,10 +222,11 @@ namespace cryptonote
      * @param h the hash to look for
      * @param blk return-by-reference variable to put result block in
      * @param orphan if non-NULL, will be set to true if not in the main chain, false otherwise
+     * @param blk_blob if non-NULL, will be set to the serialized block as stored in the db
      *
      * @return true if the block was found, else false
      */
-    bool get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan = NULL) const;
+    bool get_block_by_hash(const crypto::hash &h, block &blk, bool *orphan = NULL, cryptonote::blobdata *blk_blob = NULL) const;
 
     /**
      * @brief performs some preprocessing on a group of incoming blocks to speed up verification
