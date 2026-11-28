@@ -391,6 +391,14 @@ namespace hw {
       if (apdu_verbose) {
         char  strbuffer[1024];
         snprintf(strbuffer, sizeof(strbuffer), "%.04x ", this->sw);
+        const unsigned char ins = this->buffer_send[1];
+        const unsigned char p1  = this->buffer_send[2];
+
+        if ((ins == INS_GET_KEY && p1 != 0x01) || ins == INS_GET_CHACHA8_PREKEY) {
+          MDEBUG( "RESP : " << strbuffer << "<redacted " << this->length_recv << " bytes>");
+          return;
+        }
+
         const size_t len = strlen(strbuffer);
         buffer_to_str(strbuffer+len, sizeof(strbuffer)-len, (char*)(this->buffer_recv), this->length_recv);
         MDEBUG( "RESP : " << strbuffer);
