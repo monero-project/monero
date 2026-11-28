@@ -1361,6 +1361,34 @@ namespace cryptonote
       uint64_t* pmax_used_block_height = NULL) const;
 
     /**
+     * @brief performs the chain-dependent part of check_tx_inputs(), without performing ring signature or proof/FCMP verification
+     *
+     * Runs every input check that needs the database (input rules, key image spends, lookups of the
+     * data the input proofs reference, min output age) and derives that data along with the input
+     * verification ID. Does not perform any input proof verification and does not modify the
+     * caller's verification IDs.
+     *
+     * @param tx the transaction to validate
+     * @param tvc returned information about tx verification
+     * @param valid_input_verification_id a previously valid verID, or null
+     * @param invalid_input_verification_id a previously invalid verID, or null
+     * @param mix_ring_out return-by-reference the dereferenced mix ring for ver_input_proofs_rings()
+     * @param input_verification_id_out return-by-reference the input verification ID for the current chain state, null if a check failed before it could be computed
+     * @param needs_verify_out return-by-reference true if input proofs still need to be verified, false on a valid verID hit
+     * @param pmax_used_block_height return-by-pointer the height of the most recent block in the input set
+     *
+     * @return false if any check fails or the verID matches `invalid_input_verification_id`, otherwise true
+     */
+    bool check_tx_inputs_prepare(transaction& tx,
+      tx_verification_context &tvc,
+      const crypto::hash &valid_input_verification_id,
+      const crypto::hash &invalid_input_verification_id,
+      rct::ctkeyM &mix_ring_out,
+      crypto::hash &input_verification_id_out,
+      bool &needs_verify_out,
+      uint64_t* pmax_used_block_height = NULL) const;
+
+    /**
      * @brief performs a blockchain reorganization according to the longest chain rule
      *
      * This function aggregates all the actions necessary to switch to a

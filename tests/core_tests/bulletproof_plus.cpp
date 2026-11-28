@@ -32,6 +32,7 @@
 #include "ringct/bulletproofs_plus.h"
 #include "chaingen.h"
 #include "bulletproof_plus.h"
+#include "blockchain_db/locked_txn.h"
 #include "device/device.hpp"
 
 using namespace epee;
@@ -44,7 +45,8 @@ using namespace cryptonote;
 bool gen_bpp_tx_validation_base::generate_with(std::vector<test_event_entry>& events,
     size_t mixin, size_t n_txes, const uint64_t *amounts_paid, bool valid, const rct::RCTConfig *rct_config, uint8_t hf_version,
     const std::function<bool(std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations, size_t tx_idx)> &pre_tx,
-    const std::function<bool(transaction &tx, size_t tx_idx)> &post_tx) const
+    const std::function<bool(transaction &tx, size_t tx_idx)> &post_tx,
+    const std::function<void(std::vector<test_event_entry> &events)> &before_block) const
 {
   uint64_t ts_start = 1338224400;
 
@@ -179,9 +181,93 @@ bool gen_bpp_tx_validation_base::generate_with(std::vector<test_event_entry>& ev
       false, "Failed to generate block");
   if (!valid)
     DO_CALLBACK(events, "mark_invalid_block");
+  if (before_block)
+    before_block(events);
   events.push_back(blk_txes);
   blk_last = blk_txes;
 
+  return true;
+}
+
+bool gen_bpp_tx_validation_base::clear_pool_input_verification_ids(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events)
+{
+  // Forget the pool's input verification results, so that the next block has to verify the input
+  // proofs of all its txs itself instead of hitting the verification cache
+  cryptonote::Blockchain& blockchain = c.get_blockchain_storage();
+  std::vector<crypto::hash> txids;
+  if (!c.get_pool_transaction_hashes(txids, true))
+  {
+    MERROR("Failed to get transaction pool hashes");
+    return false;
+  }
+
+  cryptonote::LockedTXN lock(blockchain.get_db());
+  for (const crypto::hash &txid: txids)
+  {
+    cryptonote::txpool_tx_meta_t meta{};
+    if (!blockchain.get_txpool_tx_meta(txid, meta))
+    {
+      MERROR("Failed to get transaction pool metadata");
+      return false;
+    }
+    meta.valid_input_verification_id = crypto::null_hash;
+    blockchain.update_txpool_tx(txid, meta);
+  }
+  lock.commit();
+  return true;
+}
+
+bool gen_bpp_tx_validation_base::check_block_marked_invalid(cryptonote::core& c, size_t ev_index, const std::vector<test_event_entry>& events)
+{
+  DEFINE_TESTS_ERROR_CONTEXT("gen_bpp_tx_validation_base::check_block_marked_invalid");
+
+  // The block right before this callback should have been rejected for its txs' contents, not for
+  // missing txs, which would leave it out of the invalid block list
+  CHECK_TEST_CONDITION(ev_index > 0);
+  const cryptonote::block *blk = boost::get<cryptonote::block>(&events.at(ev_index - 1));
+  CHECK_TEST_CONDITION(blk != nullptr);
+  int where = 0;
+  CHECK_TEST_CONDITION(c.get_blockchain_storage().have_block(cryptonote::get_block_hash(*blk), &where));
+  CHECK_EQ(where, HAVE_BLOCK_INVALID);
+  return true;
+}
+
+bool gen_bpp_tx_validation_base::generate_block_verifying_txs(std::vector<test_event_entry>& events, size_t invalid_tx_idx) const
+{
+  DEFINE_TESTS_ERROR_CONTEXT("gen_bpp_tx_validation_base::generate_block_verifying_txs");
+  const size_t mixin = 10;
+  const size_t n_txes = 4;
+  const uint64_t amounts_paid[] = {1000, 1000, (uint64_t)-1, 1000, 1000, (uint64_t)-1, 1000, 1000, (uint64_t)-1, 1000, 1000, (uint64_t)-1};
+  const rct::RCTConfig rct_config[] = {{rct::RangeProofPaddedBulletproof, 4}, {rct::RangeProofPaddedBulletproof, 4}, {rct::RangeProofPaddedBulletproof, 4}, {rct::RangeProofPaddedBulletproof, 4}};
+  const bool has_invalid_tx = invalid_tx_idx < n_txes;
+
+  const bool r = generate_with(events, mixin, n_txes, amounts_paid, true, rct_config, HF_VERSION_BULLETPROOF_PLUS,
+    [&](std::vector<tx_source_entry> &sources, std::vector<tx_destination_entry> &destinations, size_t tx_idx) {
+      // Keep the txs in the pool even if their inputs are invalid, so that it's the block that rejects them
+      if (tx_idx == 0)
+        SET_EVENT_VISITOR_SETT(events, event_visitor_settings::set_txs_keeped_by_block);
+      return true;
+    },
+    [&](cryptonote::transaction &tx, size_t tx_idx) {
+      if (tx_idx != invalid_tx_idx)
+        return true;
+      CHECK_TEST_CONDITION(tx.rct_signatures.type == rct::RCTTypeBulletproofPlus);
+      CHECK_TEST_CONDITION(!tx.rct_signatures.p.CLSAGs.empty());
+      CHECK_TEST_CONDITION(!tx.rct_signatures.p.CLSAGs[0].s.empty());
+      tx.rct_signatures.p.CLSAGs[0].s[0] = rct::skGen();
+      tx.invalidate_hashes();
+      return true;
+    },
+    [has_invalid_tx](std::vector<test_event_entry> &events) {
+      DO_CALLBACK(events, "clear_pool_input_verification_ids");
+      if (has_invalid_tx)
+        DO_CALLBACK(events, "mark_invalid_block");
+    });
+  if (!r)
+    return false;
+
+  if (has_invalid_tx)
+    DO_CALLBACK(events, "check_block_marked_invalid");
   return true;
 }
 
@@ -319,4 +405,24 @@ bool gen_bpp_tx_invalid_clsag_type::generate(std::vector<test_event_entry>& even
   return generate_with(events, mixin, 1, amounts_paid, false, rct_config, HF_VERSION_BULLETPROOF_PLUS + 1, NULL, [&](cryptonote::transaction &tx, size_t tx_idx){
     return true;
   });
+}
+
+bool gen_bpp_txs_block_verify_valid::generate(std::vector<test_event_entry>& events) const
+{
+  return generate_block_verifying_txs(events, (size_t)-1);
+}
+
+bool gen_bpp_txs_block_verify_invalid_first::generate(std::vector<test_event_entry>& events) const
+{
+  return generate_block_verifying_txs(events, 0);
+}
+
+bool gen_bpp_txs_block_verify_invalid_middle::generate(std::vector<test_event_entry>& events) const
+{
+  return generate_block_verifying_txs(events, 2);
+}
+
+bool gen_bpp_txs_block_verify_invalid_last::generate(std::vector<test_event_entry>& events) const
+{
+  return generate_block_verifying_txs(events, 3);
 }

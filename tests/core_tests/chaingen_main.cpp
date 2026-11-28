@@ -288,6 +288,10 @@ int main(int argc, char* argv[])
     GENERATE_AND_PLAY(gen_bpp_tx_invalid_too_many_proofs);
     GENERATE_AND_PLAY(gen_bpp_tx_invalid_wrong_amount);
     GENERATE_AND_PLAY(gen_bpp_tx_invalid_clsag_type);
+    GENERATE_AND_PLAY(gen_bpp_txs_block_verify_valid);
+    GENERATE_AND_PLAY(gen_bpp_txs_block_verify_invalid_first);
+    GENERATE_AND_PLAY(gen_bpp_txs_block_verify_invalid_middle);
+    GENERATE_AND_PLAY(gen_bpp_txs_block_verify_invalid_last);
 
     GENERATE_AND_PLAY(gen_rct2_tx_clsag_malleability);
 
