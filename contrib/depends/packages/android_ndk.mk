@@ -11,5 +11,12 @@ endef
 
 define $(package)_stage_cmds
   mkdir -p $($(package)_staging_prefix_dir) && \
-  mv android-ndk-r$($(package)_version)/toolchains/llvm/prebuilt/linux-x86_64/* $($(package)_staging_prefix_dir)
+  mv android-ndk-r$($(package)_version)/toolchains/llvm/prebuilt/linux-x86_64/* $($(package)_staging_prefix_dir) && \
+  touch $($(package)_staging_prefix_dir)/sysroot/usr/include/stdc-predef.h
 endef
+
+ifneq ($(STAGEX_ENVIRONMENT),)
+define $(package)_postprocess_cmds
+  rm -rf bin
+endef
+endif
