@@ -86,10 +86,121 @@ TransactionInfo *TransactionHistoryImpl::transaction(const std::string &id) cons
     return itr != m_history.end() ? *itr : nullptr;
 }
 
-std::vector<TransactionInfo *> TransactionHistoryImpl::getAll() const
+std::vector<TransactionInfo *> TransactionHistoryImpl::getAll()
 {
     boost::shared_lock<boost::shared_mutex> lock(m_historyMutex);
     return m_history;
+}
+
+std::vector<std::unique_ptr<TransactionInfo>>  TransactionHistoryImpl::getPayments(std::uint64_t min_height /* = 0 */, std::uint64_t max_height /* = std::numeric_limit<std::uint64_t>::max() */) const
+{
+    boost::lock_guard<boost::recursive_mutex> guarg(m_wallet->m_refreshMutex2);
+    std::vector<std::unique_ptr<TransactionInfo>> payments_out;
+
+    uint64_t wallet_height = m_wallet->blockChainHeight();
+
+    // payments are "input transactions";
+    // one input transaction contains only one transfer. e.g. <transaction_id> - <100XMR>
+
+    std::list<std::pair<crypto::hash, tools::wallet2::payment_details>> in_payments;
+    m_wallet->m_wallet->get_payments(in_payments, min_height, max_height);
+    for (std::list<std::pair<crypto::hash, tools::wallet2::payment_details>>::const_iterator i = in_payments.begin(); i != in_payments.end(); ++i) {
+        const tools::wallet2::payment_details &pd = i->second;
+        std::string payment_id = string_tools::pod_to_hex(i->first);
+        if (payment_id.substr(16).find_first_not_of('0') == std::string::npos)
+            payment_id = payment_id.substr(0,16);
+        std::unique_ptr<TransactionInfoImpl> ti = std::unique_ptr<TransactionInfoImpl>{new TransactionInfoImpl()};
+        ti->m_paymentid = payment_id;
+        ti->m_coinbase = pd.m_coinbase;
+        ti->m_amount    = pd.m_amount;
+        ti->m_amounts   = pd.m_amounts;
+        ti->m_fee       = pd.m_fee;
+        // not used for payment_details
+        ti->m_change_amount = 0;
+        ti->m_direction = TransactionInfo::Direction_In;
+        ti->m_hash      = string_tools::pod_to_hex(pd.m_tx_hash);
+        ti->m_blockheight = pd.m_block_height;
+        ti->m_description = m_wallet->m_wallet->get_tx_note(pd.m_tx_hash);
+        ti->m_subaddrIndex = { pd.m_subaddr_index.minor };
+        ti->m_subaddrAccount = pd.m_subaddr_index.major;
+        ti->m_label     = m_wallet->m_wallet->get_subaddress_label(pd.m_subaddr_index);
+        ti->m_timestamp = pd.m_timestamp;
+        ti->m_confirmations = (wallet_height > pd.m_block_height) ? wallet_height - pd.m_block_height : 0;
+        ti->m_unlock_time = pd.m_unlock_time;
+        ti->m_is_unlocked = m_wallet->m_wallet->is_transfer_unlocked(pd.m_unlock_time, pd.m_block_height);
+        ti->m_tx_state = TransactionInfo::TxState::TxState_Confirmed;
+        // not used for payment_details
+        ti->m_double_spend_seen = false;
+        payments_out.push_back(std::move(ti));
+    }
+    return payments_out;
+}
+
+std::vector<std::unique_ptr<TransactionInfo>>  TransactionHistoryImpl::getPaymentsById(const std::string &payment_id_str, std::uint64_t min_height /* = 0 */, std::uint64_t max_height /* = std::numeric_limit<std::uint64_t>::max() */) const
+{
+    boost::lock_guard<boost::recursive_mutex> guarg(m_wallet->m_refreshMutex2);
+    std::vector<std::unique_ptr<TransactionInfo>> payments_out;
+
+    uint64_t wallet_height = m_wallet->blockChainHeight();
+
+    // payments are "input transactions";
+    // one input transaction contains only one transfer. e.g. <transaction_id> - <100XMR>
+    bool r;
+    crypto::hash payment_id;
+    crypto::hash8 payment_id8;
+    if (payment_id_str.size() == 2 * sizeof(payment_id))
+        r = epee::string_tools::hex_to_pod(payment_id_str, payment_id);
+    else if (payment_id_str.size() == 2 * sizeof(payment_id8))
+    {
+        r = epee::string_tools::hex_to_pod(payment_id_str, payment_id8);
+        if (r)
+        {
+            memcpy(payment_id.data, payment_id8.data, 8);
+            memset(payment_id.data + 8, 0, 24);
+        }
+    }
+    else
+    {
+        int extended_error_code = Wallet::ExtendedStatus_WrongPaymentId;
+        m_wallet->setStatusError("Payment ID has invalid size: " + payment_id_str, &extended_error_code);
+        return {};
+    }
+    if(!r)
+    {
+        int extended_error_code = Wallet::ExtendedStatus_WrongPaymentId;
+        m_wallet->setStatusError("Payment ID has invalid format: " + payment_id_str, &extended_error_code);
+        return {};
+    }
+
+    std::list<tools::wallet2::payment_details> in_payments;
+    m_wallet->m_wallet->get_payments(payment_id, in_payments, min_height);
+    for (std::list<tools::wallet2::payment_details>::const_iterator i = in_payments.begin(); i != in_payments.end(); ++i) {
+        const tools::wallet2::payment_details &pd = *i;
+        std::unique_ptr<TransactionInfoImpl> ti = std::unique_ptr<TransactionInfoImpl>{new TransactionInfoImpl()};
+        ti->m_paymentid = payment_id_str;
+        ti->m_coinbase = pd.m_coinbase;
+        ti->m_amount    = pd.m_amount;
+        ti->m_amounts   = pd.m_amounts;
+        ti->m_fee       = pd.m_fee;
+        // not used for payment_details
+        ti->m_change_amount = 0;
+        ti->m_direction = TransactionInfo::Direction_In;
+        ti->m_hash      = string_tools::pod_to_hex(pd.m_tx_hash);
+        ti->m_blockheight = pd.m_block_height;
+        ti->m_description = m_wallet->m_wallet->get_tx_note(pd.m_tx_hash);
+        ti->m_subaddrIndex = { pd.m_subaddr_index.minor };
+        ti->m_subaddrAccount = pd.m_subaddr_index.major;
+        ti->m_label     = m_wallet->m_wallet->get_subaddress_label(pd.m_subaddr_index);
+        ti->m_timestamp = pd.m_timestamp;
+        ti->m_confirmations = (wallet_height > pd.m_block_height) ? wallet_height - pd.m_block_height : 0;
+        ti->m_unlock_time = pd.m_unlock_time;
+        ti->m_is_unlocked = m_wallet->m_wallet->is_transfer_unlocked(pd.m_unlock_time, pd.m_block_height);
+        ti->m_tx_state = TransactionInfo::TxState::TxState_Confirmed;
+        // not used for payment_details
+        ti->m_double_spend_seen = false;
+        payments_out.push_back(std::move(ti));
+    }
+    return payments_out;
 }
 
 void TransactionHistoryImpl::setTxNote(const std::string &txid, const std::string &note)
@@ -104,8 +215,17 @@ void TransactionHistoryImpl::setTxNote(const std::string &txid, const std::strin
     refresh();
 }
 
-void TransactionHistoryImpl::refresh()
+void TransactionHistoryImpl::refresh(bool do_refresh_pool /* = false */)
 {
+    // simplewallet called m_wallet.update_pool_state() & m_wallet.process_pool_state() before getting unconfirmed incoming transfers from the tx pool
+    // src: https://github.com/monero-project/monero/blob/8d4c625713e3419573dfcc7119c8848f47cabbaa/src/simplewallet/simplewallet.cpp#L10293-L10296
+    // we do it here, before the lock, because down the line `refreshPoolOnly()` can call this `refresh()` through listeners like `moneyReceived()`
+    // which can lead to deadlocks
+    if (do_refresh_pool && !m_wallet->isOffline())
+        m_wallet->refreshPoolOnly(/* refreshed */ false, /* try_incremental */ false, /* do_ignore_status */ true);
+
+    boost::lock_guard<boost::recursive_mutex> guarg(m_wallet->m_refreshMutex2);
+
     // multithreaded access:
     // boost::lock_guard<boost::mutex> guarg(m_historyMutex);
     // for "write" access, locking exclusively
@@ -140,7 +260,10 @@ void TransactionHistoryImpl::refresh()
         ti->m_paymentid = payment_id;
         ti->m_coinbase = pd.m_coinbase;
         ti->m_amount    = pd.m_amount;
+        ti->m_amounts   = pd.m_amounts;
         ti->m_fee       = pd.m_fee;
+        // not used for payment_details
+        ti->m_change_amount = 0;
         ti->m_direction = TransactionInfo::Direction_In;
         ti->m_hash      = string_tools::pod_to_hex(pd.m_tx_hash);
         ti->m_blockheight = pd.m_block_height;
@@ -151,6 +274,8 @@ void TransactionHistoryImpl::refresh()
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = (wallet_height > pd.m_block_height) ? wallet_height - pd.m_block_height : 0;
         ti->m_unlock_time = pd.m_unlock_time;
+        ti->m_is_unlocked = m_wallet->m_wallet->is_transfer_unlocked(pd.m_unlock_time, pd.m_block_height);
+        ti->m_tx_state = TransactionInfo::TxState::TxState_Confirmed;
         // not used for payment_details
         ti->m_double_spend_seen = false;
         m_history.push_back(ti);
@@ -186,7 +311,10 @@ void TransactionHistoryImpl::refresh()
         TransactionInfoImpl * ti = new TransactionInfoImpl();
         ti->m_paymentid = payment_id;
         ti->m_amount = pd.m_amount_in - change - fee;
+        // not used for confirmed_transfer_details
+        ti->m_amounts = {};
         ti->m_fee    = fee;
+        ti->m_change_amount = change;
         ti->m_direction = TransactionInfo::Direction_Out;
         ti->m_hash = string_tools::pod_to_hex(hash);
         ti->m_blockheight = pd.m_block_height;
@@ -196,6 +324,10 @@ void TransactionHistoryImpl::refresh()
         ti->m_label = pd.m_subaddr_indices.size() == 1 ? m_wallet->m_wallet->get_subaddress_label({pd.m_subaddr_account, *pd.m_subaddr_indices.begin()}) : "";
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = (wallet_height > pd.m_block_height) ? wallet_height - pd.m_block_height : 0;
+        // not used for confirmed_transfer_details
+        ti->m_unlock_time = 0;
+        ti->m_is_unlocked = true;
+        ti->m_tx_state = TransactionInfo::TxState::TxState_Confirmed;
         // not used for confirmed_transfer_details
         ti->m_double_spend_seen = false;
 
@@ -223,7 +355,10 @@ void TransactionHistoryImpl::refresh()
         TransactionInfoImpl * ti = new TransactionInfoImpl();
         ti->m_paymentid = payment_id;
         ti->m_amount = amount - pd.m_change - fee;
+        // not used for unconfirmed_transfer_details
+        ti->m_amounts = {};
         ti->m_fee    = fee;
+        ti->m_change_amount = pd.m_change;
         ti->m_direction = TransactionInfo::Direction_Out;
         ti->m_failed = is_failed;
         ti->m_pending = true;
@@ -235,6 +370,10 @@ void TransactionHistoryImpl::refresh()
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = 0;
         // not used for unconfirmed_transfer_details
+        ti->m_unlock_time = 0;
+        ti->m_is_unlocked = true;
+        ti->m_tx_state = (TransactionInfo::TxState) pd.m_state;
+        // not used for unconfirmed_transfer_details
         ti->m_double_spend_seen = false;
         for (const auto &d : pd.m_dests)
         {
@@ -242,7 +381,6 @@ void TransactionHistoryImpl::refresh()
         }        
         m_history.push_back(ti);
     }
-    
     
     // unconfirmed payments (tx pool)
     std::list<std::pair<crypto::hash, tools::wallet2::pool_payment_details>> upayments;
@@ -255,6 +393,10 @@ void TransactionHistoryImpl::refresh()
         TransactionInfoImpl * ti = new TransactionInfoImpl();
         ti->m_paymentid = payment_id;
         ti->m_amount    = pd.m_amount;
+        ti->m_amounts   = pd.m_amounts;
+        ti->m_fee       = pd.m_fee;
+        // not used for pool_payment_details
+        ti->m_change_amount = 0;
         ti->m_direction = TransactionInfo::Direction_In;
         ti->m_hash      = string_tools::pod_to_hex(pd.m_tx_hash);
         ti->m_blockheight = pd.m_block_height;
@@ -265,6 +407,9 @@ void TransactionHistoryImpl::refresh()
         ti->m_label     = m_wallet->m_wallet->get_subaddress_label(pd.m_subaddr_index);
         ti->m_timestamp = pd.m_timestamp;
         ti->m_confirmations = 0;
+        ti->m_unlock_time = pd.m_unlock_time;
+        ti->m_is_unlocked = false;
+        ti->m_tx_state = TransactionInfo::TxState::TxState_PendingInPool;
         ti->m_double_spend_seen = i->second.m_double_spend_seen;
         m_history.push_back(ti);
         
