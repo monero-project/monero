@@ -1,6 +1,6 @@
 /* mdb_load.c - memory-mapped database load tool */
 /*
- * Copyright 2011-2018 Howard Chu, Symas Corp.
+ * Copyright 2011-2021 Howard Chu, Symas Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -205,6 +205,12 @@ badend:
 
 	c1 = buf->mv_data;
 	len = strlen((char *)c1);
+	if (!len) {
+		/* This can only happen with an intentionally invalid input
+		 * with a NUL byte after the leading SPACE
+		 */
+		goto badend;
+	}
 	l2 = len;
 
 	/* Is buffer too short? */
@@ -308,10 +314,11 @@ int main(int argc, char *argv[])
 	 * -n: use NOSUBDIR flag on env_open
 	 * -s: load into named subDB
 	 * -N: use NOOVERWRITE on puts
+	 * -Q: quick mode using NOSYNC
 	 * -T: read plaintext
 	 * -V: print version and exit
 	 */
-	while ((i = getopt(argc, argv, "af:ns:NTV")) != EOF) {
+	while ((i = getopt(argc, argv, "af:ns:NQTV")) != EOF) {
 		switch(i) {
 		case 'V':
 			printf("%s\n", MDB_VERSION_STRING);
@@ -335,6 +342,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'N':
 			putflags = MDB_NOOVERWRITE|MDB_NODUPDATA;
+			break;
+		case 'Q':
+			envflags |= MDB_NOSYNC;
 			break;
 		case 'T':
 			mode |= NOHDR | PRINT;
@@ -399,9 +409,9 @@ int main(int argc, char *argv[])
 			goto env_close;
 		}
 
-		rc = mdb_open(txn, subname, flags|MDB_CREATE, &dbi);
+		rc = mdb_dbi_open(txn, subname, flags|MDB_CREATE, &dbi);
 		if (rc) {
-			fprintf(stderr, "mdb_open failed, error %d %s\n", rc, mdb_strerror(rc));
+			fprintf(stderr, "mdb_dbi_open failed, error %d %s\n", rc, mdb_strerror(rc));
 			goto txn_abort;
 		}
 		prevk.mv_size = 0;
@@ -445,7 +455,7 @@ int main(int argc, char *argv[])
 			if (rc == MDB_KEYEXIST && putflags)
 				continue;
 			if (rc) {
-				fprintf(stderr, "mdb_cursor_put failed, error %d %s\n", rc, mdb_strerror(rc));
+				fprintf(stderr, "%s: line %"Yu": mdb_cursor_put failed, error %d %s\n", prog, lineno, rc, mdb_strerror(rc));
 				goto txn_abort;
 			}
 			batch++;
@@ -466,9 +476,11 @@ int main(int argc, char *argv[])
 					fprintf(stderr, "mdb_cursor_open failed, error %d %s\n", rc, mdb_strerror(rc));
 					goto txn_abort;
 				}
-				if (appflag & MDB_APPENDDUP) {
+				if (append) {
 					MDB_val k, d;
 					mdb_cursor_get(mc, &k, &d, MDB_LAST);
+					memcpy(prevk.mv_data, k.mv_data, k.mv_size);
+					prevk.mv_size = k.mv_size;
 				}
 				batch = 0;
 			}
@@ -479,6 +491,13 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "%s: line %"Yu": txn_commit: %s\n",
 				prog, lineno, mdb_strerror(rc));
 			goto env_close;
+		}
+		if (envflags & MDB_NOSYNC) {
+			rc = mdb_env_sync(env, 1);
+			if (rc) {
+				fprintf(stderr, "mdb_env_sync failed, error %d %s\n", rc, mdb_strerror(rc));
+				goto env_close;
+			}
 		}
 		mdb_dbi_close(env, dbi);
 	}

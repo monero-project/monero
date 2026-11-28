@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2018 Howard Chu, Symas Corp.
+ * Copyright 2015-2021 Howard Chu, Symas Corp.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -51,7 +51,7 @@ databases should only be opened once, by the first transaction in
 the process. After the first transaction completes, the database
 handles can freely be used by all subsequent transactions.
 
-Within a transaction, #mdb_get() and #mdb_put() can store single
+Within a transaction, #mdb_get() can retrieve and #mdb_put() can store single
 key/value pairs if that is all you need to do (but see \ref Cursors
 below if you want to do more).
 
